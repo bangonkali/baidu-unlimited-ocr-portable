@@ -29,6 +29,11 @@ Generated: 2026-06-26T14:29:07+00:00
 - `SUMMARY-deepseekocr-gundam-exact-target-doc.md`
 - `SUMMARY-deepseekocr-gundam-rp105-smoke.md`
 - `SUMMARY-deepseekocr-gundam-smoke.md`
+- `SUMMARY-generation-steps-bf16-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-q4-noimgend-noeos-noswa-64tok.md`
+- `SUMMARY-generation-steps-q5-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-q6-noimgend-noeos-64tok.md`
 - `SUMMARY-image-tokens-smoke.md`
 - `SUMMARY-llamacpp-server-q4.md`
 - `SUMMARY-q4-prompts-sc02-document.md`
@@ -39,6 +44,7 @@ Generated: 2026-06-26T14:29:07+00:00
 - `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-swa128-target.md`
 - `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-target.md`
 - `SUMMARY-uocr-parity-bf16-grid-allprofiles.md`
+- `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-noimgend-target.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-swa128-target.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-target.md`
@@ -113,6 +119,29 @@ Generated: 2026-06-26T14:29:07+00:00
   That slightly improves the target-set average over the prior Q4 target
   setting at 0.502, but it is still not production-ready and has not replaced
   the current best 104-row full-run baseline.
+- The full 104-row exact-prefill/no-image-end run regressed relative to the
+  current best baseline: 49 pass / 104, 5 empty rows, 27 repetition rows, and
+  average similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
+
+## Generation-Step Parity Finding
+
+- Added `compare-generation-artifacts`, which compares native SGLang
+  `/generate` output token IDs/top-k against llama.cpp
+  `LLAMA_UOCR_PARITY_DUMP` generation steps.
+- On `sc-02-45a8efac` / `document_parsing`, exact-prefill Q4 matches SGLang
+  for the first three generated tokens: `<|det|>`, `header`, and ` [`.
+- The first Q4 divergence is generation step 3, the first bbox coordinate:
+  SGLang selects token `6207` / `91`, while Q4 selects token `6152` / `92`.
+  Both candidates are present in both top-k lists; SGLang ranks `91` first
+  with a 0.25 logprob margin over `92`, while Q4 ranks `92` first with a
+  0.972 raw-logit margin over `91`.
+- Disabling the prefill-aware SWA experiment does not change that Q4 first
+  divergence.
+- Higher-weight GGUFs do not solve the stepwise issue. Q5_K_M, Q6_K, and BF16
+  diverge earlier at step 1 by ranking `aside` over SGLang's `header`.
+- This makes the remaining blocker later-token runtime/model numeric parity,
+  not prompt template, local-grid composition, image-boundary tokens, first
+  output-token logits, or the tested no-repeat/SWA switches.
 
 ## Reference Runner Status
 

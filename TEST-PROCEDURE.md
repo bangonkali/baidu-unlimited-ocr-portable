@@ -755,6 +755,7 @@ Full 104-row results:
 |---|---:|---|---:|---:|---|
 | `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` | 104 | 56 pass, 17 repetition, 14 low similarity, 14 bbox mismatch, 3 review | 0.688 | 3809 | Current best candidate, still not production-ready. |
 | `llamacpp-bf16-uocr-parity-eos-origin-ngram-default-full` | 104 | 54 pass, 27 repetition, 9 low similarity, 6 bbox mismatch, 6 review, 2 malformed-marker rows | 0.649 | 9743 | BF16 did not beat Q4 full-run quality. |
+| `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full` | 104 | 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low similarity, 5 empty | 0.671 | 4719 | Exact prefill/no-image-end regressed on the full matrix; keep it diagnostic. |
 
 Packaging implication:
 
@@ -953,12 +954,109 @@ Recorded target result:
 |---|---:|---|---:|---|
 | `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` | 20 | 10 pass, 4 repetition, 6 low similarity | 0.512 | Exact prefill and first-token top-k parity slightly improve the Q4 target set, but output remains not production-ready. |
 
+Run 64-token generation-step artifacts in an isolated results directory. This
+keeps the full SGLang reference output under `results/reference/sglang` intact:
+
+```sh
+rm -rf /tmp/uocr-step-results
+
+PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
+  -m uocr_harness.cli run-sglang \
+  --start-server \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --max-tokens 64 \
+  --debug-native-artifacts \
+  --debug-top-logprobs 8 \
+  --results /tmp/uocr-step-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --force
+
+uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
+  --binary thirdparty/llama.cpp/build/bin/llama-uocr-parity \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-64tok \
+  --deepseek-ocr-mode gundam \
+  --media-placement prefix-tight \
+  --deepseek-ocr-no-repeat-ngram \
+  --deepseek-ocr-prefill-aware-swa \
+  --deepseek-ocr-decode-window 128 \
+  --deepseek-ocr-no-image-end \
+  --debug-artifacts \
+  --debug-top-k 8 \
+  --max-tokens 64 \
+  --results /tmp/uocr-step-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --force
+
+uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifacts \
+  --results /tmp/uocr-step-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --reference-engine sglang-native \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-64tok \
+  --summary unlimited-ocr-portable/SUMMARY-generation-steps-noimgend-noeos-64tok.md
+```
+
+The same procedure was repeated for:
+
+- `llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-noswa-64tok`
+- `llamacpp-q5_k_m-uocr-parity-debug-noimgend-noeos-64tok`
+- `llamacpp-q6_k-uocr-parity-debug-noimgend-noeos-64tok`
+- `llamacpp-bf16-uocr-parity-debug-noimgend-noeos-64tok`
+
+Recorded generation-step result for `sc-02-45a8efac` / `document_parsing`:
+
+| Candidate | Matching prefix | First divergence | First divergent tokens | Average top-k overlap | Decision |
+|---|---:|---:|---|---:|---|
+| Q4 exact prefill | 3 | 3 | SGLang `91` vs Q4 `92` | 0.807 | Later-token rank flip after `<|det|>header [`; keep as diagnostic. |
+| Q4 exact prefill, no SWA experiment | 3 | 3 | SGLang `91` vs Q4 `92` | 0.807 | SWA flag is not the cause of the first divergence. |
+| Q5_K_M exact prefill | 1 | 1 | SGLang `header` vs Q5 `aside` | 0.059 | Higher quantization regresses the step trace. |
+| Q6_K exact prefill | 1 | 1 | SGLang `header` vs Q6 `aside` | 0.059 | Higher quantization regresses the step trace. |
+| BF16 GGUF exact prefill | 1 | 1 | SGLang `header` vs BF16 `aside` | 0.061 | BF16 GGUF does not close runtime parity. |
+
+Run the exact-prefill/no-image-end full Q4 matrix only after the target-set
+smoke, because it is slower and ultimately regressed:
+
+```sh
+uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
+  --binary thirdparty/llama.cpp/build/bin/llama-uocr-parity \
+  --profiles grounding,plain_text,ocr_boxes,document_parsing \
+  --max-tokens 8192 \
+  --ctx-size 32768 \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full \
+  --deepseek-ocr-mode gundam \
+  --media-placement prefix-tight \
+  --deepseek-ocr-no-repeat-ngram \
+  --deepseek-ocr-no-image-end
+
+uv run --project unlimited-ocr-portable uocr-harness compare \
+  --profiles grounding,plain_text,ocr_boxes,document_parsing \
+  --reference-engine sglang \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full \
+  --summary unlimited-ocr-portable/SUMMARY-uocr-parity-q4-noimgend-noeos-full.md
+```
+
+Recorded full exact-prefill result:
+
+- 104 candidate rows and 104 reference rows were present.
+- Status counts: 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low
+  similarity, 5 empty.
+- Average similarity: 0.671.
+- Decision: do not promote this over
+  `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`.
+
 Conclusion:
 
 - Tokenizer/template/media-token parity is now implemented and validated for the
   smoke case.
 - First-token SGLang native `/generate` logits/top-k align with llama.cpp under
   exact prefill.
+- Generation-step parity diverges immediately after the first stable OCR prefix
+  on Q4 and even earlier for Q5_K_M, Q6_K, and BF16 GGUF.
+- Exact prefill/no-image-end regresses on the full 104-row matrix.
 - Multi-token output parity is still not achieved. The remaining likely gap is
   later-token runtime drift: attention/KV behavior, hidden-state divergence,
   numerical differences, or model-runtime implementation differences after the

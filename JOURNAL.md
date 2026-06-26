@@ -1055,3 +1055,66 @@ Decision:
   runtime divergence: attention/KV behavior, hidden-state drift, numeric/runtime
   differences, or model implementation differences after the first generated
   token.
+
+## 2026-06-27 Generation-Step Runtime Parity
+
+Objective:
+
+- Continue the deeper runtime parity work by comparing generated token IDs and
+  top-k rankings step by step after exact processor prefill parity.
+
+Implementation:
+
+- Added `uocr-harness compare-generation-artifacts`.
+  - Reads SGLang native `/generate` artifacts from `run-sglang
+    --debug-native-artifacts`.
+  - Reads llama.cpp `LLAMA_UOCR_PARITY_DUMP` artifacts from
+    `llama-uocr-parity`.
+  - Writes pair-level metrics plus per-step CSV rows.
+  - Reports matching prefix length, first divergence step, top-k overlap, token
+    ranks, and score margins at the first divergence.
+
+Validation:
+
+- Recompiled the harness with:
+  `uv run --project unlimited-ocr-portable -m compileall
+  unlimited-ocr-portable/uocr_harness`.
+- Captured isolated 64-token artifacts under `/tmp/uocr-step-results` for
+  `sc-02-45a8efac` / `document_parsing`.
+- Q4 exact-prefill candidate:
+  - Summary: `SUMMARY-generation-steps-noimgend-noeos-64tok.md`.
+  - Matching prefix: 3 generated tokens, `<|det|>`, `header`, ` [`.
+  - First divergence: step 3, first bbox coordinate.
+  - SGLang token: `6207` / `91`.
+  - Q4 token: `6152` / `92`.
+  - SGLang ranks `91` first and `92` second with a 0.25 logprob margin.
+  - Q4 ranks `92` first and `91` third with a 0.972 raw-logit margin.
+- Q4 without the prefill-aware SWA experiment:
+  - Summary: `SUMMARY-generation-steps-q4-noimgend-noeos-noswa-64tok.md`.
+  - Same first divergence as Q4 with SWA, so the SWA flag is not the first
+    cause.
+- Q5_K_M, Q6_K, and BF16 exact-prefill checks:
+  - Summaries:
+    - `SUMMARY-generation-steps-q5-noimgend-noeos-64tok.md`
+    - `SUMMARY-generation-steps-q6-noimgend-noeos-64tok.md`
+    - `SUMMARY-generation-steps-bf16-noimgend-noeos-64tok.md`
+  - All diverged earlier at generation step 1 by ranking `aside` over SGLang's
+    `header`.
+- Full exact-prefill/no-image-end Q4 matrix:
+  - Summary: `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
+  - 104 reference rows and 104 candidate rows.
+  - Status counts: 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low
+    similarity, 5 empty.
+  - Average similarity: 0.671.
+
+Decision:
+
+- Exact prefill and first-token top-k parity are achieved for the smoke case,
+  but this is not enough for production output parity.
+- Do not promote the exact-prefill/no-image-end setting to the default full-run
+  candidate; it regresses from the current best 56 / 104 passes to 49 / 104.
+- Higher GGUF precision does not solve the first stepwise divergence in this
+  diagnostic. The remaining blocker is now deeper runtime/model numeric parity
+  after generation begins, not local-grid composition, tokenizer/template
+  layout, image-boundary tokens, first-token logits, or the tested SWA/no-repeat
+  switches.

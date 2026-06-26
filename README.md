@@ -60,8 +60,14 @@ interpretation rules, see `TEST-PROCEDURE.md`.
 
 Follow-up targeted strategy summaries:
 
+- `SUMMARY-generation-steps-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-q4-noimgend-noeos-noswa-64tok.md`
+- `SUMMARY-generation-steps-q5-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-q6-noimgend-noeos-64tok.md`
+- `SUMMARY-generation-steps-bf16-noimgend-noeos-64tok.md`
 - `SUMMARY-runtime-parity-noimgend-noeos-smoke.md`
 - `SUMMARY-parity-artifacts-native-onetok.md`
+- `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-target.md`
 - `SUMMARY-parity-artifacts-smoke.md`
 - `SUMMARY-parity-artifacts-noimgend-smoke.md`
@@ -187,6 +193,32 @@ reaches 10 pass / 20 with average similarity 0.512, a slight target-set
 improvement over the prior Q4 target setting. It is still not production-ready,
 so the remaining blocker is later-token runtime drift rather than prompt token
 layout.
+
+Generation-step artifact comparison is now available for native SGLang
+`/generate` artifacts and llama.cpp `LLAMA_UOCR_PARITY_DUMP` artifacts:
+
+```sh
+uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifacts \
+  --results /tmp/uocr-step-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --reference-engine sglang-native \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-64tok \
+  --summary unlimited-ocr-portable/SUMMARY-generation-steps-noimgend-noeos-64tok.md
+```
+
+The recorded Q4 exact-prefill run matches SGLang for the first three generated
+tokens, then diverges on the first bbox coordinate: SGLang selects token `6207`
+(`91`), while Q4 selects token `6152` (`92`). Disabling the SWA experiment does
+not change this first divergence. Q5_K_M, Q6_K, and BF16 diverge earlier at
+step 1 by ranking `aside` over SGLang's `header`.
+
+The full exact-prefill/no-image-end Q4 run is worse than the current best full
+baseline: 49 / 104 passes, 5 empty rows, 27 repetition rows, and average
+similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`. Keep
+`llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` as the
+current best candidate.
 
 The current best full candidate is:
 

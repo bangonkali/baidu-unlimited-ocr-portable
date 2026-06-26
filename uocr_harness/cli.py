@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .artifacts import compare_debug_artifacts
+from .artifacts import compare_debug_artifacts, compare_generation_artifacts
 from .compare import compare_results
 from .engines import run_llamacpp, run_llamacpp_server, run_sglang
 from .manifest import prepare_dataset
@@ -163,6 +163,18 @@ def main() -> None:
     compare_artifacts.add_argument("--reference-engine", default="sglang")
     compare_artifacts.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
 
+    compare_generation = sub.add_parser(
+        "compare-generation-artifacts",
+        help="Compare SGLang and llama.cpp generated token IDs/top-k step by step",
+    )
+    _add_common_paths(compare_generation)
+    compare_generation.add_argument("--profiles", default=None)
+    compare_generation.add_argument("--limit", type=int, default=None)
+    compare_generation.add_argument("--case-id", default=None)
+    compare_generation.add_argument("--summary", type=Path, default=PORTABLE_ROOT / "SUMMARY-generation-artifacts.md")
+    compare_generation.add_argument("--reference-engine", default="sglang-native")
+    compare_generation.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
+
     compare_runtime = sub.add_parser(
         "compare-runtime-parity",
         help="Compare SGLang processor artifacts against native llama.cpp parity artifacts",
@@ -313,6 +325,18 @@ def main() -> None:
             case_id=args.case_id,
         )
         print(f"Wrote {len(rows)} artifact comparison rows -> {args.summary}")
+    elif args.command == "compare-generation-artifacts":
+        rows = compare_generation_artifacts(
+            manifest_path=args.manifest,
+            results_dir=args.results,
+            profile_names=parse_profile_names(args.profiles),
+            reference_engine=args.reference_engine,
+            candidate_engine=args.candidate_engine,
+            summary_path=args.summary,
+            limit=args.limit,
+            case_id=args.case_id,
+        )
+        print(f"Wrote {len(rows)} generation artifact comparison rows -> {args.summary}")
     elif args.command == "compare-runtime-parity":
         rows = compare_runtime_parity(
             manifest_path=args.manifest,

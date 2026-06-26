@@ -35,6 +35,9 @@ Copy these from WSL2 if needed:
 - `unlimited-ocr-portable/results/reference/sglang/`
 - `unlimited-ocr-portable/results/artifacts/reference/sglang-processor/`
 - `unlimited-ocr-portable/results/artifacts/reference/sglang-native/`
+- Optional generation-step summaries such as
+  `SUMMARY-generation-steps-noimgend-noeos-64tok.md` for native token-trace
+  comparison.
 
 These are the same artifacts named in `../TEST-PROCEDURE.md` under the Windows
 candidate comparison flow.
@@ -167,6 +170,19 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
   --summary unlimited-ocr-portable\SUMMARY-parity-artifacts-windows.md
 ```
 
+For native `/generate` step traces copied from WSL2, compare generated token IDs
+and top-k lists with:
+
+```powershell
+uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifacts `
+  --results unlimited-ocr-portable\results `
+  --case-id sc-02-45a8efac `
+  --profiles document_parsing `
+  --reference-engine sglang-native `
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-windows `
+  --summary unlimited-ocr-portable\SUMMARY-generation-steps-windows.md
+```
+
 Exact-prefill diagnostic artifact:
 
 ```powershell
@@ -244,6 +260,9 @@ against the BF16 oracle produced on Linux.
   average similarity 0.649 versus Q4's 56 / 104 and 0.688. Windows work should
   prioritize reproducing the exact patched Q4 behavior before broader
   packaging.
+- Exact-prefill/no-image-end Q4 is not the new production default. It regressed
+  on the full WSL2 matrix to 49 / 104 passes, 5 empty rows, 27 repetition rows,
+  and average similarity 0.671.
 - The patched gundam path now combines local crop embeddings into SGLang's
   single local grid and passes the `sc-02` smoke. The five-case target set still
   has repetition failures, so Windows validation should compare against those
@@ -251,6 +270,10 @@ against the BF16 oracle produced on Linux.
 - `llama-uocr-parity` is a named native debug runner over the same MTMD CLI
   path. It should be used when comparing Windows candidate token traces against
   copied WSL2 SGLang chat-logprob artifacts.
+- WSL2 generation-step comparison shows Q4 exact-prefill matches SGLang through
+  `<|det|>header [` and then diverges at the first bbox coordinate (`91` vs
+  `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at `header` vs `aside`, so
+  Windows validation should not assume a higher GGUF fixes parity.
 - The current 104-row WSL2 Q4 run has no empty outputs but still fails on
   repetition, low-similarity, and bbox-count drift. Windows should reproduce
   this patched full-run behavior before packaging work continues.

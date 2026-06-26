@@ -103,6 +103,8 @@ Runtime parity artifacts are also available from the portable harness:
   logprobs and first-output top-k data.
 - `compare-runtime-parity` compares SGLang processor artifacts with llama.cpp
   native `LLAMA_UOCR_PARITY_DUMP` artifacts.
+- `compare-generation-artifacts` compares native SGLang generated token IDs and
+  top-k lists against llama.cpp generation-step artifacts.
 
 Use the repo `.venv` for SGLang processor/native artifact commands:
 
@@ -310,9 +312,16 @@ in `../TEST-PROCEDURE.md`.
   `llama-server` has the shared MTMD grid patch, but the no-repeat/SWA/forced
   EOS controls were validated through `llama-mtmd-cli`.
 - `llama-uocr-parity` is the current native debug runner. It showed the patched
-  candidate emits raw newline token `201` before the same visible `<|det|>`
-  token SGLang emits first. Removing the image-end newline did not eliminate
-  that raw newline and was worse on the target set.
+  forced-EOS candidate emits raw newline token `201` before the same visible
+  `<|det|>` token SGLang emits first. Later runtime inspection showed exact
+  prefill parity requires no forced EOS plus `--deepseek-ocr-no-image-end`.
+- Exact-prefill/no-image-end Q4 is diagnostic only: the full 104-row run
+  regressed to 49 automated passes, 5 empty rows, 27 repetition rows, and
+  average similarity 0.671.
+- Generation-step comparison on `sc-02` / `document_parsing` shows Q4 matches
+  SGLang through `<|det|>header [` and then diverges on the first bbox
+  coordinate (`91` vs `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at
+  `header` vs `aside`.
 - llama.cpp may warn that CUDA flash attention is unsupported for this graph.
 - llama.cpp may warn that some CLIP permute operators are not CUDA-backed.
 - These warnings do not block correctness validation, but they do mean

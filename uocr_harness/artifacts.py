@@ -69,6 +69,76 @@ def compare_debug_artifacts(
     return metrics
 
 
+def compare_generation_artifacts(
+    *,
+    manifest_path: Path,
+    results_dir: Path,
+    profile_names: list[str],
+    reference_engine: str,
+    candidate_engine: str,
+    summary_path: Path,
+    limit: int | None = None,
+    case_id: str | None = None,
+) -> list[dict[str, Any]]:
+    rows = _filter_rows(read_jsonl(manifest_path), limit=limit, case_id=case_id)
+    metrics: list[dict[str, Any]] = []
+    step_rows: list[dict[str, Any]] = []
+    for row in rows:
+        for profile_name in profile_names:
+            ref_result_path = results_dir / "reference" / "sglang" / row["case_id"] / f"{profile_name}.json"
+            cand_result_path = results_dir / "candidate" / candidate_engine / row["case_id"] / f"{profile_name}.json"
+            ref_artifact_path = _artifact_path_from_result(
+                ref_result_path,
+                fallback=results_dir
+                / "artifacts"
+                / "reference"
+                / reference_engine
+                / row["case_id"]
+                / f"{profile_name}.{_reference_artifact_suffix(reference_engine)}.json",
+                keys=("native_debug_artifact_path", "debug_artifact_path")
+                if reference_engine == "sglang-native"
+                else ("debug_artifact_path",),
+            )
+            cand_artifact_path = _artifact_path_from_result(
+                cand_result_path,
+                fallback=results_dir
+                / "artifacts"
+                / "candidate"
+                / candidate_engine
+                / row["case_id"]
+                / f"{profile_name}.llamacpp.json",
+                keys=("debug_artifact_path",),
+            )
+            metric, rows_for_pair = _compare_generation_one(
+                row=row,
+                profile_name=profile_name,
+                reference_artifact_path=ref_artifact_path,
+                candidate_artifact_path=cand_artifact_path,
+            )
+            metrics.append(metric)
+            step_rows.extend(rows_for_pair)
+
+    metrics_dir = ensure_dir(results_dir / "compare")
+    metrics_name = (
+        "generation-artifact-metrics.csv"
+        if summary_path.stem == "SUMMARY-generation-artifacts"
+        else f"{summary_path.stem}.csv"
+    )
+    metrics_path = metrics_dir / metrics_name
+    steps_path = metrics_dir / f"{summary_path.stem}-steps.csv"
+    _write_metrics_csv(metrics_path, metrics)
+    _write_metrics_csv(steps_path, step_rows)
+    _write_generation_summary(
+        summary_path=summary_path,
+        metrics_path=metrics_path,
+        steps_path=steps_path,
+        metrics=metrics,
+        reference_engine=reference_engine,
+        candidate_engine=candidate_engine,
+    )
+    return metrics
+
+
 def _filter_rows(rows: list[dict[str, Any]], *, limit: int | None, case_id: str | None) -> list[dict[str, Any]]:
     if case_id:
         requested = {item.strip() for item in case_id.split(",") if item.strip()}
@@ -147,6 +217,125 @@ def _compare_one(
         "reference_artifact": str(reference_artifact_path) if reference_artifact_path.exists() else "",
         "candidate_artifact": str(candidate_artifact_path) if candidate_artifact_path.exists() else "",
     }
+
+
+def _compare_generation_one(
+    *,
+    row: dict[str, Any],
+    profile_name: str,
+    reference_artifact_path: Path,
+    candidate_artifact_path: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    reference = read_json(reference_artifact_path) if reference_artifact_path.exists() else None
+    candidate = read_json(candidate_artifact_path) if candidate_artifact_path.exists() else None
+    ref_steps = _sglang_generation_steps(reference)
+    cand_steps = _llamacpp_generation_steps(candidate)
+    comparable = min(len(ref_steps), len(cand_steps))
+    matching_prefix = 0
+    first_divergence = ""
+    first_divergence_detail: dict[str, Any] = {}
+    step_rows: list[dict[str, Any]] = []
+    overlaps: list[float] = []
+
+    for index in range(comparable):
+        ref_step = ref_steps[index]
+        cand_step = cand_steps[index]
+        token_match = ref_step["token_id"] == cand_step["token_id"]
+        overlap = _overlap_ratio(ref_step["top_token_ids"], cand_step["top_token_ids"])
+        ref_candidate_score = _score_for_token(ref_step["top_items"], cand_step["token_id"])
+        cand_reference_score = _score_for_token(cand_step["top_items"], ref_step["token_id"])
+        ref_candidate_rank = _rank_of(ref_step["top_token_ids"], cand_step["token_id"])
+        cand_reference_rank = _rank_of(cand_step["top_token_ids"], ref_step["token_id"])
+        ref_margin = _score_margin(ref_step["token_score"], ref_candidate_score)
+        cand_margin = _score_margin(cand_step["token_score"], cand_reference_score)
+        if isinstance(overlap, float):
+            overlaps.append(overlap)
+        if token_match and first_divergence == "":
+            matching_prefix += 1
+        elif first_divergence == "":
+            first_divergence = index
+            first_divergence_detail = {
+                "first_divergence_reference_token_id": ref_step["token_id"],
+                "first_divergence_reference_piece": ref_step["piece"],
+                "first_divergence_candidate_token_id": cand_step["token_id"],
+                "first_divergence_candidate_piece": cand_step["piece"],
+                "first_divergence_ref_score": ref_step["token_score"],
+                "first_divergence_candidate_score_in_reference_top": ref_candidate_score,
+                "first_divergence_reference_margin_vs_candidate": ref_margin,
+                "first_divergence_candidate_score": cand_step["token_score"],
+                "first_divergence_reference_score_in_candidate_top": cand_reference_score,
+                "first_divergence_candidate_margin_vs_reference": cand_margin,
+                "first_divergence_candidate_rank_in_reference_top": ref_candidate_rank,
+                "first_divergence_reference_rank_in_candidate_top": cand_reference_rank,
+            }
+        step_rows.append(
+            {
+                "case_id": row["case_id"],
+                "source_path": row["source_rel"],
+                "page_index": row.get("page_index") or "",
+                "prompt_profile": profile_name,
+                "step_index": index,
+                "token_match": token_match,
+                "reference_token_id": ref_step["token_id"],
+                "reference_piece": ref_step["piece"],
+                "candidate_token_id": cand_step["token_id"],
+                "candidate_piece": cand_step["piece"],
+                "top_overlap": overlap,
+                "reference_score": ref_step["token_score"],
+                "candidate_token_score_in_reference_top": ref_candidate_score,
+                "reference_margin_vs_candidate": ref_margin,
+                "candidate_score": cand_step["token_score"],
+                "reference_token_score_in_candidate_top": cand_reference_score,
+                "candidate_margin_vs_reference": cand_margin,
+                "candidate_token_rank_in_reference_top": ref_candidate_rank,
+                "reference_token_rank_in_candidate_top": cand_reference_rank,
+                "reference_top_token_ids": ref_step["top_token_ids"],
+                "candidate_top_token_ids": cand_step["top_token_ids"],
+            }
+        )
+
+    if first_divergence == "" and len(ref_steps) != len(cand_steps):
+        first_divergence = comparable
+
+    if reference is None:
+        status = "missing_reference_artifact"
+    elif candidate is None:
+        status = "missing_candidate_artifact"
+    elif not ref_steps:
+        status = "reference_no_generation_steps"
+    elif not cand_steps:
+        status = "candidate_no_generation_steps"
+    elif first_divergence == "":
+        status = "generation_steps_match"
+    elif matching_prefix > 0:
+        status = "generation_diverged_after_prefix"
+    else:
+        status = "generation_diverged_at_first_token"
+
+    avg_overlap = sum(overlaps) / len(overlaps) if overlaps else ""
+    return (
+        {
+            "case_id": row["case_id"],
+            "source_path": row["source_rel"],
+            "page_index": row.get("page_index") or "",
+            "prompt_profile": profile_name,
+            "status": status,
+            "reference_artifact_exists": bool(reference),
+            "candidate_artifact_exists": bool(candidate),
+            "reference_steps": len(ref_steps),
+            "candidate_steps": len(cand_steps),
+            "comparable_steps": comparable,
+            "matching_prefix_tokens": matching_prefix,
+            "first_divergence_step": first_divergence,
+            "average_top_overlap": avg_overlap,
+            "reference_first_ids": [step["token_id"] for step in ref_steps[:16]],
+            "candidate_first_ids": [step["token_id"] for step in cand_steps[:16]],
+            "reference_artifact": str(reference_artifact_path) if reference_artifact_path.exists() else "",
+            "candidate_artifact": str(candidate_artifact_path) if candidate_artifact_path.exists() else "",
+            **first_divergence_detail,
+        },
+        step_rows,
+    )
 
 
 def _status(reference: dict[str, Any], candidate: dict[str, Any]) -> str:
@@ -254,6 +443,67 @@ def _llamacpp_view(artifact: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _sglang_generation_steps(artifact: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if artifact is None:
+        return []
+    response = artifact.get("response")
+    if isinstance(response, list) and response:
+        response = response[0]
+    if not isinstance(response, dict):
+        response = {}
+    openai_logprobs = _openai_chat_logprobs(response)
+    meta = response.get("meta_info") or {}
+    output_token_logprobs = meta.get("output_token_logprobs") or []
+    output_top_logprobs = meta.get("output_top_logprobs") or []
+    output_ids = response.get("output_ids") if isinstance(response.get("output_ids"), list) else []
+    steps: list[dict[str, Any]] = []
+    count = max(len(output_token_logprobs), len(output_ids), len(openai_logprobs))
+    for index in range(count):
+        logprob_item = output_token_logprobs[index] if index < len(output_token_logprobs) else None
+        token_id = _token_id_from_logprob_item(logprob_item)
+        if token_id is None and index < len(output_ids) and isinstance(output_ids[index], int):
+            token_id = output_ids[index]
+        piece = _piece_from_logprob_item(logprob_item)
+        if not piece and index < len(openai_logprobs):
+            piece = openai_logprobs[index].get("token", "") if isinstance(openai_logprobs[index], dict) else ""
+        top_items = output_top_logprobs[index] if index < len(output_top_logprobs) else []
+        top_item_views = _top_items_from_logprob_items(top_items)
+        steps.append(
+            {
+                "token_id": token_id,
+                "piece": piece,
+                "token_score": _score_from_logprob_item(logprob_item),
+                "top_items": top_item_views,
+                "top_token_ids": [item["token_id"] for item in top_item_views],
+                "top_pieces": [item["piece"] for item in top_item_views],
+            }
+        )
+    return [step for step in steps if isinstance(step["token_id"], int)]
+
+
+def _llamacpp_generation_steps(artifact: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if artifact is None:
+        return []
+    steps: list[dict[str, Any]] = []
+    for item in artifact.get("generation") or []:
+        token_id = item.get("token_id")
+        if not isinstance(token_id, int):
+            continue
+        top_items = item.get("top_logits") or []
+        top_item_views = _top_items_from_llamacpp_logits(top_items)
+        steps.append(
+            {
+                "token_id": token_id,
+                "piece": item.get("piece", "") if isinstance(item.get("piece"), str) else "",
+                "token_score": _score_for_token(top_item_views, token_id),
+                "top_items": top_item_views,
+                "top_token_ids": [top["token_id"] for top in top_item_views],
+                "top_pieces": [top["piece"] for top in top_item_views],
+            }
+        )
+    return steps
+
+
 def _openai_chat_logprobs(response: dict[str, Any]) -> list[dict[str, Any]]:
     try:
         content = response["choices"][0]["logprobs"]["content"]
@@ -305,6 +555,44 @@ def _top_ids_from_logprob_items(items: Any) -> list[int]:
     return out
 
 
+def _top_items_from_logprob_items(items: Any) -> list[dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in items:
+        token_id = _token_id_from_logprob_item(item)
+        if token_id is None:
+            continue
+        out.append(
+            {
+                "token_id": token_id,
+                "piece": _piece_from_logprob_item(item),
+                "score": _score_from_logprob_item(item),
+            }
+        )
+    return out
+
+
+def _top_items_from_llamacpp_logits(items: Any) -> list[dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        token_id = item.get("token_id")
+        if not isinstance(token_id, int):
+            continue
+        out.append(
+            {
+                "token_id": token_id,
+                "piece": item.get("piece", "") if isinstance(item.get("piece"), str) else "",
+                "score": _float_or_blank(item.get("logit")),
+            }
+        )
+    return out
+
+
 def _pieces_from_logprob_items(items: Any) -> list[str]:
     if not isinstance(items, list):
         return []
@@ -320,6 +608,55 @@ def _pieces_from_logprob_items(items: Any) -> list[str]:
         if piece is not None:
             out.append(piece)
     return out
+
+
+def _piece_from_logprob_item(item: Any) -> str:
+    if isinstance(item, (list, tuple)) and len(item) >= 3 and isinstance(item[2], str):
+        return item[2]
+    if isinstance(item, dict):
+        value = item.get("token") or item.get("piece")
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def _score_from_logprob_item(item: Any) -> float | str:
+    if isinstance(item, (list, tuple)) and item:
+        return _float_or_blank(item[0])
+    if isinstance(item, dict):
+        for key in ("logprob", "logit", "score"):
+            score = _float_or_blank(item.get(key))
+            if score != "":
+                return score
+    return ""
+
+
+def _float_or_blank(value: Any) -> float | str:
+    if isinstance(value, (int, float)):
+        return float(value)
+    return ""
+
+
+def _rank_of(token_ids: list[int], token_id: int) -> int | str:
+    try:
+        return token_ids.index(token_id) + 1
+    except ValueError:
+        return ""
+
+
+def _score_for_token(items: list[dict[str, Any]], token_id: int) -> float | str:
+    for item in items:
+        if item.get("token_id") == token_id:
+            score = item.get("score")
+            if isinstance(score, (int, float)):
+                return float(score)
+    return ""
+
+
+def _score_margin(selected_score: Any, alternate_score: Any) -> float | str:
+    if isinstance(selected_score, (int, float)) and isinstance(alternate_score, (int, float)):
+        return float(selected_score) - float(alternate_score)
+    return ""
 
 
 def _first(values: list[Any]) -> Any:
@@ -421,11 +758,25 @@ def _overlap_ratio(a: list[Any], b: list[Any]) -> float | str:
 
 def _write_metrics_csv(path: Path, metrics: list[dict[str, Any]]) -> None:
     ensure_dir(path.parent)
-    fieldnames = list(metrics[0].keys()) if metrics else ["status"]
+    fieldnames = _csv_fieldnames(metrics)
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(metrics)
+
+
+def _csv_fieldnames(metrics: list[dict[str, Any]]) -> list[str]:
+    if not metrics:
+        return ["status"]
+    fieldnames: list[str] = []
+    seen: set[str] = set()
+    for metric in metrics:
+        for key in metric:
+            if key in seen:
+                continue
+            seen.add(key)
+            fieldnames.append(key)
+    return fieldnames
 
 
 def _write_summary(
@@ -513,6 +864,119 @@ def _write_summary(
     summary_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_generation_summary(
+    *,
+    summary_path: Path,
+    metrics_path: Path,
+    steps_path: Path,
+    metrics: list[dict[str, Any]],
+    reference_engine: str,
+    candidate_engine: str,
+) -> None:
+    ensure_dir(summary_path.parent)
+    counts: dict[str, int] = {}
+    for metric in metrics:
+        counts[metric["status"]] = counts.get(metric["status"], 0) + 1
+
+    review_rows = [m for m in metrics if m["status"] != "generation_steps_match"][:10]
+    overlaps = [m["average_top_overlap"] for m in metrics if isinstance(m["average_top_overlap"], float)]
+    avg_overlap = sum(overlaps) / len(overlaps) if overlaps else None
+
+    lines = [
+        "# Unlimited-OCR Generation Step Artifact Summary",
+        "",
+        f"Generated: {utc_now()}",
+        "",
+        "## Engines",
+        "",
+        f"- Reference: `{reference_engine}`",
+        f"- Candidate: `{candidate_engine}`",
+        f"- Metrics CSV: `{_display_path(metrics_path, summary_path.parent)}`",
+        f"- Steps CSV: `{_display_path(steps_path, summary_path.parent)}`",
+        "",
+        "## Status Counts",
+        "",
+    ]
+    for status in sorted(counts):
+        lines.append(f"- `{status}`: {counts[status]}")
+    if not counts:
+        lines.append("- No generation artifact rows generated.")
+
+    matching_prefix_values = [
+        int(m["matching_prefix_tokens"])
+        for m in metrics
+        if isinstance(m.get("matching_prefix_tokens"), int)
+    ]
+    first_divergences = [
+        int(m["first_divergence_step"])
+        for m in metrics
+        if isinstance(m.get("first_divergence_step"), int)
+    ]
+    lines.extend(
+        [
+            "",
+            "## Aggregate Findings",
+            "",
+            f"- Rows compared: {len(metrics)}",
+            f"- Average matching prefix tokens: {_fmt_float(_avg(matching_prefix_values))}",
+            f"- Earliest divergence step: {min(first_divergences) if first_divergences else ''}",
+            f"- Average top-k overlap: {_fmt_float(avg_overlap)}",
+            "",
+            "## Review Queue",
+            "",
+        ]
+    )
+    if review_rows:
+        lines.append(
+            "| Status | Case | Profile | Ref Steps | Candidate Steps | Matching Prefix | First Divergence | Ref Token | Cand Token | Cand Rank In Ref Top | Ref Rank In Cand Top | Ref Margin | Cand Margin | Avg Top Overlap |"
+        )
+        lines.append("|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for row in review_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(row["status"]),
+                        str(row["case_id"]),
+                        str(row["prompt_profile"]),
+                        str(row["reference_steps"]),
+                        str(row["candidate_steps"]),
+                        str(row["matching_prefix_tokens"]),
+                        str(row["first_divergence_step"]),
+                        _token_display(
+                            row.get("first_divergence_reference_token_id"),
+                            row.get("first_divergence_reference_piece"),
+                        ),
+                        _token_display(
+                            row.get("first_divergence_candidate_token_id"),
+                            row.get("first_divergence_candidate_piece"),
+                        ),
+                        str(row.get("first_divergence_candidate_rank_in_reference_top", "")),
+                        str(row.get("first_divergence_reference_rank_in_candidate_top", "")),
+                        _fmt_score(row.get("first_divergence_reference_margin_vs_candidate")),
+                        _fmt_score(row.get("first_divergence_candidate_margin_vs_reference")),
+                        _fmt_overlap(row["average_top_overlap"]),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("No review items.")
+
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- This compares generated token IDs and top-k token ID overlap step by step.",
+            "- Steps after the first token mismatch are no longer conditioned on the same prefix, so the first divergence is the primary debugging signal.",
+            "- Use native SGLang `/generate` artifacts for token IDs and input/output logprobs.",
+            "",
+        ]
+    )
+    summary_path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _reference_endpoint_note(reference_engine: str) -> str:
     return "/generate" if reference_engine == "sglang-native" else "/v1/chat/completions"
 
@@ -535,6 +999,30 @@ def _fmt_overlap(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.3f}"
     return ""
+
+
+def _fmt_score(value: Any) -> str:
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return ""
+
+
+def _fmt_float(value: float | None) -> str:
+    return "" if value is None else f"{value:.3f}"
+
+
+def _token_display(token_id: Any, piece: Any) -> str:
+    if token_id is None or token_id == "":
+        return ""
+    text = str(piece) if piece not in (None, "") else ""
+    if text:
+        text = text.replace("|", "\\|").replace("\n", "\\n")
+        return f"{token_id}:{text}"
+    return str(token_id)
+
+
+def _avg(values: list[int]) -> float | None:
+    return (sum(values) / len(values)) if values else None
 
 
 def _display_path(path: Path, base: Path) -> str:
