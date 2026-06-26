@@ -106,10 +106,11 @@ Generated: 2026-06-26T14:29:07+00:00
 - One-token native SGLang `/generate` and llama.cpp exact-prefill artifacts
   align on first token `<|det|>` with first-output top-k overlap 1.000.
 - Exact prefill is not enough for output parity: the 20-row target run
-  `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` reached 9 pass / 20,
-  4 repetition rows, 6 low-similarity rows, and average similarity 0.487.
-  That is not better than the current best Q4 target setting at average
-  similarity 0.502.
+  `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` reached 10 pass / 20,
+  4 repetition rows, 6 low-similarity rows, and average similarity 0.512.
+  That slightly improves the target-set average over the prior Q4 target
+  setting at 0.502, but it is still not production-ready and has not replaced
+  the current best 104-row full-run baseline.
 
 ## Reference Runner Status
 

@@ -1,6 +1,6 @@
 # Unlimited-OCR Portable Validation Summary
 
-Generated: 2026-06-26T16:15:52+00:00
+Generated: 2026-06-26T16:21:36+00:00
 
 ## Engines
 
@@ -13,8 +13,7 @@ Generated: 2026-06-26T16:15:52+00:00
 
 - `candidate_repetition`: 4
 - `low_similarity`: 6
-- `pass`: 9
-- `review`: 1
+- `pass`: 10
 
 ## Related Strategy Summaries
 
@@ -65,18 +64,18 @@ Generated: 2026-06-26T16:15:52+00:00
 
 - Reference result files: 20 / 20
 - Candidate result files: 20 / 20
-- Comparable pairs: 19 / 20
+- Comparable pairs: 20 / 20
 - Candidate non-empty outputs: 20 / 20
 - Candidate empty outputs: 0 / 20
 - Candidate high-repetition rows: 4 / 20
 - Candidate malformed-marker rows: 4 / 20
-- Rows with >30% bbox-count delta: 9 / 20
-- Average text similarity: 0.487
-- Average reference elapsed: 9682 ms
+- Rows with >30% bbox-count delta: 8 / 20
+- Average text similarity: 0.512
+- Average reference elapsed: 9726 ms
 - Average candidate elapsed: 4976 ms
-- Average reference GPU after request: 31653 MB
+- Average reference GPU after request: 31573 MB
 - Average candidate GPU after request: 2170 MB
-- Average reference bbox markers: 76.250
+- Average reference bbox markers: 76.700
 - Average candidate bbox markers: 41.050
 
 ## Quality Finding
@@ -85,7 +84,7 @@ Generated: 2026-06-26T16:15:52+00:00
 
 ## Reference Runner Status
 
-- SGLang log exists. Last line: `[2026-06-27 00:11:29] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].`
+- SGLang log exists. Last line: `[2026-06-27 00:21:25] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].`
 
 ## Review Queue
 
@@ -97,10 +96,10 @@ Generated: 2026-06-26T16:15:52+00:00
 | candidate_repetition | 613256554-0d2742ca-467c-4b2b-8294-20c07609e316-1db675f4 | document_parsing | 0.006 | 1 | 1 | 8219 | 0.995 | 11703 | dataset/613256554-0d2742ca-467c-4b2b-8294-20c07609e316.png |
 | low_similarity | chinese-paper-page-0002-3d10e38a | plain_text | 0.168 | 305 | 45 | 1732 | 0.000 | 3285 | dataset/chinese-paper.pdf |
 | low_similarity | chinese-paper-page-0002-3d10e38a | ocr_boxes | 0.126 | 272 | 45 | 1732 | 0.000 | 3427 | dataset/chinese-paper.pdf |
-| review | sc-02-45a8efac | document_parsing | n/a | 0 | 9 | 2472 | 0.190 | 2565 | dataset/sc-02.png |
 | low_similarity | upside-left-9e645a2a | grounding | 0.047 | 402 | 21 | 1032 | 0.349 | 2767 | dataset/upside left.jpg |
 | candidate_repetition | upside-left-9e645a2a | plain_text | 0.012 | 4 | 469 | 2353 | 0.859 | 10978 | dataset/upside left.jpg |
 | low_similarity | upside-left-9e645a2a | ocr_boxes | 0.045 | 294 | 3 | 1553 | 0.000 | 2389 | dataset/upside left.jpg |
+| low_similarity | upside-left-9e645a2a | document_parsing | 0.005 | 5 | 8 | 806 | 0.000 | 2613 | dataset/upside left.jpg |
 
 ## Notes
 

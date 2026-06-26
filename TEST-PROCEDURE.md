@@ -925,7 +925,7 @@ Recorded target result:
 
 | Candidate | Rows | Status counts | Average similarity | Notes |
 |---|---:|---|---:|---|
-| `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` | 20 | 9 pass, 4 repetition, 6 low similarity, 1 review | 0.487 | Exact prefill and first-token top-k parity do not solve later-token OCR/layout drift. |
+| `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` | 20 | 10 pass, 4 repetition, 6 low similarity | 0.512 | Exact prefill and first-token top-k parity slightly improve the Q4 target set, but output remains not production-ready. |
 
 Conclusion:
 

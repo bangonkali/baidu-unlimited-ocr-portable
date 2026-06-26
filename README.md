@@ -180,9 +180,11 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
 ```
 
 The one-token native artifact comparison aligns first token `<|det|>` and
-first-output top-k overlap 1.000. The 20-row exact-prefill target run still
-does not beat the current best Q4 setting, so the remaining blocker is
-later-token runtime drift rather than prompt token layout.
+first-output top-k overlap 1.000. The restored-reference 20-row exact-prefill
+target run reaches 10 pass / 20 with average similarity 0.512, a slight
+target-set improvement over the prior Q4 target setting. It is still not
+production-ready, so the remaining blocker is later-token runtime drift rather
+than prompt token layout.
 
 The current best full candidate is:
 

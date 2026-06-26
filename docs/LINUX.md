@@ -173,12 +173,11 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --ctx-size 32768
 ```
 
-This exact-prefill run validates tokenizer/template parity but is not the best
-quality setting: it reached 9 pass / 20 and average similarity 0.487 on the
-target set. The current best Q4 target setting remains the forced-EOS/SWA128
-candidate at average similarity 0.502, and the current best full setting remains
-the 104-row `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
-run.
+This exact-prefill run validates tokenizer/template parity and reached
+10 pass / 20 with average similarity 0.512 on the restored-reference target
+set. It slightly improves the prior Q4 target average of 0.502, but it is still
+not production-ready. The current best full setting remains the 104-row
+`llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` run.
 
 Useful candidate strategy switches:
 

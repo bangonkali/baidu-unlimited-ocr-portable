@@ -1031,8 +1031,9 @@ Validation:
   - First-output top-k overlap with SGLang native: 1.000.
 - Exact-prefill 20-row target run:
   `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target`.
-  - 9 pass, 4 repetition, 6 low similarity, 1 review.
-  - Average similarity 0.487.
+  - 10 pass, 4 repetition, 6 low similarity.
+  - Average similarity 0.512 after restoring the full SGLang `sc-02` /
+    `document_parsing` reference row.
   - Non-empty outputs: 20 / 20.
 
 Decision:
@@ -1045,7 +1046,8 @@ Decision:
   `--deepseek-ocr-no-image-end`.
 - First-token native SGLang logits/top-k align with llama.cpp under exact
   prefill.
-- Multi-token OCR quality still does not match SGLang. The remaining blocker is
-  later-token runtime divergence: attention/KV behavior, hidden-state drift,
-  numeric/runtime differences, or model implementation differences after the
-  first generated token.
+- Multi-token OCR quality still does not match SGLang. Exact prefill slightly
+  improves the target set, but the remaining blocker is still later-token
+  runtime divergence: attention/KV behavior, hidden-state drift, numeric/runtime
+  differences, or model implementation differences after the first generated
+  token.
