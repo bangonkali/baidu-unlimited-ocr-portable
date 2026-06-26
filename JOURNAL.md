@@ -1186,3 +1186,45 @@ Decision:
 - This still does not make OCR output parity true. The first unresolved
   behavioral divergence remains the later generation-step rank flip documented
   in the generation-step summaries.
+
+## 2026-06-27 Candidate-Best Client Demo
+
+Objective:
+
+- Create an end-to-end interactive demo that uses the best portable candidate
+  without SGLang.
+
+Implementation:
+
+- Added `candidate-best-client/` as a standalone uv/Gradio project.
+- The backend calls patched native `llama-uocr-parity` as a subprocess and
+  streams generated stdout into the UI.
+- The default profile is
+  `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`, because
+  it is the best zero-empty full-run candidate.
+- The UI also exposes
+  `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` as experimental,
+  because it improves average similarity but had 5 empty rows.
+- Added image upload, PDF page rendering, prompt/profile controls, OCR text
+  output, native run metadata, `<|det|>` / `<|ref|>` parsing, and overlay
+  preview generation.
+
+Validation:
+
+- `uv run --project unlimited-ocr-portable/candidate-best-client -m compileall
+  unlimited-ocr-portable/candidate-best-client/app.py
+  unlimited-ocr-portable/candidate-best-client/uocr_candidate_client` passed.
+- Default profile smoke on `dataset/sc-02.png` with 64 tokens exited 0,
+  streamed visible `<|det|>` output, and reported 2050 ms native elapsed.
+- Experimental profile smoke on the same image exited 0, streamed visible
+  `<|det|>` output, and reported 2438 ms native elapsed.
+- PDF/parser smoke rendered 6 pages from `dataset/chinese-paper.pdf`, parsed 1
+  marker box, and produced a preview image.
+- Gradio launched at `http://127.0.0.1:7861`; the endpoint returned the expected
+  app title and queued `run_ocr` configuration.
+
+Decision:
+
+- The demo is usable as the current native portable UX. It should not be
+  presented as parity or production quality; it is a native candidate demo over
+  the best available patched Q4 profile.

@@ -135,6 +135,27 @@ Generated: 2026-06-26T14:29:07+00:00
   5 empty rows and 17 low-similarity rows. It is a useful alternate candidate
   for follow-up, not production parity.
 
+## Candidate-Best Client Demo
+
+- Added `candidate-best-client/`, a Gradio demo that calls the patched native
+  `llama-uocr-parity` binary as a subprocess and streams generated stdout.
+- Default demo profile:
+  `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
+  because it is the best zero-empty full-run candidate.
+- Experimental demo profile:
+  `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` because it improves
+  average similarity but produced 5 empty rows in the 104-row matrix.
+- WSL2 validation on 2026-06-27:
+  - compileall passed for the demo app and helper package.
+  - default profile smoke on `dataset/sc-02.png` with 64 tokens exited 0 and
+    produced visible `<|det|>` output in 2050 ms.
+  - experimental profile smoke on the same image exited 0 and produced visible
+    `<|det|>` output in 2438 ms.
+  - PDF/parser smoke rendered 6 pages from `dataset/chinese-paper.pdf`, parsed
+    1 marker box, and produced a preview image.
+  - Gradio launched at `http://127.0.0.1:7861` and returned the expected app
+    title/profile configuration.
+
 ## Generation-Step Parity Finding
 
 - Added `compare-generation-artifacts`, which compares native SGLang

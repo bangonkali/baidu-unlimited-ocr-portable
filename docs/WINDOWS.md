@@ -79,6 +79,29 @@ llama-server product fork. If packaging proceeds before the patches are
 upstreamed, prefer a small C++ wrapper over llama.cpp APIs or a pinned patched
 llama.cpp build.
 
+## Run Candidate-Best Client Demo
+
+The Gradio demo in `unlimited-ocr-portable\candidate-best-client` is designed
+to run without SGLang on Windows once the patched native binary and GGUF files
+are present.
+
+From a Developer PowerShell:
+
+```powershell
+$env:UOCR_LLAMA_BIN = "thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.exe"
+$env:UOCR_MODEL = "thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
+$env:UOCR_MMPROJ = "thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
+
+uv run --project unlimited-ocr-portable\candidate-best-client `
+  unlimited-ocr-portable\candidate-best-client\app.py `
+  --host 127.0.0.1 --port 7861
+```
+
+The UI defaults to the zero-empty Q4 profile and also exposes the
+exact-prefill/no-image-end/SWA128 profile as experimental. Windows validation
+should first reproduce the same non-empty `sc-02` smoke output before comparing
+larger copied WSL2 reference artifacts.
+
 ## Run Windows Candidate
 
 Install `uv` for Windows, then from the repository root:

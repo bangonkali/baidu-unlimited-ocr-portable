@@ -248,6 +248,45 @@ The BF16 full-run quality ceiling did not beat Q4 on the full matrix: 54 passes
 and average similarity 0.649 in
 `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md`.
 
+## Candidate-Best Client Demo
+
+`candidate-best-client/` is a Gradio demo for the current portable candidate.
+It does not load SGLang, PyTorch, Transformers, or the Baidu custom SGLang
+wheel. Python launches the patched native `llama-uocr-parity` binary as a
+subprocess, streams generated stdout into the UI, parses `<|det|>` /
+`<|ref|>` markers, and renders bounding-box overlays.
+
+Default profile:
+
+- `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
+- 56 / 104 pass, 0 empty rows, 17 repetition rows, average similarity 0.688.
+
+The UI also exposes
+`llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` as an experimental
+profile. It reached average similarity 0.717 but produced 5 empty rows, so it
+is not the default.
+
+Run a short native smoke from the repository root:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --smoke --image dataset/sc-02.png --max-tokens 64
+```
+
+Launch the UI:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --host 127.0.0.1 --port 7861
+```
+
+The WSL2 smoke executed on 2026-06-27 produced non-empty `<|det|>` OCR output
+from both exposed profiles. The Gradio endpoint responded at
+`http://127.0.0.1:7861`, and the PDF/overlay smoke rendered 6 pages from
+`dataset/chinese-paper.pdf`, parsed 1 marker box, and generated a preview.
+
 ## Output Layout
 
 ```text

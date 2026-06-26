@@ -1141,3 +1141,102 @@ Conclusion:
   later-token runtime drift: attention/KV behavior, hidden-state divergence,
   numerical differences, or model-runtime implementation differences after the
   first generated token.
+
+## Candidate-Best Client Demo Procedure
+
+This procedure validates the interactive demo under
+`unlimited-ocr-portable/candidate-best-client`. The demo does not use SGLang; it
+invokes the patched native `llama-uocr-parity` binary and streams generated
+stdout into a Gradio UI.
+
+Best default profile:
+
+- `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
+- Reason: 56 / 104 pass, 0 empty rows, average similarity 0.688.
+
+Experimental profile exposed in the UI:
+
+- `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full`
+- Reason: average similarity 0.717, but 5 empty rows, so not the default.
+
+Compile the demo package:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  -m compileall \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  unlimited-ocr-portable/candidate-best-client/uocr_candidate_client
+```
+
+Run a short native smoke for the default profile:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --smoke --image dataset/sc-02.png --max-tokens 64
+```
+
+Recorded WSL2 result on 2026-06-27:
+
+- Exit code: 0.
+- Native elapsed: 2050 ms.
+- Output began with visible OCR markers:
+  `<|det|>header [92, 24, 139, 55]<|/det|>Sci`.
+
+Run a short smoke for the experimental profile:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --smoke --image dataset/sc-02.png \
+  --profile experimental-exact-prefill-q4 \
+  --max-tokens 64
+```
+
+Recorded WSL2 result:
+
+- Exit code: 0.
+- Native elapsed: 2438 ms.
+- Output began with visible OCR markers:
+  `<|det|>header [92, 24, 139, 53]<|/det|>Sci`.
+
+Validate PDF rendering and overlay parsing:
+
+```sh
+PYTHONPATH=unlimited-ocr-portable/candidate-best-client \
+uv run --project unlimited-ocr-portable/candidate-best-client python -c \
+"from pathlib import Path; from uocr_candidate_client.pdf import pdf_to_images; from uocr_candidate_client.parsing import build_preview_image, extract_boxes; pages = pdf_to_images(Path('dataset/chinese-paper.pdf'), dpi=72); text = '<|det|>header [10, 20, 100, 120]<|/det|>'; preview = build_preview_image(pages[0], text); print({'pages': len(pages), 'boxes': len(extract_boxes(text)), 'preview': preview is not None})"
+```
+
+Recorded result:
+
+```text
+{'pages': 6, 'boxes': 1, 'preview': True}
+```
+
+Launch the UI:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --host 127.0.0.1 --port 7861
+```
+
+Verify the endpoint:
+
+```sh
+curl -sSf http://127.0.0.1:7861/ | rg -n "Unlimited-OCR Portable Candidate|gradio"
+```
+
+Recorded result:
+
+- Gradio served `http://127.0.0.1:7861`.
+- The returned config contained the title `Unlimited-OCR Portable Candidate`.
+- The default slider value was 8192 tokens.
+- The queued `run_ocr` endpoint was present.
+
+Windows note:
+
+- The same client can run on Windows after building the patched native
+  `llama-uocr-parity.exe`; set `UOCR_LLAMA_BIN`, `UOCR_MODEL`, and
+  `UOCR_MMPROJ` as documented in `docs/WINDOWS.md`.

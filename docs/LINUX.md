@@ -241,6 +241,39 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-smoke.md
 ```
 
+## Run Candidate-Best Client Demo
+
+The demo under `unlimited-ocr-portable/candidate-best-client` is the current
+interactive candidate UI. It calls the patched native `llama-uocr-parity`
+binary directly and has no SGLang/PyTorch/Transformers dependency.
+
+Short smoke:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --smoke --image dataset/sc-02.png --max-tokens 64
+```
+
+Launch:
+
+```sh
+uv run --project unlimited-ocr-portable/candidate-best-client \
+  unlimited-ocr-portable/candidate-best-client/app.py \
+  --host 127.0.0.1 --port 7861
+```
+
+Open `http://127.0.0.1:7861`.
+
+Default paths:
+
+- `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
+- `thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf`
+- `thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf`
+
+Override with `UOCR_LLAMA_BIN`, `UOCR_MODEL`, and `UOCR_MMPROJ` when testing
+another build or model location.
+
 ## Run llama-server Candidate
 
 The harness can also start `llama-server` and call its native multimodal
