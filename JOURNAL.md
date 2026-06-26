@@ -1106,13 +1106,24 @@ Validation:
   - Status counts: 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low
     similarity, 5 empty.
   - Average similarity: 0.671.
+- Full exact-prefill/no-image-end/SWA128 Q4 matrix:
+  - Summary: `SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md`.
+  - 104 reference rows and 104 candidate rows.
+  - Status counts: 56 pass, 17 low similarity, 14 bbox mismatch, 7 repetition,
+    5 review, 5 empty.
+  - Average similarity: 0.717.
+  - Average candidate latency: 3075 ms.
 
 Decision:
 
 - Exact prefill and first-token top-k parity are achieved for the smoke case,
   but this is not enough for production output parity.
 - Do not promote the exact-prefill/no-image-end setting to the default full-run
-  candidate; it regresses from the current best 56 / 104 passes to 49 / 104.
+  candidate without SWA128; it regresses from the current best 56 / 104 passes
+  to 49 / 104.
+- Treat exact-prefill/no-image-end/SWA128 as an alternate candidate for
+  follow-up. It ties the 56-pass count and improves average similarity, but the
+  5 empty rows prevent calling it parity or production-ready.
 - Higher GGUF precision does not solve the first stepwise divergence in this
   diagnostic. The remaining blocker is now deeper runtime/model numeric parity
   after generation begins, not local-grid composition, tokenizer/template

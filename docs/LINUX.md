@@ -318,6 +318,9 @@ in `../TEST-PROCEDURE.md`.
 - Exact-prefill/no-image-end Q4 is diagnostic only: the full 104-row run
   regressed to 49 automated passes, 5 empty rows, 27 repetition rows, and
   average similarity 0.671.
+- Exact-prefill/no-image-end/SWA128 ties the 56-pass baseline and improves
+  average similarity to 0.717, but still has 5 empty rows and 17
+  low-similarity rows.
 - Generation-step comparison on `sc-02` / `document_parsing` shows Q4 matches
   SGLang through `<|det|>header [` and then diverges on the first bbox
   coordinate (`91` vs `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at

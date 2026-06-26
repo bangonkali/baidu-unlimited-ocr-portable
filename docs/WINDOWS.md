@@ -263,6 +263,9 @@ against the BF16 oracle produced on Linux.
 - Exact-prefill/no-image-end Q4 is not the new production default. It regressed
   on the full WSL2 matrix to 49 / 104 passes, 5 empty rows, 27 repetition rows,
   and average similarity 0.671.
+- Exact-prefill/no-image-end/SWA128 is a useful alternate candidate: it tied
+  the 56 / 104 pass count and improved average similarity to 0.717, but still
+  had 5 empty rows and 17 low-similarity rows.
 - The patched gundam path now combines local crop embeddings into SGLang's
   single local grid and passes the `sc-02` smoke. The five-case target set still
   has repetition failures, so Windows validation should compare against those

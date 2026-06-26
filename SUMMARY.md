@@ -45,6 +45,7 @@ Generated: 2026-06-26T14:29:07+00:00
 - `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-target.md`
 - `SUMMARY-uocr-parity-bf16-grid-allprofiles.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`
+- `SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-noimgend-target.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-swa128-target.md`
 - `SUMMARY-uocr-parity-q4-eos-origin-ngram-default-target.md`
@@ -122,6 +123,10 @@ Generated: 2026-06-26T14:29:07+00:00
 - The full 104-row exact-prefill/no-image-end run regressed relative to the
   current best baseline: 49 pass / 104, 5 empty rows, 27 repetition rows, and
   average similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
+- The full 104-row exact-prefill/no-image-end/SWA128 run ties the current
+  56-pass baseline and improves average similarity to 0.717, but introduces
+  5 empty rows and 17 low-similarity rows. It is a useful alternate candidate
+  for follow-up, not production parity.
 
 ## Generation-Step Parity Finding
 

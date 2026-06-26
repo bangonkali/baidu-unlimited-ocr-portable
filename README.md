@@ -68,6 +68,7 @@ Follow-up targeted strategy summaries:
 - `SUMMARY-runtime-parity-noimgend-noeos-smoke.md`
 - `SUMMARY-parity-artifacts-native-onetok.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`
+- `SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-target.md`
 - `SUMMARY-parity-artifacts-smoke.md`
 - `SUMMARY-parity-artifacts-noimgend-smoke.md`
@@ -214,13 +215,15 @@ tokens, then diverges on the first bbox coordinate: SGLang selects token `6207`
 not change this first divergence. Q5_K_M, Q6_K, and BF16 diverge earlier at
 step 1 by ranking `aside` over SGLang's `header`.
 
-The full exact-prefill/no-image-end Q4 run is worse than the current best full
-baseline: 49 / 104 passes, 5 empty rows, 27 repetition rows, and average
-similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`. Keep
-`llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` as the
-current best candidate.
+The full exact-prefill/no-image-end Q4 run without SWA128 is worse than the
+current best full baseline: 49 / 104 passes, 5 empty rows, 27 repetition rows,
+and average similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
+The exact-prefill/no-image-end/SWA128 variant ties the 56 / 104 pass count and
+raises average similarity to 0.717, but still has 5 empty rows and 17
+low-similarity rows. It is an alternate candidate for follow-up, not production
+parity.
 
-The current best full candidate is:
+The current zero-empty full baseline is:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \

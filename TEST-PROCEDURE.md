@@ -756,6 +756,7 @@ Full 104-row results:
 | `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` | 104 | 56 pass, 17 repetition, 14 low similarity, 14 bbox mismatch, 3 review | 0.688 | 3809 | Current best candidate, still not production-ready. |
 | `llamacpp-bf16-uocr-parity-eos-origin-ngram-default-full` | 104 | 54 pass, 27 repetition, 9 low similarity, 6 bbox mismatch, 6 review, 2 malformed-marker rows | 0.649 | 9743 | BF16 did not beat Q4 full-run quality. |
 | `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full` | 104 | 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low similarity, 5 empty | 0.671 | 4719 | Exact prefill/no-image-end regressed on the full matrix; keep it diagnostic. |
+| `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` | 104 | 56 pass, 17 low similarity, 14 bbox mismatch, 7 repetition, 5 review, 5 empty | 0.717 | 3075 | Ties pass count and improves average similarity, but introduces empty rows. |
 
 Packaging implication:
 
@@ -1018,7 +1019,7 @@ Recorded generation-step result for `sc-02-45a8efac` / `document_parsing`:
 | BF16 GGUF exact prefill | 1 | 1 | SGLang `header` vs BF16 `aside` | 0.061 | BF16 GGUF does not close runtime parity. |
 
 Run the exact-prefill/no-image-end full Q4 matrix only after the target-set
-smoke, because it is slower and ultimately regressed:
+smoke, because it is slower and the no-SWA variant regressed:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
@@ -1045,8 +1046,41 @@ Recorded full exact-prefill result:
 - Status counts: 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low
   similarity, 5 empty.
 - Average similarity: 0.671.
-- Decision: do not promote this over
-  `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`.
+- Decision: do not promote this no-SWA exact-prefill variant.
+
+Run the exact-prefill/no-image-end/SWA128 full matrix as a separate candidate:
+
+```sh
+uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
+  --binary thirdparty/llama.cpp/build/bin/llama-uocr-parity \
+  --profiles grounding,plain_text,ocr_boxes,document_parsing \
+  --max-tokens 8192 \
+  --ctx-size 32768 \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full \
+  --deepseek-ocr-mode gundam \
+  --media-placement prefix-tight \
+  --deepseek-ocr-no-repeat-ngram \
+  --deepseek-ocr-prefill-aware-swa \
+  --deepseek-ocr-decode-window 128 \
+  --deepseek-ocr-no-image-end
+
+uv run --project unlimited-ocr-portable uocr-harness compare \
+  --profiles grounding,plain_text,ocr_boxes,document_parsing \
+  --reference-engine sglang \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full \
+  --summary unlimited-ocr-portable/SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md
+```
+
+Recorded full exact-prefill/SWA128 result:
+
+- 104 candidate rows and 104 reference rows were present.
+- Status counts: 56 pass, 17 low similarity, 14 bbox mismatch, 7 repetition,
+  5 review, 5 empty.
+- Average similarity: 0.717.
+- Average candidate latency: 3075 ms.
+- Decision: useful alternate candidate because it reduces repetition and
+  improves average similarity, but not production parity because it still has
+  empty outputs and low-similarity rows.
 
 Conclusion:
 
@@ -1056,7 +1090,9 @@ Conclusion:
   exact prefill.
 - Generation-step parity diverges immediately after the first stable OCR prefix
   on Q4 and even earlier for Q5_K_M, Q6_K, and BF16 GGUF.
-- Exact prefill/no-image-end regresses on the full 104-row matrix.
+- Exact prefill/no-image-end without SWA regresses on the full 104-row matrix.
+- Exact prefill/no-image-end/SWA128 ties the current 56-pass count and improves
+  average similarity, but it still has 5 empty rows.
 - Multi-token output parity is still not achieved. The remaining likely gap is
   later-token runtime drift: attention/KV behavior, hidden-state divergence,
   numerical differences, or model-runtime implementation differences after the
