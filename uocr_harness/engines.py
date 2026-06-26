@@ -57,6 +57,7 @@ def run_llamacpp(
     deepseek_ocr_min_new_tokens: int,
     debug_artifacts: bool,
     debug_top_k: int,
+    debug_output_embeddings: bool,
 ) -> list[Path]:
     rows = _filter_rows(read_jsonl(manifest_path), limit=limit, case_id=case_id)
     quantization = quantization or _quantization_from_model(model)
@@ -141,6 +142,8 @@ def run_llamacpp(
                     ensure_dir(debug_artifact_path.parent)
                     env["LLAMA_UOCR_PARITY_DUMP"] = str(debug_artifact_path)
                     env["LLAMA_UOCR_PARITY_TOPK"] = str(debug_top_k)
+                    if debug_output_embeddings:
+                        env["LLAMA_UOCR_PARITY_OUTPUT_EMBEDDINGS"] = "1"
                 proc = subprocess.run(
                     argv,
                     capture_output=True,
@@ -199,6 +202,7 @@ def run_llamacpp(
                         "deepseek_ocr_no_image_end": deepseek_ocr_no_image_end,
                         "deepseek_ocr_min_new_tokens": deepseek_ocr_min_new_tokens,
                         "debug_artifact_path": str(debug_artifact_path) if debug_artifact_path else None,
+                        "debug_output_embeddings": debug_output_embeddings,
                         "preprocessing": preprocessing,
                     },
                 ),

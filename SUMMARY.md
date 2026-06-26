@@ -36,6 +36,7 @@ Generated: 2026-06-26T14:29:07+00:00
 - `SUMMARY-generation-steps-q6-noimgend-noeos-64tok.md`
 - `SUMMARY-image-tokens-smoke.md`
 - `SUMMARY-llamacpp-server-q4.md`
+- `SUMMARY-parity-artifacts-output-embeddings-onetok.md`
 - `SUMMARY-q4-prompts-sc02-document.md`
 - `SUMMARY-q4-prompts.md`
 - `SUMMARY-q4-rp105.md`
@@ -86,7 +87,7 @@ Generated: 2026-06-26T14:29:07+00:00
 
 ## Latest Parity Artifact Finding
 
-- Local branch `uocr-deepseek-ocr-parity` now includes commit `48f8954` and the
+- Local branch `uocr-deepseek-ocr-parity` now includes commit `7b0ec28` and the
   `llama-uocr-parity` native debug runner.
 - On `sc-02-45a8efac` / `document_parsing`, SGLang's first API-visible token is
   `<|det|>`. llama.cpp emits raw newline token `201` first, then the same
@@ -114,6 +115,12 @@ Generated: 2026-06-26T14:29:07+00:00
   align on first token `<|det|>` with first-output top-k overlap 1.000.
 - Hidden-state return plumbing was validated in an isolated `/tmp` results run:
   SGLang returned summarized hidden states with shape `[1, 1517, 1280]`.
+- llama.cpp output-embedding summaries were added to the native artifact path
+  via `LLAMA_UOCR_PARITY_OUTPUT_EMBEDDINGS=1` /
+  `--debug-output-embeddings`. The one-token smoke captured a 1280-wide
+  prefill-last output embedding and one generated-token embedding, while the
+  paired SGLang native artifact exposed hidden-state shape `[1, 1517, 1280]`.
+  See `SUMMARY-parity-artifacts-output-embeddings-onetok.md`.
 - Exact prefill is not enough for output parity: the 20-row target run
   `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` reached 10 pass / 20,
   4 repetition rows, 6 low-similarity rows, and average similarity 0.512.

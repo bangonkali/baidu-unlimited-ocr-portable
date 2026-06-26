@@ -67,6 +67,7 @@ run intentionally updates it:
 
 ```text
 thirdparty/llama.cpp branch: uocr-deepseek-ocr-parity
+7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
 3ebff83 mtmd: add Unlimited-OCR gundam grid parity
@@ -105,6 +106,8 @@ Runtime parity artifacts are also available from the portable harness:
   native `LLAMA_UOCR_PARITY_DUMP` artifacts.
 - `compare-generation-artifacts` compares native SGLang generated token IDs and
   top-k lists against llama.cpp generation-step artifacts.
+- `run-llamacpp --debug-output-embeddings` records opt-in llama.cpp output
+  embedding summaries in the native parity artifact.
 
 Use the repo `.venv` for SGLang processor/native artifact commands:
 
@@ -325,6 +328,9 @@ in `../TEST-PROCEDURE.md`.
   SGLang through `<|det|>header [` and then diverges on the first bbox
   coordinate (`91` vs `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at
   `header` vs `aside`.
+- Output-embedding smoke on `sc-02` / `document_parsing` captured SGLang hidden
+  shape `[1, 1517, 1280]` and llama.cpp prefill/generation output embeddings
+  with width 1280.
 - llama.cpp may warn that CUDA flash attention is unsupported for this graph.
 - llama.cpp may warn that some CLIP permute operators are not CUDA-backed.
 - These warnings do not block correctness validation, but they do mean

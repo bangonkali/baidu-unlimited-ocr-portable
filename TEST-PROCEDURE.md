@@ -29,6 +29,7 @@ Current custom llama.cpp branch:
 
 ```text
 thirdparty/llama.cpp branch: uocr-deepseek-ocr-parity
+7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
 3ebff83 mtmd: add Unlimited-OCR gundam grid parity
@@ -94,7 +95,7 @@ Local environment used for the recorded run:
 - Custom SGLang wheel:
   `unlimited-ocr/wheel/sglang-0.0.0.dev11416+g92e8bb79e-py3-none-any.whl`.
 - llama.cpp checkout: `thirdparty/llama.cpp`, tested branch
-  `uocr-deepseek-ocr-parity`, current commit `48f8954`.
+  `uocr-deepseek-ocr-parity`, current commit `7b0ec28`.
 - llama.cpp binaries:
   `thirdparty/llama.cpp/build/bin/llama-mtmd-cli`,
   `thirdparty/llama.cpp/build/bin/llama-uocr-parity`, and
@@ -546,7 +547,8 @@ Strategy summaries:
 | Exact DeepSeek-OCR gundam target set | `SUMMARY-deepseekocr-gundam-exact-target-doc.md` | Best target-set result so far: 3 pass, 2 repetition. |
 | Exact DeepSeek-OCR gundam target set + repeat penalty | `SUMMARY-deepseekocr-gundam-exact-rp105-target-doc.md` | Worse than no repeat penalty: 2 pass, 3 repetition. |
 | Exact DeepSeek-OCR gundam full run | `SUMMARY-deepseekocr-gundam-exact-full.md` | Historical exact-grid-only run: improved baseline to 8 pass, but still had 36 empty rows. |
-| Q4 forced-EOS + SGLang no-repeat + SWA128 full run | `SUMMARY.md` | Best current full run: 56 pass, 0 empty, 17 repetition, average similarity 0.688. |
+| Q4 forced-EOS + SGLang no-repeat + SWA128 full run | `SUMMARY.md` | Best zero-empty full run: 56 pass, 0 empty, 17 repetition, average similarity 0.688. |
+| Output embedding artifact smoke | `SUMMARY-parity-artifacts-output-embeddings-onetok.md` | SGLang hidden-state summary and llama.cpp output-embedding summaries are both present on the one-token exact-prefill smoke. |
 | BF16 forced-EOS + SGLang no-repeat full run | `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md` | Quality ceiling check did not beat Q4: 54 pass, 27 repetition, average similarity 0.649. |
 | Parity artifact smoke | `SUMMARY-parity-artifacts-smoke.md` | SGLang visible first token is `<|det|>`; llama.cpp raw first token is newline then `<|det|>`. |
 | Parity artifact no-image-end smoke | `SUMMARY-parity-artifacts-noimgend-smoke.md` | No-image-end moves `<|det|>` into top-k but still emits newline first and was worse on the target set. |
@@ -924,6 +926,48 @@ Recorded hidden-state result:
 - Prompt tokens: 1517.
 - Completion tokens: 1.
 - Summarized hidden-state shape: `[1, 1517, 1280]`.
+
+Capture a matching llama.cpp one-token artifact with output-embedding summaries
+enabled. This uses the patched `llama-uocr-parity` binary at commit `7b0ec28`
+and writes into the same isolated results directory:
+
+```sh
+uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
+  --binary thirdparty/llama.cpp/build/bin/llama-uocr-parity \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-output-embeddings-onetok \
+  --deepseek-ocr-mode gundam \
+  --media-placement prefix-tight \
+  --deepseek-ocr-no-repeat-ngram \
+  --deepseek-ocr-no-image-end \
+  --debug-artifacts \
+  --debug-output-embeddings \
+  --debug-top-k 8 \
+  --max-tokens 1 \
+  --results /tmp/uocr-hidden-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --force
+
+uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
+  --results /tmp/uocr-hidden-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --reference-engine sglang-native \
+  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-output-embeddings-onetok \
+  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-output-embeddings-onetok.md
+```
+
+Recorded output-embedding result:
+
+- Native llama.cpp version: `5 (7b0ec28)`.
+- Candidate prefill: 1517 tokens, matching the SGLang prompt token count.
+- Candidate output embedding summaries: 2 rows.
+- Candidate prefill-last output embedding width: 1280.
+- Candidate generated-token output embedding count: 1.
+- First-token visible/logit parity still holds: `<|det|>` and top-k overlap
+  1.000.
 
 Run the exact-prefill target set:
 

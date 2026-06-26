@@ -196,6 +196,13 @@ def _compare_one(
         "candidate_media_tokens": cand_view.get("media_token_count", ""),
         "reference_output_tokens": _output_token_count(ref_view),
         "candidate_output_tokens": _output_token_count(cand_view),
+        "reference_hidden_shape": ref_view.get("hidden_shape", ""),
+        "reference_hidden_count": ref_view.get("hidden_count", ""),
+        "reference_hidden_mean": ref_view.get("hidden_mean", ""),
+        "candidate_output_embedding_count": cand_view.get("output_embedding_count", ""),
+        "candidate_prefill_output_embedding_n_embd": cand_view.get("prefill_output_embedding_n_embd", ""),
+        "candidate_prefill_output_embedding_mean": cand_view.get("prefill_output_embedding_mean", ""),
+        "candidate_generation_output_embedding_count": cand_view.get("generation_output_embedding_count", ""),
         "reference_first_token": _first_display_token(ref_view),
         "candidate_first_token": _first_display_token(cand_view),
         "reference_first_visible_token": ref_first_visible,
@@ -400,6 +407,7 @@ def _sglang_view(artifact: dict[str, Any] | None) -> dict[str, Any]:
         "output_tokens": output_tokens,
         "first_output_top_token_ids": first_output_top,
         "first_output_top_tokens": first_output_top_tokens,
+        **_sglang_hidden_summary(meta.get("hidden_states")),
         "finish_reason": finish_reason.get("type") if isinstance(finish_reason, dict) else finish_reason or "",
     }
 
@@ -428,6 +436,7 @@ def _llamacpp_view(artifact: dict[str, Any] | None) -> dict[str, Any]:
         for item in prefill_items
         if isinstance(item.get("piece"), str)
     ]
+    output_embedding_summary = _llamacpp_output_embedding_summary(artifact.get("output_embeddings"))
     return {
         "exists": True,
         "prefill_n_past": artifact.get("prefill_n_past", ""),
@@ -439,8 +448,51 @@ def _llamacpp_view(artifact: dict[str, Any] | None) -> dict[str, Any]:
         "first_output_top_tokens": first_output_top_tokens,
         "prefill_top_token_ids": prefill_top,
         "prefill_top_tokens": prefill_top_tokens,
+        **output_embedding_summary,
         "stop_reason": artifact.get("stop_reason", ""),
     }
+
+
+def _sglang_hidden_summary(hidden_states: Any) -> dict[str, Any]:
+    if not isinstance(hidden_states, dict):
+        return {}
+    return {
+        "hidden_shape": hidden_states.get("shape", ""),
+        "hidden_count": hidden_states.get("count", ""),
+        "hidden_mean": hidden_states.get("mean", ""),
+        "hidden_abs_sum": hidden_states.get("abs_sum", ""),
+    }
+
+
+def _llamacpp_output_embedding_summary(output_embeddings: Any) -> dict[str, Any]:
+    if not isinstance(output_embeddings, list):
+        return {}
+    prefill = next(
+        (item for item in output_embeddings if isinstance(item, dict) and item.get("phase") == "prefill_last"),
+        {},
+    )
+    generation = [
+        item
+        for item in output_embeddings
+        if isinstance(item, dict) and item.get("phase") == "generation"
+    ]
+    return {
+        "output_embedding_count": len(output_embeddings),
+        "prefill_output_embedding_n_embd": prefill.get("n_embd", "") if isinstance(prefill, dict) else "",
+        "prefill_output_embedding_mean": _embedding_mean(prefill),
+        "prefill_output_embedding_abs_sum": prefill.get("abs_sum", "") if isinstance(prefill, dict) else "",
+        "generation_output_embedding_count": len(generation),
+    }
+
+
+def _embedding_mean(item: Any) -> float | str:
+    if not isinstance(item, dict):
+        return ""
+    total = item.get("sum")
+    n_embd = item.get("n_embd")
+    if isinstance(total, (int, float)) and isinstance(n_embd, int) and n_embd > 0:
+        return float(total) / n_embd
+    return ""
 
 
 def _sglang_generation_steps(artifact: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -817,7 +869,7 @@ def _write_summary(
             "",
             "## Finding",
             "",
-            _finding(counts),
+            _finding(counts, metrics),
             "",
             "## Review Queue",
             "",
@@ -981,7 +1033,7 @@ def _reference_endpoint_note(reference_engine: str) -> str:
     return "/generate" if reference_engine == "sglang-native" else "/v1/chat/completions"
 
 
-def _finding(counts: dict[str, int]) -> str:
+def _finding(counts: dict[str, int], metrics: list[dict[str, Any]]) -> str:
     if not counts:
         return "- No artifact comparisons were available."
     if counts.get("candidate_leading_whitespace_token"):
@@ -991,6 +1043,8 @@ def _finding(counts: dict[str, int]) -> str:
     if counts.get("reference_no_output_token_ids"):
         return "- SGLang did not expose output token IDs through the debug request; deeper SGLang instrumentation is needed."
     if counts.get("api_visible_tokens_aligned") == sum(counts.values()):
+        if any(m.get("reference_hidden_shape") and m.get("candidate_output_embedding_count") for m in metrics):
+            return "- API-visible output tokens align and hidden/output-embedding summaries are present for this set; remaining drift is beyond the first-token visible/logit/embedding smoke."
         return "- API-visible output tokens align for this set; move deeper to image embeddings, attention/SWA, or hidden-state instrumentation."
     return "- Artifact rows show mixed results; inspect the review queue before patching model/runtime code."
 

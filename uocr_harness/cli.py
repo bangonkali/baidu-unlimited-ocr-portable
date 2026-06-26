@@ -84,6 +84,11 @@ def main() -> None:
     llama.add_argument("--deepseek-ocr-min-new-tokens", type=int, default=0)
     llama.add_argument("--debug-artifacts", action="store_true", help="Write native llama.cpp parity artifacts")
     llama.add_argument("--debug-top-k", type=int, default=8, help="Top raw logits to store per generation step")
+    llama.add_argument(
+        "--debug-output-embeddings",
+        action="store_true",
+        help="Include llama.cpp output embedding summaries in native parity artifacts",
+    )
 
     llama_server = sub.add_parser("run-llamacpp-server", help="Run llama-server candidate over manifest cases")
     _add_common_paths(llama_server)
@@ -247,6 +252,7 @@ def main() -> None:
             deepseek_ocr_min_new_tokens=args.deepseek_ocr_min_new_tokens,
             debug_artifacts=args.debug_artifacts,
             debug_top_k=args.debug_top_k,
+            debug_output_embeddings=args.debug_output_embeddings,
         )
         print(f"Wrote {len(paths)} llama.cpp result files")
     elif args.command == "run-llamacpp-server":

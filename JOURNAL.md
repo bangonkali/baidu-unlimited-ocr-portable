@@ -921,7 +921,8 @@ Question:
 Local branch:
 
 - `thirdparty/llama.cpp` branch: `uocr-deepseek-ocr-parity`.
-- New local commit: `48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner`.
+- New local commit at that point:
+  `48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner`.
 - Prior local commits retained:
   - `8fbbd5b mtmd-cli: add OCR sampling parity controls`.
   - `3ebff83 mtmd: add Unlimited-OCR gundam grid parity`.
@@ -1129,3 +1130,59 @@ Decision:
   after generation begins, not local-grid composition, tokenizer/template
   layout, image-boundary tokens, first-token logits, or the tested SWA/no-repeat
   switches.
+
+## 2026-06-27 Native Output-Embedding Instrumentation
+
+Objective:
+
+- Close the remaining hidden-state/logit instrumentation gap from `prompts.md`
+  by adding the closest stable llama.cpp C API equivalent to SGLang hidden-state
+  return: final output embedding summaries from `llama_get_embeddings_ith()`.
+
+Implementation:
+
+- Added local llama.cpp commit:
+  `7b0ec28 mtmd-cli: dump OCR output embedding summaries`.
+- Added opt-in native artifact field `output_embeddings`.
+- The native runner enables output embeddings only when
+  `LLAMA_UOCR_PARITY_OUTPUT_EMBEDDINGS=1` is set.
+- Added harness flag:
+  `run-llamacpp --debug-output-embeddings`.
+- Extended `compare-artifacts` metrics CSV with:
+  - `reference_hidden_shape`
+  - `reference_hidden_count`
+  - `reference_hidden_mean`
+  - `candidate_output_embedding_count`
+  - `candidate_prefill_output_embedding_n_embd`
+  - `candidate_prefill_output_embedding_mean`
+  - `candidate_generation_output_embedding_count`
+
+Validation:
+
+- Rebuilt `llama-uocr-parity`, `llama-mtmd-cli`, and `llama-server`.
+- All three binaries report `version: 5 (7b0ec28)`.
+- Harness compile passed with:
+  `uv run --project unlimited-ocr-portable -m compileall
+  unlimited-ocr-portable/uocr_harness`.
+- Ran one-token exact-prefill candidate in `/tmp/uocr-hidden-results`:
+  `llamacpp-q4_k_m-uocr-parity-debug-output-embeddings-onetok`.
+- Summary:
+  `SUMMARY-parity-artifacts-output-embeddings-onetok.md`.
+- Result:
+  - SGLang hidden-state summary shape: `[1, 1517, 1280]`.
+  - Candidate prefill length: 1517.
+  - Candidate output embedding summaries: 2.
+  - Candidate prefill-last output embedding width: 1280.
+  - Candidate generated-token output embedding count: 1.
+  - First-token top-k overlap remains 1.000.
+
+Decision:
+
+- Hidden/logit/template/SWA/server-side instrumentation requested by
+  `prompts.md` is now represented by concrete artifacts:
+  SGLang processor artifacts, native SGLang logprob and hidden-state artifacts,
+  llama.cpp logits/generation-step artifacts, and llama.cpp output-embedding
+  artifacts.
+- This still does not make OCR output parity true. The first unresolved
+  behavioral divergence remains the later generation-step rank flip documented
+  in the generation-step summaries.

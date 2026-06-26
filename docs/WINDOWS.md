@@ -68,6 +68,7 @@ Build from the same custom llama.cpp branch validated on Linux:
 
 ```text
 uocr-deepseek-ocr-parity
+7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
 3ebff83 mtmd: add Unlimited-OCR gundam grid parity
@@ -200,6 +201,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --deepseek-ocr-decode-window 128 `
   --deepseek-ocr-no-image-end `
   --debug-artifacts `
+  --debug-output-embeddings `
   --max-tokens 1 `
   --force
 ```
@@ -277,6 +279,9 @@ against the BF16 oracle produced on Linux.
   `<|det|>header [` and then diverges at the first bbox coordinate (`91` vs
   `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at `header` vs `aside`, so
   Windows validation should not assume a higher GGUF fixes parity.
+- WSL2 output-embedding smoke captured SGLang hidden shape `[1, 1517, 1280]`
+  and llama.cpp prefill/generation output embeddings with width 1280. Use
+  `--debug-output-embeddings` when reproducing that native artifact on Windows.
 - The current 104-row WSL2 Q4 run has no empty outputs but still fails on
   repetition, low-similarity, and bbox-count drift. Windows should reproduce
   this patched full-run behavior before packaging work continues.

@@ -67,6 +67,7 @@ Follow-up targeted strategy summaries:
 - `SUMMARY-generation-steps-bf16-noimgend-noeos-64tok.md`
 - `SUMMARY-runtime-parity-noimgend-noeos-smoke.md`
 - `SUMMARY-parity-artifacts-native-onetok.md`
+- `SUMMARY-parity-artifacts-output-embeddings-onetok.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md`
 - `SUMMARY-uocr-parity-q4-noimgend-noeos-target.md`
@@ -189,11 +190,14 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
 The one-token native artifact comparison aligns first token `<|det|>` and
 first-output top-k overlap 1.000. Hidden-state return was also validated in an
 isolated `/tmp` run; SGLang returned summarized hidden states with shape
-`[1, 1517, 1280]`. The restored-reference 20-row exact-prefill target run
-reaches 10 pass / 20 with average similarity 0.512, a slight target-set
-improvement over the prior Q4 target setting. It is still not production-ready,
-so the remaining blocker is later-token runtime drift rather than prompt token
-layout.
+`[1, 1517, 1280]`. The patched native runner can now also write llama.cpp
+output-embedding summaries with `--debug-output-embeddings`; the one-token
+smoke captured a 1280-wide prefill-last embedding and one generated-token
+embedding in `SUMMARY-parity-artifacts-output-embeddings-onetok.md`. The
+restored-reference 20-row exact-prefill target run reaches 10 pass / 20 with
+average similarity 0.512, a slight target-set improvement over the prior Q4
+target setting. It is still not production-ready, so the remaining blocker is
+later-token runtime drift rather than prompt token layout.
 
 Generation-step artifact comparison is now available for native SGLang
 `/generate` artifacts and llama.cpp `LLAMA_UOCR_PARITY_DUMP` artifacts:
