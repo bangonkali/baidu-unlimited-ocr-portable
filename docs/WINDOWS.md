@@ -12,19 +12,106 @@ Windows without SGLang. It uses:
 The current default candidate is:
 
 ```text
-llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full
+llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full
 ```
 
-It is the best user-facing demo default because the WSL2 full run produced
-56 / 104 passes, 0 empty outputs, 17 repetition rows, and average similarity
-0.688. It is not production parity with SGLang.
+It is the practical user-facing Q4 demo default because the current R-SWA WSL2
+full run produced 54 / 104 passes, 0 empty outputs, 19 repetition rows, and
+average similarity 0.678. BF16 with R-SWA is the current best pass-count result
+at 61 / 104 passes, but it is slower, heavier, and still not production parity
+with SGLang.
+
+## Scripted Quick Start
+
+Start from **Visual Studio 2026 Developer PowerShell v18.8.0-insiders** with
+CUDA available. The expected Windows CUDA target for the next validation pass is
+CUDA 13.3, where `nvcc --version` includes:
+
+```text
+cuda_13.3.r13.3/compiler.37862127_0
+```
+
+Create the workspace, clone the two project repos, download the default Q4_K_M
+GGUF model plus mmproj, build `llama-uocr-parity.exe`, and write runtime
+environment variables:
+
+```powershell
+mkdir C:\uocr
+cd C:\uocr
+
+git clone git@github.com:bangonkali/baidu-unlimited-ocr-portable.git `
+  unlimited-ocr-portable
+
+.\unlimited-ocr-portable\scripts\windows\setup-build.ps1 `
+  -Workspace C:\uocr
+```
+
+To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
+
+```powershell
+.\unlimited-ocr-portable\scripts\windows\setup-build.ps1 `
+  -Workspace C:\uocr `
+  -IncludeDiagnostics
+```
+
+The setup script checks:
+
+- `git`
+- `cmake`
+- `uv`
+- `hf`
+- `nvcc`
+- `nvidia-smi`
+- Hugging Face authorization via `hf auth whoami`
+- built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
+- required GGUF files under `C:\uocr\thirdparty\uocr-gguf`
+
+The script writes:
+
+```text
+C:\uocr\uocr-runtime-env.ps1
+```
+
+Run a smoke test after copying a test image into `C:\uocr\dataset`:
+
+```powershell
+.\unlimited-ocr-portable\scripts\windows\run-demo.ps1 `
+  -Workspace C:\uocr `
+  -Smoke `
+  -Image C:\uocr\dataset\sc-02.png `
+  -MaxTokens 64
+```
+
+Launch the Gradio demo:
+
+```powershell
+.\unlimited-ocr-portable\scripts\windows\run-demo.ps1 `
+  -Workspace C:\uocr `
+  -HostName 127.0.0.1 `
+  -Port 7861
+```
+
+Open:
+
+```text
+http://127.0.0.1:7861
+```
+
+If PowerShell blocks local scripts:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+The rest of this document is the manual setup path and validation notes.
 
 ## 1. Install Prerequisites
 
 Install these on Windows:
 
 - Git for Windows.
-- Visual Studio 2022 Build Tools with the C++ workload.
+- Visual Studio 2026 Developer PowerShell v18.8.0-insiders, or compatible
+  Visual Studio C++ build tools.
 - CMake.
 - NVIDIA driver and CUDA Toolkit.
 - `uv`.
@@ -49,7 +136,7 @@ available:
 uv tool install "huggingface-hub[cli]"
 ```
 
-Verify from a fresh Developer PowerShell for VS 2022:
+Verify from a fresh Visual Studio 2026 Developer PowerShell:
 
 ```powershell
 git --version
@@ -161,22 +248,20 @@ Expected approximate sizes:
 
 ## 4. Build Patched llama.cpp With CUDA
 
-Run from a Developer PowerShell for VS 2022:
+Run from Visual Studio 2026 Developer PowerShell:
 
 ```powershell
 cd C:\uocr
 
 cmake -B thirdparty\llama.cpp\build `
   -S thirdparty\llama.cpp `
-  -G "Visual Studio 17 2022" `
-  -A x64 `
   -DGGML_CUDA=ON `
   -DCMAKE_BUILD_TYPE=Release
 
 cmake --build thirdparty\llama.cpp\build `
   --config Release `
   --target llama-mtmd-cli llama-uocr-parity llama-server `
-  -j
+  --parallel
 ```
 
 Confirm the binaries:
@@ -198,6 +283,7 @@ patches:
 
 ```text
 uocr-deepseek-ocr-parity
+f3e5dcccf deepseek2-ocr: add Unlimited-OCR R-SWA parity
 7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
@@ -206,7 +292,8 @@ uocr-deepseek-ocr-parity
 
 Stock upstream llama.cpp after PR #17400 can load DeepSeek-OCR-family GGUFs,
 but it does not include the validated Unlimited-OCR gundam grid/no-repeat/SWA
-debug behavior from this custom branch.
+debug behavior from this custom branch. The branch also factors in PR #24975
+style reference-SWA masking for DeepSeek-OCR/Unlimited-OCR.
 
 ## 5. Set Runtime Paths
 
@@ -277,12 +364,12 @@ Remove-Item Env:\LLAMA_DEEPSEEK_OCR_NO_IMAGE_END -ErrorAction SilentlyContinue
 
 Expected result: non-empty OCR output, usually with visible `<|det|>` markers.
 
-## 8. Run The Candidate-Best Client Demo
+## 8. Run The Portable Client Demo
 
 The Gradio demo lives in:
 
 ```text
-unlimited-ocr-portable\candidate-best-client
+unlimited-ocr-portable\src\baidu_unlimited_ocr_portable
 ```
 
 Run a short smoke through the Python wrapper:
@@ -290,16 +377,14 @@ Run a short smoke through the Python wrapper:
 ```powershell
 cd C:\uocr
 
-uv run --project unlimited-ocr-portable\candidate-best-client `
-  unlimited-ocr-portable\candidate-best-client\app.py `
+uv run --project unlimited-ocr-portable baidu-uocr-client `
   --smoke --image dataset\sc-02.png --max-tokens 64
 ```
 
 Launch the UI:
 
 ```powershell
-uv run --project unlimited-ocr-portable\candidate-best-client `
-  unlimited-ocr-portable\candidate-best-client\app.py `
+uv run --project unlimited-ocr-portable baidu-uocr-client `
   --host 127.0.0.1 --port 7861
 ```
 
@@ -314,8 +399,8 @@ The UI supports:
 - Image upload.
 - PDF upload and page selection.
 - Prompt profile selection.
-- Default zero-empty Q4 profile.
-- Experimental exact-prefill/no-image-end/SWA128 profile.
+- Practical zero-empty Q4 R-SWA profile.
+- Experimental exact-prefill/no-image-end R-SWA profile.
 - Streaming OCR text from the native subprocess.
 - Parsed bounding-box preview when `<|det|>` / `<|ref|>` markers are present.
 
@@ -346,7 +431,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --profiles document_parsing `
   --max-tokens 64 `
   --ctx-size 32768 `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-windows-smoke `
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-windows-smoke `
   --deepseek-ocr-mode gundam `
   --deepseek-ocr-force-prompt-eos `
   --media-placement prefix-tight `
@@ -356,7 +441,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --force
 ```
 
-Current best full candidate profile:
+Current practical Q4 full candidate profile:
 
 ```powershell
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
@@ -364,7 +449,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --model $env:UOCR_MODEL `
   --mmproj $env:UOCR_MMPROJ `
   --profiles grounding,plain_text,ocr_boxes,document_parsing `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-windows `
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-windows `
   --max-tokens 8192 `
   --ctx-size 32768 `
   --deepseek-ocr-mode gundam `
@@ -436,7 +521,7 @@ Copy these from WSL2 if needed:
 - `unlimited-ocr-portable/results/reference/sglang/`
 - `unlimited-ocr-portable/results/artifacts/reference/sglang-processor/`
 - `unlimited-ocr-portable/results/artifacts/reference/sglang-native/`
-- Optional generation-step summaries such as
+- Optional generation-step summaries under `analysis\summaries\`, such as
   `SUMMARY-generation-steps-noimgend-noeos-64tok.md` for native token-trace
   comparison.
 
@@ -450,7 +535,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-windows `
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-windows `
   --model $env:UOCR_MODEL `
   --mmproj $env:UOCR_MMPROJ `
   --deepseek-ocr-mode gundam `
@@ -469,8 +554,8 @@ After copying WSL2 reference artifacts, compare:
 uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-windows `
-  --summary unlimited-ocr-portable\SUMMARY-parity-artifacts-windows.md
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-windows `
+  --summary unlimited-ocr-portable\analysis\summaries\SUMMARY-parity-artifacts-windows.md
 ```
 
 ## Generation-Step Comparison
@@ -483,8 +568,8 @@ uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifact
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
   --reference-engine sglang-native `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-windows `
-  --summary unlimited-ocr-portable\SUMMARY-generation-steps-windows.md
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-noimgend-noeos-windows `
+  --summary unlimited-ocr-portable\analysis\summaries\SUMMARY-generation-steps-windows.md
 ```
 
 ## Exact-Prefill Diagnostic Artifact
@@ -496,7 +581,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-windows `
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-noimgend-noeos-windows `
   --model $env:UOCR_MODEL `
   --mmproj $env:UOCR_MMPROJ `
   --deepseek-ocr-mode gundam `
@@ -517,15 +602,15 @@ After copying WSL2 `sglang-processor` and `sglang-native` artifacts:
 uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-windows `
-  --summary unlimited-ocr-portable\SUMMARY-runtime-parity-windows.md
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-noimgend-noeos-windows `
+  --summary unlimited-ocr-portable\analysis\summaries\SUMMARY-runtime-parity-windows.md
 
 uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
   --reference-engine sglang-native `
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-windows `
-  --summary unlimited-ocr-portable\SUMMARY-parity-artifacts-native-windows.md
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-noimgend-noeos-windows `
+  --summary unlimited-ocr-portable\analysis\summaries\SUMMARY-parity-artifacts-native-windows.md
 ```
 
 The Linux run showed exact prefill and first-token top-k parity for this mode,
@@ -543,23 +628,27 @@ uv run --project unlimited-ocr-portable uocr-harness compare
 The comparator writes:
 
 - `unlimited-ocr-portable\results\compare\metrics.csv`
-- `unlimited-ocr-portable\SUMMARY.md`
+- `unlimited-ocr-portable\analysis\summaries\SUMMARY.md`
 
 Use the status definitions in `../TEST-PROCEDURE.md` when reviewing the Windows
 comparison output.
 
 ## Known Validation Status
 
-- The current full WSL2 Q4 run has no empty outputs but still fails on
-  repetition, low-similarity, and bbox-count drift.
-- Full BF16 GGUF did not beat Q4 in the latest WSL2 run: 54 / 104 passes and
-  average similarity 0.649 versus Q4's 56 / 104 and 0.688.
-- Exact-prefill/no-image-end Q4 is not the default. It regressed on the full
-  WSL2 matrix to 49 / 104 passes, 5 empty rows, 27 repetition rows, and average
-  similarity 0.671.
-- Exact-prefill/no-image-end/SWA128 tied the 56 / 104 pass count and improved
-  average similarity to 0.717, but still had 5 empty rows and 17 low-similarity
-  rows.
+- The current R-SWA full WSL2 Q4 run has no empty outputs but still fails on
+  repetition, low-similarity, and bbox-count drift: 54 / 104 passes, 19
+  repetition rows, and average similarity 0.678.
+- The best current pass-count result is BF16 with R-SWA: 61 / 104 passes, 18
+  repetition rows, average similarity 0.684, and average candidate latency
+  6963 ms. It is not the default because it is slower, heavier, and still far
+  from parity.
+- Q5_K_M with R-SWA reached 59 / 104 passes, but had 21 repetition rows and
+  average similarity 0.672.
+- Q6_K with R-SWA reached 51 / 104 passes and is not currently useful as a
+  quality improvement.
+- Exact-prefill/no-image-end Q4 with R-SWA is not the default. It tied
+  56 / 104 passes and improved average similarity to 0.719, but still had
+  5 empty rows.
 - The patched gundam path combines local crop embeddings into SGLang's single
   local grid and passes the `sc-02` smoke. Larger target sets still have
   repetition failures.

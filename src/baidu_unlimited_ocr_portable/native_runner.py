@@ -152,8 +152,10 @@ def build_env(profile: CandidateProfile) -> dict[str, str]:
     if profile.prefill_aware_swa:
         env["LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA"] = "1"
         env["LLAMA_DEEPSEEK_OCR_DECODE_WINDOW"] = str(profile.decode_window)
+        env.pop("LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE", None)
     else:
         env.pop("LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA", None)
+        env.pop("LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE", None)
         env.pop("LLAMA_DEEPSEEK_OCR_DECODE_WINDOW", None)
 
     if profile.no_image_end:

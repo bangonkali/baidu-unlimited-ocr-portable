@@ -1,19 +1,19 @@
-# Candidate-Best Client
+# Portable Client
 
-This demo runs the current best portable Unlimited-OCR candidate through the
+This demo runs the practical portable Unlimited-OCR candidate through the
 patched native llama.cpp binary. It does not use SGLang, PyTorch, Transformers,
 or the Baidu custom SGLang wheel.
 
 Default profile:
 
-- `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
+- `llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full`
 - Q4_K_M GGUF
 - DeepSeek-OCR gundam preprocessing
 - forced prompt EOS
 - SGLang-style no-repeat ngram controls
-- prefill-aware SWA128
+- core reference-SWA masking with a 128-token Unlimited-OCR fallback
 
-The UI also exposes the exact-prefill/no-image-end/SWA128 profile as an
+The UI also exposes the exact-prefill/no-image-end R-SWA profile as an
 experimental option. That profile had higher average similarity in the full
 matrix, but it produced empty rows and is not the default.
 
@@ -22,12 +22,10 @@ matrix, but it produced empty rows and is not the default.
 From the repository root:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --smoke --image dataset/sc-02.png --max-tokens 64
 
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --host 127.0.0.1 --port 7861
 ```
 
@@ -45,8 +43,7 @@ Override them when needed:
 UOCR_LLAMA_BIN=/path/to/llama-uocr-parity \
 UOCR_MODEL=/path/to/Unlimited-OCR-Q4_K_M.gguf \
 UOCR_MMPROJ=/path/to/mmproj-Unlimited-OCR-F16.gguf \
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py
+uv run --project unlimited-ocr-portable baidu-uocr-client
 ```
 
 ## Run On Windows
@@ -58,8 +55,8 @@ $env:UOCR_LLAMA_BIN = "thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.
 $env:UOCR_MODEL = "thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
 $env:UOCR_MMPROJ = "thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
 
-uv run --project unlimited-ocr-portable\candidate-best-client `
-  unlimited-ocr-portable\candidate-best-client\app.py --host 127.0.0.1 --port 7861
+uv run --project unlimited-ocr-portable baidu-uocr-client `
+  --host 127.0.0.1 --port 7861
 ```
 
 The Windows path intentionally has no SGLang dependency. It still depends on

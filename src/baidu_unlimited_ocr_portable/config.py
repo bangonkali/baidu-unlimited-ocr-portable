@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-CLIENT_ROOT = Path(__file__).resolve().parents[1]
-PORTABLE_ROOT = CLIENT_ROOT.parent
+PORTABLE_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = PORTABLE_ROOT.parent
 
 
@@ -94,17 +93,17 @@ class CandidateProfile:
 CANDIDATE_PROFILES: dict[str, CandidateProfile] = {
     "best-zero-empty-q4": CandidateProfile(
         key="best-zero-empty-q4",
-        label="Best zero-empty Q4",
-        engine_name="llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full",
-        description="Current best demo default: 56/104 pass, zero empty rows, avg similarity 0.688.",
+        label="Practical zero-empty Q4",
+        engine_name="llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full",
+        description="Current R-SWA Q4 demo default: 54/104 pass, zero empty rows, avg similarity 0.678.",
         force_prompt_eos=True,
         no_image_end=False,
     ),
     "experimental-exact-prefill-q4": CandidateProfile(
         key="experimental-exact-prefill-q4",
         label="Experimental exact-prefill Q4",
-        engine_name="llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full",
-        description="Higher avg similarity 0.717, but had 5 empty rows in full validation.",
+        engine_name="llamacpp-q4_k_m-uocr-rswa-noimgend-noeos-full",
+        description="Higher avg similarity 0.719, but had 5 empty rows in full validation.",
         force_prompt_eos=False,
         no_image_end=True,
     ),
@@ -116,4 +115,3 @@ DEFAULT_CANDIDATE_PROFILE = os.environ.get("UOCR_DEFAULT_PROFILE", "best-zero-em
 
 DEFAULT_MODEL = REPO_ROOT / "thirdparty" / "uocr-gguf" / "Unlimited-OCR-Q4_K_M.gguf"
 DEFAULT_MMPROJ = REPO_ROOT / "thirdparty" / "uocr-gguf" / "mmproj-Unlimited-OCR-F16.gguf"
-

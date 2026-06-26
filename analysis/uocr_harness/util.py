@@ -12,11 +12,12 @@ from typing import Any
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-PORTABLE_ROOT = PACKAGE_ROOT
+PORTABLE_ROOT = PACKAGE_ROOT.parent
 REPO_ROOT = PORTABLE_ROOT.parent
 DEFAULT_RESULTS_DIR = PORTABLE_ROOT / "results"
 DEFAULT_MANIFEST = DEFAULT_RESULTS_DIR / "manifest.jsonl"
 DEFAULT_DATASET = REPO_ROOT / "dataset"
+DEFAULT_SUMMARIES_DIR = PORTABLE_ROOT / "analysis" / "summaries"
 
 
 def utc_now() -> str:

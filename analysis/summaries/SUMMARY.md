@@ -1,5 +1,29 @@
 # Unlimited-OCR Portable Validation Summary
 
+## Latest R-SWA Evaluation
+
+The latest decision summary is
+`analysis/summaries/SUMMARY-uocr-rswa-executive.md`.
+
+PR #24975 style reference-SWA behavior was factored into the local
+`uocr-deepseek-ocr-parity` llama.cpp branch and validated across the 104-row
+matrix. It improves the BF16 quality ceiling but does not improve the practical
+Q4 default:
+
+- Previous Q4 CLI-prune baseline: 56 / 104 pass, 0 empty, 17 repetition,
+  average similarity 0.688.
+- Current Q4 R-SWA default: 54 / 104 pass, 0 empty, 19 repetition, average
+  similarity 0.678.
+- Current BF16 R-SWA: 61 / 104 pass, 0 empty, 18 repetition, average
+  similarity 0.684.
+
+The duplicate CLI KV-pruning SWA experiment is now isolated behind
+`LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1`; core llama.cpp R-SWA masking is the
+default custom-branch behavior.
+
+The generated comparison summary below is retained as the historical
+pre-R-SWA Q4 zero-empty baseline.
+
 Generated: 2026-06-26T14:29:07+00:00
 
 ## Engines
@@ -126,31 +150,33 @@ Generated: 2026-06-26T14:29:07+00:00
   4 repetition rows, 6 low-similarity rows, and average similarity 0.512.
   That slightly improves the target-set average over the prior Q4 target
   setting at 0.502, but it is still not production-ready and has not replaced
-  the current best 104-row full-run baseline.
+  the historical 104-row full-run baseline.
 - The full 104-row exact-prefill/no-image-end run regressed relative to the
-  current best baseline: 49 pass / 104, 5 empty rows, 27 repetition rows, and
+  historical baseline: 49 pass / 104, 5 empty rows, 27 repetition rows, and
   average similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
-- The full 104-row exact-prefill/no-image-end/SWA128 run ties the current
+- The historical full 104-row exact-prefill/no-image-end/SWA128 run ties the
   56-pass baseline and improves average similarity to 0.717, but introduces
   5 empty rows and 17 low-similarity rows. It is a useful alternate candidate
   for follow-up, not production parity.
 
-## Candidate-Best Client Demo
+## Portable Client Demo
 
-- Added `candidate-best-client/`, a Gradio demo that calls the patched native
-  `llama-uocr-parity` binary as a subprocess and streams generated stdout.
+- The Gradio demo now lives under `src/baidu_unlimited_ocr_portable/` and is
+  exposed by the root uv project as `baidu-uocr-client`.
+- The demo calls the patched native `llama-uocr-parity` binary as a subprocess
+  and streams generated stdout.
 - Default demo profile:
-  `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
-  because it is the best zero-empty full-run candidate.
+  `llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full`
+  because it is the practical zero-empty R-SWA Q4 candidate.
 - Experimental demo profile:
-  `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` because it improves
-  average similarity but produced 5 empty rows in the 104-row matrix.
+  `llamacpp-q4_k_m-uocr-rswa-noimgend-noeos-full` because it improves
+  average similarity to 0.719 but produced 5 empty rows in the 104-row matrix.
 - WSL2 validation on 2026-06-27:
   - compileall passed for the demo app and helper package.
   - default profile smoke on `dataset/sc-02.png` with 64 tokens exited 0 and
-    produced visible `<|det|>` output in 2050 ms.
+    produced visible `<|det|>` output in 5268 ms after the layout refactor.
   - experimental profile smoke on the same image exited 0 and produced visible
-    `<|det|>` output in 2438 ms.
+    `<|det|>` output in 5362 ms after the layout refactor.
   - PDF/parser smoke rendered 6 pages from `dataset/chinese-paper.pdf`, parsed
     1 marker box, and produced a preview image.
   - Gradio launched at `http://127.0.0.1:7861` and returned the expected app

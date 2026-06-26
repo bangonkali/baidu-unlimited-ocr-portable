@@ -6,8 +6,8 @@ Ubuntu environment for comparing:
 - SGLang BF16 reference output from Baidu's custom wheel.
 - llama.cpp GGUF candidate output from `Unlimited-OCR-Q4_K_M.gguf`.
 
-The current result summary is in `SUMMARY.md`. The root engineering log is in
-`../JOURNAL.md`.
+The current result summary is in `analysis/summaries/SUMMARY.md`. The root
+engineering log is in `../JOURNAL.md`.
 
 ## Scope
 
@@ -29,6 +29,7 @@ Current custom llama.cpp branch:
 
 ```text
 thirdparty/llama.cpp branch: uocr-deepseek-ocr-parity
+f3e5dcccf deepseek2-ocr: add Unlimited-OCR R-SWA parity
 7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
@@ -36,14 +37,14 @@ thirdparty/llama.cpp branch: uocr-deepseek-ocr-parity
 9d5d882 model : Add label for LFM2.5-230M (#25008)
 ```
 
-Current main candidate command:
+Current practical Q4 candidate command:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --max-tokens 8192 \
   --ctx-size 32768 \
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full \
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full \
   --deepseek-ocr-mode gundam \
   --deepseek-ocr-force-prompt-eos \
   --media-placement prefix-tight \
@@ -54,28 +55,42 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
 
 uv run --project unlimited-ocr-portable uocr-harness compare \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full \
-  --summary unlimited-ocr-portable/SUMMARY.md
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full \
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-uocr-rswa-q4-eos-origin-ngram-default-full.md
 ```
 
-Current main result in `SUMMARY.md`:
+Current practical Q4 result in
+`analysis/summaries/SUMMARY-uocr-rswa-q4-eos-origin-ngram-default-full.md`:
 
 - Reference files: 104 / 104.
 - Candidate files: 104 / 104.
 - Candidate empty outputs: 0 / 104.
-- Automated passes: 56 / 104.
-- High-repetition rows: 17 / 104.
+- Automated passes: 54 / 104.
+- High-repetition rows: 19 / 104.
 - Low-similarity rows: 14 / 104.
-- Bbox-count mismatch rows: 14 / 104.
-- Review rows: 3 / 104.
-- Average text similarity: 0.688.
-- Average candidate elapsed: 3809 ms.
-- Average candidate GPU-after-request snapshot: 1528 MB.
+- Bbox-count mismatch rows: 12 / 104.
+- Malformed-marker rows: 1 / 104.
+- Review rows: 4 / 104.
+- Average text similarity: 0.678.
+- Average candidate elapsed: 4216 ms.
+- Average candidate GPU-after-request snapshot: 2780 MB.
 
-BF16 GGUF was also rerun as a quality ceiling with the same full reference set:
-`SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md`. It did not improve
-the main decision: 54 / 104 passes, 27 repetition rows, average similarity
-0.649, and average candidate elapsed 9743 ms.
+BF16 GGUF was also rerun as a quality ceiling with core R-SWA:
+`analysis/summaries/SUMMARY-uocr-rswa-bf16-eos-origin-ngram-default-full.md`.
+It improves the quality ceiling but not the production decision: 61 / 104
+passes, 18 repetition rows, average similarity 0.684, and average candidate
+elapsed 6963 ms.
+
+Executive interpretation:
+
+- R-SWA is kept because it is the correct core runtime implementation and it
+  improves BF16 versus the previous BF16 run.
+- Practical Q4 did not improve versus the older CLI-prune baseline
+  (56 / 104 pass, average similarity 0.688).
+- The older CLI KV-pruning SWA experiment is now isolated behind
+  `LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1`; core R-SWA is the default behavior.
+- Full parity is still blocked by later generation drift, not by local-grid
+  composition, prompt template, prefill token IDs, or first-token top-k parity.
 
 ## Tested Environment
 
@@ -95,7 +110,7 @@ Local environment used for the recorded run:
 - Custom SGLang wheel:
   `unlimited-ocr/wheel/sglang-0.0.0.dev11416+g92e8bb79e-py3-none-any.whl`.
 - llama.cpp checkout: `thirdparty/llama.cpp`, tested branch
-  `uocr-deepseek-ocr-parity`, current commit `7b0ec28`.
+  `uocr-deepseek-ocr-parity`, current commit `f3e5dcccf`.
 - llama.cpp binaries:
   `thirdparty/llama.cpp/build/bin/llama-mtmd-cli`,
   `thirdparty/llama.cpp/build/bin/llama-uocr-parity`, and
@@ -189,8 +204,13 @@ Stable upstream llama-server can load the community Unlimited-OCR GGUF and
 The current workspace uses a local custom llama.cpp branch, not a separate
 llama-server product fork. The shared MTMD patch is used by both
 `llama-mtmd-cli`, `llama-uocr-parity`, and `llama-server`; the no-repeat,
-forced prompt EOS, prefill-aware SWA, min-new-token, and debug artifact controls
-are currently wired through the MTMD CLI path.
+forced prompt EOS, core R-SWA, min-new-token, and debug artifact controls are
+currently wired through the MTMD CLI path.
+
+The legacy CLI KV-pruning SWA experiment remains available only for diagnosis:
+set `LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1` together with
+`LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA=1`. Normal R-SWA validation leaves the
+legacy prune disabled.
 
 ## Step 3: Prepare Dataset
 
@@ -287,15 +307,15 @@ Recorded reference outcome:
 
 ## Step 6: Full Patched llama.cpp Q4_K_M Candidate Run
 
-Run the best current Q4 candidate over the same manifest, prompts, and token
-budget:
+Run the current practical Q4 R-SWA candidate over the same manifest, prompts,
+and token budget:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --max-tokens 8192 \
   --ctx-size 32768 \
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full \
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full \
   --deepseek-ocr-mode gundam \
   --deepseek-ocr-force-prompt-eos \
   --media-placement prefix-tight \
@@ -323,6 +343,7 @@ The harness invokes `llama-mtmd-cli` with:
 - `LLAMA_DEEPSEEK_OCR_NGRAM_WHITELIST=128821,128822`
 - `LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA=1`
 - `LLAMA_DEEPSEEK_OCR_DECODE_WINDOW=128`
+- `LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE` unset
 - `--override-kv tokenizer.ggml.add_eos_token=bool:true`
 
 Recorded output:
@@ -334,7 +355,7 @@ Wrote 104 llama.cpp result files
 Expected result location:
 
 ```text
-unlimited-ocr-portable/results/candidate/llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full/<case_id>/<profile>.json
+unlimited-ocr-portable/results/candidate/llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full/<case_id>/<profile>.json
 ```
 
 Recorded candidate outcome:
@@ -342,13 +363,14 @@ Recorded candidate outcome:
 - Result files: 104 / 104.
 - Process errors: 0.
 - Empty normalized outputs: 0 / 104.
-- High-repetition rows: 17 / 104.
-- Automated passes: 56 / 104.
+- High-repetition rows: 19 / 104.
+- Automated passes: 54 / 104.
 - Low-similarity rows: 14 / 104.
-- Bbox-count mismatch rows: 14 / 104.
-- Average text similarity: 0.688.
-- Average elapsed in metrics: 3809 ms per row.
-- Average GPU-after-request snapshot: 1528 MB.
+- Bbox-count mismatch rows: 12 / 104.
+- Malformed-marker rows: 1 / 104.
+- Average text similarity: 0.678.
+- Average elapsed in metrics: 4216 ms per row.
+- Average GPU-after-request snapshot: 2780 MB.
 
 The candidate GPU snapshot underreports peak memory because `llama-mtmd-cli`
 exits after each row. Active spot checks during candidate generation showed
@@ -365,14 +387,14 @@ uv run --project unlimited-ocr-portable uocr-harness compare
 Recorded output:
 
 ```text
-Wrote 104 comparison rows -> unlimited-ocr-portable/SUMMARY.md
+Wrote 104 comparison rows -> unlimited-ocr-portable/analysis/summaries/SUMMARY.md
 ```
 
 Generated files:
 
 ```text
 unlimited-ocr-portable/results/compare/metrics.csv
-unlimited-ocr-portable/SUMMARY.md
+unlimited-ocr-portable/analysis/summaries/SUMMARY.md
 ```
 
 Current status counts:
@@ -401,8 +423,8 @@ Optional checks after a full run:
 
 ```sh
 find unlimited-ocr-portable/results/reference/sglang -type f -name '*.json' | wc -l
-find unlimited-ocr-portable/results/candidate/llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full -type f -name '*.json' | wc -l
-uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/uocr_harness
+find unlimited-ocr-portable/results/candidate/llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full -type f -name '*.json' | wc -l
+uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/analysis/uocr_harness
 ```
 
 Expected counts for the recorded dataset:
@@ -463,7 +485,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-smoke.md
 ```
 
 Recorded artifact finding:
@@ -529,7 +551,7 @@ representative problem cases:
 - `sc-02-45a8efac`
 - `upside-left-9e645a2a`
 
-Strategy summaries:
+Strategy summaries are stored under `analysis/summaries/`:
 
 | Strategy | Summary | Decision |
 |---|---|---|
@@ -547,9 +569,9 @@ Strategy summaries:
 | Exact DeepSeek-OCR gundam target set | `SUMMARY-deepseekocr-gundam-exact-target-doc.md` | Best target-set result so far: 3 pass, 2 repetition. |
 | Exact DeepSeek-OCR gundam target set + repeat penalty | `SUMMARY-deepseekocr-gundam-exact-rp105-target-doc.md` | Worse than no repeat penalty: 2 pass, 3 repetition. |
 | Exact DeepSeek-OCR gundam full run | `SUMMARY-deepseekocr-gundam-exact-full.md` | Historical exact-grid-only run: improved baseline to 8 pass, but still had 36 empty rows. |
-| Q4 forced-EOS + SGLang no-repeat + SWA128 full run | `SUMMARY.md` | Best zero-empty full run: 56 pass, 0 empty, 17 repetition, average similarity 0.688. |
+| Q4 forced-EOS + SGLang no-repeat + core R-SWA full run | `SUMMARY-uocr-rswa-q4-eos-origin-ngram-default-full.md` | Current practical Q4 run: 54 pass, 0 empty, 19 repetition, average similarity 0.678. |
 | Output embedding artifact smoke | `SUMMARY-parity-artifacts-output-embeddings-onetok.md` | SGLang hidden-state summary and llama.cpp output-embedding summaries are both present on the one-token exact-prefill smoke. |
-| BF16 forced-EOS + SGLang no-repeat full run | `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md` | Quality ceiling check did not beat Q4: 54 pass, 27 repetition, average similarity 0.649. |
+| BF16 forced-EOS + SGLang no-repeat + core R-SWA full run | `SUMMARY-uocr-rswa-bf16-eos-origin-ngram-default-full.md` | Current quality ceiling: 61 pass, 18 repetition, average similarity 0.684. |
 | Parity artifact smoke | `SUMMARY-parity-artifacts-smoke.md` | SGLang visible first token is `<|det|>`; llama.cpp raw first token is newline then `<|det|>`. |
 | Parity artifact no-image-end smoke | `SUMMARY-parity-artifacts-noimgend-smoke.md` | No-image-end moves `<|det|>` into top-k but still emits newline first and was worse on the target set. |
 
@@ -602,7 +624,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-gundam-exact-prefix-tight \
-  --summary unlimited-ocr-portable/SUMMARY-deepseekocr-gundam-exact-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-deepseekocr-gundam-exact-smoke.md
 ```
 
 Run the exact repeat-penalty variant:
@@ -622,7 +644,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-gundam-exact-rp105-prefix-tight \
-  --summary unlimited-ocr-portable/SUMMARY-deepseekocr-gundam-exact-rp105-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-deepseekocr-gundam-exact-rp105-smoke.md
 ```
 
 Run the exact five-case target set:
@@ -641,7 +663,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --case-id 613256554-0d2742ca-467c-4b2b-8294-20c07609e316-1db675f4,chinese-paper-page-0001-2200885e,chinese-paper-page-0002-3d10e38a,sc-02-45a8efac,upside-left-9e645a2a \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-gundam-exact-target-doc \
-  --summary unlimited-ocr-portable/SUMMARY-deepseekocr-gundam-exact-target-doc.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-deepseekocr-gundam-exact-target-doc.md
 ```
 
 Run the same target set with repeat penalty:
@@ -661,7 +683,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --case-id 613256554-0d2742ca-467c-4b2b-8294-20c07609e316-1db675f4,chinese-paper-page-0001-2200885e,chinese-paper-page-0002-3d10e38a,sc-02-45a8efac,upside-left-9e645a2a \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-gundam-exact-rp105-target-doc \
-  --summary unlimited-ocr-portable/SUMMARY-deepseekocr-gundam-exact-rp105-target-doc.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-deepseekocr-gundam-exact-rp105-target-doc.md
 ```
 
 Run the exact full 52-row comparison over the baseline prompt profiles:
@@ -677,7 +699,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
 
 uv run --project unlimited-ocr-portable uocr-harness compare \
   --candidate-engine llamacpp-q4_k_m-gundam-exact-full \
-  --summary unlimited-ocr-portable/SUMMARY-deepseekocr-gundam-exact-full.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-deepseekocr-gundam-exact-full.md
 ```
 
 Recorded results:
@@ -755,8 +777,10 @@ Full 104-row results:
 
 | Candidate | Rows | Status counts | Average similarity | Average candidate ms | Decision |
 |---|---:|---|---:|---:|---|
-| `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` | 104 | 56 pass, 17 repetition, 14 low similarity, 14 bbox mismatch, 3 review | 0.688 | 3809 | Current best candidate, still not production-ready. |
-| `llamacpp-bf16-uocr-parity-eos-origin-ngram-default-full` | 104 | 54 pass, 27 repetition, 9 low similarity, 6 bbox mismatch, 6 review, 2 malformed-marker rows | 0.649 | 9743 | BF16 did not beat Q4 full-run quality. |
+| `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` | 104 | 56 pass, 17 repetition, 14 low similarity, 14 bbox mismatch, 3 review | 0.688 | 3809 | Historical CLI-prune baseline; better than current Q4 R-SWA but carried duplicate KV-pruning behavior. |
+| `llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full` | 104 | 54 pass, 19 repetition, 14 low similarity, 12 bbox mismatch, 4 review, 1 malformed-marker row | 0.678 | 4216 | Current practical Q4 R-SWA path; zero-empty but not parity. |
+| `llamacpp-bf16-uocr-rswa-eos-origin-ngram-default-full` | 104 | 61 pass, 18 repetition, 12 low similarity, 6 bbox mismatch, 7 review | 0.684 | 6963 | Current pass-count ceiling; slower and still not parity. |
+| `llamacpp-bf16-uocr-parity-eos-origin-ngram-default-full` | 104 | 54 pass, 27 repetition, 9 low similarity, 6 bbox mismatch, 6 review, 2 malformed-marker rows | 0.649 | 9743 | Historical pre-R-SWA BF16 run. |
 | `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full` | 104 | 49 pass, 27 repetition, 10 bbox mismatch, 7 review, 6 low similarity, 5 empty | 0.671 | 4719 | Exact prefill/no-image-end regressed on the full matrix; keep it diagnostic. |
 | `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` | 104 | 56 pass, 17 low similarity, 14 bbox mismatch, 7 repetition, 5 review, 5 empty | 0.717 | 3075 | Ties pass count and improves average similarity, but introduces empty rows. |
 
@@ -784,7 +808,7 @@ wheel:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli inspect-sglang-processor \
+  -m analysis.uocr_harness.cli inspect-sglang-processor \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --image-mode gundam \
@@ -800,19 +824,19 @@ uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-runtime-parity-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-runtime-parity-smoke.md
 
 uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noeos-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-runtime-parity-noeos-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-runtime-parity-noeos-smoke.md
 
 uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-runtime-parity-noimgend-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-runtime-parity-noimgend-smoke.md
 ```
 
 Run the exact-prefill smoke candidate:
@@ -837,7 +861,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-runtime-parity-noimgend-noeos-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-runtime-parity-noimgend-noeos-smoke.md
 ```
 
 Recorded runtime-token results for `sc-02-45a8efac` / `document_parsing`:
@@ -857,7 +881,7 @@ and stops the BF16 reference server:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli run-sglang \
+  -m analysis.uocr_harness.cli run-sglang \
   --start-server \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
@@ -890,7 +914,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --profiles document_parsing \
   --reference-engine sglang-native \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-onetok \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-native-onetok.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-native-onetok.md
 ```
 
 Recorded native-logprob result:
@@ -906,7 +930,7 @@ normal SGLang reference output is not overwritten:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli run-sglang \
+  -m analysis.uocr_harness.cli run-sglang \
   --start-server \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
@@ -956,7 +980,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --profiles document_parsing \
   --reference-engine sglang-native \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-output-embeddings-onetok \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-output-embeddings-onetok.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-output-embeddings-onetok.md
 ```
 
 Recorded output-embedding result:
@@ -990,7 +1014,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --case-id 613256554-0d2742ca-467c-4b2b-8294-20c07609e316-1db675f4,chinese-paper-page-0001-2200885e,chinese-paper-page-0002-3d10e38a,sc-02-45a8efac,upside-left-9e645a2a \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target \
-  --summary unlimited-ocr-portable/SUMMARY-uocr-parity-q4-noimgend-noeos-target.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-uocr-parity-q4-noimgend-noeos-target.md
 ```
 
 Recorded target result:
@@ -1006,7 +1030,7 @@ keeps the full SGLang reference output under `results/reference/sglang` intact:
 rm -rf /tmp/uocr-step-results
 
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli run-sglang \
+  -m analysis.uocr_harness.cli run-sglang \
   --start-server \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
@@ -1042,7 +1066,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifact
   --profiles document_parsing \
   --reference-engine sglang-native \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-64tok \
-  --summary unlimited-ocr-portable/SUMMARY-generation-steps-noimgend-noeos-64tok.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-generation-steps-noimgend-noeos-64tok.md
 ```
 
 The same procedure was repeated for:
@@ -1081,7 +1105,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --reference-engine sglang \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-full \
-  --summary unlimited-ocr-portable/SUMMARY-uocr-parity-q4-noimgend-noeos-full.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-uocr-parity-q4-noimgend-noeos-full.md
 ```
 
 Recorded full exact-prefill result:
@@ -1112,7 +1136,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --reference-engine sglang \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full \
-  --summary unlimited-ocr-portable/SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-uocr-parity-q4-noimgend-noeos-swa128-full.md
 ```
 
 Recorded full exact-prefill/SWA128 result:
@@ -1135,59 +1159,58 @@ Conclusion:
 - Generation-step parity diverges immediately after the first stable OCR prefix
   on Q4 and even earlier for Q5_K_M, Q6_K, and BF16 GGUF.
 - Exact prefill/no-image-end without SWA regresses on the full 104-row matrix.
-- Exact prefill/no-image-end/SWA128 ties the current 56-pass count and improves
-  average similarity, but it still has 5 empty rows.
+- Exact prefill/no-image-end R-SWA ties 56 passes and improves average
+  similarity to 0.719, but it still has 5 empty rows.
 - Multi-token output parity is still not achieved. The remaining likely gap is
   later-token runtime drift: attention/KV behavior, hidden-state divergence,
   numerical differences, or model-runtime implementation differences after the
   first generated token.
 
-## Candidate-Best Client Demo Procedure
+## Portable Client Demo Procedure
 
 This procedure validates the interactive demo under
-`unlimited-ocr-portable/candidate-best-client`. The demo does not use SGLang; it
-invokes the patched native `llama-uocr-parity` binary and streams generated
-stdout into a Gradio UI.
+`unlimited-ocr-portable/src/baidu_unlimited_ocr_portable`. The demo does not use
+SGLang; it invokes the patched native `llama-uocr-parity` binary and streams
+generated stdout into a Gradio UI.
 
-Best default profile:
+Practical default profile:
 
-- `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
-- Reason: 56 / 104 pass, 0 empty rows, average similarity 0.688.
+- `llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full`
+- Reason: 54 / 104 pass, 0 empty rows, average similarity 0.678, and it uses
+  core R-SWA instead of the duplicate CLI KV-pruning experiment.
 
 Experimental profile exposed in the UI:
 
-- `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full`
-- Reason: average similarity 0.717, but 5 empty rows, so not the default.
+- `llamacpp-q4_k_m-uocr-rswa-noimgend-noeos-full`
+- Reason: average similarity 0.719, but 5 empty rows, so not the default.
 
 Compile the demo package:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
+uv run --project unlimited-ocr-portable \
   -m compileall \
-  unlimited-ocr-portable/candidate-best-client/app.py \
-  unlimited-ocr-portable/candidate-best-client/uocr_candidate_client
+  unlimited-ocr-portable/analysis/uocr_harness \
+  unlimited-ocr-portable/src/baidu_unlimited_ocr_portable
 ```
 
 Run a short native smoke for the default profile:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --smoke --image dataset/sc-02.png --max-tokens 64
 ```
 
 Recorded WSL2 result on 2026-06-27:
 
 - Exit code: 0.
-- Native elapsed: 2050 ms.
+- Native elapsed: 5268 ms.
 - Output began with visible OCR markers:
   `<|det|>header [92, 24, 139, 55]<|/det|>Sci`.
 
 Run a short smoke for the experimental profile:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --smoke --image dataset/sc-02.png \
   --profile experimental-exact-prefill-q4 \
   --max-tokens 64
@@ -1196,16 +1219,15 @@ uv run --project unlimited-ocr-portable/candidate-best-client \
 Recorded WSL2 result:
 
 - Exit code: 0.
-- Native elapsed: 2438 ms.
+- Native elapsed: 5362 ms.
 - Output began with visible OCR markers:
   `<|det|>header [92, 24, 139, 53]<|/det|>Sci`.
 
 Validate PDF rendering and overlay parsing:
 
 ```sh
-PYTHONPATH=unlimited-ocr-portable/candidate-best-client \
-uv run --project unlimited-ocr-portable/candidate-best-client python -c \
-"from pathlib import Path; from uocr_candidate_client.pdf import pdf_to_images; from uocr_candidate_client.parsing import build_preview_image, extract_boxes; pages = pdf_to_images(Path('dataset/chinese-paper.pdf'), dpi=72); text = '<|det|>header [10, 20, 100, 120]<|/det|>'; preview = build_preview_image(pages[0], text); print({'pages': len(pages), 'boxes': len(extract_boxes(text)), 'preview': preview is not None})"
+uv run --project unlimited-ocr-portable python -c \
+"from pathlib import Path; from baidu_unlimited_ocr_portable.pdf import pdf_to_images; from baidu_unlimited_ocr_portable.parsing import build_preview_image, extract_boxes; pages = pdf_to_images(Path('dataset/chinese-paper.pdf'), dpi=72); text = '<|det|>header [10, 20, 100, 120]<|/det|>'; preview = build_preview_image(pages[0], text); print({'pages': len(pages), 'boxes': len(extract_boxes(text)), 'preview': preview is not None})"
 ```
 
 Recorded result:
@@ -1217,8 +1239,7 @@ Recorded result:
 Launch the UI:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --host 127.0.0.1 --port 7861
 ```
 

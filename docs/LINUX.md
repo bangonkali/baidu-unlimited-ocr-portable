@@ -7,6 +7,25 @@ The full executed validation procedure is documented in
 `../TEST-PROCEDURE.md`. This Linux document keeps the platform-specific setup
 and command notes.
 
+## Current R-SWA Status
+
+The local llama.cpp branch now includes PR #24975 style reference-SWA behavior
+for DeepSeek-OCR/Unlimited-OCR. The older CLI KV-pruning SWA experiment is
+disabled by default and only runs when
+`LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1` is explicitly set.
+
+Latest full-matrix results are summarized in
+`../analysis/summaries/SUMMARY-uocr-rswa-executive.md`:
+
+- Q4_K_M R-SWA default: 54 / 104 pass, 0 empty, 19 repetition, average
+  similarity 0.678.
+- Q4_K_M exact-prefill/no-image-end R-SWA: 56 / 104 pass, 5 empty, average
+  similarity 0.719.
+- BF16 R-SWA: 61 / 104 pass, 0 empty, 18 repetition, average similarity 0.684.
+
+This is not production parity. R-SWA improves the BF16 quality ceiling, but the
+practical Q4 default is slightly worse than the older CLI-prune baseline.
+
 ## Prerequisites
 
 - `uv`, `git`, `gh`, CUDA toolkit, and NVIDIA driver are available.
@@ -67,6 +86,7 @@ run intentionally updates it:
 
 ```text
 thirdparty/llama.cpp branch: uocr-deepseek-ocr-parity
+f3e5dcccf deepseek2-ocr: add Unlimited-OCR R-SWA parity
 7b0ec28 mtmd-cli: dump OCR output embedding summaries
 48f8954 mtmd-cli: add Unlimited-OCR parity artifact runner
 8fbbd5b mtmd-cli: add OCR sampling parity controls
@@ -93,9 +113,9 @@ make -C thirdparty/llama.cpp/build llama-mtmd-cli llama-uocr-parity llama-server
 
 The current workspace includes opt-in llama.cpp patches for SGLang-style
 DeepSeek-OCR gundam preprocessing, local-grid embedding composition,
-SGLang-style no-repeat defaults, prefill-aware SWA experiments, and native
-parity artifact dumping through `llama-uocr-parity`. The stable baseline remains
-native DeepSeek-OCR preprocessing unless `--deepseek-ocr-mode gundam` is passed.
+SGLang-style no-repeat defaults, core reference-SWA masking, and native parity
+artifact dumping through `llama-uocr-parity`. The stable baseline remains native
+DeepSeek-OCR preprocessing unless `--deepseek-ocr-mode gundam` is passed.
 
 Runtime parity artifacts are also available from the portable harness:
 
@@ -113,7 +133,7 @@ Use the repo `.venv` for SGLang processor/native artifact commands:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli inspect-sglang-processor \
+  -m analysis.uocr_harness.cli inspect-sglang-processor \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --force
@@ -144,14 +164,14 @@ Full candidate run:
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp
 ```
 
-Current best full candidate run:
+Current practical Q4 full candidate run:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --max-tokens 8192 \
   --ctx-size 32768 \
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full \
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full \
   --deepseek-ocr-mode gundam \
   --deepseek-ocr-force-prompt-eos \
   --media-placement prefix-tight \
@@ -181,8 +201,8 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
 This exact-prefill run validates tokenizer/template parity and reached
 10 pass / 20 with average similarity 0.512 on the restored-reference target
 set. It slightly improves the prior Q4 target average of 0.502, but it is still
-not production-ready. The current best full setting remains the 104-row
-`llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full` run.
+not production-ready. The current practical full setting is the 104-row
+`llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full` run.
 
 Useful candidate strategy switches:
 
@@ -238,28 +258,27 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-smoke.md
 ```
 
-## Run Candidate-Best Client Demo
+## Run Portable Client Demo
 
-The demo under `unlimited-ocr-portable/candidate-best-client` is the current
-interactive candidate UI. It calls the patched native `llama-uocr-parity`
-binary directly and has no SGLang/PyTorch/Transformers dependency.
+The demo under `unlimited-ocr-portable/src/baidu_unlimited_ocr_portable` is the
+current interactive candidate UI. It calls the patched native
+`llama-uocr-parity` binary directly and has no SGLang/PyTorch/Transformers
+dependency.
 
 Short smoke:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --smoke --image dataset/sc-02.png --max-tokens 64
 ```
 
 Launch:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --host 127.0.0.1 --port 7861
 ```
 
@@ -325,19 +344,21 @@ uv run --project unlimited-ocr-portable uocr-harness compare
 The comparator writes:
 
 - `unlimited-ocr-portable/results/compare/metrics.csv`
-- `unlimited-ocr-portable/SUMMARY.md`
+- `unlimited-ocr-portable/analysis/summaries/SUMMARY.md`
 
 The status categories, expected counts, and interpretation rules are documented
 in `../TEST-PROCEDURE.md`.
 
 ## Known Linux CUDA Notes
 
-- The current full comparison result is in `unlimited-ocr-portable/SUMMARY.md`.
-- In the latest patched Q4_K_M full run, llama.cpp completed all 104 rows with
-  zero empty outputs, 56 automated passes, 17 repetition rows, and average
-  similarity 0.688.
-- Full BF16 GGUF was retested as a quality ceiling and did not beat Q4:
-  54 automated passes, 27 repetition rows, and average similarity 0.649.
+- The latest decision result is in
+  `unlimited-ocr-portable/analysis/summaries/SUMMARY-uocr-rswa-executive.md`.
+- In the latest Q4_K_M R-SWA full run, llama.cpp completed all 104 rows with
+  zero empty outputs, 54 automated passes, 19 repetition rows, and average
+  similarity 0.678.
+- BF16 R-SWA is the current pass-count ceiling: 61 automated passes, 18
+  repetition rows, and average similarity 0.684. It is slower and still not
+  production parity.
 - The patched DeepSeek-OCR gundam path now composes local crop embeddings into
   the SGLang-style local grid. The `sc-02` / `document_parsing` smoke passed at
   similarity 0.998 with matching bbox marker counts.
@@ -345,18 +366,16 @@ in `../TEST-PROCEDURE.md`.
   had 6 repetition failures.
 - Stable unpatched llama-server is not sufficient for current parity. Use the
   local custom llama.cpp branch plus focused patches unless they are upstreamed.
-  `llama-server` has the shared MTMD grid patch, but the no-repeat/SWA/forced
-  EOS controls were validated through `llama-mtmd-cli`.
+  `llama-server` has the shared MTMD grid patch, while the no-repeat,
+  forced-EOS, and debug controls were validated through `llama-mtmd-cli` /
+  `llama-uocr-parity`.
 - `llama-uocr-parity` is the current native debug runner. It showed the patched
   forced-EOS candidate emits raw newline token `201` before the same visible
   `<|det|>` token SGLang emits first. Later runtime inspection showed exact
   prefill parity requires no forced EOS plus `--deepseek-ocr-no-image-end`.
-- Exact-prefill/no-image-end Q4 is diagnostic only: the full 104-row run
-  regressed to 49 automated passes, 5 empty rows, 27 repetition rows, and
-  average similarity 0.671.
-- Exact-prefill/no-image-end/SWA128 ties the 56-pass baseline and improves
-  average similarity to 0.717, but still has 5 empty rows and 17
-  low-similarity rows.
+- Exact-prefill/no-image-end Q4 is diagnostic only. The current R-SWA full
+  variant tied 56 automated passes and average similarity 0.719, but still had
+  5 empty rows.
 - Generation-step comparison on `sc-02` / `document_parsing` shows Q4 matches
   SGLang through `<|det|>header [` and then diverges on the first bbox
   coordinate (`91` vs `92`). Q5_K_M, Q6_K, and BF16 diverge earlier at

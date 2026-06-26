@@ -1,19 +1,21 @@
 [project]
-name = "unlimited-ocr-portable"
+name = "baidu-unlimited-ocr-portable"
 version = "0.1.0"
-description = "Portable Unlimited-OCR comparison harness"
+description = "Portable Baidu Unlimited-OCR runtime, demo client, and comparison harness"
 requires-python = ">=3.12"
 dependencies = [
+    "gradio>=5.0,<6",
     "pillow>=10",
     "pymupdf>=1.24",
     "requests>=2.31",
 ]
 
 [project.scripts]
-uocr-harness = "uocr_harness.cli:main"
+uocr-harness = "analysis.uocr_harness.cli:main"
+baidu-uocr-client = "baidu_unlimited_ocr_portable.app:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["uocr_harness"]
+packages = ["analysis", "src/baidu_unlimited_ocr_portable"]
 
 [build-system]
 requires = ["hatchling"]

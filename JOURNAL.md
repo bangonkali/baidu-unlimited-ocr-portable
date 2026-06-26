@@ -364,7 +364,7 @@ before packaging the portable runtime.
 The reproducible procedure for this pass is documented in
 `unlimited-ocr-portable/TEST-PROCEDURE.md`. The current machine-readable metrics
 and Markdown result summary are under `unlimited-ocr-portable/results/compare/`
-and `unlimited-ocr-portable/SUMMARY.md`.
+and `unlimited-ocr-portable/analysis/summaries/SUMMARY.md`.
 
 Dataset:
 
@@ -742,7 +742,7 @@ Harness verification:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness inspect-preprocessing
-uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/uocr_harness
+uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/analysis/uocr_harness
 ```
 
 Recorded preprocessing examples:
@@ -947,7 +947,7 @@ Validation:
 
 - Rebuilt `llama-mtmd-cli`, `llama-uocr-parity`, and `llama-server`.
 - Recompiled the Python harness with `uv run --project unlimited-ocr-portable -m
-  compileall unlimited-ocr-portable/uocr_harness`.
+  compileall unlimited-ocr-portable/analysis/uocr_harness`.
 - Captured SGLang and llama.cpp artifacts for `sc-02-45a8efac` /
   `document_parsing`.
 - Baseline artifact summary: `SUMMARY-parity-artifacts-smoke.md`.
@@ -1010,7 +1010,7 @@ Implementation:
 Validation:
 
 - Harness compile passed with:
-  `uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/uocr_harness`.
+  `uv run --project unlimited-ocr-portable -m compileall unlimited-ocr-portable/analysis/uocr_harness`.
 - SGLang processor artifact for `sc-02-45a8efac` / `document_parsing`:
   - Total input tokens: 1517.
   - Image tokens: 1513.
@@ -1079,7 +1079,7 @@ Validation:
 
 - Recompiled the harness with:
   `uv run --project unlimited-ocr-portable -m compileall
-  unlimited-ocr-portable/uocr_harness`.
+  unlimited-ocr-portable/analysis/uocr_harness`.
 - Captured isolated 64-token artifacts under `/tmp/uocr-step-results` for
   `sc-02-45a8efac` / `document_parsing`.
 - Q4 exact-prefill candidate:
@@ -1163,7 +1163,7 @@ Validation:
 - All three binaries report `version: 5 (7b0ec28)`.
 - Harness compile passed with:
   `uv run --project unlimited-ocr-portable -m compileall
-  unlimited-ocr-portable/uocr_harness`.
+  unlimited-ocr-portable/analysis/uocr_harness`.
 - Ran one-token exact-prefill candidate in `/tmp/uocr-hidden-results`:
   `llamacpp-q4_k_m-uocr-parity-debug-output-embeddings-onetok`.
 - Summary:
@@ -1187,7 +1187,7 @@ Decision:
   behavioral divergence remains the later generation-step rank flip documented
   in the generation-step summaries.
 
-## 2026-06-27 Candidate-Best Client Demo
+## 2026-06-27 Portable Client Demo
 
 Objective:
 
@@ -1196,7 +1196,10 @@ Objective:
 
 Implementation:
 
-- Added `candidate-best-client/` as a standalone uv/Gradio project.
+- Added the Gradio demo first as a standalone package, then refactored it into
+  the root uv project under `src/baidu_unlimited_ocr_portable/`.
+- The root uv project is now named `baidu-unlimited-ocr-portable` and exposes
+  `baidu-uocr-client`.
 - The backend calls patched native `llama-uocr-parity` as a subprocess and
   streams generated stdout into the UI.
 - The default profile is
@@ -1211,13 +1214,16 @@ Implementation:
 
 Validation:
 
-- `uv run --project unlimited-ocr-portable/candidate-best-client -m compileall
-  unlimited-ocr-portable/candidate-best-client/app.py
-  unlimited-ocr-portable/candidate-best-client/uocr_candidate_client` passed.
+- `uv run --project unlimited-ocr-portable -m compileall
+  unlimited-ocr-portable/analysis/uocr_harness
+  unlimited-ocr-portable/src/baidu_unlimited_ocr_portable` passed after the
+  layout refactor.
 - Default profile smoke on `dataset/sc-02.png` with 64 tokens exited 0,
-  streamed visible `<|det|>` output, and reported 2050 ms native elapsed.
+  streamed visible `<|det|>` output, and reported 5268 ms native elapsed after
+  the layout refactor.
 - Experimental profile smoke on the same image exited 0, streamed visible
-  `<|det|>` output, and reported 2438 ms native elapsed.
+  `<|det|>` output, and reported 5362 ms native elapsed after the layout
+  refactor.
 - PDF/parser smoke rendered 6 pages from `dataset/chinese-paper.pdf`, parsed 1
   marker box, and produced a preview image.
 - Gradio launched at `http://127.0.0.1:7861`; the endpoint returned the expected
@@ -1228,3 +1234,68 @@ Decision:
 - The demo is usable as the current native portable UX. It should not be
   presented as parity or production quality; it is a native candidate demo over
   the best available patched Q4 profile.
+
+## 2026-06-27 R-SWA Integration And Windows Bootstrap
+
+Objective:
+
+- Factor ggml-org/llama.cpp PR #24975 style DeepSeek-OCR reference-SWA behavior
+  into the local custom llama.cpp branch and rerun the reference/candidate
+  comparison matrix.
+- Determine whether the older CLI prefill-aware SWA/KV-prune path was duplicate
+  implementation.
+- Prepare the portable repo for a Windows CUDA validation attempt.
+
+Implementation:
+
+- Added local llama.cpp commit
+  `f3e5dcccf deepseek2-ocr: add Unlimited-OCR R-SWA parity`.
+- Added core R-SWA masking to the local `uocr-deepseek-ocr-parity` branch.
+- Added `n_ref` tracking across KV-cache lifecycle operations.
+- Added an Unlimited-OCR fallback `n_swa=128` for current GGUFs that lack
+  `deepseek2-ocr.attention.sliding_window` metadata.
+- Disabled the older CLI KV-pruning SWA behavior by default. It now only runs
+  with `LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1`.
+- Added `uocr-harness run-llamacpp --deepseek-ocr-legacy-kv-prune` as an
+  explicit diagnostic switch.
+- Added Windows scripts:
+  - `scripts/windows/setup-build.ps1`
+  - `scripts/windows/run-demo.ps1`
+
+Validation:
+
+- Rebuilt `llama-mtmd-cli`, `llama-uocr-parity`, and `llama-server`.
+- Rebuilt binaries report `version: 6 (f3e5dcccf)`.
+- Smoke ran through `baidu-uocr-client --smoke` on `dataset/sc-02.png`.
+- Full 104-row R-SWA comparisons were run for Q4_K_M default,
+  Q4_K_M exact-prefill/no-image-end, Q5_K_M, Q6_K, and BF16.
+
+Results:
+
+- Q4_K_M R-SWA default:
+  `SUMMARY-uocr-rswa-q4-eos-origin-ngram-default-full.md`.
+  54 / 104 pass, 0 empty, 19 repetition rows, average similarity 0.678.
+- Q4_K_M exact-prefill/no-image-end R-SWA:
+  `SUMMARY-uocr-rswa-q4-noimgend-noeos-full.md`.
+  56 / 104 pass, 5 empty rows, average similarity 0.719.
+- Q5_K_M R-SWA:
+  `SUMMARY-uocr-rswa-q5_k_m-eos-origin-ngram-default-full.md`.
+  59 / 104 pass, 21 repetition rows, average similarity 0.672.
+- Q6_K R-SWA:
+  `SUMMARY-uocr-rswa-q6_k-eos-origin-ngram-default-full.md`.
+  51 / 104 pass, average similarity 0.634.
+- BF16 R-SWA:
+  `SUMMARY-uocr-rswa-bf16-eos-origin-ngram-default-full.md`.
+  61 / 104 pass, 18 repetition rows, average similarity 0.684.
+
+Decision:
+
+- R-SWA is the correct core runtime implementation and should remain in the
+  custom branch.
+- Practical Q4 did not improve versus the older CLI-prune baseline
+  (56 / 104 pass, average similarity 0.688).
+- BF16 improved materially versus the previous BF16 run, but still fails too
+  many rows and is slower/heavier than Q4.
+- Stable unpatched llama-server remains insufficient for this project; use the
+  pinned patched branch until the needed model semantics are upstreamed.
+- Windows validation is now prepared but not yet executed in this WSL2 run.

@@ -1,6 +1,7 @@
 results/
 .venv/
 .venv-sglang-ref/
+.gradio/
 __pycache__/
 *.pyc
 /safetensors_probe

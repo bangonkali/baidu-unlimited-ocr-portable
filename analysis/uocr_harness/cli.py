@@ -10,7 +10,7 @@ from .manifest import prepare_dataset
 from .preprocess import inspect_manifest_preprocessing
 from .profiles import parse_profile_names
 from .runtime_parity import compare_runtime_parity, inspect_sglang_processor
-from .util import DEFAULT_DATASET, DEFAULT_MANIFEST, DEFAULT_RESULTS_DIR, PORTABLE_ROOT, REPO_ROOT
+from .util import DEFAULT_DATASET, DEFAULT_MANIFEST, DEFAULT_RESULTS_DIR, DEFAULT_SUMMARIES_DIR, REPO_ROOT
 
 
 def main() -> None:
@@ -79,6 +79,11 @@ def main() -> None:
     llama.add_argument("--deepseek-ocr-ngram-window", type=int, default=90)
     llama.add_argument("--deepseek-ocr-ngram-whitelist", default="128821,128822")
     llama.add_argument("--deepseek-ocr-prefill-aware-swa", action="store_true")
+    llama.add_argument(
+        "--deepseek-ocr-legacy-kv-prune",
+        action="store_true",
+        help="Diagnostic only: enable the old CLI KV-pruning SWA experiment on top of core R-SWA",
+    )
     llama.add_argument("--deepseek-ocr-decode-window", type=int, default=128)
     llama.add_argument("--deepseek-ocr-no-image-end", action="store_true")
     llama.add_argument("--deepseek-ocr-min-new-tokens", type=int, default=0)
@@ -155,7 +160,7 @@ def main() -> None:
     compare.add_argument("--profiles", default=None)
     compare.add_argument("--limit", type=int, default=None, help="Compare only first N manifest cases")
     compare.add_argument("--case-id", default=None, help="Compare one or more comma-separated case ids")
-    compare.add_argument("--summary", type=Path, default=PORTABLE_ROOT / "SUMMARY.md")
+    compare.add_argument("--summary", type=Path, default=DEFAULT_SUMMARIES_DIR / "SUMMARY.md")
     compare.add_argument("--reference-engine", default="sglang")
     compare.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
 
@@ -164,7 +169,7 @@ def main() -> None:
     compare_artifacts.add_argument("--profiles", default=None)
     compare_artifacts.add_argument("--limit", type=int, default=None)
     compare_artifacts.add_argument("--case-id", default=None)
-    compare_artifacts.add_argument("--summary", type=Path, default=PORTABLE_ROOT / "SUMMARY-parity-artifacts.md")
+    compare_artifacts.add_argument("--summary", type=Path, default=DEFAULT_SUMMARIES_DIR / "SUMMARY-parity-artifacts.md")
     compare_artifacts.add_argument("--reference-engine", default="sglang")
     compare_artifacts.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
 
@@ -176,7 +181,7 @@ def main() -> None:
     compare_generation.add_argument("--profiles", default=None)
     compare_generation.add_argument("--limit", type=int, default=None)
     compare_generation.add_argument("--case-id", default=None)
-    compare_generation.add_argument("--summary", type=Path, default=PORTABLE_ROOT / "SUMMARY-generation-artifacts.md")
+    compare_generation.add_argument("--summary", type=Path, default=DEFAULT_SUMMARIES_DIR / "SUMMARY-generation-artifacts.md")
     compare_generation.add_argument("--reference-engine", default="sglang-native")
     compare_generation.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
 
@@ -188,7 +193,7 @@ def main() -> None:
     compare_runtime.add_argument("--profiles", default=None)
     compare_runtime.add_argument("--limit", type=int, default=None)
     compare_runtime.add_argument("--case-id", default=None)
-    compare_runtime.add_argument("--summary", type=Path, default=PORTABLE_ROOT / "SUMMARY-runtime-parity.md")
+    compare_runtime.add_argument("--summary", type=Path, default=DEFAULT_SUMMARIES_DIR / "SUMMARY-runtime-parity.md")
     compare_runtime.add_argument("--reference-engine", default="sglang-processor")
     compare_runtime.add_argument("--candidate-engine", default="llamacpp-q4_k_m")
 
@@ -247,6 +252,7 @@ def main() -> None:
             deepseek_ocr_ngram_window=args.deepseek_ocr_ngram_window,
             deepseek_ocr_ngram_whitelist=_parse_token_ids(args.deepseek_ocr_ngram_whitelist),
             deepseek_ocr_prefill_aware_swa=args.deepseek_ocr_prefill_aware_swa,
+            deepseek_ocr_legacy_kv_prune=args.deepseek_ocr_legacy_kv_prune,
             deepseek_ocr_decode_window=args.deepseek_ocr_decode_window,
             deepseek_ocr_no_image_end=args.deepseek_ocr_no_image_end,
             deepseek_ocr_min_new_tokens=args.deepseek_ocr_min_new_tokens,

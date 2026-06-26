@@ -6,11 +6,23 @@ harness for comparing:
 - SGLang BF16 reference output from WSL2/Linux.
 - llama.cpp/GGUF candidate output from Linux or Windows.
 
-Generated harness outputs live under `results/` and are ignored by git. The
-portable summary is written to `SUMMARY.md`.
+Generated harness outputs live under `results/` and are ignored by git.
+Historical and current summaries live under `analysis/summaries/`. Start with
+`analysis/summaries/SUMMARY-uocr-rswa-executive.md` for the latest R-SWA
+decision, then use `analysis/summaries/SUMMARY.md` as the summary index.
 
 Use `TEST-PROCEDURE.md` as the canonical runbook for the validation pass that
 produced the current summary.
+
+The uv project name is `baidu-unlimited-ocr-portable`.
+
+## Repository Layout
+
+- `src/baidu_unlimited_ocr_portable/`: Gradio/native-runtime demo client.
+- `analysis/uocr_harness/`: validation, comparison, and artifact harness.
+- `analysis/summaries/`: current and historical Markdown result summaries.
+- `docs/`: Linux and Windows setup notes.
+- `scripts/windows/`: Windows setup/build and demo launch scripts.
 
 ## Validation Harness
 
@@ -49,16 +61,18 @@ For a full current validation run, remove `--limit 1`, use
 `--max-tokens 8192`, and pass:
 `--profiles grounding,plain_text,ocr_boxes,document_parsing`.
 
-The current full WSL2 run is summarized in `SUMMARY.md`. At the time of writing,
-SGLang BF16 completed all 104 reference rows. The best patched Q4_K_M candidate
-completed all 104 rows with zero empty outputs, 56 automated passes, 17
-repetition rows, and average similarity 0.688. This is materially better than
-the native baseline but still not production-ready.
+The latest full WSL2 run is summarized in
+`analysis/summaries/SUMMARY-uocr-rswa-executive.md`. At the time of writing,
+SGLang BF16 completed all 104 reference rows. The current Q4_K_M R-SWA
+candidate completed all 104 rows with zero empty outputs, 54 automated passes,
+19 repetition rows, and average similarity 0.678. BF16 R-SWA reached the best
+pass count so far at 61 / 104, but remains slower and still not production
+parity. Practical Q4 did not improve versus the older CLI-prune baseline.
 
 For the exact commands, environment repair steps, expected file counts, and
 interpretation rules, see `TEST-PROCEDURE.md`.
 
-Follow-up targeted strategy summaries:
+Follow-up targeted strategy summaries are also under `analysis/summaries/`:
 
 - `SUMMARY-generation-steps-noimgend-noeos-64tok.md`
 - `SUMMARY-generation-steps-q4-noimgend-noeos-noswa-64tok.md`
@@ -88,6 +102,12 @@ Follow-up targeted strategy summaries:
 - `SUMMARY-deepseekocr-gundam-exact-rp105-target-doc.md`
 - `SUMMARY-deepseekocr-gundam-exact-full.md`
 - `SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md`
+- `SUMMARY-uocr-rswa-executive.md`
+- `SUMMARY-uocr-rswa-q4-eos-origin-ngram-default-full.md`
+- `SUMMARY-uocr-rswa-q4-noimgend-noeos-full.md`
+- `SUMMARY-uocr-rswa-q5_k_m-eos-origin-ngram-default-full.md`
+- `SUMMARY-uocr-rswa-q6_k-eos-origin-ngram-default-full.md`
+- `SUMMARY-uocr-rswa-bf16-eos-origin-ngram-default-full.md`
 
 The strategy decisions are recorded in `JOURNAL.md`.
 
@@ -110,8 +130,10 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
 
 This exact path passes the `sc-02` / `document_parsing` smoke with similarity
 0.998 and matching bbox marker counts. Additional parity controls now include
-SGLang-style no-repeat defaults, forced prompt EOS, prefill-aware SWA128, and
-diagnostic image-end/min-new-token switches.
+SGLang-style no-repeat defaults, forced prompt EOS, core reference-SWA behavior,
+and diagnostic image-end/min-new-token switches. The older CLI KV-pruning SWA
+experiment is disabled unless `LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE=1` is
+explicitly set.
 
 The custom branch also builds `llama-uocr-parity`, a named MTMD CLI target for
 debug instrumentation. It accepts the same harness invocation as
@@ -138,7 +160,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-smoke.md
 ```
 
 The recorded artifact smoke found a raw leading newline token in llama.cpp
@@ -152,7 +174,7 @@ Runtime parity commands:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli inspect-sglang-processor \
+  -m analysis.uocr_harness.cli inspect-sglang-processor \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --image-mode gundam \
@@ -163,14 +185,14 @@ uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-smoke \
-  --summary unlimited-ocr-portable/SUMMARY-runtime-parity-noimgend-noeos-smoke.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-runtime-parity-noimgend-noeos-smoke.md
 ```
 
 Native SGLang `/generate` artifacts can capture input logprobs:
 
 ```sh
 PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
-  -m uocr_harness.cli run-sglang \
+  -m analysis.uocr_harness.cli run-sglang \
   --start-server \
   --case-id sc-02-45a8efac \
   --profiles document_parsing \
@@ -184,7 +206,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts \
   --profiles document_parsing \
   --reference-engine sglang-native \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-onetok \
-  --summary unlimited-ocr-portable/SUMMARY-parity-artifacts-native-onetok.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-parity-artifacts-native-onetok.md
 ```
 
 The one-token native artifact comparison aligns first token `<|det|>` and
@@ -193,7 +215,8 @@ isolated `/tmp` run; SGLang returned summarized hidden states with shape
 `[1, 1517, 1280]`. The patched native runner can now also write llama.cpp
 output-embedding summaries with `--debug-output-embeddings`; the one-token
 smoke captured a 1280-wide prefill-last embedding and one generated-token
-embedding in `SUMMARY-parity-artifacts-output-embeddings-onetok.md`. The
+embedding in
+`analysis/summaries/SUMMARY-parity-artifacts-output-embeddings-onetok.md`. The
 restored-reference 20-row exact-prefill target run reaches 10 pass / 20 with
 average similarity 0.512, a slight target-set improvement over the prior Q4
 target setting. It is still not production-ready, so the remaining blocker is
@@ -210,7 +233,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifact
   --profiles document_parsing \
   --reference-engine sglang-native \
   --candidate-engine llamacpp-q4_k_m-uocr-parity-debug-noimgend-noeos-64tok \
-  --summary unlimited-ocr-portable/SUMMARY-generation-steps-noimgend-noeos-64tok.md
+  --summary unlimited-ocr-portable/analysis/summaries/SUMMARY-generation-steps-noimgend-noeos-64tok.md
 ```
 
 The recorded Q4 exact-prefill run matches SGLang for the first three generated
@@ -219,22 +242,22 @@ tokens, then diverges on the first bbox coordinate: SGLang selects token `6207`
 not change this first divergence. Q5_K_M, Q6_K, and BF16 diverge earlier at
 step 1 by ranking `aside` over SGLang's `header`.
 
-The full exact-prefill/no-image-end Q4 run without SWA128 is worse than the
-current best full baseline: 49 / 104 passes, 5 empty rows, 27 repetition rows,
-and average similarity 0.671 in `SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
-The exact-prefill/no-image-end/SWA128 variant ties the 56 / 104 pass count and
-raises average similarity to 0.717, but still has 5 empty rows and 17
-low-similarity rows. It is an alternate candidate for follow-up, not production
-parity.
+The historical full exact-prefill/no-image-end Q4 run without the older CLI SWA
+experiment was worse than the old full baseline: 49 / 104 passes, 5 empty rows,
+27 repetition rows, and average similarity 0.671 in
+`analysis/summaries/SUMMARY-uocr-parity-q4-noimgend-noeos-full.md`.
+The current exact-prefill/no-image-end R-SWA variant ties 56 / 104 passes and
+raises average similarity to 0.719, but still has 5 empty rows. It is an
+alternate diagnostic path, not production parity.
 
-The current zero-empty full baseline is:
+The current practical Q4 full command is:
 
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --profiles grounding,plain_text,ocr_boxes,document_parsing \
   --max-tokens 8192 \
   --ctx-size 32768 \
-  --candidate-engine llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full \
+  --candidate-engine llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full \
   --deepseek-ocr-mode gundam \
   --deepseek-ocr-force-prompt-eos \
   --media-placement prefix-tight \
@@ -244,41 +267,39 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --force
 ```
 
-The BF16 full-run quality ceiling did not beat Q4 on the full matrix: 54 passes
-and average similarity 0.649 in
-`SUMMARY-uocr-parity-bf16-eos-origin-ngram-default-full.md`.
+The BF16 R-SWA full-run quality ceiling has the best current pass count:
+61 passes and average similarity 0.684 in
+`analysis/summaries/SUMMARY-uocr-rswa-bf16-eos-origin-ngram-default-full.md`.
 
-## Candidate-Best Client Demo
+## Portable Client Demo
 
-`candidate-best-client/` is a Gradio demo for the current portable candidate.
-It does not load SGLang, PyTorch, Transformers, or the Baidu custom SGLang
-wheel. Python launches the patched native `llama-uocr-parity` binary as a
-subprocess, streams generated stdout into the UI, parses `<|det|>` /
-`<|ref|>` markers, and renders bounding-box overlays.
+The demo client now lives in `src/baidu_unlimited_ocr_portable/` and is exposed
+by the root uv project as `baidu-uocr-client`. It does not load SGLang, PyTorch,
+Transformers, or the Baidu custom SGLang wheel. Python launches the patched
+native `llama-uocr-parity` binary as a subprocess, streams generated stdout into
+the UI, parses `<|det|>` / `<|ref|>` markers, and renders bounding-box overlays.
 
 Default profile:
 
-- `llamacpp-q4_k_m-uocr-parity-eos-origin-ngram-default-swa128-full`
-- 56 / 104 pass, 0 empty rows, 17 repetition rows, average similarity 0.688.
+- `llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full`
+- 54 / 104 pass, 0 empty rows, 19 repetition rows, average similarity 0.678.
 
 The UI also exposes
-`llamacpp-q4_k_m-uocr-parity-noimgend-noeos-swa128-full` as an experimental
-profile. It reached average similarity 0.717 but produced 5 empty rows, so it
+`llamacpp-q4_k_m-uocr-rswa-noimgend-noeos-full` as an experimental
+profile. It reached average similarity 0.719 but produced 5 empty rows, so it
 is not the default.
 
 Run a short native smoke from the repository root:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --smoke --image dataset/sc-02.png --max-tokens 64
 ```
 
 Launch the UI:
 
 ```sh
-uv run --project unlimited-ocr-portable/candidate-best-client \
-  unlimited-ocr-portable/candidate-best-client/app.py \
+uv run --project unlimited-ocr-portable baidu-uocr-client \
   --host 127.0.0.1 --port 7861
 ```
 
@@ -303,7 +324,12 @@ results/
   candidate/llamacpp-q4_k_m/<case_id>/<profile>.json
   candidate/<strategy>/<case_id>/<profile>.json
   compare/metrics.csv
-SUMMARY.md
+analysis/
+  summaries/SUMMARY.md
+  summaries/SUMMARY-*.md
+  uocr_harness/
+src/
+  baidu_unlimited_ocr_portable/
 ```
 
 See `TEST-PROCEDURE.md` for the full reproducible procedure, plus

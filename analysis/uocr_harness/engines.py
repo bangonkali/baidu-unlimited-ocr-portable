@@ -52,6 +52,7 @@ def run_llamacpp(
     deepseek_ocr_ngram_window: int,
     deepseek_ocr_ngram_whitelist: list[int],
     deepseek_ocr_prefill_aware_swa: bool,
+    deepseek_ocr_legacy_kv_prune: bool,
     deepseek_ocr_decode_window: int,
     deepseek_ocr_no_image_end: bool,
     deepseek_ocr_min_new_tokens: int,
@@ -134,6 +135,7 @@ def run_llamacpp(
                 _apply_deepseek_ocr_prefill_aware_swa(
                     env,
                     enabled=deepseek_ocr_prefill_aware_swa,
+                    legacy_kv_prune=deepseek_ocr_legacy_kv_prune,
                     decode_window=deepseek_ocr_decode_window,
                 )
                 _apply_deepseek_ocr_no_image_end(env, enabled=deepseek_ocr_no_image_end)
@@ -198,6 +200,7 @@ def run_llamacpp(
                         "deepseek_ocr_ngram_window": deepseek_ocr_ngram_window,
                         "deepseek_ocr_ngram_whitelist": deepseek_ocr_ngram_whitelist,
                         "deepseek_ocr_prefill_aware_swa": deepseek_ocr_prefill_aware_swa,
+                        "deepseek_ocr_legacy_kv_prune": deepseek_ocr_legacy_kv_prune,
                         "deepseek_ocr_decode_window": deepseek_ocr_decode_window,
                         "deepseek_ocr_no_image_end": deepseek_ocr_no_image_end,
                         "deepseek_ocr_min_new_tokens": deepseek_ocr_min_new_tokens,
@@ -1202,14 +1205,20 @@ def _apply_deepseek_ocr_prefill_aware_swa(
     env: dict[str, str],
     *,
     enabled: bool,
+    legacy_kv_prune: bool,
     decode_window: int,
 ) -> None:
     if not enabled:
         env.pop("LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA", None)
+        env.pop("LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE", None)
         env.pop("LLAMA_DEEPSEEK_OCR_DECODE_WINDOW", None)
         return
     env["LLAMA_DEEPSEEK_OCR_PREFILL_AWARE_SWA"] = "1"
     env["LLAMA_DEEPSEEK_OCR_DECODE_WINDOW"] = str(decode_window)
+    if legacy_kv_prune:
+        env["LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE"] = "1"
+    else:
+        env.pop("LLAMA_DEEPSEEK_OCR_LEGACY_KV_PRUNE", None)
 
 
 def _apply_deepseek_ocr_no_image_end(env: dict[str, str], *, enabled: bool) -> None:

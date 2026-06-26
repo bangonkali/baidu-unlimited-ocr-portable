@@ -9,15 +9,15 @@ from typing import Any, Iterator
 
 import gradio as gr
 
-from uocr_candidate_client.config import (
+from .config import (
     CANDIDATE_PROFILES,
     DEFAULT_CANDIDATE_PROFILE,
     DEFAULT_PROMPT_PROFILE,
     PROMPT_PROFILES,
 )
-from uocr_candidate_client.native_runner import RuntimePaths, clean_generated_text, profile_by_key, stream_ocr
-from uocr_candidate_client.parsing import boxes_as_dicts, build_preview_image, extract_boxes, preview_image
-from uocr_candidate_client.pdf import pdf_to_images
+from .native_runner import RuntimePaths, clean_generated_text, profile_by_key, stream_ocr
+from .parsing import boxes_as_dicts, build_preview_image, extract_boxes, preview_image
+from .pdf import pdf_to_images
 
 
 IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
