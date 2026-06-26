@@ -897,6 +897,32 @@ Recorded native-logprob result:
 - llama.cpp exact-prefill first output token: `<|det|>` / token `128818`.
 - First-output top-k overlap: 1.000.
 
+Validate hidden-state return plumbing in an isolated results directory so the
+normal SGLang reference output is not overwritten:
+
+```sh
+PYTHONPATH=unlimited-ocr-portable uv run --no-project --python .venv/bin/python \
+  -m uocr_harness.cli run-sglang \
+  --start-server \
+  --case-id sc-02-45a8efac \
+  --profiles document_parsing \
+  --max-tokens 1 \
+  --debug-native-artifacts \
+  --debug-return-hidden-states \
+  --enable-return-hidden-states \
+  --debug-top-logprobs 3 \
+  --results /tmp/uocr-hidden-results \
+  --manifest unlimited-ocr-portable/results/manifest.jsonl \
+  --force
+```
+
+Recorded hidden-state result:
+
+- Native artifact status: HTTP 200, no harness error.
+- Prompt tokens: 1517.
+- Completion tokens: 1.
+- Summarized hidden-state shape: `[1, 1517, 1280]`.
+
 Run the exact-prefill target set:
 
 ```sh

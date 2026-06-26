@@ -105,6 +105,8 @@ Generated: 2026-06-26T14:29:07+00:00
   SGLang processor prefill parity: 1517 / 1517 tokens.
 - One-token native SGLang `/generate` and llama.cpp exact-prefill artifacts
   align on first token `<|det|>` with first-output top-k overlap 1.000.
+- Hidden-state return plumbing was validated in an isolated `/tmp` results run:
+  SGLang returned summarized hidden states with shape `[1, 1517, 1280]`.
 - Exact prefill is not enough for output parity: the 20-row target run
   `llamacpp-q4_k_m-uocr-parity-noimgend-noeos-target` reached 10 pass / 20,
   4 repetition rows, 6 low-similarity rows, and average similarity 0.512.

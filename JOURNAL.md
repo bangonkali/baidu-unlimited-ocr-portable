@@ -1025,6 +1025,10 @@ Validation:
   - Prompt tokens: 1517.
   - `input_token_logprobs`: 1517 rows.
   - First output token: `<|det|>` / token `128818`.
+- Isolated hidden-state validation completed under `/tmp/uocr-hidden-results`:
+  - Prompt tokens: 1517.
+  - Completion tokens: 1.
+  - Summarized hidden-state shape: `[1, 1517, 1280]`.
 - Matching llama.cpp one-token exact-prefill artifact:
   - Prefill tokens: 1517.
   - First output token: `<|det|>` / token `128818`.
