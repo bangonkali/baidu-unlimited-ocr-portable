@@ -6,7 +6,6 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
-from .profiles import PROMPT_PROFILES
 from .util import ensure_dir, read_json, read_jsonl, utc_now
 
 DET_RE = re.compile(r"<\|det\|>.*?<\|/det\|>", re.DOTALL)

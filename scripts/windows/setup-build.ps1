@@ -202,7 +202,14 @@ function Show-ToolVersions {
         Write-Host "hf:         $((hf --version) -join ' ')"
     }
     if (Test-Tool "cl.exe") {
-        Write-Host "cl.exe:     $((cl.exe 2>&1 | Select-Object -First 1) -join ' ')"
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            Write-Host "cl.exe:     $((cl.exe 2>&1 | Select-Object -First 1) -join ' ')"
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
     }
     if (Test-Tool "nvcc") {
         Write-Host "nvcc:"
@@ -229,7 +236,6 @@ function Invoke-Doctor {
         [string] $ThirdpartyDir,
         [string] $LlamaDir,
         [string] $ModelDir,
-        [string] $ModelCacheDir,
         [string] $ModelRepo,
         [string[]] $Models,
         [bool] $IncludeDiagnostics,
@@ -272,13 +278,6 @@ function Invoke-Doctor {
     }
     else {
         Add-DoctorResult $results "model directory" "WARN" "$ModelDir is missing; setup-build.ps1 creates it."
-    }
-
-    if (Test-Path $ModelCacheDir) {
-        Add-DoctorResult $results "Hugging Face cache directory" "OK" $ModelCacheDir
-    }
-    else {
-        Add-DoctorResult $results "Hugging Face cache directory" "WARN" "$ModelCacheDir is missing; setup-build.ps1 creates it."
     }
 
     $toolChecks = @(
@@ -396,7 +395,6 @@ function Download-HfFile {
         [string] $Repo,
         [string] $FileName,
         [string] $TargetDir,
-        [string] $CacheDir,
         [bool] $Force,
         [string] $WorkingDirectory
     )
@@ -410,7 +408,6 @@ function Download-HfFile {
         "download",
         $Repo,
         $FileName,
-        "--cache-dir", $CacheDir,
         "--local-dir", $TargetDir
     )
     if ($Force) {
@@ -440,7 +437,6 @@ $RepoRoot = Resolve-PortableRoot -ExplicitRepoRoot $RepoRoot -LegacyWorkspace $W
 $ThirdpartyDir = Join-Path $RepoRoot "thirdparty"
 $LlamaDir = Join-Path $ThirdpartyDir "llama.cpp"
 $ModelDir = Join-Path $RepoRoot "models"
-$ModelCacheDir = Join-Path $ModelDir ".hf-cache"
 $BuildDir = Join-Path $LlamaDir "build"
 
 if ($Doctor) {
@@ -449,7 +445,6 @@ if ($Doctor) {
         -ThirdpartyDir $ThirdpartyDir `
         -LlamaDir $LlamaDir `
         -ModelDir $ModelDir `
-        -ModelCacheDir $ModelCacheDir `
         -ModelRepo $ModelRepo `
         -Models $Models `
         -IncludeDiagnostics:$IncludeDiagnostics `
@@ -473,7 +468,7 @@ if (Test-Tool "nvcc") {
 }
 
 Write-Step "Preparing portable directories"
-New-Item -ItemType Directory -Force -Path $ThirdpartyDir, $ModelDir, $ModelCacheDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ThirdpartyDir, $ModelDir | Out-Null
 
 if (-not $SkipSubmoduleUpdate) {
     Write-Step "Initializing git submodules"
@@ -511,7 +506,6 @@ if (-not $SkipModelDownload) {
             -Repo $ModelRepo `
             -FileName $_ `
             -TargetDir $ModelDir `
-            -CacheDir $ModelCacheDir `
             -Force:$ForceModelDownload `
             -WorkingDirectory $RepoRoot
     }

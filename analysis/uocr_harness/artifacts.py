@@ -350,8 +350,6 @@ def _status(reference: dict[str, Any], candidate: dict[str, Any]) -> str:
         return "missing_reference_artifact"
     if not candidate.get("exists"):
         return "missing_candidate_artifact"
-    ref_tokens = reference.get("output_token_ids", [])
-    cand_tokens = candidate.get("output_token_ids", [])
     ref_cmp = _first_comparable_token(reference)
     cand_cmp = _first_comparable_token(candidate)
     ref_visible = _first_visible_token(reference)

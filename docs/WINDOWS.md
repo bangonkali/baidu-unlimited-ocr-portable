@@ -80,8 +80,7 @@ The setup script checks:
 - Git submodules via `git submodule update --init --recursive`.
 - Python/Gradio dependencies via `uv sync --frozen`.
 - Hugging Face authorization via `hf auth whoami`
-- GGUF downloads into `models\`, with Hugging Face cache under
-  `models\.hf-cache\`.
+- GGUF downloads into `models\`.
 - built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
 - required GGUF files under
   `C:\uocr\unlimited-ocr-portable\models`
@@ -196,7 +195,7 @@ under `unlimited-ocr-portable\thirdparty` and downloaded model assets under
 C:\uocr\
   unlimited-ocr-portable\
     dataset\
-    models\            # downloaded HF assets and .hf-cache, ignored by git
+    models\            # downloaded HF assets, ignored by git
     thirdparty\
       llama.cpp\        # git submodule
 ```
@@ -229,20 +228,17 @@ Every run needs two files:
 - The shared F16 vision projector: `mmproj-Unlimited-OCR-F16.gguf`.
 
 The scripted setup handles this automatically. Manual downloads should use the
-same directory and cache layout as the script:
+same local model directory as the script:
 
 ```powershell
 mkdir models
-mkdir models\.hf-cache
 
 hf download sahilchachra/Unlimited-OCR-GGUF `
   Unlimited-OCR-Q4_K_M.gguf `
-  --cache-dir models\.hf-cache `
   --local-dir models
 
 hf download sahilchachra/Unlimited-OCR-GGUF `
   mmproj-Unlimited-OCR-F16.gguf `
-  --cache-dir models\.hf-cache `
   --local-dir models
 ```
 
@@ -256,7 +252,6 @@ foreach ($file in @(
 )) {
   hf download sahilchachra/Unlimited-OCR-GGUF `
     $file `
-    --cache-dir models\.hf-cache `
     --local-dir models
 }
 ```
@@ -278,7 +273,6 @@ foreach ($file in @(
 )) {
   hf download sahilchachra/Unlimited-OCR-GGUF `
     $file `
-    --cache-dir models\.hf-cache `
     --local-dir models
 }
 ```
@@ -538,7 +532,7 @@ If `hf download` fails:
 - Run `hf auth whoami`.
 - Run `hf auth login` if not authenticated.
 - Check that the model repo is reachable:
-  `hf download sahilchachra/Unlimited-OCR-GGUF README.md --cache-dir models\.hf-cache --local-dir models`.
+  `hf download sahilchachra/Unlimited-OCR-GGUF README.md --local-dir models`.
 
 If PowerShell blocks scripts:
 
