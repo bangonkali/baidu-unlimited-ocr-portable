@@ -19,6 +19,7 @@ def _exe_suffix() -> str:
 def default_llama_binary() -> Path:
     if os.name == "nt":
         candidates = [
+            *sorted(PORTABLE_THIRDPARTY.glob("uocr-runtime/*/bin/llama-uocr-parity.exe")),
             PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-uocr-parity.exe",
             PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "llama-uocr-parity.exe",
             LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-uocr-parity.exe",
@@ -26,6 +27,7 @@ def default_llama_binary() -> Path:
         ]
     else:
         candidates = [
+            *sorted(PORTABLE_THIRDPARTY.glob("uocr-runtime/*/bin/llama-uocr-parity")),
             PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
             LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
         ]

@@ -23,7 +23,9 @@ The uv project name is `baidu-unlimited-ocr-portable`.
 - `analysis/summaries/`: current and historical Markdown result summaries.
 - `docs/`: Linux, macOS, and Windows setup notes.
 - `scripts/mac/`: macOS setup/build and demo launch scripts.
+- `scripts/linux/`: Linux setup/build and demo launch scripts.
 - `scripts/windows/`: Windows setup/build and demo launch scripts.
+- `runtime/platforms.json`: exact prebuilt runtime platform labels.
 - `thirdparty/llama.cpp/`: git submodule for the patched llama.cpp fork.
 - `models/`: local HF model asset directory and cache, ignored by git.
 
@@ -42,9 +44,11 @@ If the clone already exists:
 git submodule update --init --recursive
 ```
 
-The macOS and Windows setup scripts also run the submodule update, sync the
-Python environment with `uv sync --frozen`, and download GGUF model files with
-`hf` into `models/`.
+The setup scripts sync the Python environment with `uv sync --frozen`, download
+GGUF model files with `hf` into `models/`, and install prebuilt native runtime
+binaries from GitHub Releases by default. Source compilation remains available
+with `--runtime-source build` on macOS/Linux or `-RuntimeSource build` on
+Windows.
 
 Run the doctor first on macOS to verify prerequisites without downloading or
 building:
@@ -63,8 +67,15 @@ building:
 The script also accepts `--doctor` through a compatibility alias when supported
 by the active PowerShell host.
 
-See `docs/MACOS.md` and `docs/WINDOWS.md` for the platform-specific quick
-starts.
+Run the doctor first on Linux CUDA machines:
+
+```sh
+./scripts/linux/setup-build.sh --doctor
+```
+
+See `docs/MACOS.md`, `docs/WINDOWS.md`, `docs/LINUX.md`, and
+`docs/RUNTIME-BINARIES.md` for platform-specific quick starts and release binary
+details.
 
 ## Validation Harness
 

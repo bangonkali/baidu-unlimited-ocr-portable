@@ -10,6 +10,12 @@ param(
     [switch] $SkipSubmoduleUpdate,
     [switch] $SkipModelDownload,
     [switch] $ForceModelDownload,
+    [ValidateSet("download", "build", "auto")]
+    [string] $RuntimeSource = "download",
+    [string] $RuntimeVersion = "latest",
+    [string] $RuntimeRepo = "bangonkali/baidu-unlimited-ocr-portable",
+    [switch] $SkipRuntimeDownload,
+    [switch] $ForceRuntimeDownload,
     [switch] $SkipPythonSync,
     [switch] $SkipBuild,
     [string] $Generator = "",
@@ -276,7 +282,9 @@ function Invoke-Doctor {
         [bool] $IncludeDiagnostics,
         [string] $BuildDir,
         [bool] $ForceModelDownload,
-        [bool] $NeedModelDownload
+        [bool] $NeedModelDownload,
+        [bool] $NeedBuild,
+        [bool] $NeedRuntimeDownload
     )
 
     Write-Step "Running portable build doctor"
@@ -317,6 +325,21 @@ function Invoke-Doctor {
         Add-DoctorResult $results "model directory" "WARN" "$ModelDir is missing; setup-build.ps1 creates it."
     }
 
+    $runtimeProbe = Invoke-CommandProbe `
+        -File "uv" `
+        -Arguments @("run", "--project", $RepoRoot, "python", (Join-Path $RepoRoot "scripts\install_runtime.py"), "detect", "--repo-root", $RepoRoot) `
+        -WorkingDirectory $RepoRoot
+    $runtimeDetail = if ($runtimeProbe.Text) { ($runtimeProbe.Text -split "`r?`n" | Select-Object -First 1) -join "" } else { "runtime detection returned no output" }
+    if ($runtimeProbe.Ok) {
+        Add-DoctorResult $results "runtime platform" "OK" $runtimeDetail
+    }
+    elseif ($NeedRuntimeDownload) {
+        Add-DoctorResult $results "runtime platform" "FAIL" $runtimeDetail
+    }
+    else {
+        Add-DoctorResult $results "runtime platform" "WARN" $runtimeDetail
+    }
+
     $toolChecks = @(
         @{ Name = "git"; Args = @("--version"); Reason = "clone/update git submodules" },
         @{ Name = "uv"; Args = @("--version"); Reason = "sync Python/Gradio dependencies" }
@@ -324,12 +347,14 @@ function Invoke-Doctor {
     if ($NeedModelDownload) {
         $toolChecks += @{ Name = "hf"; Args = @("--version"); Reason = "download GGUF assets from Hugging Face" }
     }
-    $toolChecks += @(
-        @{ Name = "cmake"; Args = @("--version"); Reason = "configure and build llama.cpp" },
-        @{ Name = "cl.exe"; Args = @(); Reason = "MSVC C/C++ compiler from Visual Studio Developer PowerShell"; PresenceOnly = $true },
-        @{ Name = "nvcc"; Args = @("--version"); Reason = "CUDA compiler for GGML_CUDA" },
-        @{ Name = "nvidia-smi"; Args = @("--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"); Reason = "verify NVIDIA driver/GPU visibility" }
-    )
+    if ($NeedBuild) {
+        $toolChecks += @(
+            @{ Name = "cmake"; Args = @("--version"); Reason = "configure and build llama.cpp" },
+            @{ Name = "cl.exe"; Args = @(); Reason = "MSVC C/C++ compiler from Visual Studio Developer PowerShell"; PresenceOnly = $true },
+            @{ Name = "nvcc"; Args = @("--version"); Reason = "CUDA compiler for GGML_CUDA" },
+            @{ Name = "nvidia-smi"; Args = @("--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"); Reason = "verify NVIDIA driver/GPU visibility" }
+        )
+    }
 
     foreach ($tool in $toolChecks) {
         if (-not (Test-Tool $tool.Name)) {
@@ -353,14 +378,16 @@ function Invoke-Doctor {
         }
     }
 
-    if ($env:VSCMD_VER -or $env:VSINSTALLDIR) {
-        Add-DoctorResult $results "Visual Studio Developer PowerShell" "OK" "VSCMD_VER=$env:VSCMD_VER VSINSTALLDIR=$env:VSINSTALLDIR"
-    }
-    else {
-        Add-DoctorResult $results "Visual Studio Developer PowerShell" "WARN" "Environment variables are not set. Use a Developer PowerShell before building."
+    if ($NeedBuild) {
+        if ($env:VSCMD_VER -or $env:VSINSTALLDIR) {
+            Add-DoctorResult $results "Visual Studio Developer PowerShell" "OK" "VSCMD_VER=$env:VSCMD_VER VSINSTALLDIR=$env:VSINSTALLDIR"
+        }
+        else {
+            Add-DoctorResult $results "Visual Studio Developer PowerShell" "WARN" "Environment variables are not set. Use a Developer PowerShell before building."
+        }
     }
 
-    if (Test-Tool "nvcc") {
+    if ($NeedBuild -and (Test-Tool "nvcc")) {
         $nvccProbe = Invoke-CommandProbe -File "nvcc" -Arguments @("--version") -WorkingDirectory $RepoRoot
         if ($nvccProbe.Ok -and ($nvccProbe.Text -match "13\.3" -or $nvccProbe.Text -match "cuda_13\.3")) {
             Add-DoctorResult $results "CUDA target version" "OK" "CUDA 13.3 detected."
@@ -419,13 +446,27 @@ function Invoke-Doctor {
         }
     }
 
-    foreach ($exe in @("llama-uocr-parity", "llama-mtmd-cli", "llama-server")) {
-        try {
-            $path = Find-BuiltExe -BuildDir $BuildDir -Name $exe
-            Add-DoctorResult $results "build output $exe" "OK" $path
+    if ($NeedRuntimeDownload) {
+        foreach ($exe in @("llama-uocr-parity", "llama-mtmd-cli", "llama-server")) {
+            $path = Find-DownloadedExe -RepoRoot $RepoRoot -Name $exe
+            if ($path) {
+                Add-DoctorResult $results "downloaded runtime $exe" "OK" $path
+            }
+            else {
+                Add-DoctorResult $results "downloaded runtime $exe" "WARN" "$exe.exe is not installed yet; setup-build.ps1 downloads it from GitHub."
+            }
         }
-        catch {
-            Add-DoctorResult $results "build output $exe" "WARN" "$exe.exe is not built yet; setup-build.ps1 builds it."
+    }
+
+    if ($NeedBuild) {
+        foreach ($exe in @("llama-uocr-parity", "llama-mtmd-cli", "llama-server")) {
+            try {
+                $path = Find-BuiltExe -BuildDir $BuildDir -Name $exe
+                Add-DoctorResult $results "build output $exe" "OK" $path
+            }
+            catch {
+                Add-DoctorResult $results "build output $exe" "WARN" "$exe.exe is not built yet; setup-build.ps1 builds it."
+            }
         }
     }
 
@@ -475,11 +516,65 @@ function Find-BuiltExe {
     return $match.FullName
 }
 
+function Find-DownloadedExe {
+    param(
+        [string] $RepoRoot,
+        [string] $Name
+    )
+    $runtimeRoot = Join-Path $RepoRoot "thirdparty\uocr-runtime"
+    if (-not (Test-Path $runtimeRoot)) {
+        return ""
+    }
+    $match = Get-ChildItem -Path $runtimeRoot -Recurse -Filter "$Name.exe" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "\\bin\\" } |
+        Select-Object -First 1
+    if (-not $match) {
+        return ""
+    }
+    return $match.FullName
+}
+
+function Invoke-RuntimeInstaller {
+    param(
+        [string] $RepoRoot,
+        [string] $RuntimeRepo,
+        [string] $RuntimeVersion,
+        [bool] $ForceRuntimeDownload
+    )
+
+    $args = @(
+        "run", "--project", $RepoRoot,
+        "python", (Join-Path $RepoRoot "scripts\install_runtime.py"),
+        "install",
+        "--repo-root", $RepoRoot,
+        "--runtime-repo", $RuntimeRepo,
+        "--runtime-version", $RuntimeVersion,
+        "--print-env", "powershell"
+    )
+    if ($ForceRuntimeDownload) {
+        $args += "--force"
+    }
+
+    Push-Location $RepoRoot
+    try {
+        $output = & uv @args
+        if ($LASTEXITCODE -ne 0) {
+            throw "Runtime installer failed with exit code $LASTEXITCODE."
+        }
+        return (($output | Out-String).Trim())
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 $RepoRoot = Resolve-PortableRoot -ExplicitRepoRoot $RepoRoot -LegacyWorkspace $Workspace
 $ThirdpartyDir = Join-Path $RepoRoot "thirdparty"
 $LlamaDir = Join-Path $ThirdpartyDir "llama.cpp"
 $ModelDir = Join-Path $RepoRoot "models"
 $BuildDir = Join-Path $LlamaDir "build"
+$NeedRuntimeDownload = (($RuntimeSource -ne "build") -and (-not $SkipRuntimeDownload))
+$NeedBuildNow = (($RuntimeSource -eq "build") -and (-not $SkipBuild))
 
 if ($Doctor) {
     Invoke-Doctor `
@@ -492,19 +587,21 @@ if ($Doctor) {
         -IncludeDiagnostics:$IncludeDiagnostics `
         -BuildDir $BuildDir `
         -ForceModelDownload:$ForceModelDownload `
-        -NeedModelDownload:(-not $SkipModelDownload)
+        -NeedModelDownload:(-not $SkipModelDownload) `
+        -NeedBuild:$NeedBuildNow `
+        -NeedRuntimeDownload:$NeedRuntimeDownload
     return
 }
 
 Write-Step "Checking required tools"
-Assert-Tooling -NeedHf:(-not $SkipModelDownload) -NeedBuild:(-not $SkipBuild)
+Assert-Tooling -NeedHf:(-not $SkipModelDownload) -NeedBuild:$NeedBuildNow
 Show-ToolVersions
 
-if (-not $env:VSCMD_VER -and -not $env:VSINSTALLDIR) {
+if ($NeedBuildNow -and -not $env:VSCMD_VER -and -not $env:VSINSTALLDIR) {
     Write-Warning "This does not look like a Visual Studio Developer PowerShell. Start Visual Studio 2026 Developer PowerShell v18.8.0-insiders before building."
 }
 
-if (Test-Tool "nvcc") {
+if ($NeedBuildNow -and (Test-Tool "nvcc")) {
     $nvccText = (& nvcc --version) -join "`n"
     if ($nvccText -notmatch "13\.3" -and $nvccText -notmatch "cuda_13\.3") {
         Write-Warning "Expected CUDA 13.3 for the Windows validation target. Current nvcc output:`n$nvccText"
@@ -514,18 +611,24 @@ if (Test-Tool "nvcc") {
 Write-Step "Preparing portable directories"
 New-Item -ItemType Directory -Force -Path $ThirdpartyDir, $ModelDir | Out-Null
 
-if (-not $SkipSubmoduleUpdate) {
-    Write-Step "Initializing git submodules"
-    Invoke-Checked -File "git" -Arguments @("-C", $RepoRoot, "submodule", "sync", "--recursive") -WorkingDirectory $RepoRoot
-    Invoke-Checked -File "git" -Arguments @("-C", $RepoRoot, "submodule", "update", "--init", "--recursive") -WorkingDirectory $RepoRoot
-}
+if ($RuntimeSource -eq "build" -or $RuntimeSource -eq "auto") {
+    if (-not $SkipSubmoduleUpdate) {
+        Write-Step "Initializing git submodules"
+        Invoke-Checked -File "git" -Arguments @("-C", $RepoRoot, "submodule", "sync", "--recursive") -WorkingDirectory $RepoRoot
+        Invoke-Checked -File "git" -Arguments @("-C", $RepoRoot, "submodule", "update", "--init", "--recursive") -WorkingDirectory $RepoRoot
+    }
 
-if (-not (Test-Path (Join-Path $LlamaDir "CMakeLists.txt"))) {
-    throw "llama.cpp submodule is missing at $LlamaDir. Clone with --recursive or rerun without -SkipSubmoduleUpdate."
+    if (-not (Test-Path (Join-Path $LlamaDir "CMakeLists.txt"))) {
+        if ($RuntimeSource -eq "build") {
+            throw "llama.cpp submodule is missing at $LlamaDir. Clone with --recursive or rerun without -SkipSubmoduleUpdate."
+        }
+        Write-Host "llama.cpp submodule is not initialized; auto mode can still use a prebuilt runtime."
+    }
+    else {
+        Write-Step "Submodule status"
+        git -C $RepoRoot submodule status --recursive
+    }
 }
-
-Write-Step "Submodule status"
-git -C $RepoRoot submodule status --recursive
 
 if (-not $SkipPythonSync) {
     Write-Step "Syncing Python dependencies"
@@ -555,7 +658,55 @@ if (-not $SkipModelDownload) {
     }
 }
 
-if (-not $SkipBuild) {
+$RuntimeSourceActual = $RuntimeSource
+
+if ($RuntimeSource -eq "download" -or $RuntimeSource -eq "auto") {
+    if ($SkipRuntimeDownload) {
+        if ($RuntimeSource -eq "download") {
+            Write-Step "Using existing prebuilt runtime"
+            if (-not $env:UOCR_LLAMA_BIN) {
+                $env:UOCR_LLAMA_BIN = Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-uocr-parity"
+            }
+            if (-not $env:UOCR_LLAMA_MTMD_BIN) {
+                $env:UOCR_LLAMA_MTMD_BIN = Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-mtmd-cli"
+            }
+            if (-not $env:UOCR_LLAMA_SERVER_BIN) {
+                $env:UOCR_LLAMA_SERVER_BIN = Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-server"
+            }
+        }
+        else {
+            $RuntimeSourceActual = "build"
+        }
+    }
+    else {
+        Write-Step "Installing prebuilt native runtime"
+        try {
+            $runtimeExports = Invoke-RuntimeInstaller `
+                -RepoRoot $RepoRoot `
+                -RuntimeRepo $RuntimeRepo `
+                -RuntimeVersion $RuntimeVersion `
+                -ForceRuntimeDownload:$ForceRuntimeDownload
+            Invoke-Expression $runtimeExports
+            $RuntimeSourceActual = "download"
+        }
+        catch {
+            if ($RuntimeSource -eq "download") {
+                throw "Prebuilt runtime download failed. Rerun with -RuntimeSource build to compile locally. $($_.Exception.Message)"
+            }
+            Write-Warning "Prebuilt runtime download failed; falling back to local build. $($_.Exception.Message)"
+            $RuntimeSourceActual = "build"
+        }
+    }
+}
+
+if ($RuntimeSourceActual -eq "build") {
+    Assert-Tooling -NeedHf:$false -NeedBuild:(-not $SkipBuild)
+    if (-not (Test-Path (Join-Path $LlamaDir "CMakeLists.txt"))) {
+        throw "llama.cpp submodule is missing at $LlamaDir. Clone with --recursive or rerun without -SkipSubmoduleUpdate."
+    }
+}
+
+if ($RuntimeSourceActual -eq "build" -and -not $SkipBuild) {
     Write-Step "Configuring llama.cpp CUDA build"
     $configureArgs = @(
         "-B", $BuildDir,
@@ -581,10 +732,17 @@ if (-not $SkipBuild) {
 }
 
 Write-Step "Validating outputs"
-$uocrExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-uocr-parity"
-$mtmdExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-mtmd-cli"
-$serverExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-server"
-$modelPath = Join-Path $ModelDir "Unlimited-OCR-Q4_K_M.gguf"
+if ($RuntimeSourceActual -eq "build") {
+    $uocrExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-uocr-parity"
+    $mtmdExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-mtmd-cli"
+    $serverExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-server"
+}
+else {
+    $uocrExe = $env:UOCR_LLAMA_BIN
+    $mtmdExe = if ($env:UOCR_LLAMA_MTMD_BIN) { $env:UOCR_LLAMA_MTMD_BIN } else { Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-mtmd-cli" }
+    $serverExe = if ($env:UOCR_LLAMA_SERVER_BIN) { $env:UOCR_LLAMA_SERVER_BIN } else { Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-server" }
+}
+$modelPath = Join-Path $ModelDir ($Models[0])
 $mmprojPath = Join-Path $ModelDir "mmproj-Unlimited-OCR-F16.gguf"
 
 foreach ($path in @($uocrExe, $mtmdExe, $serverExe, $modelPath, $mmprojPath)) {
@@ -596,14 +754,31 @@ foreach ($path in @($uocrExe, $mtmdExe, $serverExe, $modelPath, $mmprojPath)) {
 
 Write-Step "Writing runtime environment"
 $envFile = Join-Path $RepoRoot "uocr-runtime-env.ps1"
-$envLines = @(
-    "# Generated by scripts/windows/setup-build.ps1",
-    "`$env:UOCR_LLAMA_BIN = '$uocrExe'",
-    "`$env:UOCR_MODEL = '$modelPath'",
-    "`$env:UOCR_MMPROJ = '$mmprojPath'",
-    "`$env:UOCR_CLIENT_HOST = '127.0.0.1'",
-    "`$env:UOCR_CLIENT_PORT = '7861'"
-)
+$envLines = [System.Collections.Generic.List[string]]::new()
+$envLines.Add("# Generated by scripts/windows/setup-build.ps1") | Out-Null
+function Add-EnvLine {
+    param(
+        [System.Collections.Generic.List[string]] $Lines,
+        [string] $Name,
+        [string] $Value
+    )
+    if ($null -eq $Value -or $Value -eq "") {
+        return
+    }
+    $escaped = $Value.Replace("'", "''")
+    $Lines.Add('$env:' + $Name + " = '$escaped'") | Out-Null
+}
+Add-EnvLine -Lines $envLines -Name "UOCR_RUNTIME_SOURCE" -Value $RuntimeSourceActual
+Add-EnvLine -Lines $envLines -Name "UOCR_RUNTIME_LABEL" -Value $env:UOCR_RUNTIME_LABEL
+Add-EnvLine -Lines $envLines -Name "UOCR_RUNTIME_VERSION" -Value $env:UOCR_RUNTIME_VERSION
+Add-EnvLine -Lines $envLines -Name "UOCR_RUNTIME_ROOT" -Value $env:UOCR_RUNTIME_ROOT
+Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_BIN" -Value $uocrExe
+Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_MTMD_BIN" -Value $mtmdExe
+Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_SERVER_BIN" -Value $serverExe
+Add-EnvLine -Lines $envLines -Name "UOCR_MODEL" -Value $modelPath
+Add-EnvLine -Lines $envLines -Name "UOCR_MMPROJ" -Value $mmprojPath
+Add-EnvLine -Lines $envLines -Name "UOCR_CLIENT_HOST" -Value "127.0.0.1"
+Add-EnvLine -Lines $envLines -Name "UOCR_CLIENT_PORT" -Value "7861"
 Set-Content -Path $envFile -Value $envLines -Encoding UTF8
 Write-Host "Wrote $envFile"
 

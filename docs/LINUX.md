@@ -7,6 +7,59 @@ The full executed validation procedure is documented in
 `../TEST-PROCEDURE.md`. This Linux document keeps the platform-specific setup
 and command notes.
 
+## Scripted Quick Start
+
+The default Linux runtime label is `linux-x86_64-cuda13`. The setup script
+downloads that prebuilt runtime from GitHub Releases by default, downloads GGUF
+model files from Hugging Face, syncs Python dependencies, and writes
+`uocr-runtime-env.sh`.
+
+Prerequisites for the default download path:
+
+- `git`
+- `uv`
+- Hugging Face CLI as `hf`
+- NVIDIA driver visible through `nvidia-smi`
+- CUDA runtime libraries compatible with CUDA 13 binaries
+
+```sh
+git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git \
+  unlimited-ocr-portable
+
+cd unlimited-ocr-portable
+
+./scripts/linux/setup-build.sh --doctor
+./scripts/linux/setup-build.sh
+```
+
+To compile the CUDA runtime locally instead of downloading it, install `cmake`
+and the CUDA toolkit with `nvcc`, then run:
+
+```sh
+./scripts/linux/setup-build.sh --runtime-source build
+```
+
+To try download first and compile only if no release asset is available:
+
+```sh
+./scripts/linux/setup-build.sh --runtime-source auto
+```
+
+Run a smoke test:
+
+```sh
+./scripts/linux/run-demo.sh \
+  --smoke \
+  --image dataset/sc-02.png \
+  --max-tokens 64
+```
+
+Launch the demo UI:
+
+```sh
+./scripts/linux/run-demo.sh --host 127.0.0.1 --port 7861
+```
+
 ## Current R-SWA Status
 
 The local llama.cpp branch now includes PR #24975 style reference-SWA behavior

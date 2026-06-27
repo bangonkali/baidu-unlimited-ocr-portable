@@ -76,6 +76,7 @@ if (Test-Path $EnvFile) {
 
 if (-not $env:UOCR_LLAMA_BIN) {
     $env:UOCR_LLAMA_BIN = Resolve-FirstExisting @(
+        (Join-Path $ThirdpartyDir "uocr-runtime\windows-x86_64-cuda13\bin\llama-uocr-parity.exe"),
         (Join-Path $ThirdpartyDir "llama.cpp\build\bin\Release\llama-uocr-parity.exe"),
         (Join-Path $ThirdpartyDir "llama.cpp\build\bin\llama-uocr-parity.exe")
     )

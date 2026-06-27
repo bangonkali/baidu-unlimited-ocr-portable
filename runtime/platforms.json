@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "default_release_repo": "bangonkali/baidu-unlimited-ocr-portable",
+  "asset_prefix": "uocr-runtime",
+  "aggregate_manifest": "uocr-runtime-manifest.json",
+  "targets": {
+    "macos-arm64-metal": {
+      "label": "macOS Apple Silicon / Metal",
+      "os": "macos",
+      "arch": "arm64",
+      "backend": "metal",
+      "support_status": "supported",
+      "runner": "macos-15",
+      "archive_ext": "tar.gz",
+      "cmake_defines": [
+        "GGML_METAL=ON"
+      ],
+      "executables": [
+        "llama-uocr-parity",
+        "llama-mtmd-cli",
+        "llama-server"
+      ],
+      "primary_binary": "llama-uocr-parity",
+      "library_globs": [
+        "*.dylib"
+      ],
+      "notes": "Prebuilt runtime for Apple Silicon Macs using the Metal backend."
+    },
+    "linux-x86_64-cuda13": {
+      "label": "Linux x86_64 / CUDA 13",
+      "os": "linux",
+      "arch": "x86_64",
+      "backend": "cuda",
+      "cuda_major": 13,
+      "support_status": "supported",
+      "runner": "ubuntu-24.04",
+      "archive_ext": "tar.gz",
+      "cmake_defines": [
+        "GGML_CUDA=ON"
+      ],
+      "executables": [
+        "llama-uocr-parity",
+        "llama-mtmd-cli",
+        "llama-server"
+      ],
+      "primary_binary": "llama-uocr-parity",
+      "library_globs": [
+        "*.so",
+        "*.so.*"
+      ],
+      "accelerator_probe": "nvidia-smi",
+      "notes": "Prebuilt runtime for Linux x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
+    },
+    "windows-x86_64-cuda13": {
+      "label": "Windows x86_64 / CUDA 13",
+      "os": "windows",
+      "arch": "x86_64",
+      "backend": "cuda",
+      "cuda_major": 13,
+      "support_status": "supported",
+      "runner": "windows-2025",
+      "archive_ext": "zip",
+      "cmake_defines": [
+        "GGML_CUDA=ON"
+      ],
+      "executables": [
+        "llama-uocr-parity.exe",
+        "llama-mtmd-cli.exe",
+        "llama-server.exe"
+      ],
+      "primary_binary": "llama-uocr-parity.exe",
+      "library_globs": [
+        "*.dll"
+      ],
+      "accelerator_probe": "nvidia-smi",
+      "notes": "Prebuilt runtime for Windows x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
+    }
+  }
+}

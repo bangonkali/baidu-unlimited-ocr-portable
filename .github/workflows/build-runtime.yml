@@ -1,0 +1,180 @@
+name: Build runtime binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish artifacts to a GitHub Release"
+        required: false
+        default: false
+        type: boolean
+      version:
+        description: "Release tag/version for manual publishing, for example v0.1.0-runtime. Required when publish=true outside tag builds."
+        required: false
+        default: ""
+        type: string
+      cuda_version:
+        description: "CUDA toolkit version installed for CUDA builds"
+        required: false
+        default: "13.2.0"
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64-metal
+            runner: macos-15
+            backend: metal
+          - platform: linux-x86_64-cuda13
+            runner: ubuntu-24.04
+            backend: cuda
+          - platform: windows-x86_64-cuda13
+            runner: windows-2025
+            backend: cuda
+
+    env:
+      CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set runtime version
+        run: |
+          python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "${{ inputs.version }}"
+        shell: bash
+
+      - name: Install CUDA toolkit
+        if: matrix.backend == 'cuda'
+        uses: Jimver/cuda-toolkit@v0.2.35
+        with:
+          cuda: ${{ env.CUDA_VERSION }}
+          method: network
+
+      - name: Configure Metal build
+        if: matrix.backend == 'metal'
+        run: |
+          cmake -B thirdparty/llama.cpp/build \
+            -S thirdparty/llama.cpp \
+            -DGGML_METAL=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure CUDA build on Linux
+        if: matrix.backend == 'cuda' && runner.os == 'Linux'
+        run: |
+          cmake -B thirdparty/llama.cpp/build \
+            -S thirdparty/llama.cpp \
+            -DGGML_CUDA=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure CUDA build on Windows
+        if: matrix.backend == 'cuda' && runner.os == 'Windows'
+        run: |
+          cmake -B thirdparty/llama.cpp/build `
+            -S thirdparty/llama.cpp `
+            -DGGML_CUDA=ON `
+            -DCMAKE_BUILD_TYPE=Release
+        shell: pwsh
+
+      - name: Build runtime targets
+        run: |
+          cmake --build thirdparty/llama.cpp/build --config Release --target llama-mtmd-cli llama-uocr-parity llama-server --parallel
+
+      - name: Package runtime
+        run: |
+          python scripts/package_runtime.py package --platform "${{ matrix.platform }}" --version "${{ env.UOCR_RUNTIME_VERSION }}" --output-dir dist
+        shell: bash
+
+      - name: Upload packaged runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.platform }}
+          path: |
+            dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.ref_type == 'tag' || inputs.publish == true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Download packaged runtimes
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Set release tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            tag="${{ inputs.version }}"
+          fi
+          if [[ -z "$tag" ]]; then
+            echo "workflow_dispatch publish=true requires the version input." >&2
+            exit 1
+          fi
+          echo "UOCR_RELEASE_TAG=${tag//\//-}" >> "$GITHUB_ENV"
+
+      - name: Merge runtime manifests
+        run: |
+          python scripts/package_runtime.py merge --input-dir dist --output dist/uocr-runtime-manifest.json
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          release_notes="$(mktemp)"
+          cat > "$release_notes" <<'EOF'
+          Prebuilt Unlimited-OCR native runtime binaries.
+
+          Supported platform labels:
+          - macos-arm64-metal
+          - linux-x86_64-cuda13
+          - windows-x86_64-cuda13
+
+          GGUF model files are downloaded separately by the setup scripts from Hugging Face.
+          EOF
+
+          if ! gh release view "$UOCR_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$UOCR_RELEASE_TAG" --target "$GITHUB_SHA" --title "Runtime binaries $UOCR_RELEASE_TAG" --notes-file "$release_notes"
+          fi
+
+          mapfile -t files < <(find dist -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' -o -name 'uocr-runtime-manifest.json' \) | sort)
+          if [[ "${#files[@]}" -eq 0 ]]; then
+            echo "No release files found." >&2
+            exit 1
+          fi
+          gh release upload "$UOCR_RELEASE_TAG" "${files[@]}" --clobber

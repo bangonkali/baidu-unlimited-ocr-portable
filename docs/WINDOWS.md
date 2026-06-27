@@ -7,7 +7,8 @@ Windows without SGLang. It uses:
   `uocr-deepseek-ocr-parity`.
 - `bangonkali/baidu-unlimited-ocr-portable`, branch `main`.
 - GGUF model files from `sahilchachra/Unlimited-OCR-GGUF`.
-- CUDA-enabled `llama-uocr-parity.exe`.
+- CUDA-enabled `llama-uocr-parity.exe`, downloaded from GitHub Releases by
+  default or built locally on request.
 
 The current default candidate is:
 
@@ -23,8 +24,13 @@ with SGLang.
 
 ## Scripted Quick Start
 
-Start from **Visual Studio 2026 Developer PowerShell v18.8.0-insiders** with
-CUDA available. The expected Windows CUDA target for the next validation pass is
+Start from PowerShell with an NVIDIA driver visible through `nvidia-smi` and
+CUDA runtime libraries compatible with CUDA 13 binaries. The prebuilt runtime
+label is `windows-x86_64-cuda13`.
+
+For local source builds, use **Visual Studio 2026 Developer PowerShell
+v18.8.0-insiders** with CUDA available. The expected Windows CUDA target for the
+next validation pass is CUDA 13.x; the current validated local environment used
 CUDA 13.3, where `nvcc --version` includes:
 
 ```text
@@ -53,13 +59,25 @@ cd C:\uocr\unlimited-ocr-portable
 `--doctor` through a compatibility alias in hosts that bind double-dash
 parameters.
 
-When doctor has no blocking failures, run the full setup. It initializes
-submodules, syncs Python dependencies, downloads the default Q4_K_M GGUF model
-plus mmproj into `models\`, builds `llama-uocr-parity.exe`, and writes runtime
-environment variables:
+When doctor has no blocking failures, run the full setup. It syncs Python
+dependencies, downloads the default Q4_K_M GGUF model plus mmproj into
+`models\`, installs the prebuilt `windows-x86_64-cuda13` runtime from GitHub
+Releases, and writes runtime environment variables:
 
 ```powershell
 .\scripts\windows\setup-build.ps1
+```
+
+To compile the CUDA runtime locally instead of downloading it:
+
+```powershell
+.\scripts\windows\setup-build.ps1 -RuntimeSource build
+```
+
+To try download first and compile only if no release asset is available:
+
+```powershell
+.\scripts\windows\setup-build.ps1 -RuntimeSource auto
 ```
 
 To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
@@ -71,28 +89,34 @@ To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
 The setup script checks:
 
 - `git`
-- `cmake`
 - `uv`
 - `hf`
-- `cl.exe`
-- `nvcc`
 - `nvidia-smi`
-- Git submodules via `git submodule update --init --recursive`.
 - Python/Gradio dependencies via `uv sync --frozen`.
 - Hugging Face authorization via `hf auth whoami` when model downloads are needed.
 - GGUF downloads into `models\`.
-- built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
+- downloaded or built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and
+  `llama-server.exe`
 - required GGUF files under
   `C:\uocr\unlimited-ocr-portable\models`
+
+When `-RuntimeSource build` is used, it also checks `cmake`, `cl.exe`, `nvcc`,
+Visual Studio Developer PowerShell variables, and the `llama.cpp` submodule.
 
 Useful setup switches:
 
 - `-IncludeDiagnostics`: also download Q5_K_M, Q6_K, and BF16 GGUFs.
 - `-ForceModelDownload`: redownload model files even when non-empty local
   files already exist.
+- `-RuntimeSource download|build|auto`: choose prebuilt runtime download, local
+  compilation, or download-with-build-fallback. Default: `download`.
+- `-RuntimeVersion TAG`: download a specific GitHub Release tag instead of the
+  latest release.
+- `-ForceRuntimeDownload`: redownload and reinstall the prebuilt runtime.
 - `-SkipPythonSync`: skip `uv sync --frozen` if you already synced the project.
 - `-SkipModelDownload`: skip Hugging Face auth and model download.
-- `-SkipBuild`: skip CMake configure/build.
+- `-SkipBuild`: skip CMake configure/build when using `-RuntimeSource build` or
+  an `auto` fallback build.
 
 The script writes:
 

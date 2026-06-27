@@ -12,14 +12,14 @@ max_tokens="64"
 
 usage() {
     cat <<'EOF'
-Usage: scripts/mac/run-demo.sh [options]
+Usage: scripts/linux/run-demo.sh [options]
 
 Options:
   --repo-root PATH       Portable repo root. Defaults to this script's repo.
   --workspace PATH       Legacy workspace path. Uses PATH or PATH/unlimited-ocr-portable.
-  --host HOST            Gradio host. Default: 127.0.0.1.
-  --port PORT            Gradio port. Default: 7861.
-  --smoke                Run one OCR smoke instead of launching Gradio.
+  --host HOST            Demo host. Default: 127.0.0.1.
+  --port PORT            Demo port. Default: 7861.
+  --smoke                Run one OCR smoke instead of launching the demo UI.
   --image PATH           Smoke image path.
   --profile KEY          best-zero-empty-q4 or experimental-exact-prefill-q4.
   --max-tokens N         Smoke max tokens. Default: 64.
@@ -159,7 +159,7 @@ fi
 
 if [[ -z "${UOCR_LLAMA_BIN:-}" ]]; then
     UOCR_LLAMA_BIN="$(resolve_first_existing \
-        "$thirdparty_dir/uocr-runtime/macos-arm64-metal/bin/llama-uocr-parity" \
+        "$thirdparty_dir/uocr-runtime/linux-x86_64-cuda13/bin/llama-uocr-parity" \
         "$thirdparty_dir/llama.cpp/build/bin/llama-uocr-parity" \
         "$thirdparty_dir/llama.cpp/build/tools/mtmd/llama-uocr-parity" \
         "$thirdparty_dir/llama.cpp/build/bin/Release/llama-uocr-parity" \

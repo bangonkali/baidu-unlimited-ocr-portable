@@ -7,7 +7,8 @@ macOS without SGLang. It uses:
   `uocr-deepseek-ocr-parity`.
 - `bangonkali/baidu-unlimited-ocr-portable`, branch `main`.
 - GGUF model files from `sahilchachra/Unlimited-OCR-GGUF`.
-- A Metal-enabled `llama-uocr-parity` binary.
+- A Metal-enabled `llama-uocr-parity` binary, downloaded from GitHub Releases
+  by default or built locally on request.
 
 The default macOS model is `Unlimited-OCR-Q4_K_M.gguf` plus
 `mmproj-Unlimited-OCR-F16.gguf`. The GGUF model card marks Q4_K_M as the
@@ -19,9 +20,15 @@ plus the shared F16 projector.
 Install prerequisites:
 
 ```sh
-xcode-select --install
-brew install git cmake uv
+brew install git uv
 uv tool install "huggingface-hub[cli]"
+```
+
+For local source builds, also install Xcode command line tools and CMake:
+
+```sh
+xcode-select --install
+brew install cmake
 ```
 
 If you already have the Hugging Face CLI from another source, verify it is
@@ -54,13 +61,25 @@ cd ~/uocr/unlimited-ocr-portable
 ./scripts/mac/setup-build.sh --doctor
 ```
 
-When doctor has no blocking failures, run the full setup. It initializes
-submodules, syncs Python dependencies, downloads the default Q4_K_M GGUF model
-plus mmproj into `models/`, builds the native llama.cpp tools with Metal, and
-writes runtime environment variables:
+When doctor has no blocking failures, run the full setup. It syncs Python
+dependencies, downloads the default Q4_K_M GGUF model plus mmproj into
+`models/`, installs the prebuilt `macos-arm64-metal` runtime from GitHub
+Releases, and writes runtime environment variables:
 
 ```sh
 ./scripts/mac/setup-build.sh
+```
+
+To compile the Metal runtime locally instead of downloading it:
+
+```sh
+./scripts/mac/setup-build.sh --runtime-source build
+```
+
+To try download first and compile only if no release asset is available:
+
+```sh
+./scripts/mac/setup-build.sh --runtime-source auto
 ```
 
 To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
@@ -72,25 +91,31 @@ To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
 The setup script checks:
 
 - `git`
-- `cmake`
 - `uv`
 - `hf`
-- Xcode command line tools through `xcode-select`
-- Apple clang and macOS SDK through `xcrun`
-- Git submodules via `git submodule update --init --recursive`
 - Python/Gradio dependencies via `uv sync --frozen`
 - Hugging Face authorization via `hf auth whoami` when model downloads are needed
 - GGUF downloads into `models/`
-- built `llama-uocr-parity`, `llama-mtmd-cli`, and `llama-server`
+- downloaded or built `llama-uocr-parity`, `llama-mtmd-cli`, and `llama-server`
+
+When `--runtime-source build` is used, it also checks `cmake`, Xcode command
+line tools through `xcode-select`, Apple clang and the macOS SDK through
+`xcrun`, and the `llama.cpp` submodule.
 
 Useful setup switches:
 
 - `--include-diagnostics`: also download Q5_K_M, Q6_K, and BF16 GGUFs.
 - `--force-model-download`: redownload model files even when non-empty local
   files already exist.
+- `--runtime-source download|build|auto`: choose prebuilt runtime download,
+  local compilation, or download-with-build-fallback. Default: `download`.
+- `--runtime-version TAG`: download a specific GitHub Release tag instead of
+  the latest release.
+- `--force-runtime-download`: redownload and reinstall the prebuilt runtime.
 - `--skip-python-sync`: skip `uv sync --frozen` if you already synced the project.
 - `--skip-model-download`: skip Hugging Face auth and model download.
-- `--skip-build`: skip CMake configure/build.
+- `--skip-build`: skip CMake configure/build when using `--runtime-source build`
+  or an `auto` fallback build.
 - `--generator Ninja`: choose a CMake generator.
 
 The script writes:
@@ -141,7 +166,7 @@ portable script passes `-DGGML_METAL=ON` explicitly so the build intent is clear
 
 Default runtime paths:
 
-- `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
+- `thirdparty/uocr-runtime/macos-arm64-metal/bin/llama-uocr-parity`
 - `models/Unlimited-OCR-Q4_K_M.gguf`
 - `models/mmproj-Unlimited-OCR-F16.gguf`
 
@@ -151,8 +176,8 @@ another build or model location.
 ## Known macOS Notes
 
 - This path is intended for local Apple Silicon / Metal inference. Intel Macs
-  can still build, but performance and memory headroom should be validated
-  separately.
+  are not a prebuilt runtime target; use `--runtime-source build` if you need to
+  experiment there, and validate performance separately.
 - Quality is still below the SGLang BF16 reference described in the main
   validation summaries.
 - BF16 is available as a diagnostic download, but Q4_K_M remains the portable

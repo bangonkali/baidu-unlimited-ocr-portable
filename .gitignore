@@ -1,6 +1,7 @@
 results/
 models/
 thirdparty/uocr-gguf/
+thirdparty/uocr-runtime/
 uocr-runtime-env.ps1
 uocr-runtime-env.sh
 .venv/
