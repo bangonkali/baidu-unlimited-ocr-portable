@@ -111,6 +111,8 @@ Local environment used for the recorded run:
   `unlimited-ocr/wheel/sglang-0.0.0.dev11416+g92e8bb79e-py3-none-any.whl`.
 - llama.cpp checkout: `thirdparty/llama.cpp`, tested branch
   `uocr-deepseek-ocr-parity`, current commit `f3e5dcccf`.
+  In the public portable repo this path is a git submodule under
+  `unlimited-ocr-portable/thirdparty`.
 - llama.cpp binaries:
   `thirdparty/llama.cpp/build/bin/llama-mtmd-cli`,
   `thirdparty/llama.cpp/build/bin/llama-uocr-parity`, and

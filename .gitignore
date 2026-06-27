@@ -1,4 +1,6 @@
 results/
+thirdparty/uocr-gguf/
+uocr-runtime-env.ps1
 .venv/
 .venv-sglang-ref/
 .gradio/

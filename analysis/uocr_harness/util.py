@@ -14,10 +14,43 @@ from typing import Any
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 PORTABLE_ROOT = PACKAGE_ROOT.parent
 REPO_ROOT = PORTABLE_ROOT.parent
+PORTABLE_THIRDPARTY = PORTABLE_ROOT / "thirdparty"
+LEGACY_THIRDPARTY = REPO_ROOT / "thirdparty"
+PORTABLE_DATASET = PORTABLE_ROOT / "dataset"
+LEGACY_DATASET = REPO_ROOT / "dataset"
 DEFAULT_RESULTS_DIR = PORTABLE_ROOT / "results"
 DEFAULT_MANIFEST = DEFAULT_RESULTS_DIR / "manifest.jsonl"
-DEFAULT_DATASET = REPO_ROOT / "dataset"
+DEFAULT_DATASET = PORTABLE_DATASET if PORTABLE_DATASET.exists() or not LEGACY_DATASET.exists() else LEGACY_DATASET
 DEFAULT_SUMMARIES_DIR = PORTABLE_ROOT / "analysis" / "summaries"
+
+
+def first_existing(paths: list[Path]) -> Path:
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0]
+
+
+def thirdparty_file(*parts: str) -> Path:
+    return first_existing([
+        PORTABLE_THIRDPARTY.joinpath(*parts),
+        LEGACY_THIRDPARTY.joinpath(*parts),
+    ])
+
+
+def llama_executable(name: str) -> Path:
+    exe_name = f"{name}.exe" if os.name == "nt" else name
+    if os.name == "nt":
+        return first_existing([
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / exe_name,
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / exe_name,
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / exe_name,
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / exe_name,
+        ])
+    return first_existing([
+        PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / exe_name,
+        LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / exe_name,
+    ])
 
 
 def utc_now() -> str:

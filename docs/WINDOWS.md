@@ -31,27 +31,26 @@ CUDA 13.3, where `nvcc --version` includes:
 cuda_13.3.r13.3/compiler.37862127_0
 ```
 
-Create the workspace, clone the two project repos, download the default Q4_K_M
-GGUF model plus mmproj, build `llama-uocr-parity.exe`, and write runtime
+Create the workspace, clone the portable repo recursively, download the default
+Q4_K_M GGUF model plus mmproj, build `llama-uocr-parity.exe`, and write runtime
 environment variables:
 
 ```powershell
 mkdir C:\uocr
 cd C:\uocr
 
-git clone git@github.com:bangonkali/baidu-unlimited-ocr-portable.git `
+git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git `
   unlimited-ocr-portable
 
-.\unlimited-ocr-portable\scripts\windows\setup-build.ps1 `
-  -Workspace C:\uocr
+cd C:\uocr\unlimited-ocr-portable
+
+.\scripts\windows\setup-build.ps1
 ```
 
 To also download the diagnostic Q5_K_M, Q6_K, and BF16 GGUFs:
 
 ```powershell
-.\unlimited-ocr-portable\scripts\windows\setup-build.ps1 `
-  -Workspace C:\uocr `
-  -IncludeDiagnostics
+.\scripts\windows\setup-build.ps1 -IncludeDiagnostics
 ```
 
 The setup script checks:
@@ -60,33 +59,35 @@ The setup script checks:
 - `cmake`
 - `uv`
 - `hf`
+- `cl.exe`
 - `nvcc`
 - `nvidia-smi`
+- Git submodules via `git submodule update --init --recursive`.
 - Hugging Face authorization via `hf auth whoami`
 - built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
-- required GGUF files under `C:\uocr\thirdparty\uocr-gguf`
+- required GGUF files under
+  `C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf`
 
 The script writes:
 
 ```text
-C:\uocr\uocr-runtime-env.ps1
+C:\uocr\unlimited-ocr-portable\uocr-runtime-env.ps1
 ```
 
-Run a smoke test after copying a test image into `C:\uocr\dataset`:
+Run a smoke test after copying a test image into
+`C:\uocr\unlimited-ocr-portable\dataset`:
 
 ```powershell
-.\unlimited-ocr-portable\scripts\windows\run-demo.ps1 `
-  -Workspace C:\uocr `
+.\scripts\windows\run-demo.ps1 `
   -Smoke `
-  -Image C:\uocr\dataset\sc-02.png `
+  -Image C:\uocr\unlimited-ocr-portable\dataset\sc-02.png `
   -MaxTokens 64
 ```
 
 Launch the Gradio demo:
 
 ```powershell
-.\unlimited-ocr-portable\scripts\windows\run-demo.ps1 `
-  -Workspace C:\uocr `
+.\scripts\windows\run-demo.ps1 `
   -HostName 127.0.0.1 `
   -Port 7861
 ```
@@ -143,6 +144,7 @@ git --version
 cmake --version
 uv --version
 hf version
+cl.exe
 nvcc --version
 nvidia-smi
 ```
@@ -159,35 +161,38 @@ hf auth login
 
 ## 2. Create The Workspace
 
-Use this layout. The portable app defaults assume `thirdparty` and
-`unlimited-ocr-portable` are siblings.
+Use this layout. The portable app defaults now keep git-based source
+dependencies under `unlimited-ocr-portable\thirdparty`.
 
 ```text
 C:\uocr\
-  dataset\
-  thirdparty\
-    llama.cpp\
-    uocr-gguf\
   unlimited-ocr-portable\
+    dataset\
+    thirdparty\
+      llama.cpp\        # git submodule
+      uocr-gguf\        # downloaded HF assets, ignored by git
 ```
 
-Clone the repos:
+Clone the portable repo recursively:
 
 ```powershell
 mkdir C:\uocr
 cd C:\uocr
-mkdir thirdparty
 
-git clone -b uocr-deepseek-ocr-parity `
-  git@github.com:bangonkali/llama.cpp-baidu-unlimited-ocr.git `
-  thirdparty\llama.cpp
-
-git clone git@github.com:bangonkali/baidu-unlimited-ocr-portable.git `
+git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git `
   unlimited-ocr-portable
+
+cd C:\uocr\unlimited-ocr-portable
 ```
 
-Do not put GGUF files in either Git repo. Keep them under
-`thirdparty\uocr-gguf`.
+If the repo was cloned without `--recursive`, initialize submodules:
+
+```powershell
+git submodule update --init --recursive
+```
+
+Do not commit GGUF files. Keep them under `thirdparty\uocr-gguf`, which is
+ignored by git.
 
 ## 3. Download Required GGUF Assets
 
@@ -251,7 +256,7 @@ Expected approximate sizes:
 Run from Visual Studio 2026 Developer PowerShell:
 
 ```powershell
-cd C:\uocr
+cd C:\uocr\unlimited-ocr-portable
 
 cmake -B thirdparty\llama.cpp\build `
   -S thirdparty\llama.cpp `
@@ -300,9 +305,9 @@ style reference-SWA masking for DeepSeek-OCR/Unlimited-OCR.
 Set these in the same PowerShell session before running the demo or harness:
 
 ```powershell
-$env:UOCR_LLAMA_BIN = "C:\uocr\thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.exe"
-$env:UOCR_MODEL = "C:\uocr\thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
-$env:UOCR_MMPROJ = "C:\uocr\thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
+$env:UOCR_LLAMA_BIN = "C:\uocr\unlimited-ocr-portable\thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.exe"
+$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
+$env:UOCR_MMPROJ = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
 ```
 
 If your build emits binaries somewhere else, point `UOCR_LLAMA_BIN` at the path
@@ -313,19 +318,21 @@ found by `Get-ChildItem`.
 The Git repos do not include the private/local dataset. For a quick Windows
 smoke, either:
 
-- Copy `dataset\sc-02.png` from the WSL2 workspace into `C:\uocr\dataset`, or
-- Put any test document image at `C:\uocr\dataset\document.png`.
+- Copy `dataset\sc-02.png` from the WSL2 workspace into
+  `C:\uocr\unlimited-ocr-portable\dataset`, or
+- Put any test document image at
+  `C:\uocr\unlimited-ocr-portable\dataset\document.png`.
 
 Example:
 
 ```powershell
-mkdir C:\uocr\dataset
+mkdir C:\uocr\unlimited-ocr-portable\dataset
 ```
 
 The smoke commands below assume:
 
 ```text
-C:\uocr\dataset\sc-02.png
+C:\uocr\unlimited-ocr-portable\dataset\sc-02.png
 ```
 
 Change the image path if you use a different file.
@@ -336,7 +343,7 @@ This directly runs the patched native binary with the current default candidate
 settings.
 
 ```powershell
-cd C:\uocr
+cd C:\uocr\unlimited-ocr-portable
 
 $env:LLAMA_DEEPSEEK_OCR_GUNDAM = "1"
 $env:LLAMA_DEEPSEEK_OCR_NO_REPEAT_NGRAM = "1"
@@ -375,16 +382,16 @@ unlimited-ocr-portable\src\baidu_unlimited_ocr_portable
 Run a short smoke through the Python wrapper:
 
 ```powershell
-cd C:\uocr
+cd C:\uocr\unlimited-ocr-portable
 
-uv run --project unlimited-ocr-portable baidu-uocr-client `
+uv run --project . baidu-uocr-client `
   --smoke --image dataset\sc-02.png --max-tokens 64
 ```
 
 Launch the UI:
 
 ```powershell
-uv run --project unlimited-ocr-portable baidu-uocr-client `
+uv run --project . baidu-uocr-client `
   --host 127.0.0.1 --port 7861
 ```
 
@@ -407,24 +414,24 @@ The UI supports:
 ## 9. Run The Portable Harness Candidate
 
 Use this when you want persisted JSON outputs under
-`unlimited-ocr-portable\results`.
+`results`.
 
-The harness reads images from `C:\uocr\dataset` and writes normalized inputs to
-`unlimited-ocr-portable\results\prepared`. Run `prepare` once after copying or
-changing the dataset:
+The harness reads images from `C:\uocr\unlimited-ocr-portable\dataset` and
+writes normalized inputs to `results\prepared`. Run `prepare` once after
+copying or changing the dataset:
 
 ```powershell
-cd C:\uocr
+cd C:\uocr\unlimited-ocr-portable
 
-uv run --project unlimited-ocr-portable uocr-harness prepare
+uv run --project . uocr-harness prepare
 ```
 
 Small smoke:
 
 ```powershell
-cd C:\uocr
+cd C:\uocr\unlimited-ocr-portable
 
-uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
+uv run --project . uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --model $env:UOCR_MODEL `
   --mmproj $env:UOCR_MMPROJ `
@@ -444,7 +451,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
 Current practical Q4 full candidate profile:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
+uv run --project . uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --model $env:UOCR_MODEL `
   --mmproj $env:UOCR_MMPROJ `
@@ -465,7 +472,7 @@ If testing other downloaded models, change `UOCR_MODEL` and
 `--candidate-engine`. Example:
 
 ```powershell
-$env:UOCR_MODEL = "C:\uocr\thirdparty\uocr-gguf\Unlimited-OCR-Q6_K.gguf"
+$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\Unlimited-OCR-Q6_K.gguf"
 ```
 
 ## 10. Troubleshooting
@@ -531,7 +538,7 @@ The full executed validation procedure is documented in
 ## Candidate-Side Artifact Smoke
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
+uv run --project . uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
@@ -551,7 +558,7 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
 After copying WSL2 reference artifacts, compare:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
+uv run --project . uocr-harness compare-artifacts `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
   --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-windows `
@@ -563,7 +570,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
 For native `/generate` step traces copied from WSL2:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifacts `
+uv run --project . uocr-harness compare-generation-artifacts `
   --results unlimited-ocr-portable\results `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
@@ -577,7 +584,7 @@ uv run --project unlimited-ocr-portable uocr-harness compare-generation-artifact
 This is diagnostic only, not the default packaging path:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
+uv run --project . uocr-harness run-llamacpp `
   --binary $env:UOCR_LLAMA_BIN `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
@@ -599,13 +606,13 @@ uv run --project unlimited-ocr-portable uocr-harness run-llamacpp `
 After copying WSL2 `sglang-processor` and `sglang-native` artifacts:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness compare-runtime-parity `
+uv run --project . uocr-harness compare-runtime-parity `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
   --candidate-engine llamacpp-q4_k_m-uocr-rswa-debug-noimgend-noeos-windows `
   --summary unlimited-ocr-portable\analysis\summaries\SUMMARY-runtime-parity-windows.md
 
-uv run --project unlimited-ocr-portable uocr-harness compare-artifacts `
+uv run --project . uocr-harness compare-artifacts `
   --case-id sc-02-45a8efac `
   --profiles document_parsing `
   --reference-engine sglang-native `
@@ -622,7 +629,7 @@ After copying `results/reference/sglang` from WSL2 and running the Windows
 candidate:
 
 ```powershell
-uv run --project unlimited-ocr-portable uocr-harness compare
+uv run --project . uocr-harness compare
 ```
 
 The comparator writes:

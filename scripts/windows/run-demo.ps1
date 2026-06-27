@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string] $Workspace = "C:\uocr",
+    [string] $RepoRoot = "",
+    [string] $Workspace = "",
     [string] $HostName = "127.0.0.1",
     [int] $Port = 7861,
     [switch] $Smoke,
@@ -13,6 +14,37 @@ param(
 Set-StrictMode -Version 3.0
 $ErrorActionPreference = "Stop"
 
+function Resolve-PortableRoot {
+    param(
+        [string] $ExplicitRepoRoot,
+        [string] $LegacyWorkspace
+    )
+
+    $scriptRoot = Split-Path -Parent $PSCommandPath
+    $defaultRoot = Join-Path $scriptRoot "..\.."
+
+    if ($ExplicitRepoRoot) {
+        $candidate = $ExplicitRepoRoot
+    }
+    elseif ($LegacyWorkspace) {
+        if (Test-Path (Join-Path $LegacyWorkspace "pyproject.toml")) {
+            $candidate = $LegacyWorkspace
+        }
+        else {
+            $candidate = Join-Path $LegacyWorkspace "unlimited-ocr-portable"
+        }
+    }
+    else {
+        $candidate = $defaultRoot
+    }
+
+    $full = [System.IO.Path]::GetFullPath($candidate)
+    if (-not (Test-Path (Join-Path $full "pyproject.toml"))) {
+        throw "Portable repo root not found: $full. Run this script from the cloned baidu-unlimited-ocr-portable repo or pass -RepoRoot."
+    }
+    return $full
+}
+
 function Resolve-FirstExisting {
     param([string[]] $Paths)
     foreach ($path in $Paths) {
@@ -23,7 +55,7 @@ function Resolve-FirstExisting {
     return ""
 }
 
-function Require-File {
+function Require-Path {
     param(
         [string] $Label,
         [string] $Path
@@ -33,10 +65,9 @@ function Require-File {
     }
 }
 
-$Workspace = [System.IO.Path]::GetFullPath($Workspace)
-$PortableDir = Join-Path $Workspace "unlimited-ocr-portable"
-$ThirdpartyDir = Join-Path $Workspace "thirdparty"
-$EnvFile = Join-Path $Workspace "uocr-runtime-env.ps1"
+$RepoRoot = Resolve-PortableRoot -ExplicitRepoRoot $RepoRoot -LegacyWorkspace $Workspace
+$ThirdpartyDir = Join-Path $RepoRoot "thirdparty"
+$EnvFile = Join-Path $RepoRoot "uocr-runtime-env.ps1"
 
 if (Test-Path $EnvFile) {
     . $EnvFile
@@ -55,10 +86,10 @@ if (-not $env:UOCR_MMPROJ) {
     $env:UOCR_MMPROJ = Join-Path $ThirdpartyDir "uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
 }
 
-Require-File "portable repo" $PortableDir
-Require-File "native runner" $env:UOCR_LLAMA_BIN
-Require-File "model" $env:UOCR_MODEL
-Require-File "mmproj" $env:UOCR_MMPROJ
+Require-Path "portable pyproject" (Join-Path $RepoRoot "pyproject.toml")
+Require-Path "native runner" $env:UOCR_LLAMA_BIN
+Require-Path "model" $env:UOCR_MODEL
+Require-Path "mmproj" $env:UOCR_MMPROJ
 
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     throw "uv is not on PATH."
@@ -66,11 +97,14 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 
 if ($Smoke) {
     if (-not $Image) {
-        $Image = Join-Path $Workspace "dataset\sc-02.png"
+        $Image = Resolve-FirstExisting @(
+            (Join-Path $RepoRoot "dataset\sc-02.png"),
+            (Join-Path $RepoRoot "..\dataset\sc-02.png")
+        )
     }
-    Require-File "smoke image" $Image
+    Require-Path "smoke image" $Image
     $uvArgs = @(
-        "run", "--project", $PortableDir,
+        "run", "--project", $RepoRoot,
         "baidu-uocr-client",
         "--smoke",
         "--image", $Image,
@@ -80,7 +114,7 @@ if ($Smoke) {
 }
 else {
     $uvArgs = @(
-        "run", "--project", $PortableDir,
+        "run", "--project", $RepoRoot,
         "baidu-uocr-client",
         "--host", $HostName,
         "--port", [string] $Port

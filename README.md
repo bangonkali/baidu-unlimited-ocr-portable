@@ -23,6 +23,27 @@ The uv project name is `baidu-unlimited-ocr-portable`.
 - `analysis/summaries/`: current and historical Markdown result summaries.
 - `docs/`: Linux and Windows setup notes.
 - `scripts/windows/`: Windows setup/build and demo launch scripts.
+- `thirdparty/llama.cpp/`: git submodule for the patched llama.cpp fork.
+- `thirdparty/uocr-gguf/`: local HF model asset directory, ignored by git.
+
+## Clone Layout
+
+For a fresh machine, clone recursively so git-based dependencies are present
+under this repo:
+
+```sh
+git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git
+```
+
+If the clone already exists:
+
+```sh
+git submodule update --init --recursive
+```
+
+The Windows setup script also runs the submodule update. GGUF model files are
+not git dependencies; the script downloads them with `hf` into
+`thirdparty/uocr-gguf/`.
 
 ## Validation Harness
 

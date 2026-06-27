@@ -1299,3 +1299,36 @@ Decision:
 - Stable unpatched llama-server remains insufficient for this project; use the
   pinned patched branch until the needed model semantics are upstreamed.
 - Windows validation is now prepared but not yet executed in this WSL2 run.
+
+## 2026-06-27 Portable Thirdparty Submodule Layout
+
+Objective:
+
+- Make the public portable repo self-contained for git-based build
+  dependencies, so Windows setup starts from one recursive clone of
+  `baidu-unlimited-ocr-portable`.
+
+Implementation:
+
+- Added `thirdparty/llama.cpp` as a git submodule pointing at
+  `git@github.com:bangonkali/llama.cpp-baidu-unlimited-ocr.git`, branch
+  `uocr-deepseek-ocr-parity`, pinned to `f3e5dcccf`.
+- Updated the demo runtime and analysis harness to prefer
+  `unlimited-ocr-portable/thirdparty` paths, with fallback to the older sibling
+  `../thirdparty` layout used by this WSL2 workspace.
+- Reworked `scripts/windows/setup-build.ps1` so it:
+  - infers the portable repo root from the script path.
+  - checks all required tools before submodule/model/build work.
+  - reports missing `git`, `uv`, `hf`, `cmake`, `cl.exe`, `nvcc`, or `nvidia-smi`
+    as applicable.
+  - runs `git submodule update --init --recursive`.
+  - downloads GGUF assets into `thirdparty/uocr-gguf`.
+  - builds `llama-mtmd-cli`, `llama-uocr-parity`, and `llama-server` from the
+    submodule.
+- Reworked `scripts/windows/run-demo.ps1` to run directly from the portable
+  repo and consume `uocr-runtime-env.ps1` from that same root.
+
+Decision:
+
+- Git-based source dependencies now live under `unlimited-ocr-portable/thirdparty`.
+- HF model files remain downloaded assets and are ignored by git.

@@ -30,7 +30,9 @@ practical Q4 default is slightly worse than the older CLI-prune baseline.
 
 - `uv`, `git`, `gh`, CUDA toolkit, and NVIDIA driver are available.
 - The local SGLang environment is installed in `.venv`.
-- llama.cpp is checked out at `thirdparty/llama.cpp`.
+- llama.cpp is checked out at `thirdparty/llama.cpp`. In the public portable
+  repo this is a git submodule; initialize it with
+  `git submodule update --init --recursive`.
 - GGUF files are present in `thirdparty/uocr-gguf`.
 
 Verify:

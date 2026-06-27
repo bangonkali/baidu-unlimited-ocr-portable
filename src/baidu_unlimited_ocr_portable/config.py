@@ -7,6 +7,8 @@ from pathlib import Path
 
 PORTABLE_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = PORTABLE_ROOT.parent
+PORTABLE_THIRDPARTY = PORTABLE_ROOT / "thirdparty"
+LEGACY_THIRDPARTY = REPO_ROOT / "thirdparty"
 
 
 def _exe_suffix() -> str:
@@ -16,12 +18,15 @@ def _exe_suffix() -> str:
 def default_llama_binary() -> Path:
     if os.name == "nt":
         candidates = [
-            REPO_ROOT / "thirdparty" / "llama.cpp" / "build" / "bin" / "Release" / "llama-uocr-parity.exe",
-            REPO_ROOT / "thirdparty" / "llama.cpp" / "build" / "bin" / "llama-uocr-parity.exe",
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-uocr-parity.exe",
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "llama-uocr-parity.exe",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-uocr-parity.exe",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "llama-uocr-parity.exe",
         ]
     else:
         candidates = [
-            REPO_ROOT / "thirdparty" / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
         ]
     for candidate in candidates:
         if candidate.exists():
@@ -31,7 +36,23 @@ def default_llama_binary() -> Path:
 
 def resolve_repo_path(value: str | os.PathLike[str] | None, default: Path) -> Path:
     raw = Path(value).expanduser() if value else default
-    return raw if raw.is_absolute() else (REPO_ROOT / raw)
+    if raw.is_absolute():
+        return raw
+    portable_candidate = PORTABLE_ROOT / raw
+    if portable_candidate.exists():
+        return portable_candidate
+    return REPO_ROOT / raw
+
+
+def default_gguf_file(name: str) -> Path:
+    candidates = [
+        PORTABLE_THIRDPARTY / "uocr-gguf" / name,
+        LEGACY_THIRDPARTY / "uocr-gguf" / name,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 @dataclass(frozen=True)
@@ -113,5 +134,5 @@ CANDIDATE_PROFILES: dict[str, CandidateProfile] = {
 DEFAULT_PROMPT_PROFILE = "document_parsing"
 DEFAULT_CANDIDATE_PROFILE = os.environ.get("UOCR_DEFAULT_PROFILE", "best-zero-empty-q4")
 
-DEFAULT_MODEL = REPO_ROOT / "thirdparty" / "uocr-gguf" / "Unlimited-OCR-Q4_K_M.gguf"
-DEFAULT_MMPROJ = REPO_ROOT / "thirdparty" / "uocr-gguf" / "mmproj-Unlimited-OCR-F16.gguf"
+DEFAULT_MODEL = default_gguf_file("Unlimited-OCR-Q4_K_M.gguf")
+DEFAULT_MMPROJ = default_gguf_file("mmproj-Unlimited-OCR-F16.gguf")

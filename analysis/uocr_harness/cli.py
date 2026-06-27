@@ -10,7 +10,15 @@ from .manifest import prepare_dataset
 from .preprocess import inspect_manifest_preprocessing
 from .profiles import parse_profile_names
 from .runtime_parity import compare_runtime_parity, inspect_sglang_processor
-from .util import DEFAULT_DATASET, DEFAULT_MANIFEST, DEFAULT_RESULTS_DIR, DEFAULT_SUMMARIES_DIR, REPO_ROOT
+from .util import (
+    DEFAULT_DATASET,
+    DEFAULT_MANIFEST,
+    DEFAULT_RESULTS_DIR,
+    DEFAULT_SUMMARIES_DIR,
+    REPO_ROOT,
+    llama_executable,
+    thirdparty_file,
+)
 
 
 def main() -> None:
@@ -56,9 +64,9 @@ def main() -> None:
     llama = sub.add_parser("run-llamacpp", help="Run llama.cpp candidate over manifest cases")
     _add_common_paths(llama)
     _add_run_filters(llama)
-    llama.add_argument("--binary", type=Path, default=REPO_ROOT / "thirdparty/llama.cpp/build/bin/llama-mtmd-cli")
-    llama.add_argument("--model", type=Path, default=REPO_ROOT / "thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf")
-    llama.add_argument("--mmproj", type=Path, default=REPO_ROOT / "thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf")
+    llama.add_argument("--binary", type=Path, default=llama_executable("llama-mtmd-cli"))
+    llama.add_argument("--model", type=Path, default=thirdparty_file("uocr-gguf", "Unlimited-OCR-Q4_K_M.gguf"))
+    llama.add_argument("--mmproj", type=Path, default=thirdparty_file("uocr-gguf", "mmproj-Unlimited-OCR-F16.gguf"))
     llama.add_argument("--ctx-size", type=int, default=32768)
     llama.add_argument("--max-tokens", type=int, default=8192)
     llama.add_argument("--timeout-s", type=int, default=1800)
@@ -98,9 +106,9 @@ def main() -> None:
     llama_server = sub.add_parser("run-llamacpp-server", help="Run llama-server candidate over manifest cases")
     _add_common_paths(llama_server)
     _add_run_filters(llama_server)
-    llama_server.add_argument("--binary", type=Path, default=REPO_ROOT / "thirdparty/llama.cpp/build/bin/llama-server")
-    llama_server.add_argument("--model", type=Path, default=REPO_ROOT / "thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf")
-    llama_server.add_argument("--mmproj", type=Path, default=REPO_ROOT / "thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf")
+    llama_server.add_argument("--binary", type=Path, default=llama_executable("llama-server"))
+    llama_server.add_argument("--model", type=Path, default=thirdparty_file("uocr-gguf", "Unlimited-OCR-Q4_K_M.gguf"))
+    llama_server.add_argument("--mmproj", type=Path, default=thirdparty_file("uocr-gguf", "mmproj-Unlimited-OCR-F16.gguf"))
     llama_server.add_argument("--ctx-size", type=int, default=32768)
     llama_server.add_argument("--max-tokens", type=int, default=8192)
     llama_server.add_argument("--timeout-s", type=int, default=1800)

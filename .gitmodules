@@ -1,0 +1,4 @@
+[submodule "thirdparty/llama.cpp"]
+	path = thirdparty/llama.cpp
+	url = git@github.com:bangonkali/llama.cpp-baidu-unlimited-ocr.git
+	branch = uocr-deepseek-ocr-parity
