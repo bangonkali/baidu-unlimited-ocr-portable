@@ -64,7 +64,7 @@ function Invoke-Checked {
         Write-Host "+ $File $($Arguments -join ' ')"
         & $File @Arguments
         if ($LASTEXITCODE -ne 0) {
-            throw "Command failed with exit code $LASTEXITCODE: $File $($Arguments -join ' ')"
+            throw "Command failed with exit code ${LASTEXITCODE}: $File $($Arguments -join ' ')"
         }
     }
     finally {
@@ -164,7 +164,7 @@ function Find-BuiltExe {
     $match = Get-ChildItem -Path $BuildDir -Recurse -Filter "$Name.exe" -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if (-not $match) {
-        throw "Built executable not found under $BuildDir: $Name.exe"
+        throw "Built executable not found under ${BuildDir}: $Name.exe"
     }
     return $match.FullName
 }
