@@ -7,6 +7,7 @@ from pathlib import Path
 
 PORTABLE_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = PORTABLE_ROOT.parent
+PORTABLE_MODELS = PORTABLE_ROOT / "models"
 PORTABLE_THIRDPARTY = PORTABLE_ROOT / "thirdparty"
 LEGACY_THIRDPARTY = REPO_ROOT / "thirdparty"
 
@@ -46,6 +47,7 @@ def resolve_repo_path(value: str | os.PathLike[str] | None, default: Path) -> Pa
 
 def default_gguf_file(name: str) -> Path:
     candidates = [
+        PORTABLE_MODELS / name,
         PORTABLE_THIRDPARTY / "uocr-gguf" / name,
         LEGACY_THIRDPARTY / "uocr-gguf" / name,
     ]

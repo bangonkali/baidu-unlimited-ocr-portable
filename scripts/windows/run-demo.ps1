@@ -67,6 +67,7 @@ function Require-Path {
 
 $RepoRoot = Resolve-PortableRoot -ExplicitRepoRoot $RepoRoot -LegacyWorkspace $Workspace
 $ThirdpartyDir = Join-Path $RepoRoot "thirdparty"
+$ModelsDir = Join-Path $RepoRoot "models"
 $EnvFile = Join-Path $RepoRoot "uocr-runtime-env.ps1"
 
 if (Test-Path $EnvFile) {
@@ -80,10 +81,16 @@ if (-not $env:UOCR_LLAMA_BIN) {
     )
 }
 if (-not $env:UOCR_MODEL) {
-    $env:UOCR_MODEL = Join-Path $ThirdpartyDir "uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
+    $env:UOCR_MODEL = Resolve-FirstExisting @(
+        (Join-Path $ModelsDir "Unlimited-OCR-Q4_K_M.gguf"),
+        (Join-Path $ThirdpartyDir "uocr-gguf\Unlimited-OCR-Q4_K_M.gguf")
+    )
 }
 if (-not $env:UOCR_MMPROJ) {
-    $env:UOCR_MMPROJ = Join-Path $ThirdpartyDir "uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
+    $env:UOCR_MMPROJ = Resolve-FirstExisting @(
+        (Join-Path $ModelsDir "mmproj-Unlimited-OCR-F16.gguf"),
+        (Join-Path $ThirdpartyDir "uocr-gguf\mmproj-Unlimited-OCR-F16.gguf")
+    )
 }
 
 Require-Path "portable pyproject" (Join-Path $RepoRoot "pyproject.toml")

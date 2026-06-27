@@ -31,9 +31,11 @@ CUDA 13.3, where `nvcc --version` includes:
 cuda_13.3.r13.3/compiler.37862127_0
 ```
 
-Create the workspace, clone the portable repo recursively, download the default
-Q4_K_M GGUF model plus mmproj, build `llama-uocr-parity.exe`, and write runtime
-environment variables:
+Create the workspace, clone the portable repo recursively, and run the doctor
+preflight first. Doctor does not download models or build native code; it
+checks the repo, submodule, required command-line tools, Visual Studio shell,
+CUDA/GPU visibility, Hugging Face auth, lockfile, and local model/build cache
+status.
 
 ```powershell
 mkdir C:\uocr
@@ -44,6 +46,19 @@ git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git
 
 cd C:\uocr\unlimited-ocr-portable
 
+.\scripts\windows\setup-build.ps1 -Doctor
+```
+
+`-Doctor` is the canonical PowerShell spelling. The script also accepts
+`--doctor` through a compatibility alias in hosts that bind double-dash
+parameters.
+
+When doctor has no blocking failures, run the full setup. It initializes
+submodules, syncs Python dependencies, downloads the default Q4_K_M GGUF model
+plus mmproj into `models\`, builds `llama-uocr-parity.exe`, and writes runtime
+environment variables:
+
+```powershell
 .\scripts\windows\setup-build.ps1
 ```
 
@@ -63,10 +78,22 @@ The setup script checks:
 - `nvcc`
 - `nvidia-smi`
 - Git submodules via `git submodule update --init --recursive`.
+- Python/Gradio dependencies via `uv sync --frozen`.
 - Hugging Face authorization via `hf auth whoami`
+- GGUF downloads into `models\`, with Hugging Face cache under
+  `models\.hf-cache\`.
 - built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
 - required GGUF files under
-  `C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf`
+  `C:\uocr\unlimited-ocr-portable\models`
+
+Useful setup switches:
+
+- `-IncludeDiagnostics`: also download Q5_K_M, Q6_K, and BF16 GGUFs.
+- `-ForceModelDownload`: redownload model files even when non-empty local
+  files already exist.
+- `-SkipPythonSync`: skip `uv sync --frozen` if you already synced the project.
+- `-SkipModelDownload`: skip Hugging Face auth and model download.
+- `-SkipBuild`: skip CMake configure/build.
 
 The script writes:
 
@@ -143,7 +170,7 @@ Verify from a fresh Visual Studio 2026 Developer PowerShell:
 git --version
 cmake --version
 uv --version
-hf version
+hf --version
 cl.exe
 nvcc --version
 nvidia-smi
@@ -161,16 +188,17 @@ hf auth login
 
 ## 2. Create The Workspace
 
-Use this layout. The portable app defaults now keep git-based source
-dependencies under `unlimited-ocr-portable\thirdparty`.
+Use this layout. The portable app defaults keep git-based source dependencies
+under `unlimited-ocr-portable\thirdparty` and downloaded model assets under
+`unlimited-ocr-portable\models`.
 
 ```text
 C:\uocr\
   unlimited-ocr-portable\
     dataset\
+    models\            # downloaded HF assets and .hf-cache, ignored by git
     thirdparty\
       llama.cpp\        # git submodule
-      uocr-gguf\        # downloaded HF assets, ignored by git
 ```
 
 Clone the portable repo recursively:
@@ -191,8 +219,7 @@ If the repo was cloned without `--recursive`, initialize submodules:
 git submodule update --init --recursive
 ```
 
-Do not commit GGUF files. Keep them under `thirdparty\uocr-gguf`, which is
-ignored by git.
+Do not commit GGUF files. Keep them under `models\`, which is ignored by git.
 
 ## 3. Download Required GGUF Assets
 
@@ -201,49 +228,66 @@ Every run needs two files:
 - One language model GGUF.
 - The shared F16 vision projector: `mmproj-Unlimited-OCR-F16.gguf`.
 
-Download the required default Q4_K_M model and projector:
+The scripted setup handles this automatically. Manual downloads should use the
+same directory and cache layout as the script:
 
 ```powershell
-mkdir thirdparty\uocr-gguf
+mkdir models
+mkdir models\.hf-cache
 
 hf download sahilchachra/Unlimited-OCR-GGUF `
   Unlimited-OCR-Q4_K_M.gguf `
+  --cache-dir models\.hf-cache `
+  --local-dir models
+
+hf download sahilchachra/Unlimited-OCR-GGUF `
   mmproj-Unlimited-OCR-F16.gguf `
-  --local-dir thirdparty\uocr-gguf
+  --cache-dir models\.hf-cache `
+  --local-dir models
 ```
 
 Optional quality/diagnostic downloads:
 
 ```powershell
-hf download sahilchachra/Unlimited-OCR-GGUF `
-  Unlimited-OCR-Q5_K_M.gguf `
-  Unlimited-OCR-Q6_K.gguf `
-  Unlimited-OCR-BF16.gguf `
-  --local-dir thirdparty\uocr-gguf
+foreach ($file in @(
+  "Unlimited-OCR-Q5_K_M.gguf",
+  "Unlimited-OCR-Q6_K.gguf",
+  "Unlimited-OCR-BF16.gguf"
+)) {
+  hf download sahilchachra/Unlimited-OCR-GGUF `
+    $file `
+    --cache-dir models\.hf-cache `
+    --local-dir models
+}
 ```
 
 Optional extra Sahil quants, not yet validated by this project:
 
 ```powershell
-hf download sahilchachra/Unlimited-OCR-GGUF `
-  Unlimited-OCR-Q8_0.gguf `
-  Unlimited-OCR-Q5_K_S.gguf `
-  Unlimited-OCR-Q4_K_S.gguf `
-  Unlimited-OCR-Q3_K_M.gguf `
-  Unlimited-OCR-IQ4_XS.gguf `
-  Unlimited-OCR-IQ4_NL.gguf `
-  Unlimited-OCR-IQ3_M.gguf `
-  Unlimited-OCR-IQ3_XXS.gguf `
-  Unlimited-OCR-IQ2_M.gguf `
-  Unlimited-OCR.imatrix `
-  --local-dir thirdparty\uocr-gguf
+foreach ($file in @(
+  "Unlimited-OCR-Q8_0.gguf",
+  "Unlimited-OCR-Q5_K_S.gguf",
+  "Unlimited-OCR-Q4_K_S.gguf",
+  "Unlimited-OCR-Q3_K_M.gguf",
+  "Unlimited-OCR-IQ4_XS.gguf",
+  "Unlimited-OCR-IQ4_NL.gguf",
+  "Unlimited-OCR-IQ3_M.gguf",
+  "Unlimited-OCR-IQ3_XXS.gguf",
+  "Unlimited-OCR-IQ2_M.gguf",
+  "Unlimited-OCR.imatrix"
+)) {
+  hf download sahilchachra/Unlimited-OCR-GGUF `
+    $file `
+    --cache-dir models\.hf-cache `
+    --local-dir models
+}
 ```
 
 Verify the required files:
 
 ```powershell
-Get-Item thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf
-Get-Item thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf
+Get-Item models\Unlimited-OCR-Q4_K_M.gguf
+Get-Item models\mmproj-Unlimited-OCR-F16.gguf
 ```
 
 Expected approximate sizes:
@@ -306,8 +350,8 @@ Set these in the same PowerShell session before running the demo or harness:
 
 ```powershell
 $env:UOCR_LLAMA_BIN = "C:\uocr\unlimited-ocr-portable\thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.exe"
-$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
-$env:UOCR_MMPROJ = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
+$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\models\Unlimited-OCR-Q4_K_M.gguf"
+$env:UOCR_MMPROJ = "C:\uocr\unlimited-ocr-portable\models\mmproj-Unlimited-OCR-F16.gguf"
 ```
 
 If your build emits binaries somewhere else, point `UOCR_LLAMA_BIN` at the path
@@ -472,7 +516,7 @@ If testing other downloaded models, change `UOCR_MODEL` and
 `--candidate-engine`. Example:
 
 ```powershell
-$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\thirdparty\uocr-gguf\Unlimited-OCR-Q6_K.gguf"
+$env:UOCR_MODEL = "C:\uocr\unlimited-ocr-portable\models\Unlimited-OCR-Q6_K.gguf"
 ```
 
 ## 10. Troubleshooting
@@ -494,7 +538,7 @@ If `hf download` fails:
 - Run `hf auth whoami`.
 - Run `hf auth login` if not authenticated.
 - Check that the model repo is reachable:
-  `hf download sahilchachra/Unlimited-OCR-GGUF README.md --local-dir thirdparty\uocr-gguf`.
+  `hf download sahilchachra/Unlimited-OCR-GGUF README.md --cache-dir models\.hf-cache --local-dir models`.
 
 If PowerShell blocks scripts:
 

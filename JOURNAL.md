@@ -1322,7 +1322,7 @@ Implementation:
   - reports missing `git`, `uv`, `hf`, `cmake`, `cl.exe`, `nvcc`, or `nvidia-smi`
     as applicable.
   - runs `git submodule update --init --recursive`.
-  - downloads GGUF assets into `thirdparty/uocr-gguf`.
+  - downloads GGUF assets into `models/`.
   - builds `llama-mtmd-cli`, `llama-uocr-parity`, and `llama-server` from the
     submodule.
 - Reworked `scripts/windows/run-demo.ps1` to run directly from the portable
@@ -1332,3 +1332,52 @@ Decision:
 
 - Git-based source dependencies now live under `unlimited-ocr-portable/thirdparty`.
 - HF model files remain downloaded assets and are ignored by git.
+
+## 2026-06-27 Windows Setup Doctor And Model Cache
+
+Objective:
+
+- Make one recursive clone of `baidu-unlimited-ocr-portable` easier to consume
+  on Windows by having `scripts/windows/setup-build.ps1` prepare everything it
+  can own, while still treating the dataset as user-provided analysis input.
+
+Implementation:
+
+- Added `-Doctor` / `--doctor` support to `scripts/windows/setup-build.ps1`.
+  Doctor performs a preflight report for:
+  - portable repo layout and `uv.lock`
+  - `thirdparty/llama.cpp` submodule presence and status
+  - `git`, `uv`, `hf`, `cmake`, `cl.exe`, `nvcc`, and `nvidia-smi`
+  - Visual Studio Developer PowerShell environment hints
+  - CUDA target-version warning
+  - `uv sync --frozen --dry-run`
+  - `hf auth whoami`
+  - model asset cache status
+  - native build output status
+- Moved the public portable model location from `thirdparty/uocr-gguf` to
+  `models/`, with Hugging Face cache under `models/.hf-cache/`.
+- Updated runtime and harness path resolution to prefer `models/`, then fall
+  back to the older `thirdparty/uocr-gguf` layouts for this WSL2 workspace.
+- Updated `scripts/windows/setup-build.ps1` to:
+  - create `models/` and `models/.hf-cache/`
+  - run `uv sync --frozen` unless `-SkipPythonSync` is passed
+  - download required GGUF assets through `hf download --cache-dir
+    models/.hf-cache --local-dir models`
+  - skip non-empty local model files unless `-ForceModelDownload` is passed
+- Updated `scripts/windows/run-demo.ps1` to prefer model files under `models/`.
+
+Validation:
+
+- PowerShell parse check passed in WSL2.
+- `setup-build.ps1 -Doctor` and `setup-build.ps1 --doctor` both bind and run.
+  The WSL2 doctor report correctly flags missing Windows-only build prerequisites
+  such as `cl.exe`.
+
+Decision:
+
+- `setup-build.ps1` should prepare submodules, Python dependencies, Hugging
+  Face model assets/cache, native build outputs, and runtime env files.
+- Major external tooling remains user-provided: Visual Studio/MSVC, CUDA,
+  NVIDIA driver/GPU visibility, Git, CMake, `uv`, `hf`, and HF authorization.
+- Dataset files stay manual because they are only needed for analysis or user
+  smoke tests, not for building the demo.

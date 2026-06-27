@@ -14,6 +14,7 @@ from typing import Any
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 PORTABLE_ROOT = PACKAGE_ROOT.parent
 REPO_ROOT = PORTABLE_ROOT.parent
+PORTABLE_MODELS = PORTABLE_ROOT / "models"
 PORTABLE_THIRDPARTY = PORTABLE_ROOT / "thirdparty"
 LEGACY_THIRDPARTY = REPO_ROOT / "thirdparty"
 PORTABLE_DATASET = PORTABLE_ROOT / "dataset"
@@ -35,6 +36,14 @@ def thirdparty_file(*parts: str) -> Path:
     return first_existing([
         PORTABLE_THIRDPARTY.joinpath(*parts),
         LEGACY_THIRDPARTY.joinpath(*parts),
+    ])
+
+
+def model_file(name: str) -> Path:
+    return first_existing([
+        PORTABLE_MODELS / name,
+        PORTABLE_THIRDPARTY / "uocr-gguf" / name,
+        LEGACY_THIRDPARTY / "uocr-gguf" / name,
     ])
 
 

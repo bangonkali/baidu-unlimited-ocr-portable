@@ -118,9 +118,12 @@ Local environment used for the recorded run:
   `thirdparty/llama.cpp/build/bin/llama-uocr-parity`, and
   `thirdparty/llama.cpp/build/bin/llama-server`.
 - Candidate GGUF:
-  `thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf`.
+  `unlimited-ocr-portable/models/Unlimited-OCR-Q4_K_M.gguf` in the public
+  portable layout. This WSL2 workspace also supports the older sibling
+  `thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf` fallback.
 - Multimodal projector:
-  `thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf`.
+  `unlimited-ocr-portable/models/mmproj-Unlimited-OCR-F16.gguf`, with the same
+  older sibling `thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf` fallback.
 
 Verify the basic tools:
 
@@ -336,8 +339,8 @@ The harness invokes `llama-mtmd-cli` with:
 - `-n 8192`
 - `-c 32768`
 - `--image <prepared_png>`
-- `--mmproj thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf`
-- `-m thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf`
+- `--mmproj unlimited-ocr-portable/models/mmproj-Unlimited-OCR-F16.gguf`
+- `-m unlimited-ocr-portable/models/Unlimited-OCR-Q4_K_M.gguf`
 - `LLAMA_DEEPSEEK_OCR_GUNDAM=1`
 - `LLAMA_DEEPSEEK_OCR_NO_REPEAT_NGRAM=1`
 - `LLAMA_DEEPSEEK_OCR_NGRAM_SIZE=30`

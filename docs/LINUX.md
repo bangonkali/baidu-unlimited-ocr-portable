@@ -33,7 +33,9 @@ practical Q4 default is slightly worse than the older CLI-prune baseline.
 - llama.cpp is checked out at `thirdparty/llama.cpp`. In the public portable
   repo this is a git submodule; initialize it with
   `git submodule update --init --recursive`.
-- GGUF files are present in `thirdparty/uocr-gguf`.
+- GGUF files are present in `unlimited-ocr-portable/models`. The harness still
+  falls back to the older sibling `thirdparty/uocr-gguf` layout used by this
+  WSL2 workspace.
 
 Verify:
 
@@ -211,7 +213,7 @@ Useful candidate strategy switches:
 ```sh
 uv run --project unlimited-ocr-portable uocr-harness run-llamacpp \
   --candidate-engine llamacpp-q6_k \
-  --model thirdparty/uocr-gguf/Unlimited-OCR-Q6_K.gguf \
+  --model unlimited-ocr-portable/models/Unlimited-OCR-Q6_K.gguf \
   --quantization Q6_K \
   --repeat-penalty 1.05 \
   --image-min-tokens 1024 \
@@ -289,8 +291,8 @@ Open `http://127.0.0.1:7861`.
 Default paths:
 
 - `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
-- `thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf`
-- `thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf`
+- `unlimited-ocr-portable/models/Unlimited-OCR-Q4_K_M.gguf`
+- `unlimited-ocr-portable/models/mmproj-Unlimited-OCR-F16.gguf`
 
 Override with `UOCR_LLAMA_BIN`, `UOCR_MODEL`, and `UOCR_MMPROJ` when testing
 another build or model location.

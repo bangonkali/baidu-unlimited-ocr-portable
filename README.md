@@ -24,7 +24,7 @@ The uv project name is `baidu-unlimited-ocr-portable`.
 - `docs/`: Linux and Windows setup notes.
 - `scripts/windows/`: Windows setup/build and demo launch scripts.
 - `thirdparty/llama.cpp/`: git submodule for the patched llama.cpp fork.
-- `thirdparty/uocr-gguf/`: local HF model asset directory, ignored by git.
+- `models/`: local HF model asset directory and cache, ignored by git.
 
 ## Clone Layout
 
@@ -41,9 +41,19 @@ If the clone already exists:
 git submodule update --init --recursive
 ```
 
-The Windows setup script also runs the submodule update. GGUF model files are
-not git dependencies; the script downloads them with `hf` into
-`thirdparty/uocr-gguf/`.
+The Windows setup script also runs the submodule update, syncs the Python
+environment with `uv sync --frozen`, downloads GGUF model files with `hf` into
+`models/`, and caches Hugging Face artifacts under `models/.hf-cache/`.
+
+Run the doctor first on Windows to verify prerequisites without downloading or
+building:
+
+```powershell
+.\scripts\windows\setup-build.ps1 -Doctor
+```
+
+The script also accepts `--doctor` through a compatibility alias when supported
+by the active PowerShell host.
 
 ## Validation Harness
 

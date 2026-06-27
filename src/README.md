@@ -34,8 +34,8 @@ Open `http://127.0.0.1:7861`.
 The default paths are:
 
 - `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
-- `thirdparty/uocr-gguf/Unlimited-OCR-Q4_K_M.gguf`
-- `thirdparty/uocr-gguf/mmproj-Unlimited-OCR-F16.gguf`
+- `models/Unlimited-OCR-Q4_K_M.gguf`
+- `models/mmproj-Unlimited-OCR-F16.gguf`
 
 Override them when needed:
 
@@ -52,8 +52,8 @@ Build the patched llama.cpp branch with CUDA, then set the native binary path:
 
 ```powershell
 $env:UOCR_LLAMA_BIN = "thirdparty\llama.cpp\build\bin\Release\llama-uocr-parity.exe"
-$env:UOCR_MODEL = "thirdparty\uocr-gguf\Unlimited-OCR-Q4_K_M.gguf"
-$env:UOCR_MMPROJ = "thirdparty\uocr-gguf\mmproj-Unlimited-OCR-F16.gguf"
+$env:UOCR_MODEL = "models\Unlimited-OCR-Q4_K_M.gguf"
+$env:UOCR_MMPROJ = "models\mmproj-Unlimited-OCR-F16.gguf"
 
 uv run --project unlimited-ocr-portable baidu-uocr-client `
   --host 127.0.0.1 --port 7861

@@ -5,8 +5,12 @@ param(
     [string] $ModelRepo = "sahilchachra/Unlimited-OCR-GGUF",
     [string[]] $Models = @("Unlimited-OCR-Q4_K_M.gguf"),
     [switch] $IncludeDiagnostics,
+    [Alias("-doctor")]
+    [switch] $Doctor,
     [switch] $SkipSubmoduleUpdate,
     [switch] $SkipModelDownload,
+    [switch] $ForceModelDownload,
+    [switch] $SkipPythonSync,
     [switch] $SkipBuild,
     [string] $Generator = "",
     [string] $CudaArchitectures = "",
@@ -77,6 +81,75 @@ function Test-Tool {
     return [bool] (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Invoke-CommandProbe {
+    param(
+        [string] $File,
+        [string[]] $Arguments,
+        [string] $WorkingDirectory
+    )
+
+    Push-Location $WorkingDirectory
+    try {
+        $output = & $File @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+        return [pscustomobject]@{
+            Ok = ($exitCode -eq 0)
+            ExitCode = $exitCode
+            Text = (($output | Out-String).Trim())
+        }
+    }
+    catch {
+        return [pscustomobject]@{
+            Ok = $false
+            ExitCode = -1
+            Text = $_.Exception.Message
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Add-DoctorResult {
+    param(
+        [System.Collections.Generic.List[object]] $Results,
+        [string] $Name,
+        [string] $Status,
+        [string] $Detail
+    )
+
+    $Results.Add([pscustomobject]@{
+        Name = $Name
+        Status = $Status
+        Detail = $Detail
+    }) | Out-Null
+}
+
+function Show-DoctorResults {
+    param([System.Collections.Generic.List[object]] $Results)
+
+    $failures = 0
+    $warnings = 0
+    foreach ($item in $Results) {
+        if ($item.Status -eq "FAIL") {
+            $failures += 1
+        }
+        elseif ($item.Status -eq "WARN") {
+            $warnings += 1
+        }
+        Write-Host ("[{0}] {1}" -f $item.Status, $item.Name)
+        if ($item.Detail) {
+            Write-Host ("      {0}" -f $item.Detail)
+        }
+    }
+
+    Write-Host ""
+    if ($failures -gt 0) {
+        throw "Doctor found $failures blocking issue(s) and $warnings warning(s)."
+    }
+    Write-Host "Doctor found 0 blocking issue(s) and $warnings warning(s)."
+}
+
 function Assert-Tooling {
     param(
         [bool] $NeedHf,
@@ -141,19 +214,213 @@ function Show-ToolVersions {
     }
 }
 
+function Test-UsableFile {
+    param([string] $Path)
+    if (-not (Test-Path $Path)) {
+        return $false
+    }
+    $item = Get-Item $Path
+    return $item.Length -gt 0
+}
+
+function Invoke-Doctor {
+    param(
+        [string] $RepoRoot,
+        [string] $ThirdpartyDir,
+        [string] $LlamaDir,
+        [string] $ModelDir,
+        [string] $ModelCacheDir,
+        [string] $ModelRepo,
+        [string[]] $Models,
+        [bool] $IncludeDiagnostics,
+        [string] $BuildDir
+    )
+
+    Write-Step "Running portable build doctor"
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    if (Test-Path (Join-Path $RepoRoot "pyproject.toml")) {
+        Add-DoctorResult $results "portable repo root" "OK" $RepoRoot
+    }
+    else {
+        Add-DoctorResult $results "portable repo root" "FAIL" "pyproject.toml is missing at $RepoRoot."
+    }
+
+    if (Test-Path (Join-Path $RepoRoot "uv.lock")) {
+        Add-DoctorResult $results "uv.lock" "OK" "Pinned dependency lockfile found."
+    }
+    else {
+        Add-DoctorResult $results "uv.lock" "FAIL" "uv.lock is missing; setup uses uv sync --frozen."
+    }
+
+    if (Test-Path (Join-Path $RepoRoot ".gitmodules")) {
+        Add-DoctorResult $results "git submodule manifest" "OK" ".gitmodules found."
+    }
+    else {
+        Add-DoctorResult $results "git submodule manifest" "FAIL" ".gitmodules is missing."
+    }
+
+    if (Test-Path (Join-Path $LlamaDir "CMakeLists.txt")) {
+        Add-DoctorResult $results "llama.cpp submodule" "OK" $LlamaDir
+    }
+    else {
+        Add-DoctorResult $results "llama.cpp submodule" "FAIL" "Missing at $LlamaDir; run git submodule update --init --recursive."
+    }
+
+    if (Test-Path $ModelDir) {
+        Add-DoctorResult $results "model directory" "OK" $ModelDir
+    }
+    else {
+        Add-DoctorResult $results "model directory" "WARN" "$ModelDir is missing; setup-build.ps1 creates it."
+    }
+
+    if (Test-Path $ModelCacheDir) {
+        Add-DoctorResult $results "Hugging Face cache directory" "OK" $ModelCacheDir
+    }
+    else {
+        Add-DoctorResult $results "Hugging Face cache directory" "WARN" "$ModelCacheDir is missing; setup-build.ps1 creates it."
+    }
+
+    $toolChecks = @(
+        @{ Name = "git"; Args = @("--version"); Reason = "clone/update git submodules" },
+        @{ Name = "uv"; Args = @("--version"); Reason = "sync Python/Gradio dependencies" },
+        @{ Name = "hf"; Args = @("--version"); Reason = "download GGUF assets from Hugging Face" },
+        @{ Name = "cmake"; Args = @("--version"); Reason = "configure and build llama.cpp" },
+        @{ Name = "cl.exe"; Args = @(); Reason = "MSVC C/C++ compiler from Visual Studio Developer PowerShell"; PresenceOnly = $true },
+        @{ Name = "nvcc"; Args = @("--version"); Reason = "CUDA compiler for GGML_CUDA" },
+        @{ Name = "nvidia-smi"; Args = @("--query-gpu=name,driver_version,memory.total", "--format=csv,noheader"); Reason = "verify NVIDIA driver/GPU visibility" }
+    )
+
+    foreach ($tool in $toolChecks) {
+        if (-not (Test-Tool $tool.Name)) {
+            Add-DoctorResult $results $tool.Name "FAIL" "Missing: $($tool.Reason)."
+            continue
+        }
+
+        if ($tool.ContainsKey("PresenceOnly") -and $tool.PresenceOnly) {
+            $command = Get-Command $tool.Name -ErrorAction SilentlyContinue
+            Add-DoctorResult $results $tool.Name "OK" $command.Source
+            continue
+        }
+
+        $probe = Invoke-CommandProbe -File $tool.Name -Arguments $tool.Args -WorkingDirectory $RepoRoot
+        $detail = if ($probe.Text) { ($probe.Text -split "`r?`n" | Select-Object -First 1) -join "" } else { "Command exited $($probe.ExitCode)." }
+        if ($probe.Ok) {
+            Add-DoctorResult $results $tool.Name "OK" $detail
+        }
+        else {
+            Add-DoctorResult $results $tool.Name "FAIL" "Command failed with exit code $($probe.ExitCode): $detail"
+        }
+    }
+
+    if ($env:VSCMD_VER -or $env:VSINSTALLDIR) {
+        Add-DoctorResult $results "Visual Studio Developer PowerShell" "OK" "VSCMD_VER=$env:VSCMD_VER VSINSTALLDIR=$env:VSINSTALLDIR"
+    }
+    else {
+        Add-DoctorResult $results "Visual Studio Developer PowerShell" "WARN" "Environment variables are not set. Use a Developer PowerShell before building."
+    }
+
+    if (Test-Tool "nvcc") {
+        $nvccProbe = Invoke-CommandProbe -File "nvcc" -Arguments @("--version") -WorkingDirectory $RepoRoot
+        if ($nvccProbe.Ok -and ($nvccProbe.Text -match "13\.3" -or $nvccProbe.Text -match "cuda_13\.3")) {
+            Add-DoctorResult $results "CUDA target version" "OK" "CUDA 13.3 detected."
+        }
+        elseif ($nvccProbe.Ok) {
+            Add-DoctorResult $results "CUDA target version" "WARN" "Expected CUDA 13.3 for the Windows validation target; current nvcc differs."
+        }
+    }
+
+    if (Test-Tool "git") {
+        $gitProbe = Invoke-CommandProbe -File "git" -Arguments @("-C", $RepoRoot, "submodule", "status", "--recursive") -WorkingDirectory $RepoRoot
+        if ($gitProbe.Ok) {
+            Add-DoctorResult $results "git submodule status" "OK" (($gitProbe.Text -split "`r?`n" | Select-Object -First 1) -join "")
+        }
+        else {
+            Add-DoctorResult $results "git submodule status" "FAIL" "git submodule status failed: $($gitProbe.Text)"
+        }
+    }
+
+    if (Test-Tool "uv") {
+        $uvProbe = Invoke-CommandProbe -File "uv" -Arguments @("sync", "--frozen", "--dry-run") -WorkingDirectory $RepoRoot
+        if ($uvProbe.Ok) {
+            Add-DoctorResult $results "uv frozen dry-run" "OK" "Dependency lock can be resolved without writing."
+        }
+        else {
+            Add-DoctorResult $results "uv frozen dry-run" "FAIL" "uv sync --frozen --dry-run failed: $($uvProbe.Text)"
+        }
+    }
+
+    if (Test-Tool "hf") {
+        $hfProbe = Invoke-CommandProbe -File "hf" -Arguments @("auth", "whoami") -WorkingDirectory $RepoRoot
+        if ($hfProbe.Ok) {
+            Add-DoctorResult $results "Hugging Face auth" "OK" (($hfProbe.Text -split "`r?`n" | Select-Object -First 1) -join "")
+        }
+        else {
+            Add-DoctorResult $results "Hugging Face auth" "FAIL" "hf auth whoami failed. Log in with hf auth login before setup."
+        }
+    }
+
+    $requiredFiles = @("mmproj-Unlimited-OCR-F16.gguf") + $Models
+    if ($IncludeDiagnostics) {
+        $requiredFiles += @(
+            "Unlimited-OCR-Q5_K_M.gguf",
+            "Unlimited-OCR-Q6_K.gguf",
+            "Unlimited-OCR-BF16.gguf"
+        )
+    }
+    foreach ($file in ($requiredFiles | Select-Object -Unique)) {
+        $path = Join-Path $ModelDir $file
+        if (Test-UsableFile $path) {
+            Add-DoctorResult $results "model asset $file" "OK" $path
+        }
+        else {
+            Add-DoctorResult $results "model asset $file" "WARN" "Missing or empty at $path; setup-build.ps1 downloads it from $ModelRepo."
+        }
+    }
+
+    foreach ($exe in @("llama-uocr-parity", "llama-mtmd-cli", "llama-server")) {
+        try {
+            $path = Find-BuiltExe -BuildDir $BuildDir -Name $exe
+            Add-DoctorResult $results "build output $exe" "OK" $path
+        }
+        catch {
+            Add-DoctorResult $results "build output $exe" "WARN" "$exe.exe is not built yet; setup-build.ps1 builds it."
+        }
+    }
+
+    Show-DoctorResults $results
+}
+
 function Download-HfFile {
     param(
         [string] $Repo,
         [string] $FileName,
         [string] $TargetDir,
+        [string] $CacheDir,
+        [bool] $Force,
         [string] $WorkingDirectory
     )
     $target = Join-Path $TargetDir $FileName
-    if (Test-Path $target) {
-        Write-Host "Already present: $target"
+    if (-not $Force -and (Test-UsableFile $target)) {
+        Write-Host "Already cached locally: $target"
         return
     }
-    Invoke-Checked -File "hf" -Arguments @("download", $Repo, $FileName, "--local-dir", $TargetDir) -WorkingDirectory $WorkingDirectory
+
+    $args = @(
+        "download",
+        $Repo,
+        $FileName,
+        "--cache-dir", $CacheDir,
+        "--local-dir", $TargetDir
+    )
+    if ($Force) {
+        $args += "--force-download"
+    }
+    Invoke-Checked -File "hf" -Arguments $args -WorkingDirectory $WorkingDirectory
+
+    if (-not (Test-UsableFile $target)) {
+        throw "Downloaded model asset is missing or empty: $target"
+    }
 }
 
 function Find-BuiltExe {
@@ -172,8 +439,23 @@ function Find-BuiltExe {
 $RepoRoot = Resolve-PortableRoot -ExplicitRepoRoot $RepoRoot -LegacyWorkspace $Workspace
 $ThirdpartyDir = Join-Path $RepoRoot "thirdparty"
 $LlamaDir = Join-Path $ThirdpartyDir "llama.cpp"
-$ModelDir = Join-Path $ThirdpartyDir "uocr-gguf"
+$ModelDir = Join-Path $RepoRoot "models"
+$ModelCacheDir = Join-Path $ModelDir ".hf-cache"
 $BuildDir = Join-Path $LlamaDir "build"
+
+if ($Doctor) {
+    Invoke-Doctor `
+        -RepoRoot $RepoRoot `
+        -ThirdpartyDir $ThirdpartyDir `
+        -LlamaDir $LlamaDir `
+        -ModelDir $ModelDir `
+        -ModelCacheDir $ModelCacheDir `
+        -ModelRepo $ModelRepo `
+        -Models $Models `
+        -IncludeDiagnostics:$IncludeDiagnostics `
+        -BuildDir $BuildDir
+    return
+}
 
 Write-Step "Checking required tools"
 Assert-Tooling -NeedHf:(-not $SkipModelDownload) -NeedBuild:(-not $SkipBuild)
@@ -190,8 +472,8 @@ if (Test-Tool "nvcc") {
     }
 }
 
-Write-Step "Preparing portable thirdparty directory"
-New-Item -ItemType Directory -Force -Path $ThirdpartyDir, $ModelDir | Out-Null
+Write-Step "Preparing portable directories"
+New-Item -ItemType Directory -Force -Path $ThirdpartyDir, $ModelDir, $ModelCacheDir | Out-Null
 
 if (-not $SkipSubmoduleUpdate) {
     Write-Step "Initializing git submodules"
@@ -205,6 +487,11 @@ if (-not (Test-Path (Join-Path $LlamaDir "CMakeLists.txt"))) {
 
 Write-Step "Submodule status"
 git -C $RepoRoot submodule status --recursive
+
+if (-not $SkipPythonSync) {
+    Write-Step "Syncing Python dependencies"
+    Invoke-Checked -File "uv" -Arguments @("sync", "--frozen") -WorkingDirectory $RepoRoot
+}
 
 if (-not $SkipModelDownload) {
     Write-Step "Checking Hugging Face authentication"
@@ -220,7 +507,13 @@ if (-not $SkipModelDownload) {
         )
     }
     $files | Select-Object -Unique | ForEach-Object {
-        Download-HfFile -Repo $ModelRepo -FileName $_ -TargetDir $ModelDir -WorkingDirectory $RepoRoot
+        Download-HfFile `
+            -Repo $ModelRepo `
+            -FileName $_ `
+            -TargetDir $ModelDir `
+            -CacheDir $ModelCacheDir `
+            -Force:$ForceModelDownload `
+            -WorkingDirectory $RepoRoot
     }
 }
 
