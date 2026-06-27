@@ -6,6 +6,8 @@ import base64
 import ctypes
 import json
 import os
+import struct
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -14,6 +16,17 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ABI_VERSION = 1
+REQUIRED_SYMBOLS = {
+    "uocr_ffi_abi_version",
+    "uocr_ffi_build_info",
+    "uocr_ffi_create",
+    "uocr_ffi_destroy",
+    "uocr_ffi_last_error",
+    "uocr_ffi_last_status",
+    "uocr_ffi_media_marker",
+    "uocr_ffi_run_count",
+    "uocr_ffi_run_image",
+}
 TINY_PNG = (
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/"
     "l6mZ4QAAAABJRU5ErkJggg=="
@@ -50,6 +63,93 @@ def find_ffi_lib(explicit: str = "") -> Path:
     raise SystemExit(f"could not find FFI library; checked names: {', '.join(names)}")
 
 
+def read_c_string(blob: bytes, offset: int) -> str:
+    end = blob.find(b"\x00", offset)
+    if end < 0:
+        end = len(blob)
+    return blob[offset:end].decode("ascii", errors="replace")
+
+
+def pe_exports(path: Path) -> set[str]:
+    blob = path.read_bytes()
+    if len(blob) < 0x40 or blob[:2] != b"MZ":
+        return set()
+    pe_offset = struct.unpack_from("<I", blob, 0x3C)[0]
+    if blob[pe_offset : pe_offset + 4] != b"PE\x00\x00":
+        return set()
+    coff = pe_offset + 4
+    number_of_sections = struct.unpack_from("<H", blob, coff + 2)[0]
+    optional_size = struct.unpack_from("<H", blob, coff + 16)[0]
+    optional = coff + 20
+    magic = struct.unpack_from("<H", blob, optional)[0]
+    data_dir = optional + (112 if magic == 0x20B else 96)
+    export_rva, _export_size = struct.unpack_from("<II", blob, data_dir)
+    sections = []
+    section_offset = optional + optional_size
+    for index in range(number_of_sections):
+        offset = section_offset + index * 40
+        virtual_size, virtual_address, raw_size, raw_pointer = struct.unpack_from("<IIII", blob, offset + 8)
+        sections.append((virtual_address, max(virtual_size, raw_size), raw_pointer))
+
+    def rva_to_offset(rva: int) -> int:
+        for virtual_address, size, raw_pointer in sections:
+            if virtual_address <= rva < virtual_address + size:
+                return raw_pointer + (rva - virtual_address)
+        return rva
+
+    if not export_rva:
+        return set()
+    export_offset = rva_to_offset(export_rva)
+    fields = struct.unpack_from("<IIHHIIIIIII", blob, export_offset)
+    number_of_names = fields[7]
+    names_rva = fields[9]
+    names_offset = rva_to_offset(names_rva)
+    names: set[str] = set()
+    for index in range(number_of_names):
+        name_rva = struct.unpack_from("<I", blob, names_offset + index * 4)[0]
+        names.add(read_c_string(blob, rva_to_offset(name_rva)))
+    return names
+
+
+def exported_symbols(path: Path) -> set[str]:
+    if path.suffix.lower() == ".dll":
+        return pe_exports(path)
+    commands = (
+        ["nm", "-D", str(path)],
+        ["nm", "-gU", str(path)],
+        ["llvm-nm", "-D", str(path)],
+    )
+    for command in commands:
+        try:
+            output = subprocess.check_output(command, text=True, stderr=subprocess.STDOUT)
+        except Exception:
+            continue
+        symbols: set[str] = set()
+        for line in output.splitlines():
+            parts = line.split()
+            if parts:
+                name = parts[-1]
+                symbols.add(name)
+                if name.startswith("_"):
+                    symbols.add(name[1:])
+        if symbols:
+            return symbols
+    return set()
+
+
+def validate_exported_symbols(path: Path) -> dict[str, Any]:
+    symbols = exported_symbols(path)
+    missing = sorted(REQUIRED_SYMBOLS - symbols)
+    if missing:
+        raise SystemExit(f"FFI library is missing required exports: {', '.join(missing)}")
+    return {
+        "ffi_library": str(path),
+        "abi_version": ABI_VERSION,
+        "symbol_validation": True,
+        "required_symbols": sorted(REQUIRED_SYMBOLS),
+    }
+
+
 def load_ffi_for_abi(path: Path) -> dict[str, Any]:
     if os.name == "nt" and hasattr(os, "add_dll_directory"):
         os.add_dll_directory(str(path.parent))
@@ -67,7 +167,12 @@ def load_ffi_for_abi(path: Path) -> dict[str, Any]:
                     ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
                 except OSError:
                     pass
-    lib = ctypes.CDLL(str(path))
+    try:
+        lib = ctypes.CDLL(str(path))
+    except OSError as exc:
+        payload = validate_exported_symbols(path)
+        payload["load_error"] = str(exc)
+        return payload
     lib.uocr_ffi_abi_version.argtypes = []
     lib.uocr_ffi_abi_version.restype = ctypes.c_uint32
     lib.uocr_ffi_build_info.argtypes = []
