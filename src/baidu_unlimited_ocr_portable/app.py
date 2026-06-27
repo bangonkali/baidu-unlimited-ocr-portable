@@ -20,7 +20,15 @@ from .config import (
     DEFAULT_PROMPT_PROFILE,
     PROMPT_PROFILES,
 )
-from .native_runner import RuntimePaths, clean_generated_text, profile_by_key, stream_ocr
+from .native_runner import (
+    DEFAULT_RUNTIME_BACKEND,
+    RUNTIME_BACKENDS,
+    RuntimePaths,
+    clean_generated_text,
+    normalize_runtime_backend,
+    profile_by_key,
+    stream_ocr,
+)
 from .parsing import boxes_as_dicts, extract_boxes, preview_data_url
 from .pdf import pdf_to_images
 
@@ -95,7 +103,12 @@ def _config_payload() -> dict[str, Any]:
             "prompt": PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt,
             "candidate_profile": default_candidate,
             "max_tokens": CANDIDATE_PROFILES[default_candidate].default_max_tokens,
+            "runtime_backend": normalize_runtime_backend(DEFAULT_RUNTIME_BACKEND),
         },
+        "runtime_backends": [
+            {"key": key, "label": label}
+            for key, label in RUNTIME_BACKENDS.items()
+        ],
         "limits": {"min_tokens": 64, "max_tokens": 8192, "token_step": 64},
     }
 
@@ -112,6 +125,10 @@ def _payload(
     image_path: str,
     native: dict | None = None,
     include_preview: bool = False,
+    page_index: int | None = None,
+    page_count: int | None = None,
+    page_done: bool = False,
+    event: str | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
     boxes = extract_boxes(text)
@@ -121,6 +138,14 @@ def _payload(
         "boxes": boxes_as_dicts(boxes),
         "metadata": _metadata(profile_key=profile_key, text=text, image_path=image_path, native=native),
     }
+    if event:
+        payload["event"] = event
+    if page_index is not None:
+        payload["page_index"] = page_index
+    if page_count is not None:
+        payload["page_count"] = page_count
+    if page_done:
+        payload["page_done"] = True
     if include_preview:
         preview = preview_data_url(image_path, text, max_size=900)
         if preview:
@@ -148,18 +173,29 @@ def _token_limit(value: int | str | None, profile_key: str) -> int:
     return max(1, min(32768, parsed))
 
 
+def _runtime_backend(value: str | None) -> str:
+    try:
+        return normalize_runtime_backend(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 def _stream_native_ocr(
     *,
     image_path: str,
     prompt: str,
     candidate_profile: str,
     max_tokens: int,
+    runtime_backend: str,
+    page_index: int | None = None,
+    page_count: int | None = None,
 ) -> Iterator[bytes]:
     profile_key = _candidate_key(candidate_profile)
     profile = profile_by_key(profile_key)
     token_limit = _token_limit(max_tokens, profile_key)
+    backend = _runtime_backend(runtime_backend)
     paths = RuntimePaths.from_env()
-    missing = paths.missing()
+    missing = paths.missing(backend)
     if missing:
         yield _ndjson(
             {
@@ -167,7 +203,10 @@ def _stream_native_ocr(
                 "done": True,
                 "boxes": [],
                 "error": "Native runtime files are missing.",
-                "metadata": {"missing": missing, "active_image": image_path},
+                "metadata": {"missing": missing, "active_image": image_path, "backend": backend},
+                "page_index": page_index,
+                "page_count": page_count,
+                "page_done": page_index is not None,
             }
         )
         return
@@ -182,6 +221,8 @@ def _stream_native_ocr(
             done=False,
             profile_key=profile_key,
             image_path=image_path,
+            page_index=page_index,
+            page_count=page_count,
         )
     )
 
@@ -191,6 +232,7 @@ def _stream_native_ocr(
         prompt=prompt,
         profile=profile,
         max_tokens=token_limit,
+        runtime_backend=backend,
     ):
         if event.kind == "token":
             accumulated += event.text
@@ -211,6 +253,8 @@ def _stream_native_ocr(
                         profile_key=profile_key,
                         image_path=image_path,
                         include_preview=boxes_changed,
+                        page_index=page_index,
+                        page_count=page_count,
                     )
                 )
             continue
@@ -228,6 +272,9 @@ def _stream_native_ocr(
                     image_path=image_path,
                     native=native_meta,
                     include_preview=True,
+                    page_index=page_index,
+                    page_count=page_count,
+                    page_done=True,
                     error=str(native_meta.get("error") or "Native OCR failed."),
                 )
             )
@@ -241,8 +288,59 @@ def _stream_native_ocr(
                 image_path=image_path,
                 native=native_meta,
                 include_preview=True,
+                page_index=page_index,
+                page_count=page_count,
+                page_done=True,
             )
         )
+
+
+def _stream_pdf_session_ocr(
+    *,
+    pages: list[str],
+    prompt: str,
+    candidate_profile: str,
+    max_tokens: int,
+    runtime_backend: str,
+) -> Iterator[bytes]:
+    page_texts = [""] * len(pages)
+    for index, image_path in enumerate(pages):
+        yield _ndjson(
+            {
+                "event": "page_start",
+                "page_index": index,
+                "page_count": len(pages),
+                "done": False,
+                "text": "",
+                "boxes": [],
+            }
+        )
+        for chunk in _stream_native_ocr(
+            image_path=image_path,
+            prompt=prompt,
+            candidate_profile=candidate_profile,
+            max_tokens=max_tokens,
+            runtime_backend=runtime_backend,
+            page_index=index,
+            page_count=len(pages),
+        ):
+            payload = json.loads(chunk.decode("utf-8"))
+            if payload.get("page_done"):
+                page_texts[index] = payload.get("text") or ""
+            yield _ndjson(payload)
+            if payload.get("error"):
+                return
+    full_text = "\n\n".join(text for text in page_texts if text)
+    yield _ndjson(
+        {
+            "event": "pdf_done",
+            "done": True,
+            "text": full_text,
+            "boxes": [],
+            "page_count": len(pages),
+            "metadata": {"text_chars": len(full_text)},
+        }
+    )
 
 
 async def _save_upload(upload: UploadFile, *, allowed_suffixes: set[str], prefix: str) -> Path:
@@ -300,9 +398,11 @@ def create_app() -> FastAPI:
         prompt: str = Form(PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt),
         candidate_profile: str = Form(_default_candidate_key()),
         max_tokens: int = Form(CANDIDATE_PROFILES[_default_candidate_key()].default_max_tokens),
+        runtime_backend: str = Form(DEFAULT_RUNTIME_BACKEND),
     ) -> StreamingResponse:
         profile_key = _candidate_key(candidate_profile)
         token_limit = _token_limit(max_tokens, profile_key)
+        backend = _runtime_backend(runtime_backend)
         image_path = await _save_upload(image_file, allowed_suffixes=IMAGE_SUFFIXES, prefix="uocr_image_upload_")
         return StreamingResponse(
             _stream_native_ocr(
@@ -310,6 +410,7 @@ def create_app() -> FastAPI:
                 prompt=prompt,
                 candidate_profile=profile_key,
                 max_tokens=token_limit,
+                runtime_backend=backend,
             ),
             media_type="application/x-ndjson",
         )
@@ -321,9 +422,11 @@ def create_app() -> FastAPI:
         prompt: str = Form(PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt),
         candidate_profile: str = Form(_default_candidate_key()),
         max_tokens: int = Form(CANDIDATE_PROFILES[_default_candidate_key()].default_max_tokens),
+        runtime_backend: str = Form(DEFAULT_RUNTIME_BACKEND),
     ) -> StreamingResponse:
         profile_key = _candidate_key(candidate_profile)
         token_limit = _token_limit(max_tokens, profile_key)
+        backend = _runtime_backend(runtime_backend)
         pages = PDF_SESSIONS.get(session_id)
         if not pages:
             raise HTTPException(status_code=404, detail="PDF session not found.")
@@ -335,6 +438,34 @@ def create_app() -> FastAPI:
                 prompt=prompt,
                 candidate_profile=profile_key,
                 max_tokens=token_limit,
+                runtime_backend=backend,
+                page_index=page_index,
+                page_count=len(pages),
+            ),
+            media_type="application/x-ndjson",
+        )
+
+    @api.post("/api/run_ocr_pdf")
+    async def run_ocr_pdf(
+        session_id: str = Form(...),
+        prompt: str = Form(PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt),
+        candidate_profile: str = Form(_default_candidate_key()),
+        max_tokens: int = Form(CANDIDATE_PROFILES[_default_candidate_key()].default_max_tokens),
+        runtime_backend: str = Form(DEFAULT_RUNTIME_BACKEND),
+    ) -> StreamingResponse:
+        profile_key = _candidate_key(candidate_profile)
+        token_limit = _token_limit(max_tokens, profile_key)
+        backend = _runtime_backend(runtime_backend)
+        pages = PDF_SESSIONS.get(session_id)
+        if not pages:
+            raise HTTPException(status_code=404, detail="PDF session not found.")
+        return StreamingResponse(
+            _stream_pdf_session_ocr(
+                pages=pages,
+                prompt=prompt,
+                candidate_profile=profile_key,
+                max_tokens=token_limit,
+                runtime_backend=backend,
             ),
             media_type="application/x-ndjson",
         )
@@ -356,6 +487,7 @@ def run_smoke(args: argparse.Namespace) -> int:
         prompt=args.prompt,
         profile=profile,
         max_tokens=args.max_tokens,
+        runtime_backend=args.runtime_backend,
     ):
         if event.kind == "token":
             accumulated += event.text
@@ -387,6 +519,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", default=PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt)
     parser.add_argument("--profile", default="best-zero-empty-q4", choices=sorted(CANDIDATE_PROFILES))
     parser.add_argument("--max-tokens", type=int, default=64)
+    parser.add_argument("--runtime-backend", default=DEFAULT_RUNTIME_BACKEND, choices=sorted(RUNTIME_BACKENDS))
     return parser.parse_args()
 
 

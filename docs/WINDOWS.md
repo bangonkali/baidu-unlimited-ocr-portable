@@ -26,12 +26,14 @@ with SGLang.
 
 Start from PowerShell with an NVIDIA driver visible through `nvidia-smi` and
 CUDA runtime libraries compatible with CUDA 13 binaries. The prebuilt runtime
-label is `windows-x86_64-cuda13`.
+label is `windows-x86_64-cuda13`. The CUDA 13 runtime supports compute
+capability 7.5 or newer and includes Blackwell RTX 5090 support (`sm_120`,
+built as `120a-real`).
 
 For local source builds, use **Visual Studio 2026 Developer PowerShell
-v18.8.0-insiders** with CUDA available. The expected Windows CUDA target for the
-next validation pass is CUDA 13.x; the current validated local environment used
-CUDA 13.3, where `nvcc --version` includes:
+v18.8.0-insiders**, CMake 4.2.1 or newer, and CUDA. The expected Windows CUDA
+target for the next validation pass is CUDA 13.x; the current validated local
+environment used CUDA 13.3, where `nvcc --version` includes:
 
 ```text
 cuda_13.3.r13.3/compiler.37862127_0
@@ -72,6 +74,21 @@ To compile the CUDA runtime locally instead of downloading it:
 
 ```powershell
 .\scripts\windows\setup-build.ps1 -RuntimeSource build
+```
+
+Local CUDA source builds use the same default architecture set as release
+builds:
+
+```text
+75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real
+```
+
+Override it only when intentionally narrowing the binary for a specific machine:
+
+```powershell
+.\scripts\windows\setup-build.ps1 `
+  -RuntimeSource build `
+  -CudaArchitectures "120a-real"
 ```
 
 To try download first and compile only if no release asset is available:
@@ -115,6 +132,8 @@ Useful setup switches:
 - `-ForceRuntimeDownload`: redownload and reinstall the prebuilt runtime.
 - `-SkipPythonSync`: skip `uv sync --frozen` if you already synced the project.
 - `-SkipModelDownload`: skip Hugging Face auth and model download.
+- `-CudaArchitectures VALUE`: pass `CMAKE_CUDA_ARCHITECTURES` for local CUDA
+  source builds. Default includes RTX 5090 / `sm_120`.
 - `-SkipBuild`: skip CMake configure/build when using `-RuntimeSource build` or
   an `auto` fallback build.
 
@@ -147,6 +166,12 @@ Open:
 ```text
 http://127.0.0.1:7861
 ```
+
+The UI defaults to the persistent `ffi` runtime backend. It starts
+`llama-server.exe` once, keeps the model and mmproj resident, and processes all
+PDF pages through that session. Use the runtime selector in the header, or
+`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
+per-request executable path.
 
 If PowerShell blocks local scripts:
 
@@ -323,6 +348,7 @@ cd C:\uocr\unlimited-ocr-portable
 cmake -B thirdparty\llama.cpp\build `
   -S thirdparty\llama.cpp `
   -DGGML_CUDA=ON `
+  "-DCMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real" `
   -DCMAKE_BUILD_TYPE=Release
 
 cmake --build thirdparty\llama.cpp\build `

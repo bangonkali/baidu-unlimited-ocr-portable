@@ -141,6 +141,9 @@ def make_package_manifest(
             "arch": target.get("arch"),
             "backend": target.get("backend"),
             "cuda_major": target.get("cuda_major"),
+            "cuda_architectures": target.get("cuda_architectures"),
+            "minimum_compute_capability": target.get("minimum_compute_capability"),
+            "known_gpu_support": target.get("known_gpu_support", []),
             "support_status": target.get("support_status"),
         },
         "build": {

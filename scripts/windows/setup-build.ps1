@@ -19,7 +19,7 @@ param(
     [switch] $SkipPythonSync,
     [switch] $SkipBuild,
     [string] $Generator = "",
-    [string] $CudaArchitectures = "",
+    [string] $CudaArchitectures = "75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real",
     [string] $Config = "Release"
 )
 

@@ -19,7 +19,7 @@ runtime_source="download"
 runtime_version="latest"
 runtime_repo="bangonkali/baidu-unlimited-ocr-portable"
 generator=""
-cuda_architectures=""
+cuda_architectures="75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real"
 config="Release"
 
 usage() {
@@ -44,7 +44,7 @@ Options:
   --skip-python-sync           Do not run uv sync --frozen.
   --skip-build                 Do not configure/build llama.cpp when --runtime-source build or auto fallback builds.
   --generator NAME             Pass a CMake generator, for example "Ninja".
-  --cuda-architectures VALUE   Pass CMAKE_CUDA_ARCHITECTURES for source builds.
+  --cuda-architectures VALUE   Pass CMAKE_CUDA_ARCHITECTURES for source builds. Default includes RTX 5090 / sm_120.
   --config NAME                CMake build config. Default: Release.
   -h, --help                   Show this help.
 EOF

@@ -48,7 +48,14 @@ The setup scripts sync the Python environment with `uv sync --frozen`, download
 GGUF model files with `hf` into `models/`, and install prebuilt native runtime
 binaries from GitHub Releases by default. Source compilation remains available
 with `--runtime-source build` on macOS/Linux or `-RuntimeSource build` on
-Windows.
+Windows. The CUDA 13 Linux and Windows runtime labels include RTX 5090
+(`sm_120`) support.
+
+The app defaults to the persistent `ffi` runtime backend. It keeps
+`llama-server` loaded in the background and sends every image or PDF page to the
+resident model, avoiding a full model reload between PDF pages. The legacy
+`executable` backend remains available from the UI runtime selector or with
+`--runtime-backend executable` for CLI smoke tests.
 
 Run the doctor first on macOS to verify prerequisites without downloading or
 building:

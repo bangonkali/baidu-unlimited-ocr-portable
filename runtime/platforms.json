@@ -13,7 +13,8 @@
       "runner": "macos-15",
       "archive_ext": "tar.gz",
       "cmake_defines": [
-        "GGML_METAL=ON"
+        "GGML_METAL=ON",
+        "GGML_NATIVE=OFF"
       ],
       "executables": [
         "llama-uocr-parity",
@@ -36,7 +37,26 @@
       "runner": "ubuntu-24.04",
       "archive_ext": "tar.gz",
       "cmake_defines": [
-        "GGML_CUDA=ON"
+        "GGML_CUDA=ON",
+        "GGML_NATIVE=OFF",
+        "CMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real"
+      ],
+      "cuda_architectures": [
+        "75-virtual",
+        "80-virtual",
+        "86-real",
+        "89-real",
+        "90-virtual",
+        "120a-real",
+        "121a-real"
+      ],
+      "minimum_compute_capability": "7.5",
+      "known_gpu_support": [
+        {
+          "name": "GeForce RTX 5090",
+          "compute_capability": "12.0",
+          "cmake_architecture": "120a-real"
+        }
       ],
       "executables": [
         "llama-uocr-parity",
@@ -61,7 +81,26 @@
       "runner": "windows-2025",
       "archive_ext": "zip",
       "cmake_defines": [
-        "GGML_CUDA=ON"
+        "GGML_CUDA=ON",
+        "GGML_NATIVE=OFF",
+        "CMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real"
+      ],
+      "cuda_architectures": [
+        "75-virtual",
+        "80-virtual",
+        "86-real",
+        "89-real",
+        "90-virtual",
+        "120a-real",
+        "121a-real"
+      ],
+      "minimum_compute_capability": "7.5",
+      "known_gpu_support": [
+        {
+          "name": "GeForce RTX 5090",
+          "compute_capability": "12.0",
+          "cmake_architecture": "120a-real"
+        }
       ],
       "executables": [
         "llama-uocr-parity.exe",

@@ -37,6 +37,27 @@ def default_llama_binary() -> Path:
     return candidates[0]
 
 
+def default_llama_server_binary() -> Path:
+    if os.name == "nt":
+        candidates = [
+            *sorted(PORTABLE_THIRDPARTY.glob("uocr-runtime/*/bin/llama-server.exe")),
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-server.exe",
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "llama-server.exe",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / "llama-server.exe",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "llama-server.exe",
+        ]
+    else:
+        candidates = [
+            *sorted(PORTABLE_THIRDPARTY.glob("uocr-runtime/*/bin/llama-server")),
+            PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-server{_exe_suffix()}",
+            LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-server{_exe_suffix()}",
+        ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
 def resolve_repo_path(value: str | os.PathLike[str] | None, default: Path) -> Path:
     raw = Path(value).expanduser() if value else default
     if raw.is_absolute():

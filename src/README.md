@@ -1,7 +1,7 @@
 # Portable Client
 
 This demo runs the practical portable Unlimited-OCR candidate through the
-patched native llama.cpp binary. It uses a custom browser UI with live input
+patched native llama.cpp runtime. It uses a custom browser UI with live input
 annotations and does not use SGLang, PyTorch, Transformers, or the Baidu custom
 SGLang wheel.
 
@@ -17,6 +17,11 @@ Default profile:
 The UI also exposes the exact-prefill/no-image-end R-SWA profile as an
 experimental option. That profile had higher average similarity in the full
 matrix, but it produced empty rows and is not the default.
+
+The default runtime backend is `ffi`, a persistent native session backed by
+`llama-server`. It keeps the model and mmproj resident across image and PDF page
+requests. Choose `executable` in the UI or pass `--runtime-backend executable`
+to use the older per-request `llama-uocr-parity` process.
 
 ## Run On Linux / WSL2
 
@@ -34,6 +39,7 @@ Open `http://127.0.0.1:7861`.
 
 The default paths are:
 
+- `thirdparty/llama.cpp/build/bin/llama-server`
 - `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
 - `models/Unlimited-OCR-Q4_K_M.gguf`
 - `models/mmproj-Unlimited-OCR-F16.gguf`
@@ -41,6 +47,7 @@ The default paths are:
 Override them when needed:
 
 ```sh
+UOCR_LLAMA_SERVER_BIN=/path/to/llama-server \
 UOCR_LLAMA_BIN=/path/to/llama-uocr-parity \
 UOCR_MODEL=/path/to/Unlimited-OCR-Q4_K_M.gguf \
 UOCR_MMPROJ=/path/to/mmproj-Unlimited-OCR-F16.gguf \

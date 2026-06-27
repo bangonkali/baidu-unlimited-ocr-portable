@@ -9,6 +9,7 @@ smoke=0
 image=""
 profile="best-zero-empty-q4"
 max_tokens="64"
+runtime_backend="${UOCR_RUNTIME_BACKEND:-ffi}"
 
 usage() {
     cat <<'EOF'
@@ -23,6 +24,7 @@ Options:
   --image PATH           Smoke image path.
   --profile KEY          best-zero-empty-q4 or experimental-exact-prefill-q4.
   --max-tokens N         Smoke max tokens. Default: 64.
+  --runtime-backend MODE ffi or executable. Default: ffi.
   -h, --help             Show this help.
 EOF
 }
@@ -129,6 +131,11 @@ while (($# > 0)); do
             max_tokens="$2"
             shift 2
             ;;
+        --runtime-backend)
+            [[ $# -ge 2 ]] || die "--runtime-backend requires a value"
+            runtime_backend="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -144,6 +151,13 @@ case "$profile" in
         ;;
     *)
         die "Unknown profile: $profile"
+        ;;
+esac
+case "$runtime_backend" in
+    ffi|executable)
+        ;;
+    *)
+        die "Unknown runtime backend: $runtime_backend"
         ;;
 esac
 
@@ -165,6 +179,13 @@ if [[ -z "${UOCR_LLAMA_BIN:-}" ]]; then
         "$thirdparty_dir/llama.cpp/build/bin/Release/llama-uocr-parity" \
         "$thirdparty_dir/llama.cpp/build/Release/llama-uocr-parity" || true)"
 fi
+if [[ -z "${UOCR_LLAMA_SERVER_BIN:-}" ]]; then
+    UOCR_LLAMA_SERVER_BIN="$(resolve_first_existing \
+        "$thirdparty_dir/uocr-runtime/linux-x86_64-cuda13/bin/llama-server" \
+        "$thirdparty_dir/llama.cpp/build/bin/llama-server" \
+        "$thirdparty_dir/llama.cpp/build/bin/Release/llama-server" \
+        "$thirdparty_dir/llama.cpp/build/Release/llama-server" || true)"
+fi
 if [[ -z "${UOCR_MODEL:-}" ]]; then
     UOCR_MODEL="$(resolve_first_existing \
         "$models_dir/Unlimited-OCR-Q4_K_M.gguf" \
@@ -177,11 +198,14 @@ if [[ -z "${UOCR_MMPROJ:-}" ]]; then
 fi
 
 export UOCR_LLAMA_BIN
+export UOCR_LLAMA_SERVER_BIN
 export UOCR_MODEL
 export UOCR_MMPROJ
+export UOCR_RUNTIME_BACKEND="$runtime_backend"
 
 require_path "portable pyproject" "$repo_root/pyproject.toml"
 require_path "native runner" "$UOCR_LLAMA_BIN"
+require_path "native server" "$UOCR_LLAMA_SERVER_BIN"
 require_path "model" "$UOCR_MODEL"
 require_path "mmproj" "$UOCR_MMPROJ"
 
@@ -194,7 +218,7 @@ if ((smoke)); then
         image="$(resolve_first_existing "$repo_root/dataset/sc-02.png" "$repo_root/../dataset/sc-02.png" || true)"
     fi
     require_path "smoke image" "$image"
-    uv_args=(run --project "$repo_root" baidu-uocr-client --smoke --image "$image" --profile "$profile" --max-tokens "$max_tokens")
+    uv_args=(run --project "$repo_root" baidu-uocr-client --smoke --image "$image" --profile "$profile" --max-tokens "$max_tokens" --runtime-backend "$runtime_backend")
 else
     uv_args=(run --project "$repo_root" baidu-uocr-client --host "$host_name" --port "$port")
 fi

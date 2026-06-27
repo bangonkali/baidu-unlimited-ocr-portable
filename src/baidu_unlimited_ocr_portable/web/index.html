@@ -205,6 +205,10 @@
       <select class="config-select" id="candidate-profile"></select>
     </div>
     <div class="config-group">
+      <span class="config-label">RUNTIME</span>
+      <select class="config-select" id="runtime-backend"></select>
+    </div>
+    <div class="config-group">
       <span class="config-label">TOKENS</span>
       <input class="token-input" id="max-tokens" type="number" min="64" max="8192" step="64" />
     </div>
@@ -365,6 +369,16 @@ function populateConfig(payload) {
     if (selected?.dataset.maxTokens) document.getElementById('max-tokens').value = selected.dataset.maxTokens;
   });
   document.getElementById('engine-display').textContent = candidateSelect.selectedOptions[0]?.dataset.engine || 'portable';
+
+  const runtimeSelect = document.getElementById('runtime-backend');
+  runtimeSelect.innerHTML = '';
+  payload.runtime_backends.forEach(backend => {
+    const option = document.createElement('option');
+    option.value = backend.key;
+    option.textContent = backend.label;
+    runtimeSelect.appendChild(option);
+  });
+  runtimeSelect.value = payload.defaults.runtime_backend;
 
   const maxTokens = document.getElementById('max-tokens');
   maxTokens.min = payload.limits.min_tokens;
@@ -543,6 +557,7 @@ function selectedParams() {
   return {
     prompt: document.getElementById('prompt-input').value || 'document parsing.',
     candidateProfile: document.getElementById('candidate-profile').value,
+    runtimeBackend: document.getElementById('runtime-backend').value,
     maxTokens: document.getElementById('max-tokens').value || '8192',
   };
 }
@@ -581,6 +596,7 @@ async function runSingleImage(ocrDiv) {
   formData.append('image_file', currentFile, currentFile.name);
   formData.append('prompt', params.prompt);
   formData.append('candidate_profile', params.candidateProfile);
+  formData.append('runtime_backend', params.runtimeBackend);
   formData.append('max_tokens', params.maxTokens);
   let finalText = '';
   try {
@@ -621,46 +637,60 @@ async function runPDF(ocrDiv) {
   document.getElementById('page-count').textContent = total;
   document.getElementById('page-info').style.display = 'flex';
   ocrDiv.textContent = '';
-  let fullText = '';
+  const pageSlots = [];
+  const pageTexts = new Array(total).fill('');
   for (let i = 0; i < total; i++) {
-    if (stopRequested) return finishStop(ocrDiv);
-    setStatus('running', `RUNNING - PAGE ${i + 1} / ${total}`);
-    setProgressValue(Math.round((i / total) * 100));
     const sep = document.createElement('div');
     sep.style.cssText = 'margin:10px 0 5px;font-size:9px;letter-spacing:.1em;color:var(--text-muted);border-bottom:1px solid var(--border-soft);padding-bottom:3px;';
     sep.textContent = `-- PAGE ${i + 1} / ${total} --`;
     ocrDiv.appendChild(sep);
     const slot = document.createElement('div');
     slot.style.cssText = 'color:var(--text-muted);font-size:11px;padding:3px 0;';
-    slot.innerHTML = '<span class="cursor"></span> waiting for native OCR...';
+    slot.innerHTML = '<span class="cursor"></span> queued for native OCR...';
     ocrDiv.appendChild(slot);
-    scrollOutputBottom();
+    pageSlots.push(slot);
+  }
+  scrollOutputBottom();
 
-    const formData = new FormData();
-    formData.append('session_id', currentPdfSession);
-    formData.append('page_index', String(i));
-    formData.append('prompt', params.prompt);
-    formData.append('candidate_profile', params.candidateProfile);
-    formData.append('max_tokens', params.maxTokens);
-    try {
-      let pageText = '';
-      await streamPayloads('/api/run_ocr_page', formData, payload => {
-        if (payload.error) throw new Error(payload.error);
-        pageText = payload.text ?? '';
-        slot.style.color = 'var(--text-primary)';
-        slot.textContent = pageText;
-        drawBoxes(pageText, i, payload.boxes);
+  const formData = new FormData();
+  formData.append('session_id', currentPdfSession);
+  formData.append('prompt', params.prompt);
+  formData.append('candidate_profile', params.candidateProfile);
+  formData.append('runtime_backend', params.runtimeBackend);
+  formData.append('max_tokens', params.maxTokens);
+  let fullText = '';
+  try {
+    await streamPayloads('/api/run_ocr_pdf', formData, payload => {
+      if (payload.error) throw new Error(payload.error);
+      if (payload.event === 'page_start') {
+        const i = payload.page_index;
+        setStatus('running', `RUNNING - PAGE ${i + 1} / ${total}`);
+        setProgressValue(Math.round((i / total) * 100));
+        pageSlots[i].innerHTML = '<span class="cursor"></span> waiting for native OCR...';
         scrollOutputBottom();
-      });
-      fullText += (fullText ? '\n\n' : '') + pageText;
+        return;
+      }
+      if (payload.event === 'pdf_done') {
+        fullText = payload.text ?? fullText;
+        return;
+      }
+      if (typeof payload.page_index !== 'number') return;
+      const i = payload.page_index;
+      const pageText = payload.text ?? '';
+      pageTexts[i] = pageText;
+      pageSlots[i].style.color = 'var(--text-primary)';
+      pageSlots[i].textContent = pageText || (payload.page_done ? '(no text detected)' : '');
+      drawBoxes(pageText, i, payload.boxes);
+      fullText = pageTexts.filter(Boolean).join('\n\n');
       charCount = fullText.length;
       document.getElementById('char-count').textContent = charCount.toLocaleString();
       document.getElementById('token-display').style.display = 'flex';
-      if (!pageText) slot.textContent = '(no text detected)';
-    } catch (err) {
-      if (stopRequested) return finishStop(ocrDiv);
-      slot.innerHTML = `<span style="color:var(--red)">Page ${i + 1} error: ${err.message}</span>`;
-    }
+      if (payload.page_done) setProgressValue(Math.round(((i + 1) / total) * 100));
+      scrollOutputBottom();
+    });
+  } catch (err) {
+    if (stopRequested) return finishStop(ocrDiv);
+    return showError(ocrDiv, err.message);
   }
   if (stopRequested) return finishStop(ocrDiv);
   finishDone(fullText);

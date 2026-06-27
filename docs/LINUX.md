@@ -22,6 +22,9 @@ Prerequisites for the default download path:
 - NVIDIA driver visible through `nvidia-smi`
 - CUDA runtime libraries compatible with CUDA 13 binaries
 
+The CUDA 13 runtime supports compute capability 7.5 or newer and includes
+Blackwell RTX 5090 support (`sm_120`, built as `120a-real`).
+
 ```sh
 git clone --recursive git@github.com:bangonkali/baidu-unlimited-ocr-portable.git \
   unlimited-ocr-portable
@@ -32,11 +35,25 @@ cd unlimited-ocr-portable
 ./scripts/linux/setup-build.sh
 ```
 
-To compile the CUDA runtime locally instead of downloading it, install `cmake`
-and the CUDA toolkit with `nvcc`, then run:
+To compile the CUDA runtime locally instead of downloading it, install CMake
+4.2.1 or newer and the CUDA toolkit with `nvcc`, then run:
 
 ```sh
 ./scripts/linux/setup-build.sh --runtime-source build
+```
+
+Local CUDA source builds use the same default architecture set as release
+builds:
+
+```text
+75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real
+```
+
+Override it only when intentionally narrowing the binary for a specific machine:
+
+```sh
+./scripts/linux/setup-build.sh --runtime-source build \
+  --cuda-architectures "120a-real"
 ```
 
 To try download first and compile only if no release asset is available:
@@ -59,6 +76,12 @@ Launch the demo UI:
 ```sh
 ./scripts/linux/run-demo.sh --host 127.0.0.1 --port 7861
 ```
+
+The UI defaults to the persistent `ffi` runtime backend. It starts
+`llama-server` once, keeps the model and mmproj resident, and processes all PDF
+pages through that session. Use the runtime selector in the header, or
+`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
+per-request executable path.
 
 ## Current R-SWA Status
 
@@ -155,6 +178,7 @@ f3e5dcccf deepseek2-ocr: add Unlimited-OCR R-SWA parity
 uv tool run cmake -B thirdparty/llama.cpp/build \
   -S thirdparty/llama.cpp \
   -DGGML_CUDA=ON \
+  "-DCMAKE_CUDA_ARCHITECTURES=75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real" \
   -DCMAKE_BUILD_TYPE=Release
 
 uv tool run cmake --build thirdparty/llama.cpp/build -j \

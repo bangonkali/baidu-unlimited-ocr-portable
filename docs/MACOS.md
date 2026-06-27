@@ -145,6 +145,12 @@ Open:
 http://127.0.0.1:7861
 ```
 
+The UI defaults to the persistent `ffi` runtime backend. It starts
+`llama-server` once, keeps the model and mmproj resident, and processes all PDF
+pages through that session. Use the runtime selector in the header, or
+`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
+per-request executable path.
+
 ## Manual Build Notes
 
 The scripted build uses the same CMake targets as the Linux and Windows docs:

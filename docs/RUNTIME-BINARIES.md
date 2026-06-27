@@ -22,6 +22,11 @@ installing a prebuilt runtime, and the machine must have NVIDIA driver/runtime
 libraries compatible with CUDA 13 binaries. If the accelerator probe fails, the
 downloader refuses to install a CUDA-labeled binary for that machine.
 
+CUDA 13 release binaries target compute capability 7.5 or newer and explicitly
+include Blackwell RTX 5090 support. NVIDIA's RTX 5090 specs list CUDA
+capability `12.0`, which maps to `sm_120`; this runtime builds that path as
+`120a-real`.
+
 ## Setup Modes
 
 macOS and Linux:
@@ -58,6 +63,12 @@ Useful download options:
 The scripts write `uocr-runtime-env.sh` or `uocr-runtime-env.ps1` with
 `UOCR_LLAMA_BIN`, model paths, and runtime metadata.
 
+The runtime archives include both `llama-uocr-parity` and `llama-server`. The
+web app defaults to the persistent `ffi` backend, which starts `llama-server`
+once and reuses the resident model for every PDF page. The `executable` backend
+keeps the previous per-request `llama-uocr-parity` behavior for comparison and
+debugging.
+
 ## Release Assets
 
 Runtime release assets use these names:
@@ -84,7 +95,20 @@ It publishes GitHub Release assets when:
 - a `v*` tag is pushed, or
 - `workflow_dispatch` is run with `publish=true` and `version` set.
 
-CUDA builds install the CUDA toolkit in CI and compile the CUDA backend. Runtime
-GPU smoke validation should be run on self-hosted GPU runners before promoting a
-release as validated; GitHub-hosted standard runners compile the binaries but do
-not provide NVIDIA GPUs for inference smoke tests.
+CUDA builds install the CUDA toolkit in CI and compile the CUDA backend without
+requiring a GPU on the hosted runner. The workflow installs CMake 4.2.1 or
+newer for Blackwell architecture parsing and explicitly sets
+`CMAKE_CUDA_ARCHITECTURES` to:
+
+```text
+75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real
+```
+
+This avoids `native` GPU probing on GPU-less hosted runners and keeps the
+archive label tied to CUDA 13 rather than to one CI machine. The `120a-real`
+entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
+parallelism to reduce hosted-runner memory pressure.
+
+Runtime GPU smoke validation should be run on self-hosted GPU runners before
+promoting a release as validated; GitHub-hosted standard runners compile the
+binaries but do not provide NVIDIA GPUs for inference smoke tests.

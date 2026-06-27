@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import platform
+import subprocess
 import shutil
 import sys
 import tarfile
@@ -61,12 +62,84 @@ def normalize_os() -> str:
     return system
 
 
-def probe_accelerator(command: str | None) -> tuple[bool, str]:
+def parse_compute_capability(value: str) -> tuple[int, int] | None:
+    parts = value.strip().split(".", 1)
+    if len(parts) != 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def compute_capability_at_least(actual: str, minimum: str) -> bool:
+    actual_parts = parse_compute_capability(actual)
+    minimum_parts = parse_compute_capability(minimum)
+    if actual_parts is None or minimum_parts is None:
+        return False
+    return actual_parts >= minimum_parts
+
+
+def query_nvidia_compute_caps(command_path: str) -> tuple[list[tuple[str, str]], str]:
+    try:
+        output = subprocess.check_output(
+            [
+                command_path,
+                "--query-gpu=name,compute_cap",
+                "--format=csv,noheader",
+            ],
+            text=True,
+            stderr=subprocess.STDOUT,
+            timeout=15,
+        )
+    except Exception as exc:
+        return [], f"compute capability query unavailable: {exc}"
+
+    gpus: list[tuple[str, str]] = []
+    for line in output.splitlines():
+        if not line.strip():
+            continue
+        if "," in line:
+            name, cap = [part.strip() for part in line.split(",", 1)]
+        else:
+            name, cap = line.strip(), ""
+        if cap:
+            gpus.append((name, cap))
+    return gpus, ""
+
+
+def probe_accelerator(command: str | None, target: dict[str, Any] | None = None) -> tuple[bool, str]:
     if not command:
         return True, "no accelerator probe required"
     resolved = shutil.which(command)
     if not resolved:
         return False, f"{command} not found on PATH"
+    target = target or {}
+    minimum_compute_capability = target.get("minimum_compute_capability")
+    if command == "nvidia-smi" and minimum_compute_capability:
+        gpus, query_error = query_nvidia_compute_caps(resolved)
+        if gpus:
+            parseable = [
+                f"{name} ({cap})"
+                for name, cap in gpus
+                if parse_compute_capability(cap) is not None
+            ]
+            supported = [
+                f"{name} (compute capability {cap})"
+                for name, cap in gpus
+                if compute_capability_at_least(cap, minimum_compute_capability)
+            ]
+            if supported:
+                return True, f"{resolved}; supported GPU: {supported[0]}"
+            if not parseable:
+                found = ", ".join(f"{name} ({cap})" for name, cap in gpus)
+                return True, f"{resolved}; compute capability query returned no parseable values: {found}"
+            found = ", ".join(f"{name} ({cap})" for name, cap in gpus)
+            return False, (
+                f"CUDA target requires compute capability >= {minimum_compute_capability}; "
+                f"detected {found}"
+            )
+        return True, f"{resolved}; {query_error}"
     return True, resolved
 
 
@@ -98,7 +171,7 @@ def detect_platform(repo_root: Path, requested_platform: str | None = None) -> D
                 supported=False,
                 reason=f"requested {requested_platform}, but detected {os_name}/{arch}",
             )
-        accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"))
+        accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
         return DetectedPlatform(
             platform_id=requested_platform,
             os_name=os_name,
@@ -126,7 +199,7 @@ def detect_platform(repo_root: Path, requested_platform: str | None = None) -> D
         )
 
     platform_id, target = candidates[0]
-    accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"))
+    accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
     return DetectedPlatform(
         platform_id=platform_id,
         os_name=os_name,
@@ -249,6 +322,9 @@ def release_platform_entry(
             "arch": target["arch"],
             "backend": target["backend"],
             "cuda_major": target.get("cuda_major"),
+            "cuda_architectures": target.get("cuda_architectures"),
+            "minimum_compute_capability": target.get("minimum_compute_capability"),
+            "known_gpu_support": target.get("known_gpu_support", []),
             "support_status": target["support_status"],
         },
         "asset_runtime_repo": runtime_repo,

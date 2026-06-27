@@ -8,7 +8,9 @@ param(
     [string] $Image = "",
     [ValidateSet("best-zero-empty-q4", "experimental-exact-prefill-q4")]
     [string] $Profile = "best-zero-empty-q4",
-    [int] $MaxTokens = 64
+    [int] $MaxTokens = 64,
+    [ValidateSet("ffi", "executable")]
+    [string] $RuntimeBackend = "ffi"
 )
 
 Set-StrictMode -Version 3.0
@@ -81,6 +83,13 @@ if (-not $env:UOCR_LLAMA_BIN) {
         (Join-Path $ThirdpartyDir "llama.cpp\build\bin\llama-uocr-parity.exe")
     )
 }
+if (-not $env:UOCR_LLAMA_SERVER_BIN) {
+    $env:UOCR_LLAMA_SERVER_BIN = Resolve-FirstExisting @(
+        (Join-Path $ThirdpartyDir "uocr-runtime\windows-x86_64-cuda13\bin\llama-server.exe"),
+        (Join-Path $ThirdpartyDir "llama.cpp\build\bin\Release\llama-server.exe"),
+        (Join-Path $ThirdpartyDir "llama.cpp\build\bin\llama-server.exe")
+    )
+}
 if (-not $env:UOCR_MODEL) {
     $env:UOCR_MODEL = Resolve-FirstExisting @(
         (Join-Path $ModelsDir "Unlimited-OCR-Q4_K_M.gguf"),
@@ -93,9 +102,11 @@ if (-not $env:UOCR_MMPROJ) {
         (Join-Path $ThirdpartyDir "uocr-gguf\mmproj-Unlimited-OCR-F16.gguf")
     )
 }
+$env:UOCR_RUNTIME_BACKEND = $RuntimeBackend
 
 Require-Path "portable pyproject" (Join-Path $RepoRoot "pyproject.toml")
 Require-Path "native runner" $env:UOCR_LLAMA_BIN
+Require-Path "native server" $env:UOCR_LLAMA_SERVER_BIN
 Require-Path "model" $env:UOCR_MODEL
 Require-Path "mmproj" $env:UOCR_MMPROJ
 
@@ -117,7 +128,8 @@ if ($Smoke) {
         "--smoke",
         "--image", $Image,
         "--profile", $Profile,
-        "--max-tokens", [string] $MaxTokens
+        "--max-tokens", [string] $MaxTokens,
+        "--runtime-backend", $RuntimeBackend
     )
 }
 else {
