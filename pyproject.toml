@@ -4,10 +4,13 @@ version = "0.1.0"
 description = "Portable Baidu Unlimited-OCR runtime, demo client, and comparison harness"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.110",
     "gradio>=5.0,<6",
     "pillow>=10",
     "pymupdf>=1.24",
+    "python-multipart>=0.0.9",
     "requests>=2.31",
+    "uvicorn>=0.29",
 ]
 
 [project.scripts]

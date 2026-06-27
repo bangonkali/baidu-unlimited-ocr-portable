@@ -18,7 +18,7 @@ The uv project name is `baidu-unlimited-ocr-portable`.
 
 ## Repository Layout
 
-- `src/baidu_unlimited_ocr_portable/`: Gradio/native-runtime demo client.
+- `src/baidu_unlimited_ocr_portable/`: custom web/native-runtime demo client.
 - `analysis/uocr_harness/`: validation, comparison, and artifact harness.
 - `analysis/summaries/`: current and historical Markdown result summaries.
 - `docs/`: Linux, macOS, and Windows setup notes.
@@ -318,8 +318,9 @@ The BF16 R-SWA full-run quality ceiling has the best current pass count:
 The demo client now lives in `src/baidu_unlimited_ocr_portable/` and is exposed
 by the root uv project as `baidu-uocr-client`. It does not load SGLang, PyTorch,
 Transformers, or the Baidu custom SGLang wheel. Python launches the patched
-native `llama-uocr-parity` binary as a subprocess, streams generated stdout into
-the UI, parses `<|det|>` / `<|ref|>` markers, and renders bounding-box overlays.
+native `llama-uocr-parity` binary as a subprocess, streams generated stdout to a
+custom browser UI, parses `<|det|>` / `<|ref|>` markers, and renders live
+bounding-box overlays on the input preview.
 
 Default profile:
 
@@ -346,9 +347,9 @@ uv run --project unlimited-ocr-portable baidu-uocr-client \
 ```
 
 The WSL2 smoke executed on 2026-06-27 produced non-empty `<|det|>` OCR output
-from both exposed profiles. The Gradio endpoint responded at
-`http://127.0.0.1:7861`, and the PDF/overlay smoke rendered 6 pages from
-`dataset/chinese-paper.pdf`, parsed 1 marker box, and generated a preview.
+from both exposed profiles. The browser UI responds at
+`http://127.0.0.1:7861`, streams OCR text, and draws parsed boxes directly over
+the input preview.
 
 ## Output Layout
 

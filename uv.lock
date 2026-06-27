@@ -107,18 +107,24 @@ name = "baidu-unlimited-ocr-portable"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "gradio" },
     { name = "pillow" },
     { name = "pymupdf" },
+    { name = "python-multipart" },
     { name = "requests" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.110" },
     { name = "gradio", specifier = ">=5.0,<6" },
     { name = "pillow", specifier = ">=10" },
     { name = "pymupdf", specifier = ">=1.24" },
+    { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "requests", specifier = ">=2.31" },
+    { name = "uvicorn", specifier = ">=0.29" },
 ]
 
 [[package]]

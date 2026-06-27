@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unlimited-OCR Portable</title>
+  <meta name="description" content="Portable Unlimited-OCR preview, annotation, and streaming OCR UI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg-deep: #0a0c10;
+      --bg-panel: #0f1117;
+      --bg-surface: #161b22;
+      --bg-card: #1c2230;
+      --bg-hover: #21283a;
+      --border: #2a3347;
+      --border-soft: #1e2635;
+      --accent: #ff6b35;
+      --accent-glow: rgba(255,107,53,0.25);
+      --teal: #00d4aa;
+      --teal-dim: #008f73;
+      --teal-glow: rgba(0,212,170,0.2);
+      --blue: #4a9eff;
+      --red: #ef4444;
+      --text-primary: #e8eaf0;
+      --text-secondary: #8892a4;
+      --text-muted: #4a5568;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-ui: 'Inter', sans-serif;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+    html, body { height: 100%; background: var(--bg-deep); color: var(--text-primary); font-family: var(--font-ui); overflow: hidden; }
+    button, input, select { font: inherit; }
+    .app { display: flex; flex-direction: column; height: 100vh; }
+    header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .logo-area { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent) 0%, #ff9f5a 100%);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      color: #120700;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .logo-text { font-size: 14px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+    .logo-text span { color: var(--accent); }
+    .header-sep { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+    .config-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .config-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; white-space: nowrap; }
+    .config-select, .token-input {
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      outline: none;
+      height: 28px;
+    }
+    .config-select { max-width: 250px; min-width: 190px; padding: 0 8px; }
+    .token-input { width: 86px; padding: 0 8px; }
+    .config-select:focus, .token-input:focus { border-color: var(--accent); }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; cursor: pointer; border: none; transition: all 0.18s ease; white-space: nowrap; }
+    .btn-start { background: var(--teal); color: #00110d; box-shadow: 0 0 14px var(--teal-glow); }
+    .btn-start:hover:not(:disabled) { background: #00eebc; box-shadow: 0 0 22px var(--teal-glow); transform: translateY(-1px); }
+    .btn-start:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-stop { background: var(--red); color: #fff; box-shadow: 0 0 12px rgba(239,68,68,0.3); }
+    .btn-stop:hover:not(:disabled) { background: #f87171; transform: translateY(-1px); }
+    .btn-stop:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    .btn-clear, .btn-copy { background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-clear:hover, .btn-copy:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .btn-copy:hover { color: var(--blue); border-color: var(--blue); }
+    .status-bar {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 0 20px;
+      height: 28px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); transition: background 0.3s; }
+    .status-dot.idle { background: var(--text-muted); }
+    .status-dot.running { background: var(--teal); animation: pulse 1.2s infinite; }
+    .status-dot.done { background: var(--teal); }
+    .status-dot.error { background: var(--red); }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    .status-text { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status-meta { margin-left: auto; display: flex; gap: 16px; min-width: 0; }
+    .meta-chip { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+    .meta-chip span { color: var(--text-secondary); }
+    .progress-bar-wrap { height: 2px; background: var(--bg-deep); flex-shrink: 0; overflow: hidden; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--teal) 0%, var(--blue) 100%); width: 0%; transition: width 0.3s ease; }
+    .progress-bar.indeterminate { width: 40%; animation: slide 1.4s ease-in-out infinite; }
+    @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
+    .panels { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; }
+    .panel { display: flex; flex-direction: column; overflow: hidden; }
+    .panel-left { border-right: 1px solid var(--border); }
+    .panel-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 8px 16px;
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .panel-label { font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-muted); }
+    .panel-tag { font-family: var(--font-mono); font-size: 9px; padding: 2px 7px; border-radius: 3px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text-muted); }
+    .panel-tag.active { border-color: var(--accent); color: var(--accent); background: rgba(255,107,53,0.08); }
+    .panel-actions { margin-left: auto; display: flex; gap: 6px; }
+    .icon-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: transparent; border: 1px solid transparent; cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
+    .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border); }
+    .panel-left-content {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      background: #05070b;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .drop-zone {
+      width: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      padding: 40px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      cursor: pointer; transition: all 0.2s; text-align: center;
+      margin-top: 20px;
+    }
+    .drop-zone.dragging { border-color: var(--accent); background: rgba(255,107,53,0.04); }
+    .drop-icon { width: 44px; height: 44px; opacity: 0.35; color: var(--text-secondary); }
+    .drop-title { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+    .drop-hint { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+    .drop-formats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .format-chip { font-family: var(--font-mono); font-size: 9px; padding: 2px 8px; border-radius: 3px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text-muted); }
+    #single-image-wrap, .pdf-page-wrap { position: relative; width: 100%; max-width: 800px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    #single-image-wrap img, .pdf-page-wrap canvas { display: block; width: 100%; height: auto; }
+    .annotation-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #pdf-canvas-wrap { display: none; flex-direction: column; gap: 24px; width: 100%; max-width: 800px; }
+    .output-area {
+      flex: 1; overflow-y: auto;
+      padding: 16px 20px;
+      font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+      color: var(--text-primary); position: relative;
+    }
+    .output-area::-webkit-scrollbar, .panel-left-content::-webkit-scrollbar { width: 6px; }
+    .output-area::-webkit-scrollbar-thumb, .panel-left-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .output-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); text-align: center; }
+    .output-placeholder svg { opacity: 0.2; }
+    .output-placeholder p { font-size: 12px; font-family: var(--font-mono); }
+    #ocr-text { white-space: pre-wrap; word-break: break-word; }
+    .cursor { display: inline-block; width: 8px; height: 14px; background: var(--teal); vertical-align: middle; margin-left: 2px; border-radius: 1px; animation: blink 0.8s step-end infinite; }
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+    .prompt-bar { background: var(--bg-surface); border-top: 1px solid var(--border-soft); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .prompt-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+    .prompt-input { flex: 1; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); outline: none; transition: border-color 0.2s; min-width: 0; }
+    .prompt-input:focus { border-color: var(--accent); }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 20px; font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); opacity: 0; transition: all 0.3s ease; z-index: 100; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    @media (max-width: 980px) {
+      html, body { overflow: auto; }
+      .app { min-height: 100vh; height: auto; }
+      header { flex-wrap: wrap; height: auto; padding: 10px 14px; }
+      .header-actions { width: 100%; margin-left: 0; }
+      .config-select { min-width: 160px; max-width: 100%; }
+      .panels { grid-template-columns: 1fr; overflow: visible; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+      .panel-left-content, .output-area { min-height: 420px; }
+      .status-meta { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo-area">
+      <div class="logo-icon">OCR</div>
+      <span class="logo-text">Unlimited<span>-OCR</span></span>
+    </div>
+    <div class="header-sep"></div>
+    <div class="config-group">
+      <span class="config-label">PROMPT</span>
+      <select class="config-select" id="prompt-profile"></select>
+    </div>
+    <div class="config-group">
+      <span class="config-label">CANDIDATE</span>
+      <select class="config-select" id="candidate-profile"></select>
+    </div>
+    <div class="config-group">
+      <span class="config-label">TOKENS</span>
+      <input class="token-input" id="max-tokens" type="number" min="64" max="8192" step="64" />
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-clear" onclick="clearAll()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+        RESET
+      </button>
+      <button class="btn btn-copy" id="copy-btn" onclick="copyText()" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        COPY
+      </button>
+      <button class="btn btn-start" id="start-btn" onclick="startOCR()" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        START
+      </button>
+      <button class="btn btn-stop" id="stop-btn" onclick="stopOCR()" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+        STOP
+      </button>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot idle" id="status-dot"></div>
+    <span class="status-text" id="status-text">IDLE - drop or click to load a document</span>
+    <div class="status-meta">
+      <span class="meta-chip">MODEL <span>GGUF Q4_K_M</span></span>
+      <span class="meta-chip">ENGINE <span id="engine-display">portable</span></span>
+      <span class="meta-chip" id="page-info" style="display:none">PAGES <span id="page-count">1</span></span>
+      <span class="meta-chip" id="token-display" style="display:none"><span id="char-count">0</span> chars</span>
+    </div>
+  </div>
+
+  <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+
+  <div class="panels">
+    <div class="panel panel-left">
+      <div class="panel-header">
+        <span class="panel-label">INPUT PREVIEW</span>
+        <span class="panel-tag active" id="input-type-tag">EMPTY</span>
+        <div class="panel-actions">
+          <button class="icon-btn" title="Upload file" onclick="document.getElementById('file-input').click()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel-left-content" id="left-scroll-container">
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+          <div class="drop-title">Drop your document here</div>
+          <p class="drop-hint">or click anywhere to browse</p>
+          <div class="drop-formats">
+            <span class="format-chip">PNG</span>
+            <span class="format-chip">JPG</span>
+            <span class="format-chip">WEBP</span>
+            <span class="format-chip">PDF</span>
+            <span class="format-chip">TIFF</span>
+          </div>
+        </div>
+        <div id="single-image-wrap" style="display:none;">
+          <img id="image-preview" alt="Document preview" />
+          <svg id="single-image-overlay" class="annotation-overlay"></svg>
+        </div>
+        <div id="pdf-canvas-wrap"></div>
+      </div>
+      <div class="prompt-bar">
+        <span class="prompt-label">PROMPT</span>
+        <input class="prompt-input" id="prompt-input" value="document parsing." placeholder="e.g. document parsing." />
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-label">OCR OUTPUT</span>
+        <span class="panel-tag" id="output-tag">WAITING</span>
+        <div class="panel-actions">
+          <button class="icon-btn" title="Scroll to top" onclick="scrollOutputTop()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+          </button>
+          <button class="icon-btn" title="Scroll to bottom" onclick="scrollOutputBottom()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="output-area" id="output-area">
+        <div class="output-placeholder" id="output-placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+          <p>OCR output will appear here</p>
+          <p style="color:var(--border);font-size:10px">Load a document and press START</p>
+        </div>
+        <div id="ocr-text"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" style="display:none" accept="image/*,.pdf" onchange="handleFileInput(event)" />
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+
+let config = null;
+let currentFile = null;
+let isPDF = false;
+let isRunning = false;
+let stopRequested = false;
+let abortController = null;
+let charCount = 0;
+let sessionBoxes = {};
+let currentPdfSession = null;
+
+async function boot() {
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error(await response.text());
+    config = await response.json();
+    populateConfig(config);
+    setStatus('idle', 'READY - runtime configured');
+  } catch (e) {
+    setStatus('error', 'CONFIG ERROR - ' + e.message);
+  }
+}
+boot();
+
+function populateConfig(payload) {
+  const promptSelect = document.getElementById('prompt-profile');
+  promptSelect.innerHTML = '';
+  payload.prompt_profiles.forEach(profile => {
+    const option = document.createElement('option');
+    option.value = profile.key;
+    option.textContent = profile.label;
+    option.dataset.prompt = profile.prompt;
+    promptSelect.appendChild(option);
+  });
+  promptSelect.value = payload.defaults.prompt_profile;
+  promptSelect.addEventListener('change', () => {
+    const selected = promptSelect.selectedOptions[0];
+    if (selected?.dataset.prompt) document.getElementById('prompt-input').value = selected.dataset.prompt;
+  });
+
+  const candidateSelect = document.getElementById('candidate-profile');
+  candidateSelect.innerHTML = '';
+  payload.candidate_profiles.forEach(profile => {
+    const option = document.createElement('option');
+    option.value = profile.key;
+    option.textContent = profile.label;
+    option.dataset.engine = profile.engine_name;
+    option.dataset.maxTokens = profile.default_max_tokens;
+    candidateSelect.appendChild(option);
+  });
+  candidateSelect.value = payload.defaults.candidate_profile;
+  candidateSelect.addEventListener('change', () => {
+    const selected = candidateSelect.selectedOptions[0];
+    document.getElementById('engine-display').textContent = selected?.dataset.engine || 'portable';
+    if (selected?.dataset.maxTokens) document.getElementById('max-tokens').value = selected.dataset.maxTokens;
+  });
+  document.getElementById('engine-display').textContent = candidateSelect.selectedOptions[0]?.dataset.engine || 'portable';
+
+  const maxTokens = document.getElementById('max-tokens');
+  maxTokens.min = payload.limits.min_tokens;
+  maxTokens.max = payload.limits.max_tokens;
+  maxTokens.step = payload.limits.token_step;
+  maxTokens.value = payload.defaults.max_tokens;
+  document.getElementById('prompt-input').value = payload.defaults.prompt;
+}
+
+window.handleFileInput = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); };
+window.onDragOver = (e) => { e.preventDefault(); document.getElementById('drop-zone').classList.add('dragging'); };
+window.onDragLeave = () => { document.getElementById('drop-zone').classList.remove('dragging'); };
+window.onDrop = (e) => {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragging');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+};
+window.startOCR = startOCR;
+window.stopOCR = stopOCR;
+window.clearAll = clearAll;
+window.copyText = copyText;
+window.scrollOutputTop = () => { document.getElementById('output-area').scrollTop = 0; };
+window.scrollOutputBottom = scrollOutputBottom;
+
+function escapeSvgText(value) {
+  return String(value ?? '').replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+}
+
+function normalizeBox(box) {
+  if (!box) return null;
+  const coords = Array.isArray(box) ? box.slice(0, 4).map(Number) : [box.x1, box.y1, box.x2, box.y2].map(Number);
+  if (coords.length !== 4 || !coords.every(Number.isFinite)) return null;
+  return { label: String(box.label ?? ''), x1: coords[0], y1: coords[1], x2: coords[2], y2: coords[3] };
+}
+
+function boxesFromParsed(label, parsed) {
+  const boxes = [];
+  if (!Array.isArray(parsed)) return boxes;
+  const addBox = (candidate) => {
+    if (!Array.isArray(candidate) || candidate.length !== 4) return;
+    const coords = candidate.map(Number);
+    if (!coords.every(Number.isFinite)) return;
+    boxes.push({ label, x1: coords[0], y1: coords[1], x2: coords[2], y2: coords[3] });
+  };
+  if (parsed.length === 4 && parsed.every(value => typeof value === 'number')) addBox(parsed);
+  else parsed.forEach(addBox);
+  return boxes;
+}
+
+function appendParsedBoxes(target, label, boxText) {
+  try {
+    const parsed = JSON.parse(boxText.trim());
+    boxesFromParsed(label, parsed).forEach(box => target.push(box));
+  } catch (e) {}
+}
+
+function parseBoxesFromText(text) {
+  const boxes = [];
+  const consumedRanges = [];
+  const refRegex = /<\|ref\|>([\s\S]*?)<\|\/ref\|>\s*<\|det\|>\s*([\s\S]*?)\s*<\|\/det\|>/g;
+  let match;
+  while ((match = refRegex.exec(text)) !== null) {
+    const label = match[1].trim();
+    const detContent = match[2].trim();
+    const nested = detContent.match(/^[A-Za-z_][\w-]*\s*(\[[\s\S]*\])\s*$/);
+    appendParsedBoxes(boxes, label, nested ? nested[1] : detContent);
+    consumedRanges.push([match.index, refRegex.lastIndex]);
+  }
+  const detRegex = /<\|det\|>\s*([\s\S]*?)\s*<\|\/det\|>/g;
+  while ((match = detRegex.exec(text)) !== null) {
+    const start = match.index;
+    const end = detRegex.lastIndex;
+    if (consumedRanges.some(([rangeStart, rangeEnd]) => start >= rangeStart && end <= rangeEnd)) continue;
+    const parsed = match[1].trim().match(/^([A-Za-z_][\w-]*)\s*(\[[\s\S]*\])\s*$/);
+    if (!parsed) continue;
+    appendParsedBoxes(boxes, parsed[1].trim(), parsed[2]);
+  }
+  return boxes;
+}
+
+function drawBoxes(text, pageIndex = null, boxesOverride = null) {
+  let targetWrap, targetElement, svg;
+  const key = pageIndex !== null ? `page-${pageIndex}` : 'single';
+  if (pageIndex !== null) {
+    targetWrap = document.getElementById(`pdf-page-wrap-${pageIndex}`);
+    if (targetWrap) {
+      targetElement = targetWrap.querySelector('canvas');
+      svg = targetWrap.querySelector('svg');
+    }
+  } else {
+    targetWrap = document.getElementById('single-image-wrap');
+    targetElement = document.getElementById('image-preview');
+    svg = document.getElementById('single-image-overlay');
+  }
+  if (!svg || !targetElement) return;
+
+  const boxes = Array.isArray(boxesOverride) ? boxesOverride.map(normalizeBox).filter(Boolean) : parseBoxesFromText(text);
+  if (Array.isArray(boxesOverride)) sessionBoxes[key] = boxes;
+  else if (boxes.length > 0) sessionBoxes[key] = boxes;
+  const boxesToRender = sessionBoxes[key] || [];
+
+  svg.setAttribute('viewBox', '0 0 999 999');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  let svgContent = '';
+  let maxY = -1;
+  boxesToRender.forEach(box => {
+    const x = Math.min(box.x1, box.x2);
+    const y = Math.min(box.y1, box.y2);
+    const w = Math.max(box.x1, box.x2) - x;
+    const h = Math.max(box.y1, box.y2) - y;
+    const bottomY = Math.max(box.y1, box.y2);
+    if (bottomY > maxY) maxY = bottomY;
+    svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(255,107,53,0.12)" stroke="var(--accent)" stroke-width="2"></rect>`;
+    if (box.label) {
+      svgContent += `<text x="${x}" y="${Math.max(0, y - 6)}" fill="var(--accent)" font-family="monospace" font-weight="600" font-size="18" text-anchor="start">${escapeSvgText(box.label)}</text>`;
+    }
+  });
+  svg.innerHTML = svgContent;
+
+  if (boxes.length > 0 && maxY >= 0) {
+    const relativeY = (maxY / 999) * targetElement.clientHeight;
+    const scrollContainer = document.getElementById('left-scroll-container');
+    const scrollTargetY = targetWrap.offsetTop + relativeY;
+    scrollContainer.scrollTo({ top: scrollTargetY - scrollContainer.clientHeight / 2 + 100, behavior: 'smooth' });
+  }
+}
+
+async function loadFile(file) {
+  currentFile = file;
+  currentPdfSession = null;
+  isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  sessionBoxes = {};
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('single-image-wrap').style.display = 'none';
+  document.getElementById('pdf-canvas-wrap').style.display = 'none';
+  document.getElementById('input-type-tag').textContent = isPDF ? 'PDF' : file.name.split('.').pop().toUpperCase();
+
+  if (isPDF) {
+    const wrap = document.getElementById('pdf-canvas-wrap');
+    wrap.innerHTML = '<div style="color:var(--teal);font-family:var(--font-mono);font-size:11px;padding:20px;text-align:center;">Rendering PDF visually...</div>';
+    wrap.style.display = 'flex';
+    document.getElementById('page-info').style.display = 'flex';
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    const total = pdf.numPages;
+    document.getElementById('page-count').textContent = total;
+    wrap.innerHTML = '';
+    for (let i = 1; i <= total; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const pageWrap = document.createElement('div');
+      pageWrap.id = `pdf-page-wrap-${i - 1}`;
+      pageWrap.className = 'pdf-page-wrap';
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.id = `pdf-overlay-${i - 1}`;
+      svg.setAttribute('class', 'annotation-overlay');
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      pageWrap.appendChild(canvas);
+      pageWrap.appendChild(svg);
+      wrap.appendChild(pageWrap);
+    }
+  } else {
+    document.getElementById('single-image-wrap').style.display = 'block';
+    document.getElementById('image-preview').src = URL.createObjectURL(file);
+    document.getElementById('page-info').style.display = 'none';
+  }
+  setStatus('idle', `READY - ${file.name}`);
+  document.getElementById('start-btn').disabled = false;
+  clearOutput();
+}
+
+function selectedParams() {
+  return {
+    prompt: document.getElementById('prompt-input').value || 'document parsing.',
+    candidateProfile: document.getElementById('candidate-profile').value,
+    maxTokens: document.getElementById('max-tokens').value || '8192',
+  };
+}
+
+async function startOCR() {
+  if (!currentFile || isRunning) return;
+  isRunning = true;
+  stopRequested = false;
+  abortController = new AbortController();
+  clearOutput();
+  document.getElementById('output-placeholder').style.display = 'none';
+  document.getElementById('output-tag').textContent = 'RUNNING';
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  setProgressIndeterminate(true);
+  const ocrDiv = document.getElementById('ocr-text');
+  ocrDiv.innerHTML = '<span class="cursor"></span>';
+
+  try {
+    if (isPDF) await runPDF(ocrDiv);
+    else await runSingleImage(ocrDiv);
+  } finally {
+    if (isRunning) {
+      isRunning = false;
+      setProgressIndeterminate(false);
+      document.getElementById('start-btn').disabled = false;
+      document.getElementById('stop-btn').disabled = true;
+    }
+  }
+}
+
+async function runSingleImage(ocrDiv) {
+  setStatus('running', 'RUNNING - native OCR');
+  const params = selectedParams();
+  const formData = new FormData();
+  formData.append('image_file', currentFile, currentFile.name);
+  formData.append('prompt', params.prompt);
+  formData.append('candidate_profile', params.candidateProfile);
+  formData.append('max_tokens', params.maxTokens);
+  let finalText = '';
+  try {
+    await streamPayloads('/api/run_ocr', formData, payload => {
+      if (payload.error) throw new Error(payload.error);
+      finalText = payload.text ?? '';
+      ocrDiv.textContent = finalText;
+      drawBoxes(finalText, null, payload.boxes);
+      scrollOutputBottom();
+    });
+    if (stopRequested) return finishStop(ocrDiv);
+    finishDone(finalText);
+  } catch (err) {
+    if (stopRequested) return finishStop(ocrDiv);
+    showError(ocrDiv, err.message);
+  }
+}
+
+async function runPDF(ocrDiv) {
+  const params = selectedParams();
+  setStatus('running', 'EXTRACTING PDF PAGES');
+  const explodeForm = new FormData();
+  explodeForm.append('pdf_file', currentFile, currentFile.name);
+  let pages;
+  try {
+    const response = await fetch('/api/explode_pdf', { method: 'POST', body: explodeForm, signal: abortController.signal });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    currentPdfSession = result.session_id;
+    pages = result.pages ?? [];
+  } catch (err) {
+    if (stopRequested) return finishStop(ocrDiv);
+    return showError(ocrDiv, 'PDF extraction failed: ' + err.message);
+  }
+  if (!pages.length) return showError(ocrDiv, 'No pages found in PDF.');
+
+  const total = pages.length;
+  document.getElementById('page-count').textContent = total;
+  document.getElementById('page-info').style.display = 'flex';
+  ocrDiv.textContent = '';
+  let fullText = '';
+  for (let i = 0; i < total; i++) {
+    if (stopRequested) return finishStop(ocrDiv);
+    setStatus('running', `RUNNING - PAGE ${i + 1} / ${total}`);
+    setProgressValue(Math.round((i / total) * 100));
+    const sep = document.createElement('div');
+    sep.style.cssText = 'margin:10px 0 5px;font-size:9px;letter-spacing:.1em;color:var(--text-muted);border-bottom:1px solid var(--border-soft);padding-bottom:3px;';
+    sep.textContent = `-- PAGE ${i + 1} / ${total} --`;
+    ocrDiv.appendChild(sep);
+    const slot = document.createElement('div');
+    slot.style.cssText = 'color:var(--text-muted);font-size:11px;padding:3px 0;';
+    slot.innerHTML = '<span class="cursor"></span> waiting for native OCR...';
+    ocrDiv.appendChild(slot);
+    scrollOutputBottom();
+
+    const formData = new FormData();
+    formData.append('session_id', currentPdfSession);
+    formData.append('page_index', String(i));
+    formData.append('prompt', params.prompt);
+    formData.append('candidate_profile', params.candidateProfile);
+    formData.append('max_tokens', params.maxTokens);
+    try {
+      let pageText = '';
+      await streamPayloads('/api/run_ocr_page', formData, payload => {
+        if (payload.error) throw new Error(payload.error);
+        pageText = payload.text ?? '';
+        slot.style.color = 'var(--text-primary)';
+        slot.textContent = pageText;
+        drawBoxes(pageText, i, payload.boxes);
+        scrollOutputBottom();
+      });
+      fullText += (fullText ? '\n\n' : '') + pageText;
+      charCount = fullText.length;
+      document.getElementById('char-count').textContent = charCount.toLocaleString();
+      document.getElementById('token-display').style.display = 'flex';
+      if (!pageText) slot.textContent = '(no text detected)';
+    } catch (err) {
+      if (stopRequested) return finishStop(ocrDiv);
+      slot.innerHTML = `<span style="color:var(--red)">Page ${i + 1} error: ${err.message}</span>`;
+    }
+  }
+  if (stopRequested) return finishStop(ocrDiv);
+  finishDone(fullText);
+}
+
+async function streamPayloads(url, formData, onPayload) {
+  const response = await fetch(url, { method: 'POST', body: formData, signal: abortController.signal });
+  if (!response.ok) throw new Error(await response.text());
+  if (!response.body) throw new Error('Streaming response is not available.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const payload = JSON.parse(line);
+      onPayload(payload);
+      if (payload.done) return;
+    }
+  }
+  if (buffer.trim()) onPayload(JSON.parse(buffer));
+}
+
+function stopOCR() {
+  stopRequested = true;
+  if (abortController) abortController.abort();
+}
+
+function finishStop(ocrDiv) {
+  ocrDiv.querySelectorAll('.cursor').forEach(c => c.remove());
+  setStatus('idle', 'STOPPED by user');
+  document.getElementById('output-tag').textContent = 'STOPPED';
+  setProgressIndeterminate(false);
+  isRunning = false;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+}
+
+function finishDone(text) {
+  charCount = text.length;
+  setProgressValue(100);
+  setStatus('done', `DONE - ${charCount.toLocaleString()} chars`);
+  document.getElementById('output-tag').textContent = 'DONE';
+  document.getElementById('token-display').style.display = 'flex';
+  document.getElementById('char-count').textContent = charCount.toLocaleString();
+  document.getElementById('copy-btn').disabled = false;
+  showToast('OCR complete');
+  isRunning = false;
+  setProgressIndeterminate(false);
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+}
+
+function showError(ocrDiv, msg) {
+  ocrDiv.innerHTML = `<span style="color:var(--red)">ERROR: ${escapeSvgText(msg)}</span>`;
+  setStatus('error', 'ERROR - ' + msg);
+  document.getElementById('output-tag').textContent = 'ERROR';
+  isRunning = false;
+  setProgressIndeterminate(false);
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+}
+
+function clearOutput() {
+  document.getElementById('ocr-text').innerHTML = '';
+  charCount = 0;
+  sessionBoxes = {};
+  document.querySelectorAll('svg[id^="pdf-overlay-"]').forEach(svg => svg.innerHTML = '');
+  const singleOverlay = document.getElementById('single-image-overlay');
+  if (singleOverlay) singleOverlay.innerHTML = '';
+  document.getElementById('output-placeholder').style.display = 'flex';
+  document.getElementById('output-tag').textContent = 'WAITING';
+  document.getElementById('token-display').style.display = 'none';
+  document.getElementById('copy-btn').disabled = true;
+  setProgressValue(0);
+}
+
+function clearAll() {
+  if (isRunning) stopOCR();
+  currentFile = null;
+  currentPdfSession = null;
+  isPDF = false;
+  document.getElementById('drop-zone').style.display = '';
+  document.getElementById('single-image-wrap').style.display = 'none';
+  document.getElementById('pdf-canvas-wrap').style.display = 'none';
+  document.getElementById('pdf-canvas-wrap').innerHTML = '';
+  document.getElementById('image-preview').src = '';
+  document.getElementById('input-type-tag').textContent = 'EMPTY';
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('page-info').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  clearOutput();
+  setStatus('idle', 'IDLE - drop or click to load a document');
+}
+
+function copyText() {
+  navigator.clipboard.writeText(document.getElementById('ocr-text').innerText).then(() => showToast('Copied to clipboard'));
+}
+
+function setStatus(type, msg) {
+  document.getElementById('status-dot').className = 'status-dot ' + type;
+  document.getElementById('status-text').textContent = msg;
+}
+
+function setProgressIndeterminate(on) {
+  const bar = document.getElementById('progress-bar');
+  bar.className = 'progress-bar' + (on ? ' indeterminate' : '');
+  if (!on) bar.style.width = '0%';
+}
+
+function setProgressValue(v) {
+  const bar = document.getElementById('progress-bar');
+  bar.className = 'progress-bar';
+  bar.style.width = v + '%';
+}
+
+function scrollOutputBottom() {
+  const area = document.getElementById('output-area');
+  area.scrollTop = area.scrollHeight;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>

@@ -1,8 +1,9 @@
 # Portable Client
 
 This demo runs the practical portable Unlimited-OCR candidate through the
-patched native llama.cpp binary. It does not use SGLang, PyTorch, Transformers,
-or the Baidu custom SGLang wheel.
+patched native llama.cpp binary. It uses a custom browser UI with live input
+annotations and does not use SGLang, PyTorch, Transformers, or the Baidu custom
+SGLang wheel.
 
 Default profile:
 

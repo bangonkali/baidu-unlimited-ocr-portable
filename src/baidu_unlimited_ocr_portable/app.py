@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
+import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Iterator
 
-import gradio as gr
+import uvicorn
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from .config import (
     CANDIDATE_PROFILES,
@@ -16,11 +21,13 @@ from .config import (
     PROMPT_PROFILES,
 )
 from .native_runner import RuntimePaths, clean_generated_text, profile_by_key, stream_ocr
-from .parsing import boxes_as_dicts, build_preview_image, extract_boxes, preview_image
+from .parsing import boxes_as_dicts, extract_boxes, preview_data_url
 from .pdf import pdf_to_images
 
 
 IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+WEB_ROOT = Path(__file__).resolve().parent / "web"
+PDF_SESSIONS: dict[str, list[str]] = {}
 
 
 def _profile_label(profile_key: str) -> str:
@@ -33,94 +40,10 @@ def _prompt_label(prompt_key: str) -> str:
     return f"{profile.label} ({profile.key})"
 
 
-CANDIDATE_CHOICES = [_profile_label(key) for key in CANDIDATE_PROFILES]
-CANDIDATE_LABEL_TO_KEY = {_profile_label(key): key for key in CANDIDATE_PROFILES}
-PROMPT_CHOICES = [_prompt_label(key) for key in PROMPT_PROFILES]
-PROMPT_LABEL_TO_KEY = {_prompt_label(key): key for key in PROMPT_PROFILES}
-
-
-def _default_candidate_label() -> str:
-    key = DEFAULT_CANDIDATE_PROFILE if DEFAULT_CANDIDATE_PROFILE in CANDIDATE_PROFILES else "best-zero-empty-q4"
-    return _profile_label(key)
-
-
-def _default_prompt_label() -> str:
-    return _prompt_label(DEFAULT_PROMPT_PROFILE)
-
-
-def _coerce_file_path(file_value: Any) -> str | None:
-    if file_value is None:
-        return None
-    if isinstance(file_value, dict):
-        value = file_value.get("path")
-        return str(value) if value else None
-    value = getattr(file_value, "path", None)
-    if value:
-        return str(value)
-    return str(file_value)
-
-
-def _state_for_image(path: str) -> dict[str, Any]:
-    return {"kind": "image", "source_path": path, "pages": [], "active_image": path}
-
-
-def _state_for_pdf(path: str, pages: list[Path]) -> dict[str, Any]:
-    return {
-        "kind": "pdf",
-        "source_path": path,
-        "pages": [str(page) for page in pages],
-        "active_image": str(pages[0]) if pages else None,
-    }
-
-
-def load_input(file_path: Any) -> tuple[dict[str, Any] | None, Any, Any, str]:
-    file_path = _coerce_file_path(file_path)
-    if not file_path:
-        return None, None, gr.update(choices=[], value=None, visible=False), "No input loaded."
-    path = Path(file_path)
-    suffix = path.suffix.lower()
-    if suffix == ".pdf":
-        pages = pdf_to_images(path, dpi=200)
-        if not pages:
-            return None, None, gr.update(choices=[], value=None, visible=False), "PDF rendered no pages."
-        choices = [f"Page {index + 1}" for index in range(len(pages))]
-        state = _state_for_pdf(str(path), pages)
-        return (
-            state,
-            preview_image(pages[0]),
-            gr.update(choices=choices, value=choices[0], visible=True),
-            f"Loaded PDF with {len(pages)} page(s).",
-        )
-    if suffix in IMAGE_SUFFIXES:
-        return (
-            _state_for_image(str(path)),
-            preview_image(path),
-            gr.update(choices=[], value=None, visible=False),
-            f"Loaded image: {path.name}",
-        )
-    return None, None, gr.update(choices=[], value=None, visible=False), f"Unsupported file type: {suffix}"
-
-
-def select_pdf_page(page_label: str | None, state: dict[str, Any] | None) -> tuple[dict[str, Any] | None, Any, str]:
-    if not state or state.get("kind") != "pdf":
-        return state, None, "No PDF loaded."
-    pages = state.get("pages") or []
-    if not pages:
-        return state, None, "PDF has no rendered pages."
-    index = 0
-    if page_label and page_label.startswith("Page "):
-        try:
-            index = max(0, min(len(pages) - 1, int(page_label.removeprefix("Page ")) - 1))
-        except ValueError:
-            index = 0
-    state = dict(state)
-    state["active_image"] = pages[index]
-    return state, preview_image(pages[index]), f"Selected {page_label or 'Page 1'}."
-
-
-def apply_prompt_profile(prompt_profile_label: str) -> str:
-    key = PROMPT_LABEL_TO_KEY.get(prompt_profile_label, DEFAULT_PROMPT_PROFILE)
-    return PROMPT_PROFILES[key].prompt
+def _default_candidate_key() -> str:
+    if DEFAULT_CANDIDATE_PROFILE in CANDIDATE_PROFILES:
+        return DEFAULT_CANDIDATE_PROFILE
+    return "best-zero-empty-q4"
 
 
 def _metadata(
@@ -143,31 +66,124 @@ def _metadata(
     return payload
 
 
-def run_ocr(
-    state: dict[str, Any] | None,
-    prompt: str,
-    candidate_profile_label: str,
-    max_tokens: int,
-) -> Iterator[tuple[str, Any, dict[str, Any], str]]:
-    if not state or not state.get("active_image"):
-        yield "", None, {}, "Load an image or PDF page before running OCR."
-        return
+def _config_payload() -> dict[str, Any]:
+    default_candidate = _default_candidate_key()
+    return {
+        "prompt_profiles": [
+            {
+                "key": key,
+                "label": _prompt_label(key),
+                "name": profile.label,
+                "prompt": profile.prompt,
+                "description": profile.description,
+            }
+            for key, profile in PROMPT_PROFILES.items()
+        ],
+        "candidate_profiles": [
+            {
+                "key": key,
+                "label": _profile_label(key),
+                "name": profile.label,
+                "engine_name": profile.engine_name,
+                "description": profile.description,
+                "default_max_tokens": profile.default_max_tokens,
+            }
+            for key, profile in CANDIDATE_PROFILES.items()
+        ],
+        "defaults": {
+            "prompt_profile": DEFAULT_PROMPT_PROFILE,
+            "prompt": PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt,
+            "candidate_profile": default_candidate,
+            "max_tokens": CANDIDATE_PROFILES[default_candidate].default_max_tokens,
+        },
+        "limits": {"min_tokens": 64, "max_tokens": 8192, "token_step": 64},
+    }
 
-    profile_key = CANDIDATE_LABEL_TO_KEY.get(candidate_profile_label, "best-zero-empty-q4")
+
+def _ndjson(payload: dict[str, Any]) -> bytes:
+    return (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def _payload(
+    *,
+    text: str,
+    done: bool,
+    profile_key: str,
+    image_path: str,
+    native: dict | None = None,
+    include_preview: bool = False,
+    error: str | None = None,
+) -> dict[str, Any]:
+    boxes = extract_boxes(text)
+    payload: dict[str, Any] = {
+        "text": text,
+        "done": done,
+        "boxes": boxes_as_dicts(boxes),
+        "metadata": _metadata(profile_key=profile_key, text=text, image_path=image_path, native=native),
+    }
+    if include_preview:
+        preview = preview_data_url(image_path, text, max_size=900)
+        if preview:
+            payload["preview"] = preview
+    if error:
+        payload["error"] = error
+    return payload
+
+
+def _candidate_key(value: str | None) -> str:
+    key = value or _default_candidate_key()
+    if key not in CANDIDATE_PROFILES:
+        raise HTTPException(status_code=400, detail=f"Unknown candidate profile: {key}")
+    return key
+
+
+def _token_limit(value: int | str | None, profile_key: str) -> int:
+    profile = CANDIDATE_PROFILES[profile_key]
+    if value in (None, ""):
+        return profile.default_max_tokens
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid max token value: {value}") from exc
+    return max(1, min(32768, parsed))
+
+
+def _stream_native_ocr(
+    *,
+    image_path: str,
+    prompt: str,
+    candidate_profile: str,
+    max_tokens: int,
+) -> Iterator[bytes]:
+    profile_key = _candidate_key(candidate_profile)
     profile = profile_by_key(profile_key)
-    token_limit = int(max_tokens or profile.default_max_tokens)
-    image_path = str(state["active_image"])
+    token_limit = _token_limit(max_tokens, profile_key)
     paths = RuntimePaths.from_env()
     missing = paths.missing()
     if missing:
-        yield "", preview_image(image_path), {"missing": missing}, "Native runtime files are missing."
+        yield _ndjson(
+            {
+                "text": "",
+                "done": True,
+                "boxes": [],
+                "error": "Native runtime files are missing.",
+                "metadata": {"missing": missing, "active_image": image_path},
+            }
+        )
         return
 
     accumulated = ""
     last_emit = 0.0
+    last_text_len = 0
     last_preview_box_count = -1
-    last_preview = preview_image(image_path)
-    yield "", last_preview, _metadata(profile_key=profile_key, text="", image_path=image_path), "Starting native OCR..."
+    yield _ndjson(
+        _payload(
+            text="",
+            done=False,
+            profile_key=profile_key,
+            image_path=image_path,
+        )
+    )
 
     for event in stream_ocr(
         paths=paths,
@@ -179,114 +195,151 @@ def run_ocr(
         if event.kind == "token":
             accumulated += event.text
             cleaned = clean_generated_text(accumulated)
-            now = time.monotonic()
             boxes = extract_boxes(cleaned)
-            if boxes and len(boxes) != last_preview_box_count:
-                last_preview = build_preview_image(image_path, cleaned)
-                last_preview_box_count = len(boxes)
-            if now - last_emit >= 0.18 or len(event.text) >= 32:
+            now = time.monotonic()
+            boxes_changed = bool(boxes) and len(boxes) != last_preview_box_count
+            should_emit = now - last_emit >= 0.15 or len(cleaned) - last_text_len >= 120 or boxes_changed
+            if should_emit:
                 last_emit = now
-                yield (
-                    cleaned,
-                    last_preview,
-                    _metadata(profile_key=profile_key, text=cleaned, image_path=image_path),
-                    "Running native OCR...",
+                last_text_len = len(cleaned)
+                if boxes_changed:
+                    last_preview_box_count = len(boxes)
+                yield _ndjson(
+                    _payload(
+                        text=cleaned,
+                        done=False,
+                        profile_key=profile_key,
+                        image_path=image_path,
+                        include_preview=boxes_changed,
+                    )
                 )
             continue
 
         native_meta = event.metadata or {}
         final_text = clean_generated_text(event.text or accumulated)
-        final_preview = build_preview_image(image_path, final_text)
         if event.kind == "error":
             if not final_text and native_meta.get("stderr_tail"):
                 final_text = str(native_meta["stderr_tail"])
-            yield (
-                final_text,
-                final_preview or last_preview,
-                _metadata(profile_key=profile_key, text=final_text, image_path=image_path, native=native_meta),
-                "Native OCR failed.",
+            yield _ndjson(
+                _payload(
+                    text=final_text,
+                    done=True,
+                    profile_key=profile_key,
+                    image_path=image_path,
+                    native=native_meta,
+                    include_preview=True,
+                    error=str(native_meta.get("error") or "Native OCR failed."),
+                )
             )
             return
-        yield (
-            final_text,
-            final_preview or last_preview,
-            _metadata(profile_key=profile_key, text=final_text, image_path=image_path, native=native_meta),
-            f"Done in {native_meta.get('elapsed_ms', 0)} ms.",
+
+        yield _ndjson(
+            _payload(
+                text=final_text,
+                done=True,
+                profile_key=profile_key,
+                image_path=image_path,
+                native=native_meta,
+                include_preview=True,
+            )
         )
 
 
-def clear_all() -> tuple[None, None, Any, str, None, str, dict[str, Any], None]:
-    return (
-        None,
-        None,
-        gr.update(choices=[], value=None, visible=False),
-        "",
-        None,
-        "Cleared.",
-        {},
-        None,
-    )
+async def _save_upload(upload: UploadFile, *, allowed_suffixes: set[str], prefix: str) -> Path:
+    suffix = Path(upload.filename or "").suffix.lower()
+    if suffix not in allowed_suffixes:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix or 'unknown'}")
+
+    target_dir = Path(tempfile.mkdtemp(prefix=prefix))
+    target = target_dir / f"input{suffix}"
+    try:
+        with target.open("wb") as handle:
+            while True:
+                chunk = await upload.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+    finally:
+        await upload.close()
+    return target
 
 
-def build_demo() -> gr.Blocks:
-    css = """
-    .uocr-status textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .uocr-output textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.45; }
-    """
-    with gr.Blocks(title="Unlimited-OCR Portable Candidate", css=css) as demo:
-        input_state = gr.State(None)
-        gr.Markdown("# Unlimited-OCR Portable Candidate")
-        with gr.Row():
-            with gr.Column(scale=1):
-                file_input = gr.File(
-                    label="Image or PDF",
-                    file_types=[".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff", ".pdf"],
-                    type="filepath",
-                )
-                page_select = gr.Dropdown(label="PDF page", choices=[], visible=False)
-                input_preview = gr.Image(label="Input", type="pil", height=420)
-                prompt_profile = gr.Dropdown(
-                    label="Prompt profile",
-                    choices=PROMPT_CHOICES,
-                    value=_default_prompt_label(),
-                )
-                prompt = gr.Textbox(label="Prompt", value=PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt, lines=2)
-                candidate_profile = gr.Dropdown(
-                    label="Candidate profile",
-                    choices=CANDIDATE_CHOICES,
-                    value=_default_candidate_label(),
-                )
-                max_tokens = gr.Slider(
-                    label="Max tokens",
-                    minimum=64,
-                    maximum=8192,
-                    value=CANDIDATE_PROFILES["best-zero-empty-q4"].default_max_tokens,
-                    step=64,
-                )
-                with gr.Row():
-                    run_button = gr.Button("Run OCR", variant="primary")
-                    stop_button = gr.Button("Stop")
-                    clear_button = gr.Button("Clear")
-            with gr.Column(scale=1):
-                status = gr.Textbox(label="Status", value="Idle.", lines=1, elem_classes=["uocr-status"])
-                output_text = gr.Textbox(label="OCR output", lines=18, elem_classes=["uocr-output"])
-                overlay_preview = gr.Image(label="Bounding-box preview", type="pil", height=420)
-                metadata = gr.JSON(label="Run metadata")
+def create_app() -> FastAPI:
+    api = FastAPI(title="Unlimited-OCR Portable Candidate")
 
-        file_input.change(load_input, inputs=file_input, outputs=[input_state, input_preview, page_select, status])
-        page_select.change(select_pdf_page, inputs=[page_select, input_state], outputs=[input_state, input_preview, status])
-        prompt_profile.change(apply_prompt_profile, inputs=prompt_profile, outputs=prompt)
-        run_event = run_button.click(
-            run_ocr,
-            inputs=[input_state, prompt, candidate_profile, max_tokens],
-            outputs=[output_text, overlay_preview, metadata, status],
+    @api.get("/", response_class=HTMLResponse)
+    async def homepage() -> HTMLResponse:
+        html_path = WEB_ROOT / "index.html"
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+
+    @api.get("/api/config")
+    async def config() -> dict[str, Any]:
+        return _config_payload()
+
+    @api.post("/api/explode_pdf")
+    async def explode_pdf(pdf_file: UploadFile = File(...)) -> dict[str, Any]:
+        pdf_path = await _save_upload(pdf_file, allowed_suffixes={".pdf"}, prefix="uocr_pdf_upload_")
+        pages = pdf_to_images(pdf_path, dpi=200)
+        session_id = uuid.uuid4().hex
+        PDF_SESSIONS[session_id] = [str(page) for page in pages]
+        return {
+            "session_id": session_id,
+            "pages": [
+                {
+                    "session_id": session_id,
+                    "page_index": index,
+                    "orig_name": Path(page).name,
+                }
+                for index, page in enumerate(pages)
+            ],
+        }
+
+    @api.post("/api/run_ocr")
+    async def run_ocr_image(
+        image_file: UploadFile = File(...),
+        prompt: str = Form(PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt),
+        candidate_profile: str = Form(_default_candidate_key()),
+        max_tokens: int = Form(CANDIDATE_PROFILES[_default_candidate_key()].default_max_tokens),
+    ) -> StreamingResponse:
+        profile_key = _candidate_key(candidate_profile)
+        token_limit = _token_limit(max_tokens, profile_key)
+        image_path = await _save_upload(image_file, allowed_suffixes=IMAGE_SUFFIXES, prefix="uocr_image_upload_")
+        return StreamingResponse(
+            _stream_native_ocr(
+                image_path=str(image_path),
+                prompt=prompt,
+                candidate_profile=profile_key,
+                max_tokens=token_limit,
+            ),
+            media_type="application/x-ndjson",
         )
-        stop_button.click(fn=None, cancels=[run_event])
-        clear_button.click(
-            clear_all,
-            outputs=[file_input, input_state, page_select, output_text, overlay_preview, status, metadata, input_preview],
+
+    @api.post("/api/run_ocr_page")
+    async def run_ocr_page(
+        session_id: str = Form(...),
+        page_index: int = Form(...),
+        prompt: str = Form(PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt),
+        candidate_profile: str = Form(_default_candidate_key()),
+        max_tokens: int = Form(CANDIDATE_PROFILES[_default_candidate_key()].default_max_tokens),
+    ) -> StreamingResponse:
+        profile_key = _candidate_key(candidate_profile)
+        token_limit = _token_limit(max_tokens, profile_key)
+        pages = PDF_SESSIONS.get(session_id)
+        if not pages:
+            raise HTTPException(status_code=404, detail="PDF session not found.")
+        if page_index < 0 or page_index >= len(pages):
+            raise HTTPException(status_code=400, detail=f"PDF page index out of range: {page_index}")
+        return StreamingResponse(
+            _stream_native_ocr(
+                image_path=pages[page_index],
+                prompt=prompt,
+                candidate_profile=profile_key,
+                max_tokens=token_limit,
+            ),
+            media_type="application/x-ndjson",
         )
-    return demo
+
+    return api
 
 
 def run_smoke(args: argparse.Namespace) -> int:
@@ -329,7 +382,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the Unlimited-OCR portable candidate demo.")
     parser.add_argument("--host", default=os.environ.get("UOCR_CLIENT_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("UOCR_CLIENT_PORT", "7861")))
-    parser.add_argument("--smoke", action="store_true", help="Run a CLI smoke test instead of launching Gradio.")
+    parser.add_argument("--smoke", action="store_true", help="Run a CLI smoke test instead of launching the web app.")
     parser.add_argument("--image", default="dataset/sc-02.png", help="Image path for --smoke.")
     parser.add_argument("--prompt", default=PROMPT_PROFILES[DEFAULT_PROMPT_PROFILE].prompt)
     parser.add_argument("--profile", default="best-zero-empty-q4", choices=sorted(CANDIDATE_PROFILES))
@@ -341,12 +394,7 @@ def main() -> int:
     args = parse_args()
     if args.smoke:
         return run_smoke(args)
-    demo = build_demo()
-    demo.queue(default_concurrency_limit=1).launch(
-        server_name=args.host,
-        server_port=args.port,
-        show_error=True,
-    )
+    uvicorn.run(create_app(), host=args.host, port=args.port)
     return 0
 
 
