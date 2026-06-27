@@ -2,7 +2,7 @@
 name = "baidu-unlimited-ocr-portable"
 version = "0.1.0"
 description = "Portable Baidu Unlimited-OCR runtime, demo client, and comparison harness"
-requires-python = ">=3.12"
+requires-python = ">=3.14.6"
 dependencies = [
     "fastapi>=0.110",
     "gradio>=5.0,<6",

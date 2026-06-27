@@ -44,7 +44,7 @@ jobs:
             backend: cuda
 
     env:
-      CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
+      CUDA_VERSION: ${{ inputs.cuda_version || '13.3.0' }}
 
     steps:
       - name: Check out repository
@@ -56,7 +56,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14.6"
 
       - name: Set runtime version
         run: |
@@ -126,7 +126,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14.6"
 
       - name: Download packaged runtimes
         uses: actions/download-artifact@v4
