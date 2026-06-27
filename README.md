@@ -4,7 +4,7 @@ This directory contains local portable-runtime experiments and the validation
 harness for comparing:
 
 - SGLang BF16 reference output from WSL2/Linux.
-- llama.cpp/GGUF candidate output from Linux or Windows.
+- llama.cpp/GGUF candidate output from Linux, macOS, or Windows.
 
 Generated harness outputs live under `results/` and are ignored by git.
 Historical and current summaries live under `analysis/summaries/`. Start with
@@ -21,7 +21,8 @@ The uv project name is `baidu-unlimited-ocr-portable`.
 - `src/baidu_unlimited_ocr_portable/`: Gradio/native-runtime demo client.
 - `analysis/uocr_harness/`: validation, comparison, and artifact harness.
 - `analysis/summaries/`: current and historical Markdown result summaries.
-- `docs/`: Linux and Windows setup notes.
+- `docs/`: Linux, macOS, and Windows setup notes.
+- `scripts/mac/`: macOS setup/build and demo launch scripts.
 - `scripts/windows/`: Windows setup/build and demo launch scripts.
 - `thirdparty/llama.cpp/`: git submodule for the patched llama.cpp fork.
 - `models/`: local HF model asset directory and cache, ignored by git.
@@ -41,9 +42,16 @@ If the clone already exists:
 git submodule update --init --recursive
 ```
 
-The Windows setup script also runs the submodule update, syncs the Python
-environment with `uv sync --frozen`, downloads GGUF model files with `hf` into
-`models/`, and caches Hugging Face artifacts under `models/.hf-cache/`.
+The macOS and Windows setup scripts also run the submodule update, sync the
+Python environment with `uv sync --frozen`, and download GGUF model files with
+`hf` into `models/`.
+
+Run the doctor first on macOS to verify prerequisites without downloading or
+building:
+
+```sh
+./scripts/mac/setup-build.sh --doctor
+```
 
 Run the doctor first on Windows to verify prerequisites without downloading or
 building:
@@ -54,6 +62,9 @@ building:
 
 The script also accepts `--doctor` through a compatibility alias when supported
 by the active PowerShell host.
+
+See `docs/MACOS.md` and `docs/WINDOWS.md` for the platform-specific quick
+starts.
 
 ## Validation Harness
 

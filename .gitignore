@@ -2,6 +2,7 @@ results/
 models/
 thirdparty/uocr-gguf/
 uocr-runtime-env.ps1
+uocr-runtime-env.sh
 .venv/
 .venv-sglang-ref/
 .gradio/

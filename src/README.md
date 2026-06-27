@@ -46,6 +46,25 @@ UOCR_MMPROJ=/path/to/mmproj-Unlimited-OCR-F16.gguf \
 uv run --project unlimited-ocr-portable baidu-uocr-client
 ```
 
+## Run On macOS
+
+Build the patched llama.cpp branch with Metal, then launch through the macOS
+portable scripts:
+
+```sh
+./scripts/mac/setup-build.sh
+
+./scripts/mac/run-demo.sh --smoke --image dataset/sc-02.png --max-tokens 64
+
+./scripts/mac/run-demo.sh --host 127.0.0.1 --port 7861
+```
+
+The macOS setup writes `uocr-runtime-env.sh`, which points the client at:
+
+- `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
+- `models/Unlimited-OCR-Q4_K_M.gguf`
+- `models/mmproj-Unlimited-OCR-F16.gguf`
+
 ## Run On Windows
 
 Build the patched llama.cpp branch with CUDA, then set the native binary path:
@@ -68,4 +87,5 @@ the patched native binary and the same GGUF files.
 - Token streaming is best effort and depends on the native binary flushing
   generated stdout while decoding.
 - Bounding boxes are parsed only from generated `<|det|>` / `<|ref|>` markers.
-- WSL2 validation is the only runtime validation performed in this workspace.
+- Full-matrix validation was performed on WSL2; macOS should be smoke-tested on
+  the target machine after building the Metal binary.
