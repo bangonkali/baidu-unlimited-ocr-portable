@@ -77,11 +77,11 @@ Launch the demo UI:
 ./scripts/linux/run-demo.sh --host 127.0.0.1 --port 7861
 ```
 
-The UI defaults to the persistent `ffi` runtime backend. It starts
-`llama-server` once, keeps the model and mmproj resident, and processes all PDF
-pages through that session. Use the runtime selector in the header, or
-`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
-per-request executable path.
+The UI defaults to the persistent `ffi` runtime backend. It loads
+`libuocr-ffi.so` through `ctypes`, keeps the model and mmproj resident, and
+processes all PDF pages through that native session. Use the runtime selector in
+the header, or `baidu-uocr-client --smoke --runtime-backend executable`, to
+force the legacy per-request executable path.
 
 ## Current R-SWA Status
 
@@ -182,14 +182,14 @@ uv tool run cmake -B thirdparty/llama.cpp/build \
   -DCMAKE_BUILD_TYPE=Release
 
 uv tool run cmake --build thirdparty/llama.cpp/build -j \
-  --target llama-mtmd-cli llama-uocr-parity llama-server
+  --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi
 ```
 
 If the build directory already exists and `cmake` is not on PATH, rebuild the
 existing Makefile targets:
 
 ```sh
-make -C thirdparty/llama.cpp/build llama-mtmd-cli llama-uocr-parity llama-server -j8
+make -C thirdparty/llama.cpp/build llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi -j8
 ```
 
 The current workspace includes opt-in llama.cpp patches for SGLang-style

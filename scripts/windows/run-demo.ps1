@@ -9,7 +9,7 @@ param(
     [ValidateSet("best-zero-empty-q4", "experimental-exact-prefill-q4")]
     [string] $Profile = "best-zero-empty-q4",
     [int] $MaxTokens = 64,
-    [ValidateSet("ffi", "executable")]
+    [ValidateSet("ffi", "server", "executable")]
     [string] $RuntimeBackend = "ffi"
 )
 
@@ -90,6 +90,13 @@ if (-not $env:UOCR_LLAMA_SERVER_BIN) {
         (Join-Path $ThirdpartyDir "llama.cpp\build\bin\llama-server.exe")
     )
 }
+if (-not $env:UOCR_FFI_LIB) {
+    $env:UOCR_FFI_LIB = Resolve-FirstExisting @(
+        (Join-Path $ThirdpartyDir "uocr-runtime\windows-x86_64-cuda13\bin\uocr-ffi.dll"),
+        (Join-Path $ThirdpartyDir "llama.cpp\build\bin\Release\uocr-ffi.dll"),
+        (Join-Path $ThirdpartyDir "llama.cpp\build\bin\uocr-ffi.dll")
+    )
+}
 if (-not $env:UOCR_MODEL) {
     $env:UOCR_MODEL = Resolve-FirstExisting @(
         (Join-Path $ModelsDir "Unlimited-OCR-Q4_K_M.gguf"),
@@ -105,8 +112,11 @@ if (-not $env:UOCR_MMPROJ) {
 $env:UOCR_RUNTIME_BACKEND = $RuntimeBackend
 
 Require-Path "portable pyproject" (Join-Path $RepoRoot "pyproject.toml")
-Require-Path "native runner" $env:UOCR_LLAMA_BIN
-Require-Path "native server" $env:UOCR_LLAMA_SERVER_BIN
+switch ($RuntimeBackend) {
+    "ffi" { Require-Path "native ffi library" $env:UOCR_FFI_LIB }
+    "server" { Require-Path "native server" $env:UOCR_LLAMA_SERVER_BIN }
+    "executable" { Require-Path "native runner" $env:UOCR_LLAMA_BIN }
+}
 Require-Path "model" $env:UOCR_MODEL
 Require-Path "mmproj" $env:UOCR_MMPROJ
 

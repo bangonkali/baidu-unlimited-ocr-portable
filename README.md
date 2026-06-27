@@ -51,9 +51,10 @@ with `--runtime-source build` on macOS/Linux or `-RuntimeSource build` on
 Windows. The CUDA 13 Linux and Windows runtime labels include RTX 5090
 (`sm_120`) support.
 
-The app defaults to the persistent `ffi` runtime backend. It keeps
-`llama-server` loaded in the background and sends every image or PDF page to the
-resident model, avoiding a full model reload between PDF pages. The legacy
+The app defaults to the persistent `ffi` runtime backend. It loads
+`libuocr-ffi`/`uocr-ffi.dll` through `ctypes`, keeps the model and mmproj
+resident, and sends every image or PDF page through that same native session.
+The `server` backend remains available as an HTTP fallback, and the legacy
 `executable` backend remains available from the UI runtime selector or with
 `--runtime-backend executable` for CLI smoke tests.
 

@@ -96,7 +96,8 @@ The setup script checks:
 - Python/Gradio dependencies via `uv sync --frozen`
 - Hugging Face authorization via `hf auth whoami` when model downloads are needed
 - GGUF downloads into `models/`
-- downloaded or built `llama-uocr-parity`, `llama-mtmd-cli`, and `llama-server`
+- downloaded or built `libuocr-ffi.dylib`, `llama-uocr-parity`,
+  `llama-mtmd-cli`, and `llama-server`
 
 When `--runtime-source build` is used, it also checks `cmake`, Xcode command
 line tools through `xcode-select`, Apple clang and the macOS SDK through
@@ -145,11 +146,11 @@ Open:
 http://127.0.0.1:7861
 ```
 
-The UI defaults to the persistent `ffi` runtime backend. It starts
-`llama-server` once, keeps the model and mmproj resident, and processes all PDF
-pages through that session. Use the runtime selector in the header, or
-`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
-per-request executable path.
+The UI defaults to the persistent `ffi` runtime backend. It loads
+`libuocr-ffi.dylib` through `ctypes`, keeps the model and mmproj resident, and
+processes all PDF pages through that native session. Use the runtime selector in
+the header, or `baidu-uocr-client --smoke --runtime-backend executable`, to
+force the legacy per-request executable path.
 
 ## Manual Build Notes
 
@@ -163,7 +164,7 @@ cmake -B thirdparty/llama.cpp/build \
 
 cmake --build thirdparty/llama.cpp/build \
   --config Release \
-  --target llama-mtmd-cli llama-uocr-parity llama-server \
+  --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi \
   --parallel
 ```
 

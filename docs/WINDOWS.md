@@ -112,8 +112,8 @@ The setup script checks:
 - Python/Gradio dependencies via `uv sync --frozen`.
 - Hugging Face authorization via `hf auth whoami` when model downloads are needed.
 - GGUF downloads into `models\`.
-- downloaded or built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and
-  `llama-server.exe`
+- downloaded or built `uocr-ffi.dll`, `llama-uocr-parity.exe`,
+  `llama-mtmd-cli.exe`, and `llama-server.exe`
 - required GGUF files under
   `C:\uocr\unlimited-ocr-portable\models`
 
@@ -167,11 +167,11 @@ Open:
 http://127.0.0.1:7861
 ```
 
-The UI defaults to the persistent `ffi` runtime backend. It starts
-`llama-server.exe` once, keeps the model and mmproj resident, and processes all
-PDF pages through that session. Use the runtime selector in the header, or
-`baidu-uocr-client --smoke --runtime-backend executable`, to force the legacy
-per-request executable path.
+The UI defaults to the persistent `ffi` runtime backend. It loads
+`uocr-ffi.dll` through `ctypes`, keeps the model and mmproj resident, and
+processes all PDF pages through that native session. Use the runtime selector in
+the header, or `baidu-uocr-client --smoke --runtime-backend executable`, to
+force the legacy per-request executable path.
 
 If PowerShell blocks local scripts:
 
@@ -353,7 +353,7 @@ cmake -B thirdparty\llama.cpp\build `
 
 cmake --build thirdparty\llama.cpp\build `
   --config Release `
-  --target llama-mtmd-cli llama-uocr-parity llama-server `
+  --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi `
   --parallel
 ```
 

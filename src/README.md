@@ -18,10 +18,11 @@ The UI also exposes the exact-prefill/no-image-end R-SWA profile as an
 experimental option. That profile had higher average similarity in the full
 matrix, but it produced empty rows and is not the default.
 
-The default runtime backend is `ffi`, a persistent native session backed by
-`llama-server`. It keeps the model and mmproj resident across image and PDF page
-requests. Choose `executable` in the UI or pass `--runtime-backend executable`
-to use the older per-request `llama-uocr-parity` process.
+The default runtime backend is `ffi`, a persistent native session loaded through
+`ctypes` from `libuocr-ffi`/`uocr-ffi.dll`. It keeps the model and mmproj
+resident across image and PDF page requests. Choose `server` for the
+`llama-server` HTTP fallback or `executable` for the older per-request
+`llama-uocr-parity` process.
 
 ## Run On Linux / WSL2
 
@@ -41,6 +42,8 @@ The default paths are:
 
 - `thirdparty/llama.cpp/build/bin/llama-server`
 - `thirdparty/llama.cpp/build/bin/llama-uocr-parity`
+- `thirdparty/llama.cpp/build/bin/libuocr-ffi.so` on Linux,
+  `libuocr-ffi.dylib` on macOS, or `uocr-ffi.dll` on Windows
 - `models/Unlimited-OCR-Q4_K_M.gguf`
 - `models/mmproj-Unlimited-OCR-F16.gguf`
 
@@ -49,6 +52,7 @@ Override them when needed:
 ```sh
 UOCR_LLAMA_SERVER_BIN=/path/to/llama-server \
 UOCR_LLAMA_BIN=/path/to/llama-uocr-parity \
+UOCR_FFI_LIB=/path/to/libuocr-ffi.so \
 UOCR_MODEL=/path/to/Unlimited-OCR-Q4_K_M.gguf \
 UOCR_MMPROJ=/path/to/mmproj-Unlimited-OCR-F16.gguf \
 uv run --project unlimited-ocr-portable baidu-uocr-client

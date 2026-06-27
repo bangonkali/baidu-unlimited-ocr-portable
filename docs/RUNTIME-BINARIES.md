@@ -61,13 +61,16 @@ Useful download options:
   `-ForceRuntimeDownload`, `-SkipRuntimeDownload`
 
 The scripts write `uocr-runtime-env.sh` or `uocr-runtime-env.ps1` with
-`UOCR_LLAMA_BIN`, model paths, and runtime metadata.
+`UOCR_FFI_LIB`, `UOCR_LLAMA_BIN`, model paths, and runtime metadata.
 
-The runtime archives include both `llama-uocr-parity` and `llama-server`. The
-web app defaults to the persistent `ffi` backend, which starts `llama-server`
-once and reuses the resident model for every PDF page. The `executable` backend
-keeps the previous per-request `llama-uocr-parity` behavior for comparison and
-debugging.
+The runtime archives include `libuocr-ffi`/`uocr-ffi.dll`, `llama-uocr-parity`,
+`llama-mtmd-cli`, and `llama-server`. The web app defaults to the persistent
+`ffi` backend, which loads the shared library through `ctypes` and reuses the
+resident model for every PDF page. The `server` backend keeps the persistent
+HTTP `llama-server` path available for comparison, and `executable` keeps the
+previous per-request `llama-uocr-parity` behavior.
+
+The native ABI contract is documented in [NATIVE-FFI.md](NATIVE-FFI.md).
 
 ## Release Assets
 

@@ -16,7 +16,7 @@ on:
       cuda_version:
         description: "CUDA toolkit version installed for CUDA builds"
         required: false
-        default: "13.3.0"
+        default: "13.2.0"
         type: string
       cuda_architectures:
         description: "CMAKE_CUDA_ARCHITECTURES for CUDA release builds. The default matches llama.cpp's GPU-less CUDA 13 fallback."
@@ -57,7 +57,7 @@ jobs:
             build_parallel: 2
 
     env:
-      CUDA_VERSION: ${{ inputs.cuda_version || '13.3.0' }}
+      CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
       CUDA_ARCHITECTURES: ${{ inputs.cuda_architectures || '75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real' }}
       BUILD_PARALLEL: ${{ matrix.backend == 'cuda' && (inputs.cuda_build_parallel || '2') || matrix.build_parallel }}
 
@@ -134,7 +134,12 @@ jobs:
       - name: Build runtime targets
         shell: bash
         run: |
-          cmake --build thirdparty/llama.cpp/build --config Release --target llama-mtmd-cli llama-uocr-parity llama-server --parallel "${BUILD_PARALLEL:-2}"
+          cmake --build thirdparty/llama.cpp/build --config Release --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi --parallel "${BUILD_PARALLEL:-2}"
+
+      - name: Validate FFI ABI
+        run: |
+          python scripts/test_ctypes_runtime.py --abi-only
+        shell: bash
 
       - name: Package runtime
         run: |

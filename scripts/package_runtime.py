@@ -73,6 +73,8 @@ def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]
         path = find_one(build_dir, [exe])
         executable_paths.append(path)
         files.append(path)
+    for library in target.get("required_libraries", []):
+        files.append(find_one(build_dir, [library]))
 
     search_dirs = {path.parent for path in executable_paths}
     search_dirs.add(build_dir / "bin")
@@ -98,6 +100,11 @@ def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]
 def executable_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
     by_name = {path.name: f"bin/{path.name}" for path in files}
     return {exe: by_name[exe] for exe in target["executables"] if exe in by_name}
+
+
+def library_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
+    by_name = {path.name: f"bin/{path.name}" for path in files}
+    return {library: by_name[library] for library in target.get("required_libraries", []) if library in by_name}
 
 
 def make_package_manifest(
@@ -127,6 +134,7 @@ def make_package_manifest(
         except Exception:
             llama_commit = ""
 
+    required_libraries = library_manifest(files, target)
     return {
         "schema_version": 1,
         "platform": platform_id,
@@ -157,6 +165,8 @@ def make_package_manifest(
             "bin_dir": "bin",
             "primary_binary": f"bin/{target['primary_binary']}",
             "executables": executable_manifest(files, target),
+            "required_libraries": required_libraries,
+            "ffi_library": next(iter(required_libraries.values()), ""),
             "files": sorted(f"bin/{path.name}" for path in files),
         },
     }

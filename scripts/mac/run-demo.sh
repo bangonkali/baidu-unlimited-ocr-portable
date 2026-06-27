@@ -24,7 +24,7 @@ Options:
   --image PATH           Smoke image path.
   --profile KEY          best-zero-empty-q4 or experimental-exact-prefill-q4.
   --max-tokens N         Smoke max tokens. Default: 64.
-  --runtime-backend MODE ffi or executable. Default: ffi.
+  --runtime-backend MODE ffi, server, or executable. Default: ffi.
   -h, --help             Show this help.
 EOF
 }
@@ -154,7 +154,7 @@ case "$profile" in
         ;;
 esac
 case "$runtime_backend" in
-    ffi|executable)
+    ffi|server|executable)
         ;;
     *)
         die "Unknown runtime backend: $runtime_backend"
@@ -186,6 +186,11 @@ if [[ -z "${UOCR_LLAMA_SERVER_BIN:-}" ]]; then
         "$thirdparty_dir/llama.cpp/build/bin/Release/llama-server" \
         "$thirdparty_dir/llama.cpp/build/Release/llama-server" || true)"
 fi
+if [[ -z "${UOCR_FFI_LIB:-}" ]]; then
+    UOCR_FFI_LIB="$(resolve_first_existing \
+        "$thirdparty_dir/uocr-runtime/macos-arm64-metal/bin/libuocr-ffi.dylib" \
+        "$thirdparty_dir/llama.cpp/build/bin/libuocr-ffi.dylib" || true)"
+fi
 if [[ -z "${UOCR_MODEL:-}" ]]; then
     UOCR_MODEL="$(resolve_first_existing \
         "$models_dir/Unlimited-OCR-Q4_K_M.gguf" \
@@ -199,13 +204,23 @@ fi
 
 export UOCR_LLAMA_BIN
 export UOCR_LLAMA_SERVER_BIN
+export UOCR_FFI_LIB
 export UOCR_MODEL
 export UOCR_MMPROJ
 export UOCR_RUNTIME_BACKEND="$runtime_backend"
 
 require_path "portable pyproject" "$repo_root/pyproject.toml"
-require_path "native runner" "$UOCR_LLAMA_BIN"
-require_path "native server" "$UOCR_LLAMA_SERVER_BIN"
+case "$runtime_backend" in
+    ffi)
+        require_path "native ffi library" "$UOCR_FFI_LIB"
+        ;;
+    server)
+        require_path "native server" "$UOCR_LLAMA_SERVER_BIN"
+        ;;
+    executable)
+        require_path "native runner" "$UOCR_LLAMA_BIN"
+        ;;
+esac
 require_path "model" "$UOCR_MODEL"
 require_path "mmproj" "$UOCR_MMPROJ"
 

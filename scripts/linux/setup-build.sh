@@ -177,6 +177,16 @@ find_downloaded_exe() {
     printf '%s\n' "$match"
 }
 
+find_downloaded_file() {
+    local repo_root="$1"
+    local name="$2"
+    local match
+
+    match="$(find "$repo_root/thirdparty/uocr-runtime" -path "*/bin/$name" -type f 2>/dev/null | head -n 1 || true)"
+    [[ -n "$match" ]] || return 1
+    printf '%s\n' "$match"
+}
+
 assert_tooling() {
     local need_hf="$1"
     local need_build="$2"
@@ -300,6 +310,11 @@ run_doctor() {
                 echo "[WARN] downloaded runtime $exe: not installed yet"
             fi
         done
+        if path="$(find_downloaded_file "$repo_root" "libuocr-ffi.so" 2>/dev/null)"; then
+            echo "[OK] downloaded runtime libuocr-ffi.so: $path"
+        else
+            echo "[WARN] downloaded runtime libuocr-ffi.so: not installed yet"
+        fi
     fi
 
     if ((need_build)); then
@@ -310,6 +325,11 @@ run_doctor() {
                 echo "[WARN] build output $exe: not built yet"
             fi
         done
+        if path="$(find_built_exe "$build_dir" "libuocr-ffi.so" 2>/dev/null)"; then
+            echo "[OK] build output libuocr-ffi.so: $path"
+        else
+            echo "[WARN] build output libuocr-ffi.so: not built yet"
+        fi
     fi
 
     ((status == 0)) || die "Doctor found blocking issue(s)."
@@ -497,6 +517,7 @@ if [[ "$runtime_source" == "download" || "$runtime_source" == "auto" ]]; then
             UOCR_LLAMA_BIN="${UOCR_LLAMA_BIN:-$(find_downloaded_exe "$repo_root" "llama-uocr-parity" || true)}"
             UOCR_LLAMA_MTMD_BIN="${UOCR_LLAMA_MTMD_BIN:-$(find_downloaded_exe "$repo_root" "llama-mtmd-cli" || true)}"
             UOCR_LLAMA_SERVER_BIN="${UOCR_LLAMA_SERVER_BIN:-$(find_downloaded_exe "$repo_root" "llama-server" || true)}"
+            UOCR_FFI_LIB="${UOCR_FFI_LIB:-$(find_downloaded_file "$repo_root" "libuocr-ffi.so" || true)}"
         else
             runtime_source_actual="build"
         fi
@@ -535,7 +556,7 @@ if [[ "$runtime_source_actual" == "build" && "$skip_build" == "0" ]]; then
     invoke_checked "$repo_root" cmake "${configure_args[@]}"
 
     write_step "Building native executables"
-    invoke_checked "$repo_root" cmake --build "$build_dir" --config "$config" --target llama-mtmd-cli llama-uocr-parity llama-server --parallel
+    invoke_checked "$repo_root" cmake --build "$build_dir" --config "$config" --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi --parallel
 fi
 
 write_step "Validating outputs"
@@ -543,15 +564,17 @@ if [[ "$runtime_source_actual" == "build" ]]; then
     uocr_exe="$(find_built_exe "$build_dir" "llama-uocr-parity")"
     mtmd_exe="$(find_built_exe "$build_dir" "llama-mtmd-cli")"
     server_exe="$(find_built_exe "$build_dir" "llama-server")"
+    ffi_lib="$(find_built_exe "$build_dir" "libuocr-ffi.so")"
 else
     uocr_exe="${UOCR_LLAMA_BIN:-}"
     mtmd_exe="${UOCR_LLAMA_MTMD_BIN:-$(find_downloaded_exe "$repo_root" "llama-mtmd-cli" || true)}"
     server_exe="${UOCR_LLAMA_SERVER_BIN:-$(find_downloaded_exe "$repo_root" "llama-server" || true)}"
+    ffi_lib="${UOCR_FFI_LIB:-$(find_downloaded_file "$repo_root" "libuocr-ffi.so" || true)}"
 fi
 model_path="$model_dir/${models[0]}"
 mmproj_path="$model_dir/mmproj-Unlimited-OCR-F16.gguf"
 
-for path in "$uocr_exe" "$mtmd_exe" "$server_exe" "$model_path" "$mmproj_path"; do
+for path in "$uocr_exe" "$mtmd_exe" "$server_exe" "$ffi_lib" "$model_path" "$mmproj_path"; do
     [[ -e "$path" ]] || die "Expected file is missing: $path"
     printf 'OK %s\n' "$path"
 done
@@ -573,6 +596,7 @@ env_file="$repo_root/uocr-runtime-env.sh"
     printf 'export UOCR_LLAMA_BIN=%q\n' "$uocr_exe"
     printf 'export UOCR_LLAMA_MTMD_BIN=%q\n' "$mtmd_exe"
     printf 'export UOCR_LLAMA_SERVER_BIN=%q\n' "$server_exe"
+    printf 'export UOCR_FFI_LIB=%q\n' "$ffi_lib"
     printf 'export UOCR_MODEL=%q\n' "$model_path"
     printf 'export UOCR_MMPROJ=%q\n' "$mmproj_path"
     printf 'export UOCR_CLIENT_HOST=%q\n' "127.0.0.1"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import codecs
 import atexit
 import base64
+import ctypes
 import json
 import os
 import queue
@@ -25,6 +26,7 @@ from .config import (
     DEFAULT_MMPROJ,
     REPO_ROOT,
     CandidateProfile,
+    default_ffi_library,
     default_llama_binary,
     default_llama_server_binary,
     resolve_repo_path,
@@ -45,7 +47,8 @@ LOG_PREFIXES = (
     "system_info:",
 )
 RUNTIME_BACKENDS = {
-    "ffi": "Persistent model session",
+    "ffi": "Persistent ctypes model session",
+    "server": "Persistent llama-server session",
     "executable": "Executable per request",
 }
 DEFAULT_RUNTIME_BACKEND = os.environ.get("UOCR_RUNTIME_BACKEND", "ffi")
@@ -54,6 +57,7 @@ DEFAULT_RUNTIME_BACKEND = os.environ.get("UOCR_RUNTIME_BACKEND", "ffi")
 @dataclass(frozen=True)
 class RuntimePaths:
     binary: Path
+    ffi_library: Path
     server_binary: Path
     model: Path
     mmproj: Path
@@ -62,6 +66,7 @@ class RuntimePaths:
     def from_env(cls) -> "RuntimePaths":
         return cls(
             binary=resolve_repo_path(os.environ.get("UOCR_LLAMA_BIN"), default_llama_binary()),
+            ffi_library=resolve_repo_path(os.environ.get("UOCR_FFI_LIB"), default_ffi_library()),
             server_binary=resolve_repo_path(os.environ.get("UOCR_LLAMA_SERVER_BIN"), default_llama_server_binary()),
             model=resolve_repo_path(os.environ.get("UOCR_MODEL"), DEFAULT_MODEL),
             mmproj=resolve_repo_path(os.environ.get("UOCR_MMPROJ"), DEFAULT_MMPROJ),
@@ -69,8 +74,16 @@ class RuntimePaths:
 
     def missing(self, backend: str = "executable") -> list[str]:
         missing: list[str] = []
-        runner_path = self.server_binary if normalize_runtime_backend(backend) == "ffi" else self.binary
-        runner_label = "server binary" if normalize_runtime_backend(backend) == "ffi" else "binary"
+        normalized = normalize_runtime_backend(backend)
+        if normalized == "ffi":
+            runner_path = self.ffi_library
+            runner_label = "ffi library"
+        elif normalized == "server":
+            runner_path = self.server_binary
+            runner_label = "server binary"
+        else:
+            runner_path = self.binary
+            runner_label = "binary"
         for label, path in ((runner_label, runner_path), ("model", self.model), ("mmproj", self.mmproj)):
             if not path.exists():
                 missing.append(f"{label}: {path}")
@@ -92,9 +105,11 @@ def normalize_runtime_backend(value: str | None) -> str:
     backend = (value or DEFAULT_RUNTIME_BACKEND or "ffi").strip().lower()
     aliases = {
         "persistent": "ffi",
-        "server": "ffi",
-        "llama-server": "ffi",
-        "http": "ffi",
+        "ctypes": "ffi",
+        "library": "ffi",
+        "shared-library": "ffi",
+        "llama-server": "server",
+        "http": "server",
         "exe": "executable",
         "cli": "executable",
         "process": "executable",
@@ -319,6 +334,358 @@ def _stream_executable_ocr(
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=2)
+
+
+class _UocrFfiEvent(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("type", ctypes.c_uint32),
+        ("text_utf8", ctypes.c_void_p),
+        ("text_len", ctypes.c_uint64),
+        ("json_utf8", ctypes.c_void_p),
+        ("json_len", ctypes.c_uint64),
+        ("code", ctypes.c_int32),
+        ("reserved_u32", ctypes.c_uint32),
+        ("index", ctypes.c_uint64),
+        ("reserved_ptr0", ctypes.c_void_p),
+        ("reserved_ptr1", ctypes.c_void_p),
+        ("reserved_ptr2", ctypes.c_void_p),
+        ("reserved_ptr3", ctypes.c_void_p),
+    ]
+
+
+_UocrFfiEventCallback = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.POINTER(_UocrFfiEvent), ctypes.c_void_p)
+
+
+class _UocrFfiParams(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("flags", ctypes.c_uint32),
+        ("model_path", ctypes.c_char_p),
+        ("mmproj_path", ctypes.c_char_p),
+        ("chat_template", ctypes.c_char_p),
+        ("ctx_size", ctypes.c_int32),
+        ("n_batch", ctypes.c_int32),
+        ("n_gpu_layers", ctypes.c_int32),
+        ("log_verbosity", ctypes.c_int32),
+        ("force_prompt_eos", ctypes.c_int32),
+        ("no_image_end", ctypes.c_int32),
+        ("gundam_mode", ctypes.c_int32),
+        ("no_repeat_ngram", ctypes.c_int32),
+        ("ngram_size", ctypes.c_int32),
+        ("ngram_window", ctypes.c_int32),
+        ("ngram_whitelist", ctypes.c_char_p),
+        ("prefill_aware_swa", ctypes.c_int32),
+        ("legacy_kv_prune", ctypes.c_int32),
+        ("decode_window", ctypes.c_int32),
+        ("min_new_tokens", ctypes.c_int32),
+        ("reserved_ptr0", ctypes.c_void_p),
+        ("reserved_ptr1", ctypes.c_void_p),
+        ("reserved_ptr2", ctypes.c_void_p),
+        ("reserved_ptr3", ctypes.c_void_p),
+    ]
+
+
+class _UocrFfiRequest(ctypes.Structure):
+    _fields_ = [
+        ("struct_size", ctypes.c_uint32),
+        ("flags", ctypes.c_uint32),
+        ("image_path", ctypes.c_char_p),
+        ("prompt", ctypes.c_char_p),
+        ("max_tokens", ctypes.c_int32),
+        ("reserved_i32", ctypes.c_int32),
+        ("event_callback", _UocrFfiEventCallback),
+        ("user_data", ctypes.c_void_p),
+        ("reserved_ptr0", ctypes.c_void_p),
+        ("reserved_ptr1", ctypes.c_void_p),
+        ("reserved_ptr2", ctypes.c_void_p),
+        ("reserved_ptr3", ctypes.c_void_p),
+    ]
+
+
+UOCR_FFI_STATUS_OK = 0
+UOCR_FFI_STATUS_CANCELLED = 6
+UOCR_FFI_EVENT_TOKEN = 1
+UOCR_FFI_EVENT_DONE = 4
+UOCR_FFI_ABI_VERSION = 1
+
+
+@dataclass(frozen=True)
+class _FfiKey:
+    ffi_library: str
+    model: str
+    mmproj: str
+    profile_key: str
+    force_prompt_eos: bool
+    no_image_end: bool
+    deepseek_ocr_mode: str
+    no_repeat_ngram: bool
+    ngram_size: int
+    ngram_window: int
+    ngram_whitelist: tuple[int, ...]
+    prefill_aware_swa: bool
+    decode_window: int
+    ctx_size: int
+    n_batch: int
+    n_gpu_layers: int
+
+
+@dataclass
+class _FfiSession:
+    key: _FfiKey
+    lib: ctypes.CDLL
+    handle: int
+    library_path: Path
+
+
+_ffi_lock = threading.RLock()
+_ffi_session: _FfiSession | None = None
+
+
+def _utf8(value: str | os.PathLike[str]) -> bytes:
+    return str(value).encode("utf-8")
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _load_ffi_library(path: Path) -> ctypes.CDLL:
+    if os.name == "nt" and hasattr(os, "add_dll_directory"):
+        os.add_dll_directory(str(path.parent))
+    elif os.name != "nt":
+        pattern = "lib*.dylib" if os.uname().sysname == "Darwin" else "lib*.so*"
+        for sibling in sorted(path.parent.glob(pattern)):
+            if sibling.resolve(strict=False) == path.resolve(strict=False):
+                continue
+            try:
+                ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                pass
+    lib = ctypes.CDLL(str(path))
+    lib.uocr_ffi_abi_version.argtypes = []
+    lib.uocr_ffi_abi_version.restype = ctypes.c_uint32
+    lib.uocr_ffi_build_info.argtypes = []
+    lib.uocr_ffi_build_info.restype = ctypes.c_char_p
+    lib.uocr_ffi_media_marker.argtypes = []
+    lib.uocr_ffi_media_marker.restype = ctypes.c_char_p
+    lib.uocr_ffi_create.argtypes = [ctypes.POINTER(_UocrFfiParams)]
+    lib.uocr_ffi_create.restype = ctypes.c_void_p
+    lib.uocr_ffi_destroy.argtypes = [ctypes.c_void_p]
+    lib.uocr_ffi_destroy.restype = None
+    lib.uocr_ffi_run_image.argtypes = [ctypes.c_void_p, ctypes.POINTER(_UocrFfiRequest)]
+    lib.uocr_ffi_run_image.restype = ctypes.c_int32
+    lib.uocr_ffi_last_error.argtypes = [ctypes.c_void_p]
+    lib.uocr_ffi_last_error.restype = ctypes.c_char_p
+    lib.uocr_ffi_last_status.argtypes = [ctypes.c_void_p]
+    lib.uocr_ffi_last_status.restype = ctypes.c_int32
+    lib.uocr_ffi_run_count.argtypes = [ctypes.c_void_p]
+    lib.uocr_ffi_run_count.restype = ctypes.c_uint64
+    abi_version = int(lib.uocr_ffi_abi_version())
+    if abi_version != UOCR_FFI_ABI_VERSION:
+        raise RuntimeError(f"unsupported uocr ffi ABI {abi_version}; expected {UOCR_FFI_ABI_VERSION}")
+    return lib
+
+
+def _ffi_last_error(lib: ctypes.CDLL, handle: int | None = None) -> str:
+    raw = lib.uocr_ffi_last_error(ctypes.c_void_p(handle) if handle else None)
+    return raw.decode("utf-8", errors="replace") if raw else ""
+
+
+def _ffi_key(paths: RuntimePaths, profile: CandidateProfile) -> _FfiKey:
+    return _FfiKey(
+        ffi_library=str(paths.ffi_library),
+        model=str(paths.model),
+        mmproj=str(paths.mmproj),
+        profile_key=profile.key,
+        force_prompt_eos=profile.force_prompt_eos,
+        no_image_end=profile.no_image_end,
+        deepseek_ocr_mode=profile.deepseek_ocr_mode,
+        no_repeat_ngram=profile.no_repeat_ngram,
+        ngram_size=profile.ngram_size,
+        ngram_window=profile.ngram_window,
+        ngram_whitelist=profile.ngram_whitelist,
+        prefill_aware_swa=profile.prefill_aware_swa,
+        decode_window=profile.decode_window,
+        ctx_size=profile.ctx_size,
+        n_batch=_env_int("UOCR_FFI_N_BATCH", 2048),
+        n_gpu_layers=_env_int("UOCR_FFI_N_GPU_LAYERS", -2),
+    )
+
+
+def _destroy_ffi_locked() -> None:
+    global _ffi_session
+    session = _ffi_session
+    _ffi_session = None
+    if session and session.handle:
+        session.lib.uocr_ffi_destroy(ctypes.c_void_p(session.handle))
+
+
+def _destroy_ffi() -> None:
+    with _ffi_lock:
+        _destroy_ffi_locked()
+
+
+atexit.register(_destroy_ffi)
+
+
+def _ensure_ffi(paths: RuntimePaths, profile: CandidateProfile) -> _FfiSession:
+    global _ffi_session
+    key = _ffi_key(paths, profile)
+    with _ffi_lock:
+        if _ffi_session and _ffi_session.key == key and _ffi_session.handle:
+            return _ffi_session
+        if _ffi_session:
+            _destroy_ffi_locked()
+
+        lib = _load_ffi_library(paths.ffi_library)
+        params = _UocrFfiParams(
+            struct_size=ctypes.sizeof(_UocrFfiParams),
+            flags=0,
+            model_path=_utf8(paths.model),
+            mmproj_path=_utf8(paths.mmproj),
+            chat_template=b"deepseek-ocr",
+            ctx_size=key.ctx_size,
+            n_batch=key.n_batch,
+            n_gpu_layers=key.n_gpu_layers,
+            log_verbosity=2,
+            force_prompt_eos=int(profile.force_prompt_eos),
+            no_image_end=int(profile.no_image_end),
+            gundam_mode=int(profile.deepseek_ocr_mode == "gundam"),
+            no_repeat_ngram=int(profile.no_repeat_ngram),
+            ngram_size=profile.ngram_size,
+            ngram_window=profile.ngram_window,
+            ngram_whitelist=",".join(str(token_id) for token_id in profile.ngram_whitelist).encode("utf-8"),
+            prefill_aware_swa=int(profile.prefill_aware_swa),
+            legacy_kv_prune=0,
+            decode_window=profile.decode_window,
+            min_new_tokens=0,
+            reserved_ptr0=None,
+            reserved_ptr1=None,
+            reserved_ptr2=None,
+            reserved_ptr3=None,
+        )
+        handle = lib.uocr_ffi_create(ctypes.byref(params))
+        if not handle:
+            raise RuntimeError(_ffi_last_error(lib) or "failed to create native ffi session")
+        _ffi_session = _FfiSession(key=key, lib=lib, handle=int(handle), library_path=paths.ffi_library)
+        return _ffi_session
+
+
+def _stream_ffi_ocr(
+    *,
+    paths: RuntimePaths,
+    image_path: Path,
+    prompt: str,
+    profile: CandidateProfile,
+    max_tokens: int | None = None,
+) -> Iterator[NativeEvent]:
+    missing = paths.missing("ffi")
+    if missing:
+        yield NativeEvent("error", metadata={"error": "Missing runtime files", "missing": missing, "backend": "ffi"})
+        return
+    if not image_path.exists():
+        yield NativeEvent("error", metadata={"error": f"Image not found: {image_path}", "backend": "ffi"})
+        return
+
+    started = time.monotonic()
+    try:
+        session = _ensure_ffi(paths, profile)
+    except Exception as exc:  # noqa: BLE001 - surfaced to UI
+        yield NativeEvent("error", metadata={"error": f"Failed to load native ffi runtime: {exc}", "backend": "ffi"})
+        return
+
+    events: queue.Queue[NativeEvent | None] = queue.Queue()
+    stdout_parts: list[str] = []
+
+    def worker() -> None:
+        callback_ref: _UocrFfiEventCallback | None = None
+        try:
+            def on_event(event_ptr: ctypes.POINTER(_UocrFfiEvent), _user_data: ctypes.c_void_p) -> int:
+                event = event_ptr.contents
+                if event.type == UOCR_FFI_EVENT_TOKEN and event.text_utf8 and event.text_len:
+                    text = ctypes.string_at(event.text_utf8, event.text_len).decode("utf-8", errors="replace")
+                    stdout_parts.append(text)
+                    events.put(NativeEvent("token", text=text))
+                return 0
+
+            callback_ref = _UocrFfiEventCallback(on_event)
+            request = _UocrFfiRequest(
+                struct_size=ctypes.sizeof(_UocrFfiRequest),
+                flags=0,
+                image_path=_utf8(image_path),
+                prompt=_utf8(format_prompt(prompt, profile.media_placement)),
+                max_tokens=max_tokens or profile.default_max_tokens,
+                reserved_i32=0,
+                event_callback=callback_ref,
+                user_data=None,
+                reserved_ptr0=None,
+                reserved_ptr1=None,
+                reserved_ptr2=None,
+                reserved_ptr3=None,
+            )
+            status = int(session.lib.uocr_ffi_run_image(ctypes.c_void_p(session.handle), ctypes.byref(request)))
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            if status == UOCR_FFI_STATUS_OK:
+                events.put(
+                    NativeEvent(
+                        "done",
+                        text="".join(stdout_parts),
+                        metadata={
+                            "exit_code": 0,
+                            "elapsed_ms": elapsed_ms,
+                            "command": f"ctypes {session.library_path} uocr_ffi_run_image",
+                            "profile": profile.engine_name,
+                            "backend": "ffi",
+                            "ffi_library": str(session.library_path),
+                            "ffi_run_count": int(session.lib.uocr_ffi_run_count(ctypes.c_void_p(session.handle))),
+                            "model": str(paths.model),
+                            "mmproj": str(paths.mmproj),
+                            "stderr_tail": "",
+                        },
+                    )
+                )
+            else:
+                error = _ffi_last_error(session.lib, session.handle)
+                events.put(
+                    NativeEvent(
+                        "error",
+                        text="".join(stdout_parts),
+                        metadata={
+                            "error": error or f"native ffi runtime returned status {status}",
+                            "exit_code": status,
+                            "elapsed_ms": elapsed_ms,
+                            "backend": "ffi",
+                            "ffi_library": str(session.library_path),
+                            "stderr_tail": error[-4000:],
+                        },
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001 - surfaced to UI
+            events.put(
+                NativeEvent(
+                    "error",
+                    text="".join(stdout_parts),
+                    metadata={"error": f"Native ffi runtime failed: {exc}", "backend": "ffi"},
+                )
+            )
+        finally:
+            callback_ref = None
+            events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    while True:
+        event = events.get()
+        if event is None:
+            break
+        yield event
 
 
 @dataclass(frozen=True)
@@ -558,12 +925,12 @@ def _stream_server_ocr(
     profile: CandidateProfile,
     max_tokens: int | None = None,
 ) -> Iterator[NativeEvent]:
-    missing = paths.missing("ffi")
+    missing = paths.missing("server")
     if missing:
-        yield NativeEvent("error", metadata={"error": "Missing runtime files", "missing": missing, "backend": "ffi"})
+        yield NativeEvent("error", metadata={"error": "Missing runtime files", "missing": missing, "backend": "server"})
         return
     if not image_path.exists():
-        yield NativeEvent("error", metadata={"error": f"Image not found: {image_path}", "backend": "ffi"})
+        yield NativeEvent("error", metadata={"error": f"Image not found: {image_path}", "backend": "server"})
         return
 
     started = time.monotonic()
@@ -571,7 +938,7 @@ def _stream_server_ocr(
     try:
         session = _ensure_server(paths, profile)
     except Exception as exc:  # noqa: BLE001 - surfaced to UI
-        yield NativeEvent("error", metadata={"error": f"Failed to start persistent runtime: {exc}", "backend": "ffi"})
+        yield NativeEvent("error", metadata={"error": f"Failed to start persistent runtime: {exc}", "backend": "server"})
         return
 
     payload = _server_payload(
@@ -596,7 +963,7 @@ def _stream_server_ocr(
                     metadata={
                         "error": f"Persistent runtime request failed: HTTP {response.status_code}",
                         "stderr_tail": response.text[-4000:],
-                        "backend": "ffi",
+                        "backend": "server",
                         "server_log": str(session.log_path),
                     },
                 )
@@ -621,7 +988,7 @@ def _stream_server_ocr(
             text="".join(stdout_parts),
             metadata={
                 "error": f"Persistent runtime request failed: {exc}",
-                "backend": "ffi",
+                "backend": "server",
                 "server_url": session.url,
                 "server_log": str(session.log_path),
             },
@@ -638,7 +1005,7 @@ def _stream_server_ocr(
             "command": f"POST {session.url.rstrip('/')}/completion",
             "server_command": command_text(session.command),
             "profile": profile.engine_name,
-            "backend": "ffi",
+            "backend": "server",
             "server_pid": session.proc.pid,
             "server_url": session.url,
             "server_log": str(session.log_path),
@@ -661,6 +1028,15 @@ def stream_ocr(
 ) -> Iterator[NativeEvent]:
     backend = normalize_runtime_backend(runtime_backend)
     if backend == "ffi":
+        yield from _stream_ffi_ocr(
+            paths=paths,
+            image_path=image_path,
+            prompt=prompt,
+            profile=profile,
+            max_tokens=max_tokens,
+        )
+        return
+    if backend == "server":
         yield from _stream_server_ocr(
             paths=paths,
             image_path=image_path,

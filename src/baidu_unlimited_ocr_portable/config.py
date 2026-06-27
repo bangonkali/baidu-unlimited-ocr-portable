@@ -16,6 +16,14 @@ def _exe_suffix() -> str:
     return ".exe" if os.name == "nt" else ""
 
 
+def _ffi_library_names() -> list[str]:
+    if os.name == "nt":
+        return ["uocr-ffi.dll", "libuocr-ffi.dll"]
+    if os.uname().sysname == "Darwin":
+        return ["libuocr-ffi.dylib"]
+    return ["libuocr-ffi.so"]
+
+
 def default_llama_binary() -> Path:
     if os.name == "nt":
         candidates = [
@@ -31,6 +39,34 @@ def default_llama_binary() -> Path:
             PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
             LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / f"llama-uocr-parity{_exe_suffix()}",
         ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def default_ffi_library() -> Path:
+    candidates: list[Path] = []
+    names = _ffi_library_names()
+    for name in names:
+        candidates.extend(sorted(PORTABLE_THIRDPARTY.glob(f"uocr-runtime/*/bin/{name}")))
+    for name in names:
+        if os.name == "nt":
+            candidates.extend(
+                [
+                    PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / name,
+                    PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / name,
+                    LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / "Release" / name,
+                    LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / name,
+                ]
+            )
+        else:
+            candidates.extend(
+                [
+                    PORTABLE_THIRDPARTY / "llama.cpp" / "build" / "bin" / name,
+                    LEGACY_THIRDPARTY / "llama.cpp" / "build" / "bin" / name,
+                ]
+            )
     for candidate in candidates:
         if candidate.exists():
             return candidate

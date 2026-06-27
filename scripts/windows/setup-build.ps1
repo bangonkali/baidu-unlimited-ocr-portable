@@ -456,6 +456,13 @@ function Invoke-Doctor {
                 Add-DoctorResult $results "downloaded runtime $exe" "WARN" "$exe.exe is not installed yet; setup-build.ps1 downloads it from GitHub."
             }
         }
+        $ffiPath = Find-DownloadedFile -RepoRoot $RepoRoot -Name "uocr-ffi.dll"
+        if ($ffiPath) {
+            Add-DoctorResult $results "downloaded runtime uocr-ffi.dll" "OK" $ffiPath
+        }
+        else {
+            Add-DoctorResult $results "downloaded runtime uocr-ffi.dll" "WARN" "uocr-ffi.dll is not installed yet; setup-build.ps1 downloads it from GitHub."
+        }
     }
 
     if ($NeedBuild) {
@@ -467,6 +474,13 @@ function Invoke-Doctor {
             catch {
                 Add-DoctorResult $results "build output $exe" "WARN" "$exe.exe is not built yet; setup-build.ps1 builds it."
             }
+        }
+        try {
+            $ffiPath = Find-BuiltFile -BuildDir $BuildDir -Name "uocr-ffi.dll"
+            Add-DoctorResult $results "build output uocr-ffi.dll" "OK" $ffiPath
+        }
+        catch {
+            Add-DoctorResult $results "build output uocr-ffi.dll" "WARN" "uocr-ffi.dll is not built yet; setup-build.ps1 builds it."
         }
     }
 
@@ -516,6 +530,19 @@ function Find-BuiltExe {
     return $match.FullName
 }
 
+function Find-BuiltFile {
+    param(
+        [string] $BuildDir,
+        [string] $Name
+    )
+    $match = Get-ChildItem -Path $BuildDir -Recurse -Filter $Name -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $match) {
+        throw "Built file not found under ${BuildDir}: $Name"
+    }
+    return $match.FullName
+}
+
 function Find-DownloadedExe {
     param(
         [string] $RepoRoot,
@@ -526,6 +553,24 @@ function Find-DownloadedExe {
         return ""
     }
     $match = Get-ChildItem -Path $runtimeRoot -Recurse -Filter "$Name.exe" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "\\bin\\" } |
+        Select-Object -First 1
+    if (-not $match) {
+        return ""
+    }
+    return $match.FullName
+}
+
+function Find-DownloadedFile {
+    param(
+        [string] $RepoRoot,
+        [string] $Name
+    )
+    $runtimeRoot = Join-Path $RepoRoot "thirdparty\uocr-runtime"
+    if (-not (Test-Path $runtimeRoot)) {
+        return ""
+    }
+    $match = Get-ChildItem -Path $runtimeRoot -Recurse -Filter $Name -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -match "\\bin\\" } |
         Select-Object -First 1
     if (-not $match) {
@@ -673,6 +718,9 @@ if ($RuntimeSource -eq "download" -or $RuntimeSource -eq "auto") {
             if (-not $env:UOCR_LLAMA_SERVER_BIN) {
                 $env:UOCR_LLAMA_SERVER_BIN = Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-server"
             }
+            if (-not $env:UOCR_FFI_LIB) {
+                $env:UOCR_FFI_LIB = Find-DownloadedFile -RepoRoot $RepoRoot -Name "uocr-ffi.dll"
+            }
         }
         else {
             $RuntimeSourceActual = "build"
@@ -726,7 +774,7 @@ if ($RuntimeSourceActual -eq "build" -and -not $SkipBuild) {
     Invoke-Checked -File "cmake" -Arguments @(
         "--build", $BuildDir,
         "--config", $Config,
-        "--target", "llama-mtmd-cli", "llama-uocr-parity", "llama-server",
+        "--target", "llama-mtmd-cli", "llama-uocr-parity", "llama-server", "uocr-ffi",
         "--parallel"
     ) -WorkingDirectory $RepoRoot
 }
@@ -736,16 +784,18 @@ if ($RuntimeSourceActual -eq "build") {
     $uocrExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-uocr-parity"
     $mtmdExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-mtmd-cli"
     $serverExe = Find-BuiltExe -BuildDir $BuildDir -Name "llama-server"
+    $ffiLib = Find-BuiltFile -BuildDir $BuildDir -Name "uocr-ffi.dll"
 }
 else {
     $uocrExe = $env:UOCR_LLAMA_BIN
     $mtmdExe = if ($env:UOCR_LLAMA_MTMD_BIN) { $env:UOCR_LLAMA_MTMD_BIN } else { Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-mtmd-cli" }
     $serverExe = if ($env:UOCR_LLAMA_SERVER_BIN) { $env:UOCR_LLAMA_SERVER_BIN } else { Find-DownloadedExe -RepoRoot $RepoRoot -Name "llama-server" }
+    $ffiLib = if ($env:UOCR_FFI_LIB) { $env:UOCR_FFI_LIB } else { Find-DownloadedFile -RepoRoot $RepoRoot -Name "uocr-ffi.dll" }
 }
 $modelPath = Join-Path $ModelDir ($Models[0])
 $mmprojPath = Join-Path $ModelDir "mmproj-Unlimited-OCR-F16.gguf"
 
-foreach ($path in @($uocrExe, $mtmdExe, $serverExe, $modelPath, $mmprojPath)) {
+foreach ($path in @($uocrExe, $mtmdExe, $serverExe, $ffiLib, $modelPath, $mmprojPath)) {
     if (-not (Test-Path $path)) {
         throw "Expected file is missing: $path"
     }
@@ -775,6 +825,7 @@ Add-EnvLine -Lines $envLines -Name "UOCR_RUNTIME_ROOT" -Value $env:UOCR_RUNTIME_
 Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_BIN" -Value $uocrExe
 Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_MTMD_BIN" -Value $mtmdExe
 Add-EnvLine -Lines $envLines -Name "UOCR_LLAMA_SERVER_BIN" -Value $serverExe
+Add-EnvLine -Lines $envLines -Name "UOCR_FFI_LIB" -Value $ffiLib
 Add-EnvLine -Lines $envLines -Name "UOCR_MODEL" -Value $modelPath
 Add-EnvLine -Lines $envLines -Name "UOCR_MMPROJ" -Value $mmprojPath
 Add-EnvLine -Lines $envLines -Name "UOCR_CLIENT_HOST" -Value "127.0.0.1"

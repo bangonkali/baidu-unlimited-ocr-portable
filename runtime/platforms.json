@@ -22,6 +22,9 @@
         "llama-server"
       ],
       "primary_binary": "llama-uocr-parity",
+      "required_libraries": [
+        "libuocr-ffi.dylib"
+      ],
       "library_globs": [
         "*.dylib"
       ],
@@ -64,6 +67,9 @@
         "llama-server"
       ],
       "primary_binary": "llama-uocr-parity",
+      "required_libraries": [
+        "libuocr-ffi.so"
+      ],
       "library_globs": [
         "*.so",
         "*.so.*"
@@ -108,6 +114,9 @@
         "llama-server.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
+      "required_libraries": [
+        "uocr-ffi.dll"
+      ],
       "library_globs": [
         "*.dll"
       ],

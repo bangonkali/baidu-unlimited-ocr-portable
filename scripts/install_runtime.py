@@ -382,6 +382,20 @@ def installed_paths(root: Path, entry: dict[str, Any]) -> dict[str, str]:
     }
     mtmd = bin_dir / ("llama-mtmd-cli.exe" if os.name == "nt" else "llama-mtmd-cli")
     server = bin_dir / ("llama-server.exe" if os.name == "nt" else "llama-server")
+    ffi_layout = entry.get("layout", {}).get("ffi_library")
+    if ffi_layout:
+        ffi_lib = root / ffi_layout
+        if ffi_lib.exists():
+            paths["UOCR_FFI_LIB"] = str(ffi_lib)
+    if "UOCR_FFI_LIB" not in paths:
+        ffi_names = ["uocr-ffi.dll", "libuocr-ffi.dll"] if os.name == "nt" else (
+            ["libuocr-ffi.dylib"] if sys.platform == "darwin" else ["libuocr-ffi.so"]
+        )
+        for ffi_name in ffi_names:
+            ffi_lib = bin_dir / ffi_name
+            if ffi_lib.exists():
+                paths["UOCR_FFI_LIB"] = str(ffi_lib)
+                break
     if mtmd.exists():
         paths["UOCR_LLAMA_MTMD_BIN"] = str(mtmd)
     if server.exists():
@@ -446,7 +460,8 @@ def install_runtime(args: argparse.Namespace) -> None:
             manifest = json.loads(installed_manifest.read_text(encoding="utf-8"))
             if manifest.get("archive_sha256") == entry.get("archive_sha256"):
                 env = installed_paths(install_dir, manifest)
-                if Path(env["UOCR_LLAMA_BIN"]).exists():
+                ffi_env = env.get("UOCR_FFI_LIB")
+                if Path(env["UOCR_LLAMA_BIN"]).exists() and ffi_env and Path(ffi_env).exists():
                     eprint(f"Using cached runtime: {install_dir}")
                     if args.print_env:
                         emit_env(env, args.print_env)
