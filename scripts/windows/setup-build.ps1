@@ -90,8 +90,15 @@ function Invoke-CommandProbe {
 
     Push-Location $WorkingDirectory
     try {
-        $output = & $File @Arguments 2>&1
-        $exitCode = $LASTEXITCODE
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $output = & $File @Arguments 2>&1
+            $exitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
         return [pscustomobject]@{
             Ok = ($exitCode -eq 0)
             ExitCode = $exitCode
@@ -230,6 +237,34 @@ function Test-UsableFile {
     return $item.Length -gt 0
 }
 
+function Get-ModelFileNames {
+    param(
+        [string[]] $Models,
+        [bool] $IncludeDiagnostics
+    )
+
+    $files = @("mmproj-Unlimited-OCR-F16.gguf") + $Models
+    if ($IncludeDiagnostics) {
+        $files += @(
+            "Unlimited-OCR-Q5_K_M.gguf",
+            "Unlimited-OCR-Q6_K.gguf",
+            "Unlimited-OCR-BF16.gguf"
+        )
+    }
+    return $files | Select-Object -Unique
+}
+
+function Get-MissingModelFiles {
+    param(
+        [string] $ModelDir,
+        [string[]] $Files
+    )
+
+    return @($Files | Where-Object {
+        -not (Test-UsableFile (Join-Path $ModelDir $_))
+    })
+}
+
 function Invoke-Doctor {
     param(
         [string] $RepoRoot,
@@ -239,7 +274,9 @@ function Invoke-Doctor {
         [string] $ModelRepo,
         [string[]] $Models,
         [bool] $IncludeDiagnostics,
-        [string] $BuildDir
+        [string] $BuildDir,
+        [bool] $ForceModelDownload,
+        [bool] $NeedModelDownload
     )
 
     Write-Step "Running portable build doctor"
@@ -282,8 +319,12 @@ function Invoke-Doctor {
 
     $toolChecks = @(
         @{ Name = "git"; Args = @("--version"); Reason = "clone/update git submodules" },
-        @{ Name = "uv"; Args = @("--version"); Reason = "sync Python/Gradio dependencies" },
-        @{ Name = "hf"; Args = @("--version"); Reason = "download GGUF assets from Hugging Face" },
+        @{ Name = "uv"; Args = @("--version"); Reason = "sync Python/Gradio dependencies" }
+    )
+    if ($NeedModelDownload) {
+        $toolChecks += @{ Name = "hf"; Args = @("--version"); Reason = "download GGUF assets from Hugging Face" }
+    }
+    $toolChecks += @(
         @{ Name = "cmake"; Args = @("--version"); Reason = "configure and build llama.cpp" },
         @{ Name = "cl.exe"; Args = @(); Reason = "MSVC C/C++ compiler from Visual Studio Developer PowerShell"; PresenceOnly = $true },
         @{ Name = "nvcc"; Args = @("--version"); Reason = "CUDA compiler for GGML_CUDA" },
@@ -349,25 +390,26 @@ function Invoke-Doctor {
         }
     }
 
-    if (Test-Tool "hf") {
-        $hfProbe = Invoke-CommandProbe -File "hf" -Arguments @("auth", "whoami") -WorkingDirectory $RepoRoot
-        if ($hfProbe.Ok) {
-            Add-DoctorResult $results "Hugging Face auth" "OK" (($hfProbe.Text -split "`r?`n" | Select-Object -First 1) -join "")
+    $requiredFiles = @(Get-ModelFileNames -Models $Models -IncludeDiagnostics $IncludeDiagnostics)
+    $missingModelFiles = @(Get-MissingModelFiles -ModelDir $ModelDir -Files $requiredFiles)
+    $needsHfAuth = $NeedModelDownload -and ($ForceModelDownload -or $missingModelFiles.Count -gt 0)
+
+    if ($needsHfAuth) {
+        if (Test-Tool "hf") {
+            $hfProbe = Invoke-CommandProbe -File "hf" -Arguments @("auth", "whoami") -WorkingDirectory $RepoRoot
+            if ($hfProbe.Ok) {
+                Add-DoctorResult $results "Hugging Face auth" "OK" (($hfProbe.Text -split "`r?`n" | Select-Object -First 1) -join "")
+            }
+            else {
+                Add-DoctorResult $results "Hugging Face auth" "FAIL" "hf auth whoami failed with exit code $($hfProbe.ExitCode): $($hfProbe.Text)"
+            }
         }
-        else {
-            Add-DoctorResult $results "Hugging Face auth" "FAIL" "hf auth whoami failed. Log in with hf auth login before setup."
-        }
+    }
+    elseif ($NeedModelDownload) {
+        Add-DoctorResult $results "Hugging Face auth" "OK" "All requested model assets are already present; no download authentication needed."
     }
 
-    $requiredFiles = @("mmproj-Unlimited-OCR-F16.gguf") + $Models
-    if ($IncludeDiagnostics) {
-        $requiredFiles += @(
-            "Unlimited-OCR-Q5_K_M.gguf",
-            "Unlimited-OCR-Q6_K.gguf",
-            "Unlimited-OCR-BF16.gguf"
-        )
-    }
-    foreach ($file in ($requiredFiles | Select-Object -Unique)) {
+    foreach ($file in $requiredFiles) {
         $path = Join-Path $ModelDir $file
         if (Test-UsableFile $path) {
             Add-DoctorResult $results "model asset $file" "OK" $path
@@ -448,7 +490,9 @@ if ($Doctor) {
         -ModelRepo $ModelRepo `
         -Models $Models `
         -IncludeDiagnostics:$IncludeDiagnostics `
-        -BuildDir $BuildDir
+        -BuildDir $BuildDir `
+        -ForceModelDownload:$ForceModelDownload `
+        -NeedModelDownload:(-not $SkipModelDownload)
     return
 }
 
@@ -489,19 +533,19 @@ if (-not $SkipPythonSync) {
 }
 
 if (-not $SkipModelDownload) {
-    Write-Step "Checking Hugging Face authentication"
-    Invoke-Checked -File "hf" -Arguments @("auth", "whoami") -WorkingDirectory $RepoRoot
+    $files = @(Get-ModelFileNames -Models $Models -IncludeDiagnostics $IncludeDiagnostics)
+    $missingModelFiles = @(Get-MissingModelFiles -ModelDir $ModelDir -Files $files)
+    if ($ForceModelDownload -or $missingModelFiles.Count -gt 0) {
+        Write-Step "Checking Hugging Face authentication"
+        Invoke-Checked -File "hf" -Arguments @("auth", "whoami") -WorkingDirectory $RepoRoot
+    }
+    else {
+        Write-Step "Checking Hugging Face authentication"
+        Write-Host "All requested GGUF assets are already present; skipping Hugging Face authentication."
+    }
 
     Write-Step "Downloading GGUF assets"
-    $files = @("mmproj-Unlimited-OCR-F16.gguf") + $Models
-    if ($IncludeDiagnostics) {
-        $files += @(
-            "Unlimited-OCR-Q5_K_M.gguf",
-            "Unlimited-OCR-Q6_K.gguf",
-            "Unlimited-OCR-BF16.gguf"
-        )
-    }
-    $files | Select-Object -Unique | ForEach-Object {
+    $files | ForEach-Object {
         Download-HfFile `
             -Repo $ModelRepo `
             -FileName $_ `

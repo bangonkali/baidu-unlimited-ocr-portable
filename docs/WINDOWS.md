@@ -34,8 +34,8 @@ cuda_13.3.r13.3/compiler.37862127_0
 Create the workspace, clone the portable repo recursively, and run the doctor
 preflight first. Doctor does not download models or build native code; it
 checks the repo, submodule, required command-line tools, Visual Studio shell,
-CUDA/GPU visibility, Hugging Face auth, lockfile, and local model/build cache
-status.
+CUDA/GPU visibility, Hugging Face auth when downloads are needed, lockfile, and
+local model/build cache status.
 
 ```powershell
 mkdir C:\uocr
@@ -79,7 +79,7 @@ The setup script checks:
 - `nvidia-smi`
 - Git submodules via `git submodule update --init --recursive`.
 - Python/Gradio dependencies via `uv sync --frozen`.
-- Hugging Face authorization via `hf auth whoami`
+- Hugging Face authorization via `hf auth whoami` when model downloads are needed.
 - GGUF downloads into `models\`.
 - built `llama-uocr-parity.exe`, `llama-mtmd-cli.exe`, and `llama-server.exe`
 - required GGUF files under
