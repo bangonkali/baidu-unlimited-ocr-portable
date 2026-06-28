@@ -151,6 +151,8 @@
     .drop-formats { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
     .format-chip { font-family: var(--font-mono); font-size: 9px; padding: 2px 8px; border-radius: 3px; background: var(--bg-deep); border: 1px solid var(--border); color: var(--text-muted); }
     #single-image-wrap, .pdf-page-wrap { position: relative; width: 100%; max-width: 800px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .pdf-page-wrap.active-page { outline: 2px solid var(--teal); outline-offset: 4px; }
+    .pdf-page-wrap.page-error { outline: 2px solid var(--red); outline-offset: 4px; }
     #single-image-wrap img, .pdf-page-wrap canvas { display: block; width: 100%; height: auto; }
     .annotation-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     #pdf-canvas-wrap { display: none; flex-direction: column; gap: 24px; width: 100%; max-width: 800px; }
@@ -506,6 +508,24 @@ function drawBoxes(text, pageIndex = null, boxesOverride = null) {
   }
 }
 
+function setActivePdfPage(pageIndex, error = false) {
+  document.querySelectorAll('.pdf-page-wrap').forEach(wrap => {
+    wrap.classList.remove('active-page');
+  });
+  const targetWrap = document.getElementById(`pdf-page-wrap-${pageIndex}`);
+  if (!targetWrap) return;
+  if (error) targetWrap.classList.add('page-error');
+  else {
+    targetWrap.classList.remove('page-error');
+    targetWrap.classList.add('active-page');
+  }
+  const scrollContainer = document.getElementById('left-scroll-container');
+  scrollContainer.scrollTo({
+    top: Math.max(0, targetWrap.offsetTop - 24),
+    behavior: 'smooth',
+  });
+}
+
 async function loadFile(file) {
   currentFile = file;
   currentPdfSession = null;
@@ -637,20 +657,21 @@ async function runPDF(ocrDiv) {
   document.getElementById('page-count').textContent = total;
   document.getElementById('page-info').style.display = 'flex';
   ocrDiv.textContent = '';
-  const pageSlots = [];
+  const pageSlots = new Array(total).fill(null);
   const pageTexts = new Array(total).fill('');
-  for (let i = 0; i < total; i++) {
+
+  function ensurePageSlot(i) {
+    if (pageSlots[i]) return pageSlots[i];
     const sep = document.createElement('div');
     sep.style.cssText = 'margin:10px 0 5px;font-size:9px;letter-spacing:.1em;color:var(--text-muted);border-bottom:1px solid var(--border-soft);padding-bottom:3px;';
     sep.textContent = `-- PAGE ${i + 1} / ${total} --`;
     ocrDiv.appendChild(sep);
     const slot = document.createElement('div');
     slot.style.cssText = 'color:var(--text-muted);font-size:11px;padding:3px 0;';
-    slot.innerHTML = '<span class="cursor"></span> queued for native OCR...';
     ocrDiv.appendChild(slot);
-    pageSlots.push(slot);
+    pageSlots[i] = slot;
+    return slot;
   }
-  scrollOutputBottom();
 
   const formData = new FormData();
   formData.append('session_id', currentPdfSession);
@@ -661,12 +682,29 @@ async function runPDF(ocrDiv) {
   let fullText = '';
   try {
     await streamPayloads('/api/run_ocr_pdf', formData, payload => {
-      if (payload.error) throw new Error(payload.error);
-      if (payload.event === 'page_start') {
+      if (payload.error) {
+        const recoverablePageError = Boolean(payload.metadata?.runaway_generation);
+        if (typeof payload.page_index === 'number') {
+          const i = payload.page_index;
+          const slot = ensurePageSlot(i);
+          setActivePdfPage(i, true);
+          slot.style.color = 'var(--red)';
+          slot.textContent = `ERROR: ${payload.error}`;
+          if (payload.page_done) setProgressValue(Math.round(((i + 1) / total) * 100));
+        }
+        if (recoverablePageError) return;
+        throw new Error(payload.error);
+      }
+      if (payload.event === 'page_start' || payload.event === 'page_retry') {
         const i = payload.page_index;
-        setStatus('running', `RUNNING - PAGE ${i + 1} / ${total}`);
+        const retrying = payload.event === 'page_retry';
+        setStatus('running', `${retrying ? 'RETRYING' : 'RUNNING'} - PAGE ${i + 1} / ${total}`);
         setProgressValue(Math.round((i / total) * 100));
-        pageSlots[i].innerHTML = '<span class="cursor"></span> waiting for native OCR...';
+        setActivePdfPage(i);
+        pageTexts[i] = '';
+        ensurePageSlot(i).innerHTML = retrying
+          ? `<span class="cursor"></span> retrying native OCR with ${escapeSvgText(payload.metadata?.retry_profile ?? 'fallback profile')}...`
+          : '<span class="cursor"></span> waiting for native OCR...';
         scrollOutputBottom();
         return;
       }
@@ -677,9 +715,10 @@ async function runPDF(ocrDiv) {
       if (typeof payload.page_index !== 'number') return;
       const i = payload.page_index;
       const pageText = payload.text ?? '';
+      const slot = ensurePageSlot(i);
       pageTexts[i] = pageText;
-      pageSlots[i].style.color = 'var(--text-primary)';
-      pageSlots[i].textContent = pageText || (payload.page_done ? '(no text detected)' : '');
+      slot.style.color = 'var(--text-primary)';
+      slot.textContent = pageText || (payload.page_done ? '(no text detected)' : '');
       drawBoxes(pageText, i, payload.boxes);
       fullText = pageTexts.filter(Boolean).join('\n\n');
       charCount = fullText.length;
@@ -687,7 +726,7 @@ async function runPDF(ocrDiv) {
       document.getElementById('token-display').style.display = 'flex';
       if (payload.page_done) setProgressValue(Math.round(((i + 1) / total) * 100));
       scrollOutputBottom();
-    });
+    }, payload => payload.event === 'pdf_done');
   } catch (err) {
     if (stopRequested) return finishStop(ocrDiv);
     return showError(ocrDiv, err.message);
@@ -696,7 +735,7 @@ async function runPDF(ocrDiv) {
   finishDone(fullText);
 }
 
-async function streamPayloads(url, formData, onPayload) {
+async function streamPayloads(url, formData, onPayload, shouldStop = payload => payload.done) {
   const response = await fetch(url, { method: 'POST', body: formData, signal: abortController.signal });
   if (!response.ok) throw new Error(await response.text());
   if (!response.body) throw new Error('Streaming response is not available.');
@@ -713,10 +752,14 @@ async function streamPayloads(url, formData, onPayload) {
       if (!line.trim()) continue;
       const payload = JSON.parse(line);
       onPayload(payload);
-      if (payload.done) return;
+      if (shouldStop(payload)) return;
     }
   }
-  if (buffer.trim()) onPayload(JSON.parse(buffer));
+  if (buffer.trim()) {
+    const payload = JSON.parse(buffer);
+    onPayload(payload);
+    if (shouldStop(payload)) return;
+  }
 }
 
 function stopOCR() {

@@ -34,6 +34,15 @@ from .config import (
 
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+COUNTING_RUN_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9_.-])\d{2,6}(?![A-Za-z0-9_.-])")
+HISTOGRAM_RUN_ENTRY_RE = re.compile(r"(?<![A-Za-z0-9_.-])(\d{1,6})\s*:\s*1(?![A-Za-z0-9_.-])")
+REPEATED_NUMBER_RUN_RE = re.compile(r"(?<![A-Za-z0-9_.-])(\d{1,6})\.?(?![A-Za-z0-9_.-])")
+COUNTING_RUN_SEPARATOR_RE = re.compile(r"^[\s,;:/|()\[\]{}<>-]*$")
+ORPHAN_DET_CLOSE_PREFIX_RE = re.compile(
+    r"^\s*,?\s*\[\s*\d+(?:\s*,\s*\d+){3}\s*\]\s*<\|/det\|>\s*"
+)
+REPEATED_NUMBER_PREFIX_RE = re.compile(r"^\s*(?:[,;:\s]*\d{1,6}\.\s*){6,}")
+REPEATED_COMMA_PREFIX_RE = re.compile(r"^\s*(?:,\s*){6,}")
 LOG_PREFIXES = (
     "build:",
     "clip_",
@@ -95,6 +104,125 @@ class NativeEvent:
     kind: str
     text: str = ""
     metadata: dict | None = None
+
+
+class RunawayGenerationGuard:
+    def __init__(self) -> None:
+        self.min_run = max(8, int(os.environ.get("UOCR_RUNAWAY_NUMBER_MIN_RUN", "48")))
+        self.min_repeat_run = max(12, int(os.environ.get("UOCR_RUNAWAY_REPEAT_MIN_RUN", "64")))
+        self.tail_chars = max(1000, int(os.environ.get("UOCR_RUNAWAY_TAIL_CHARS", "12000")))
+        self.text = ""
+        self.triggered = False
+        self.reason = ""
+        self.tail = ""
+
+    def append(self, text: str) -> bool:
+        if self.triggered:
+            return True
+        self.text += text
+        return self._check_counting_run() or self._check_histogram_run() or self._check_repeated_number_run()
+
+    def _check_counting_run(self) -> bool:
+        base = max(0, len(self.text) - self.tail_chars)
+        tail = self.text[base:]
+        matches = list(COUNTING_RUN_NUMBER_RE.finditer(tail))
+        return self._check_numeric_matches(
+            tail=tail,
+            base=base,
+            matches=matches,
+            min_run=self.min_run,
+            mode="increment",
+            reason="Stopped runaway numeric counting output from the native OCR model. "
+            "This page likely triggered a hallucinated sequence instead of stable OCR.",
+        )
+
+    def _check_histogram_run(self) -> bool:
+        base = max(0, len(self.text) - self.tail_chars)
+        tail = self.text[base:]
+        matches = list(HISTOGRAM_RUN_ENTRY_RE.finditer(tail))
+        return self._check_numeric_matches(
+            tail=tail,
+            base=base,
+            matches=matches,
+            min_run=self.min_run,
+            mode="increment",
+            reason="Stopped runaway numeric histogram output from the native OCR model. "
+            "This page likely triggered a hallucinated token-frequency sequence instead of stable OCR.",
+        )
+
+    def _check_repeated_number_run(self) -> bool:
+        base = max(0, len(self.text) - self.tail_chars)
+        tail = self.text[base:]
+        matches = list(REPEATED_NUMBER_RUN_RE.finditer(tail))
+        return self._check_numeric_matches(
+            tail=tail,
+            base=base,
+            matches=matches,
+            min_run=self.min_repeat_run,
+            mode="repeat",
+            reason="Stopped runaway repeated-number output from the native OCR model. "
+            "This page likely triggered a hallucinated repeated numeric sequence instead of stable OCR.",
+        )
+
+    def _check_numeric_matches(
+        self,
+        *,
+        tail: str,
+        base: int,
+        matches: list[re.Match[str]],
+        min_run: int,
+        mode: str,
+        reason: str,
+    ) -> bool:
+        if len(matches) < min_run:
+            return False
+
+        run_start = 0
+        run_length = 1
+        previous = int(matches[0].group(1) if matches[0].lastindex else matches[0].group())
+        for index in range(1, len(matches)):
+            current = int(matches[index].group(1) if matches[index].lastindex else matches[index].group())
+            gap = tail[matches[index - 1].end() : matches[index].start()]
+            if mode == "increment":
+                run_continues = current == previous + 1
+            elif mode == "repeat":
+                run_continues = current == previous
+            else:
+                run_continues = False
+            separator_only = len(gap) <= 12 and bool(COUNTING_RUN_SEPARATOR_RE.fullmatch(gap))
+            if run_continues and separator_only:
+                run_length += 1
+            else:
+                run_start = index
+                run_length = 1
+            previous = current
+
+            if run_length >= min_run:
+                start = matches[run_start].start()
+                self.triggered = True
+                self.tail = tail[start : matches[index].end()][-2000:]
+                self.reason = reason
+                return True
+        return False
+
+
+def detect_recoverable_output_issue(text: str) -> str | None:
+    guard = RunawayGenerationGuard()
+    if guard.append(text):
+        return guard.reason
+    return None
+
+
+def strip_output_artifacts(text: str) -> str:
+    changed = True
+    while changed:
+        changed = False
+        for pattern in (ORPHAN_DET_CLOSE_PREFIX_RE, REPEATED_NUMBER_PREFIX_RE, REPEATED_COMMA_PREFIX_RE):
+            updated = pattern.sub("", text, count=1)
+            if updated != text:
+                text = updated
+                changed = True
+    return text.strip()
 
 
 def profile_by_key(key: str) -> CandidateProfile:
@@ -603,6 +731,7 @@ def _stream_ffi_ocr(
 
     events: queue.Queue[NativeEvent | None] = queue.Queue()
     stdout_parts: list[str] = []
+    guard = RunawayGenerationGuard()
 
     def worker() -> None:
         callback_ref: _UocrFfiEventCallback | None = None
@@ -612,6 +741,8 @@ def _stream_ffi_ocr(
                 if event.type == UOCR_FFI_EVENT_TOKEN and event.text_utf8 and event.text_len:
                     text = ctypes.string_at(event.text_utf8, event.text_len).decode("utf-8", errors="replace")
                     stdout_parts.append(text)
+                    if guard.append(text):
+                        return 1
                     events.put(NativeEvent("token", text=text))
                 return 0
 
@@ -653,16 +784,20 @@ def _stream_ffi_ocr(
                 )
             else:
                 error = _ffi_last_error(session.lib, session.handle)
+                if guard.triggered:
+                    error = guard.reason
                 events.put(
                     NativeEvent(
                         "error",
-                        text="".join(stdout_parts),
+                        text="" if guard.triggered else "".join(stdout_parts),
                         metadata={
                             "error": error or f"native ffi runtime returned status {status}",
                             "exit_code": status,
                             "elapsed_ms": elapsed_ms,
                             "backend": "ffi",
                             "ffi_library": str(session.library_path),
+                            "runaway_generation": guard.triggered,
+                            "runaway_tail": guard.tail if guard.triggered else "",
                             "stderr_tail": error[-4000:],
                         },
                     )
@@ -1068,7 +1203,7 @@ def clean_generated_text(text: str) -> str:
         if "tokens/s" in lowered or "token/s" in lowered:
             continue
         cleaned_lines.append(line)
-    return "".join(cleaned_lines).strip()
+    return strip_output_artifacts("".join(cleaned_lines).strip())
 
 
 def command_text(argv: list[str]) -> str:

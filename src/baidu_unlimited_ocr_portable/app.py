@@ -25,6 +25,7 @@ from .native_runner import (
     RUNTIME_BACKENDS,
     RuntimePaths,
     clean_generated_text,
+    detect_recoverable_output_issue,
     normalize_runtime_backend,
     profile_by_key,
     stream_ocr,
@@ -36,6 +37,7 @@ from .pdf import pdf_to_images
 IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 PDF_SESSIONS: dict[str, list[str]] = {}
+PDF_RETRY_PROFILE = os.environ.get("UOCR_PDF_RETRY_PROFILE", "experimental-exact-prefill-q4")
 
 
 def _profile_label(profile_key: str) -> str:
@@ -180,6 +182,18 @@ def _runtime_backend(value: str | None) -> str:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _is_recoverable_page_issue(payload: dict[str, Any]) -> bool:
+    metadata = payload.get("metadata") or {}
+    return bool(metadata.get("runaway_generation") or metadata.get("hallucinated_output"))
+
+
+def _pdf_attempt_profiles(candidate_profile: str) -> list[str]:
+    profiles = [candidate_profile]
+    if PDF_RETRY_PROFILE in CANDIDATE_PROFILES and PDF_RETRY_PROFILE not in profiles:
+        profiles.append(PDF_RETRY_PROFILE)
+    return profiles
+
+
 def _stream_native_ocr(
     *,
     image_path: str,
@@ -260,7 +274,8 @@ def _stream_native_ocr(
             continue
 
         native_meta = event.metadata or {}
-        final_text = clean_generated_text(event.text or accumulated)
+        raw_final_text = event.text or accumulated
+        final_text = clean_generated_text(raw_final_text)
         if event.kind == "error":
             if not final_text and native_meta.get("stderr_tail"):
                 final_text = str(native_meta["stderr_tail"])
@@ -276,6 +291,30 @@ def _stream_native_ocr(
                     page_count=page_count,
                     page_done=True,
                     error=str(native_meta.get("error") or "Native OCR failed."),
+                )
+            )
+            return
+
+        quality_issue = detect_recoverable_output_issue(raw_final_text)
+        if quality_issue:
+            native_meta = {
+                **native_meta,
+                "error": quality_issue,
+                "runaway_generation": True,
+                "hallucinated_output": True,
+            }
+            yield _ndjson(
+                _payload(
+                    text="",
+                    done=True,
+                    profile_key=profile_key,
+                    image_path=image_path,
+                    native=native_meta,
+                    include_preview=True,
+                    page_index=page_index,
+                    page_count=page_count,
+                    page_done=True,
+                    error=quality_issue,
                 )
             )
             return
@@ -304,32 +343,77 @@ def _stream_pdf_session_ocr(
     runtime_backend: str,
 ) -> Iterator[bytes]:
     page_texts = [""] * len(pages)
+    attempt_profiles = _pdf_attempt_profiles(candidate_profile)
     for index, image_path in enumerate(pages):
-        yield _ndjson(
-            {
-                "event": "page_start",
-                "page_index": index,
-                "page_count": len(pages),
-                "done": False,
-                "text": "",
-                "boxes": [],
-            }
-        )
-        for chunk in _stream_native_ocr(
-            image_path=image_path,
-            prompt=prompt,
-            candidate_profile=candidate_profile,
-            max_tokens=max_tokens,
-            runtime_backend=runtime_backend,
-            page_index=index,
-            page_count=len(pages),
-        ):
-            payload = json.loads(chunk.decode("utf-8"))
-            if payload.get("page_done"):
-                page_texts[index] = payload.get("text") or ""
-            yield _ndjson(payload)
-            if payload.get("error"):
+        for attempt_index, active_profile in enumerate(attempt_profiles):
+            attempt = attempt_index + 1
+            is_retry = attempt > 1
+            sys.stderr.write(
+                f"pdf_page_{'retry' if is_retry else 'start'} page={index + 1}/{len(pages)} "
+                f"attempt={attempt}/{len(attempt_profiles)} profile={active_profile} image={image_path}\n"
+            )
+            yield _ndjson(
+                {
+                    "event": "page_retry" if is_retry else "page_start",
+                    "page_index": index,
+                    "page_count": len(pages),
+                    "done": False,
+                    "text": "",
+                    "boxes": [],
+                    "metadata": {
+                        "attempt": attempt,
+                        "profile_key": active_profile,
+                        "retry": is_retry,
+                        "retry_profile": active_profile if is_retry else None,
+                    },
+                }
+            )
+
+            retry_page = False
+            stop_pdf = False
+            for chunk in _stream_native_ocr(
+                image_path=image_path,
+                prompt=prompt,
+                candidate_profile=active_profile,
+                max_tokens=max_tokens,
+                runtime_backend=runtime_backend,
+                page_index=index,
+                page_count=len(pages),
+            ):
+                payload = json.loads(chunk.decode("utf-8"))
+                recoverable_issue = bool(payload.get("error") and _is_recoverable_page_issue(payload))
+                has_retry_left = recoverable_issue and attempt_index + 1 < len(attempt_profiles)
+                if payload.get("page_done"):
+                    page_text = payload.get("text") or ""
+                    if recoverable_issue:
+                        page_text = ""
+                    page_texts[index] = page_text
+                    sys.stderr.write(
+                        f"pdf_page_done page={index + 1}/{len(pages)} "
+                        f"attempt={attempt}/{len(attempt_profiles)} profile={active_profile} "
+                        f"chars={len(page_texts[index])} error={payload.get('error') or ''}\n"
+                    )
+                if has_retry_left:
+                    sys.stderr.write(
+                        f"pdf_page_retry_scheduled page={index + 1}/{len(pages)} "
+                        f"from_profile={active_profile} to_profile={attempt_profiles[attempt_index + 1]} "
+                        f"reason={payload.get('error') or ''}\n"
+                    )
+                    retry_page = True
+                    break
+
+                yield _ndjson(payload)
+                if payload.get("error"):
+                    if recoverable_issue:
+                        break
+                    stop_pdf = True
+                    break
+
+            if stop_pdf:
                 return
+            if retry_page:
+                continue
+            break
     full_text = "\n\n".join(text for text in page_texts if text)
     yield _ndjson(
         {
