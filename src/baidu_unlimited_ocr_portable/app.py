@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -19,6 +20,7 @@ from .config import (
     DEFAULT_CANDIDATE_PROFILE,
     DEFAULT_PROMPT_PROFILE,
     PROMPT_PROFILES,
+    CandidateProfile,
 )
 from .native_runner import (
     DEFAULT_RUNTIME_BACKEND,
@@ -97,6 +99,9 @@ def _config_payload() -> dict[str, Any]:
                 "engine_name": profile.engine_name,
                 "description": profile.description,
                 "default_max_tokens": profile.default_max_tokens,
+                "ngram_size": profile.ngram_size,
+                "ngram_window": profile.ngram_window,
+                "pdf_ngram_window": profile.pdf_ngram_window,
             }
             for key, profile in CANDIDATE_PROFILES.items()
         ],
@@ -194,6 +199,13 @@ def _pdf_attempt_profiles(candidate_profile: str) -> list[str]:
     return profiles
 
 
+def _pdf_effective_profile(profile_key: str) -> CandidateProfile:
+    profile = profile_by_key(profile_key)
+    if profile.pdf_ngram_window > 0 and profile.pdf_ngram_window != profile.ngram_window:
+        return replace(profile, ngram_window=profile.pdf_ngram_window)
+    return profile
+
+
 def _stream_native_ocr(
     *,
     image_path: str,
@@ -201,11 +213,12 @@ def _stream_native_ocr(
     candidate_profile: str,
     max_tokens: int,
     runtime_backend: str,
+    profile_override: CandidateProfile | None = None,
     page_index: int | None = None,
     page_count: int | None = None,
 ) -> Iterator[bytes]:
     profile_key = _candidate_key(candidate_profile)
-    profile = profile_by_key(profile_key)
+    profile = profile_override or profile_by_key(profile_key)
     token_limit = _token_limit(max_tokens, profile_key)
     backend = _runtime_backend(runtime_backend)
     paths = RuntimePaths.from_env()
@@ -346,11 +359,13 @@ def _stream_pdf_session_ocr(
     attempt_profiles = _pdf_attempt_profiles(candidate_profile)
     for index, image_path in enumerate(pages):
         for attempt_index, active_profile in enumerate(attempt_profiles):
+            effective_profile = _pdf_effective_profile(active_profile)
             attempt = attempt_index + 1
             is_retry = attempt > 1
             sys.stderr.write(
                 f"pdf_page_{'retry' if is_retry else 'start'} page={index + 1}/{len(pages)} "
-                f"attempt={attempt}/{len(attempt_profiles)} profile={active_profile} image={image_path}\n"
+                f"attempt={attempt}/{len(attempt_profiles)} profile={active_profile} "
+                f"ngram={effective_profile.ngram_size}/{effective_profile.ngram_window} image={image_path}\n"
             )
             yield _ndjson(
                 {
@@ -365,6 +380,8 @@ def _stream_pdf_session_ocr(
                         "profile_key": active_profile,
                         "retry": is_retry,
                         "retry_profile": active_profile if is_retry else None,
+                        "ngram_size": effective_profile.ngram_size,
+                        "ngram_window": effective_profile.ngram_window,
                     },
                 }
             )
@@ -377,6 +394,7 @@ def _stream_pdf_session_ocr(
                 candidate_profile=active_profile,
                 max_tokens=max_tokens,
                 runtime_backend=runtime_backend,
+                profile_override=effective_profile,
                 page_index=index,
                 page_count=len(pages),
             ):
@@ -391,6 +409,7 @@ def _stream_pdf_session_ocr(
                     sys.stderr.write(
                         f"pdf_page_done page={index + 1}/{len(pages)} "
                         f"attempt={attempt}/{len(attempt_profiles)} profile={active_profile} "
+                        f"ngram={effective_profile.ngram_size}/{effective_profile.ngram_window} "
                         f"chars={len(page_texts[index])} error={payload.get('error') or ''}\n"
                     )
                 if has_retry_left:

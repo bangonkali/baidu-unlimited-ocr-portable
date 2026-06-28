@@ -43,6 +43,15 @@ ORPHAN_DET_CLOSE_PREFIX_RE = re.compile(
 )
 REPEATED_NUMBER_PREFIX_RE = re.compile(r"^\s*(?:[,;:\s]*\d{1,6}\.\s*){6,}")
 REPEATED_COMMA_PREFIX_RE = re.compile(r"^\s*(?:,\s*){6,}")
+LEADING_LOW_VALUE_DET_PREFIX_RE = re.compile(
+    r"^\s*,?\s*(?:and\s+)?(?:the\s+)?"
+    r"(?:image|picture|page)\s+(?:is\s+)?"
+    r"(?:too\s+blurry|contains\s+no\s+text|does\s+not\s+contain\s+text|has\s+no\s+text)"
+    r"[^<]{0,180}(?=<\|det\|>)",
+    re.IGNORECASE | re.DOTALL,
+)
+LEADING_CONJUNCTION_DET_PREFIX_RE = re.compile(r"^\s*,\s*(?:and\s+)?(?:the\s+)?(?=<\|det\|>)", re.IGNORECASE)
+LEADING_SHORT_NUMBER_DET_PREFIX_RE = re.compile(r"^\s*\d{1,2}\s+(?=<\|det\|>)")
 LOG_PREFIXES = (
     "build:",
     "clip_",
@@ -217,7 +226,14 @@ def strip_output_artifacts(text: str) -> str:
     changed = True
     while changed:
         changed = False
-        for pattern in (ORPHAN_DET_CLOSE_PREFIX_RE, REPEATED_NUMBER_PREFIX_RE, REPEATED_COMMA_PREFIX_RE):
+        for pattern in (
+            ORPHAN_DET_CLOSE_PREFIX_RE,
+            REPEATED_NUMBER_PREFIX_RE,
+            REPEATED_COMMA_PREFIX_RE,
+            LEADING_LOW_VALUE_DET_PREFIX_RE,
+            LEADING_CONJUNCTION_DET_PREFIX_RE,
+            LEADING_SHORT_NUMBER_DET_PREFIX_RE,
+        ):
             updated = pattern.sub("", text, count=1)
             if updated != text:
                 text = updated

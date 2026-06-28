@@ -31,6 +31,18 @@ def main() -> int:
         "<|det|>ref_text"
     )
     assert clean_generated_text(", , , , , , , <|det|>text [1, 2, 3, 4]<|/det|>x").startswith("<|det|>text")
+    assert clean_generated_text(", and the <|det|>text [1, 2, 3, 4]<|/det|>x").startswith("<|det|>text")
+    assert clean_generated_text(", the <|det|>image [1, 2, 3, 4]<|/det|>x").startswith("<|det|>image")
+    assert clean_generated_text(
+        ", and the image is too blurry to recognize any text content. <|det|>image [1, 2, 3, 4]<|/det|>x"
+    ).startswith("<|det|>image")
+    assert clean_generated_text(
+        ", the image contains no text. The horizontal line is visual content. <|det|>image [1, 2, 3, 4]<|/det|>x"
+    ).startswith("<|det|>image")
+    assert clean_generated_text("00 <|det|>image [1, 2, 3, 4]<|/det|>x").startswith("<|det|>image")
+    assert clean_generated_text(", 2:10.16818 v2 [cs.CV] 26 Oct 2023\n<|det|>title [1, 2, 3, 4]<|/det|>x").startswith(
+        ", 2:10.16818"
+    )
     return 0
 
 

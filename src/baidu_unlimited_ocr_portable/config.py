@@ -163,8 +163,9 @@ class CandidateProfile:
     deepseek_ocr_mode: str = "gundam"
     media_placement: str = "prefix-tight"
     no_repeat_ngram: bool = True
-    ngram_size: int = 30
-    ngram_window: int = 90
+    ngram_size: int = 35
+    ngram_window: int = 128
+    pdf_ngram_window: int = 1024
     ngram_whitelist: tuple[int, ...] = (128821, 128822)
     prefill_aware_swa: bool = True
     decode_window: int = 128
