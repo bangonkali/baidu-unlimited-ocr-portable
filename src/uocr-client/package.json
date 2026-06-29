@@ -11,6 +11,7 @@
     "storybook": "storybook dev -p 6007 --host 127.0.0.1",
     "build-storybook": "storybook build",
     "generate-api": "orval --config orval.config.ts",
+    "test": "bun test",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "lint": "biome check --error-on-warnings .",

@@ -21,6 +21,7 @@ import type {
   ListDocumentsParams,
   LogsPayload,
   ModelDownloadRecord,
+  ModelDownloadRequest,
   ModelsPayload,
   PreviewImagesPayload,
   SettingsPayload,
@@ -756,9 +757,50 @@ export const getDownloadModelUrl = (modelId: string,) => {
   return `/api/models/${modelId}/download`
 }
 
-export const downloadModel = async (modelId: string, options?: RequestInit): Promise<downloadModelResponse> => {
+export const downloadModel = async (modelId: string,
+    modelDownloadRequest?: ModelDownloadRequest, options?: RequestInit): Promise<downloadModelResponse> => {
 
   const res = await fetch(getDownloadModelUrl(modelId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(modelDownloadRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: downloadModelResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as downloadModelResponse
+}
+
+
+
+export type cancelModelDownloadResponse202 = {
+  data: ModelDownloadRecord
+  status: 202
+}
+
+export type cancelModelDownloadResponseSuccess = (cancelModelDownloadResponse202) & {
+  headers: Headers;
+};
+;
+
+export type cancelModelDownloadResponse = (cancelModelDownloadResponseSuccess)
+
+export const getCancelModelDownloadUrl = (modelId: string,) => {
+
+
+
+
+  return `/api/models/${modelId}/cancel`
+}
+
+export const cancelModelDownload = async (modelId: string, options?: RequestInit): Promise<cancelModelDownloadResponse> => {
+
+  const res = await fetch(getCancelModelDownloadUrl(modelId),
   {
     ...options,
     method: 'POST'
@@ -770,8 +812,48 @@ export const downloadModel = async (modelId: string, options?: RequestInit): Pro
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: downloadModelResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as downloadModelResponse
+  const data: cancelModelDownloadResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as cancelModelDownloadResponse
+}
+
+
+
+export type streamModelDownloadEventsResponse200 = {
+  data: string
+  status: 200
+}
+
+export type streamModelDownloadEventsResponseSuccess = (streamModelDownloadEventsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type streamModelDownloadEventsResponse = (streamModelDownloadEventsResponseSuccess)
+
+export const getStreamModelDownloadEventsUrl = (modelId: string,) => {
+
+
+
+
+  return `/api/models/${modelId}/events`
+}
+
+export const streamModelDownloadEvents = async (modelId: string, options?: RequestInit): Promise<streamModelDownloadEventsResponse> => {
+
+  const res = await fetch(getStreamModelDownloadEventsUrl(modelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: streamModelDownloadEventsResponse['data'] = body !== null ? body : ''
+  return { data, status: res.status, headers: res.headers } as streamModelDownloadEventsResponse
 }
 
 

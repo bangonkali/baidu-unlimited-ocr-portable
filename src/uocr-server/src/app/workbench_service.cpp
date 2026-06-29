@@ -42,39 +42,6 @@ Json::Value WorkbenchService::status() const {
   return payload;
 }
 
-Json::Value WorkbenchService::models() const {
-  std::scoped_lock lock(impl_->mutex);
-  Json::Value payload;
-  payload["models"].append(impl_->model_record());
-  payload["profiles"] = Json::arrayValue;
-  for (const auto& profile : ocr_profiles()) {
-    Json::Value item;
-    item["key"] = profile.key;
-    item["label"] = profile.label;
-    item["engine_name"] = profile.engine_name;
-    item["description"] = profile.description;
-    item["default_max_tokens"] = profile.default_max_tokens;
-    item["ngram_size"] = profile.ngram_size;
-    item["ngram_window"] = profile.ngram_window;
-    item["pdf_ngram_window"] = profile.pdf_ngram_window;
-    item["force_prompt_eos"] = profile.force_prompt_eos;
-    item["no_image_end"] = profile.no_image_end;
-    payload["profiles"].append(item);
-  }
-  return payload;
-}
-
-Json::Value WorkbenchService::start_model_download(const std::string& model_id) {
-  if (model_id != "unlimited-ocr-q4-k-m") {
-    return error_json("unknown model id");
-  }
-  impl_->start_download();
-  Json::Value payload;
-  payload["model_id"] = model_id;
-  payload["status"] = impl_->model_ready() ? "downloaded" : "downloading";
-  return payload;
-}
-
 Json::Value WorkbenchService::settings() const {
   Json::Value payload;
   payload["pdf_dpi"] = 200;

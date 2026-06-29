@@ -120,6 +120,13 @@ jobs:
             if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
             $logs = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2
             if (-not $logs.logs) { throw "recent logs API returned no logs" }
+            $models = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/models" -TimeoutSec 2
+            if (-not $models.models -or -not $models.models[0].files) {
+              throw "models API did not return per-file download state"
+            }
+            if ($models.models[0].auth_available -eq $null) {
+              throw "models API did not expose Hugging Face auth availability"
+            }
             $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
             if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
             $logText = Get-Content -LiteralPath $logPath -Raw

@@ -11,6 +11,7 @@ import { TextPane } from '../features/workbench/TextPane';
 import {
   fixtureBoxes,
   fixtureDocuments,
+  fixtureDownloadingModels,
   fixtureLogs,
   fixtureModels,
   fixturePages,
@@ -97,7 +98,23 @@ export const Diagnostics: Story = {
 export const Models: Story = {
   render: () => (
     <div className="storyTall">
-      <ModelManager models={fixtureModels} onDownloadModel={() => undefined} />
+      <ModelManager
+        models={fixtureModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+      />
+    </div>
+  ),
+};
+
+export const ModelsDownloading: Story = {
+  render: () => (
+    <div className="storyTall">
+      <ModelManager
+        models={fixtureDownloadingModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+      />
     </div>
   ),
 };

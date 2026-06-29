@@ -407,6 +407,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDownloadRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Download started or already complete",
@@ -414,6 +424,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ModelDownloadRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{model_id}/cancel": {
+      "post": {
+        "operationId": "cancelModelDownload",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Download cancellation requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDownloadRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{model_id}/events": {
+      "get": {
+        "operationId": "streamModelDownloadEvents",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent model download progress events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -898,6 +962,12 @@
           "status": {
             "type": "string"
           },
+          "repo_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
           "local_path": {
             "type": "string",
             "nullable": true
@@ -933,6 +1003,105 @@
             "type": "integer",
             "format": "int64",
             "nullable": true
+          },
+          "overall_downloaded_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "overall_total_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "overall_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "bytes_per_second": {
+            "type": "number",
+            "format": "double"
+          },
+          "eta_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "auth_available": {
+            "type": "boolean"
+          },
+          "auth_source": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_event_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelDownloadFileRecord"
+            }
+          }
+        }
+      },
+      "ModelDownloadFileRecord": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "file_name",
+          "status",
+          "downloaded_bytes",
+          "percent"
+        ],
+        "properties": {
+          "file_id": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "local_path": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloaded_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "bytes_per_second": {
+            "type": "number",
+            "format": "double"
+          },
+          "eta_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ModelDownloadRequest": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -950,6 +1119,24 @@
             "type": "string"
           }
         }
+      },
+      "ModelDownloadEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModelAssetRecord"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        ]
       },
       "OcrProfileRecord": {
         "type": "object",

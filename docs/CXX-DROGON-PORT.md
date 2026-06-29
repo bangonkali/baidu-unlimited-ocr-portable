@@ -25,6 +25,10 @@ The server is structured around small service boundaries:
 - render: `PageRenderer` with an embedded MuPDF implementation linked into
   `uocr-server.exe`. PDF pages are rendered to cached PNG files at 200 DPI and
   reused for preview and OCR.
+- download: native libcurl/OpenSSL Hugging Face downloads with environment-only
+  `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` auth, resumable temp files, SHA256
+  verification when metadata provides it, per-file progress, speed, ETA,
+  cancellation, and SSE snapshots.
 - app: optional Drogon route registration and static OpenAPI serving.
 
 Drogon is optional at configure time so parser/schema/scanner tests can run on
@@ -57,10 +61,11 @@ The default runtime command binds `127.0.0.1:8765`, serves `/api/*` plus
 
 `src/uocr-server/openapi/uocr.openapi.json` is the API source of truth. It
 covers the currently implemented workbench surface: health/status, trusted
-folder selection, model download state, ingest start/stop, run snapshots/events,
-document lists/details, regions, text spans, preview images, recent logs, and
-settings. Removed or future-only surfaces are intentionally omitted from the UI
-and OpenAPI contract until they work end to end.
+folder selection, model download state, model download cancel/events, ingest
+start/stop, run snapshots/events, document lists/details, regions, text spans,
+preview images, recent logs, and settings. Removed or future-only surfaces are
+intentionally omitted from the UI and OpenAPI contract until they work end to
+end.
 
 The React client runs Orval against that file:
 

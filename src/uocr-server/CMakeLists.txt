@@ -12,6 +12,9 @@ set(UOCR_VERSION "" CACHE STRING "uocr-server release version, usually the git t
 set(UOCR_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../uocr-client" CACHE PATH "React client directory")
 set(UOCR_MUPDF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/mupdf" CACHE PATH "MuPDF submodule root")
 
+find_package(CURL REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -30,7 +33,6 @@ function(uocr_link_windows_system_libraries target)
       uuid
       odbc32
       odbccp32
-      urlmon
     )
   endif()
 endfunction()
@@ -82,10 +84,32 @@ else()
   target_compile_options(uocr_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+add_library(uocr_download STATIC
+  src/download/download_progress.cpp
+  src/download/hf_auth.cpp
+  src/download/hf_downloader.cpp
+  src/download/hf_transfer.cpp
+  src/download/hf_transfer_file.cpp
+  src/download/sha256.cpp
+)
+
+target_include_directories(uocr_download PUBLIC include)
+target_link_libraries(uocr_download PUBLIC CURL::libcurl OpenSSL::Crypto)
+
+if(MSVC)
+  target_compile_options(uocr_download PRIVATE /W4 /permissive-)
+else()
+  target_compile_options(uocr_download PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 if(UOCR_BUILD_TESTS)
   add_executable(uocr-core-tests tests/core_tests.cpp)
   target_link_libraries(uocr-core-tests PRIVATE uocr_core)
   add_test(NAME uocr-core-tests COMMAND uocr-core-tests)
+
+  add_executable(uocr-download-tests tests/download_tests.cpp)
+  target_link_libraries(uocr-download-tests PRIVATE uocr_download)
+  add_test(NAME uocr-download-tests COMMAND uocr-download-tests)
 
   if(WIN32 AND UOCR_EMBED_MUPDF)
     add_executable(uocr-render-tests
@@ -143,14 +167,14 @@ if(UOCR_BUILD_SERVER)
       src/app/folder_dialog.cpp
       src/app/main.cpp
       src/app/routes.cpp
-      src/app/workbench_download.cpp
       src/app/workbench_ingest.cpp
       src/app/workbench_models.cpp
       src/app/workbench_service.cpp
+      src/app/workbench_service_models.cpp
       src/app/workbench_state.cpp
       src/render/mupdf_page_renderer.cpp
     )
-    target_link_libraries(uocr-server PRIVATE uocr_core Drogon::Drogon)
+    target_link_libraries(uocr-server PRIVATE uocr_core uocr_download Drogon::Drogon)
     uocr_link_mupdf(uocr-server)
     uocr_link_windows_system_libraries(uocr-server)
     target_compile_definitions(uocr-server PRIVATE

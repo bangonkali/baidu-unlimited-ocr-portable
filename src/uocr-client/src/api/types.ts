@@ -39,6 +39,8 @@ export interface ModelAssetRecord {
   model_id: string;
   display_name: string;
   status: string;
+  repo_id?: string;
+  revision?: string;
   local_path?: string | null;
   size_bytes?: number | null;
   error?: string | null;
@@ -48,6 +50,28 @@ export interface ModelAssetRecord {
   status_message?: string | null;
   downloaded_bytes?: number;
   total_bytes?: number | null;
+  overall_downloaded_bytes?: number;
+  overall_total_bytes?: number | null;
+  overall_percent?: number;
+  bytes_per_second?: number;
+  eta_seconds?: number | null;
+  auth_available?: boolean;
+  auth_source?: string | null;
+  last_event_at?: string | null;
+  files?: ModelDownloadFileRecord[];
+}
+
+export interface ModelDownloadFileRecord {
+  file_id: string;
+  file_name: string;
+  status: string;
+  local_path?: string | null;
+  downloaded_bytes: number;
+  total_bytes?: number | null;
+  percent: number;
+  bytes_per_second?: number;
+  eta_seconds?: number | null;
+  error?: string | null;
 }
 
 export interface ModelsPayload {
@@ -58,6 +82,10 @@ export interface ModelsPayload {
 export interface ModelDownloadRecord {
   model_id: string;
   status: string;
+}
+
+export interface ModelDownloadRequest {
+  force?: boolean;
 }
 
 export interface SettingsPayload {

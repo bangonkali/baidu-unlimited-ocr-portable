@@ -2,6 +2,7 @@
 
 #include "uocr/app/workbench_service.hpp"
 
+#include <atomic>
 #include <filesystem>
 #include <map>
 #include <memory>
@@ -17,18 +18,42 @@ namespace uocr::server {
 
 inline constexpr std::string_view kModelRepo =
     "https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/";
+inline constexpr std::string_view kModelRepoId = "sahilchachra/Unlimited-OCR-GGUF";
+inline constexpr std::string_view kModelRevision = "main";
+inline constexpr std::string_view kModelId = "unlimited-ocr-q4-k-m";
 inline constexpr std::string_view kModelFile = "Unlimited-OCR-Q4_K_M.gguf";
 inline constexpr std::string_view kMmprojFile = "mmproj-Unlimited-OCR-F16.gguf";
 
 struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchService::Impl> {
   struct ModelState {
+    struct File {
+      std::string file_id;
+      std::string file_name;
+      std::filesystem::path local_path;
+      std::string status = "missing";
+      std::string error;
+      std::uint64_t downloaded_bytes = 0;
+      std::uint64_t total_bytes = 0;
+      double percent = 0.0;
+      double bytes_per_second = 0.0;
+      double eta_seconds = -1.0;
+    };
+
     std::string status = "missing";
     std::string error;
     std::string current_file;
     std::string status_message;
+    std::string auth_source;
+    std::string last_event_at;
     std::uint64_t downloaded_bytes = 0;
     std::uint64_t total_bytes = 0;
+    double overall_percent = 0.0;
+    double bytes_per_second = 0.0;
+    double eta_seconds = -1.0;
     bool downloading = false;
+    bool cancel_requested = false;
+    bool auth_available = false;
+    std::vector<File> files;
   };
 
   struct PageState {
@@ -75,16 +100,20 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   std::filesystem::path model_path() const;
   std::filesystem::path mmproj_path() const;
   std::filesystem::path ffi_path() const;
+  std::vector<ModelState::File> model_files() const;
   bool model_ready() const;
 
   Json::Value model_record() const;
+  Json::Value model_event() const;
+  bool model_downloading() const;
   Json::Value run_record(const RunState& run) const;
   Json::Value document_summary(const DocumentState& document) const;
   bool is_image_document(const DocumentState& document) const;
   bool is_pdf_document(const DocumentState& document) const;
   std::vector<PageState> prepare_pages(const DiscoveredFile& file, const std::string& file_hash) const;
 
-  void start_download();
+  void start_download(bool force);
+  void cancel_download();
   void start_run(const std::string& run_id, std::vector<DiscoveredFile> files, std::string profile_id);
   void fail_run(const std::string& run_id, const std::string& message);
   void process_run(const std::string& run_id,
@@ -93,6 +122,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
 
   std::filesystem::path app_root;
   std::shared_ptr<AppLogger> logger;
+  std::atomic_bool model_cancel_requested{false};
   mutable std::mutex mutex;
   ModelState model;
   std::map<std::string, RunState> runs;

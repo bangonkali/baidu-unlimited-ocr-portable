@@ -11,7 +11,9 @@ import type {
   IngestRunsPayload,
   IngestStartRequest,
   LogsPayload,
+  ModelAssetRecord,
   ModelDownloadRecord,
+  ModelDownloadRequest,
   ModelsPayload,
   PreviewImagesPayload,
   SettingsPayload,
@@ -91,22 +93,77 @@ export function useModels() {
     placeholderData: { models: [], profiles: [] },
     queryFn: ({ signal }) => getJson<ModelsPayload>('/api/models', signal),
     queryKey: queryKeys.models,
-    refetchInterval: 5000,
+    refetchInterval: 1000,
   });
+}
+
+interface DownloadModelInput {
+  modelId: string;
+  force?: boolean;
 }
 
 export function useDownloadModel() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationFn: (input: DownloadModelInput) =>
+      postJson<ModelDownloadRecord, ModelDownloadRequest>(
+        `/api/models/${encodeURIComponent(input.modelId)}/download`,
+        { force: input.force ?? false },
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+    },
+  });
+}
+
+export function useCancelModelDownload() {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: (modelId: string) =>
       postJson<ModelDownloadRecord, Record<string, never>>(
-        `/api/models/${encodeURIComponent(modelId)}/download`,
+        `/api/models/${encodeURIComponent(modelId)}/cancel`,
         {},
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     },
   });
+}
+
+export function useModelDownloadEvents(modelId?: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!modelId) {
+      return undefined;
+    }
+    const source = new EventSource(`/api/models/${encodeURIComponent(modelId)}/events`);
+    const applyModelEvent = (event: MessageEvent<string>) => {
+      let model: ModelAssetRecord;
+      try {
+        model = JSON.parse(event.data) as ModelAssetRecord;
+      } catch {
+        return;
+      }
+      queryClient.setQueryData<ModelsPayload>(queryKeys.models, (current) => {
+        const existing = current ?? { models: [], profiles: [] };
+        const found = existing.models.some((item) => item.model_id === model.model_id);
+        return {
+          ...existing,
+          models: found
+            ? existing.models.map((item) => (item.model_id === model.model_id ? model : item))
+            : [...existing.models, model],
+        };
+      });
+      if (!['downloading', 'metadata', 'retrying'].includes(model.status)) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+      }
+    };
+    source.addEventListener('model', applyModelEvent as EventListener);
+    source.onmessage = applyModelEvent;
+    return () => source.close();
+  }, [queryClient, modelId]);
 }
 
 export function useSettings() {

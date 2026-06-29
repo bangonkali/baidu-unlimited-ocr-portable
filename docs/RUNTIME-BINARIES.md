@@ -44,6 +44,13 @@ the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`. PDF rendering
 uses embedded MuPDF at 200 DPI and writes page PNGs under
 `cache\rendered-pages\`.
 
+The C++ workbench downloads Hugging Face files through its embedded libcurl
+client, not Python or the `hf` CLI. It reads `HF_TOKEN`, then
+`HUGGING_FACE_HUB_TOKEN`, from the server process environment. The Models UI and
+logs report whether env auth is active, but token values are never printed or
+stored. Progress is tracked per file and overall with bytes, percent, MiB/s,
+ETA, cancel, retry, and re-download support.
+
 Build the release zip locally:
 
 ```powershell

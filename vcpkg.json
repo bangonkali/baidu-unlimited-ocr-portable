@@ -2,6 +2,8 @@
   "name": "baidu-unlimited-ocr-portable",
   "version-string": "0.1.0",
   "dependencies": [
+    "curl",
+    "openssl",
     "drogon"
   ],
   "builtin-baseline": "a0400024711b283056538ac19ced80b91a83c24c"

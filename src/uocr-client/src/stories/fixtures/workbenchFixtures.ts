@@ -88,11 +88,36 @@ export const fixtureLogs: LogRecord[] = [
 export const fixtureModels: ModelsPayload = {
   models: [
     {
+      auth_available: true,
+      auth_source: 'HF_TOKEN',
       display_name: 'Unlimited-OCR Q4_K_M',
-      downloaded_bytes: 100,
+      downloaded_bytes: 4_900_000_000,
+      files: [
+        {
+          downloaded_bytes: 4_000_000_000,
+          file_id: 'model',
+          file_name: 'Unlimited-OCR-Q4_K_M.gguf',
+          percent: 100,
+          status: 'downloaded',
+          total_bytes: 4_000_000_000,
+        },
+        {
+          downloaded_bytes: 900_000_000,
+          file_id: 'mmproj',
+          file_name: 'mmproj-Unlimited-OCR-F16.gguf',
+          percent: 100,
+          status: 'downloaded',
+          total_bytes: 900_000_000,
+        },
+      ],
       model_id: 'unlimited-ocr-q4-k-m',
+      overall_downloaded_bytes: 4_900_000_000,
+      overall_percent: 100,
+      overall_total_bytes: 4_900_000_000,
+      repo_id: 'sahilchachra/Unlimited-OCR-GGUF',
+      revision: 'main',
       status: 'downloaded',
-      total_bytes: 100,
+      total_bytes: 4_900_000_000,
     },
   ],
   profiles: [
@@ -102,6 +127,49 @@ export const fixtureModels: ModelsPayload = {
       engine_name: 'llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full',
       key: 'best-zero-empty-q4',
       label: 'Practical zero-empty Q4',
+    },
+  ],
+};
+
+const downloadedFixtureModel = fixtureModels.models[0] ?? {
+  display_name: 'Unlimited-OCR Q4_K_M',
+  model_id: 'unlimited-ocr-q4-k-m',
+  status: 'missing',
+};
+
+export const fixtureDownloadingModels: ModelsPayload = {
+  ...fixtureModels,
+  models: [
+    {
+      ...downloadedFixtureModel,
+      bytes_per_second: 11_800_000,
+      current_file: 'Unlimited-OCR-Q4_K_M.gguf',
+      downloaded_bytes: 1_800_000_000,
+      eta_seconds: 263,
+      files: [
+        {
+          bytes_per_second: 11_800_000,
+          downloaded_bytes: 1_800_000_000,
+          eta_seconds: 186,
+          file_id: 'model',
+          file_name: 'Unlimited-OCR-Q4_K_M.gguf',
+          percent: 45,
+          status: 'downloading',
+          total_bytes: 4_000_000_000,
+        },
+        {
+          downloaded_bytes: 0,
+          file_id: 'mmproj',
+          file_name: 'mmproj-Unlimited-OCR-F16.gguf',
+          percent: 0,
+          status: 'missing',
+          total_bytes: 900_000_000,
+        },
+      ],
+      overall_downloaded_bytes: 1_800_000_000,
+      overall_percent: 36.7,
+      status: 'downloading',
+      status_message: 'Downloading Unlimited-OCR-Q4_K_M.gguf',
     },
   ],
 };

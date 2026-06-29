@@ -5,11 +5,14 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
+import type { ModelDownloadFileRecord } from './modelDownloadFileRecord';
 
 export interface ModelAssetRecord {
   model_id: string;
   display_name: string;
   status: string;
+  repo_id?: string;
+  revision?: string;
   /** @nullable */
   local_path?: string | null;
   /** @nullable */
@@ -25,4 +28,17 @@ export interface ModelAssetRecord {
   downloaded_bytes?: number;
   /** @nullable */
   total_bytes?: number | null;
+  overall_downloaded_bytes?: number;
+  /** @nullable */
+  overall_total_bytes?: number | null;
+  overall_percent?: number;
+  bytes_per_second?: number;
+  /** @nullable */
+  eta_seconds?: number | null;
+  auth_available?: boolean;
+  /** @nullable */
+  auth_source?: string | null;
+  /** @nullable */
+  last_event_at?: string | null;
+  files?: ModelDownloadFileRecord[];
 }

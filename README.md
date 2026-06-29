@@ -9,12 +9,16 @@ validation tools, but they are not the launched product runtime.
 1. Download `uocr-workbench-windows-x64-<tag>.zip` from the GitHub Releases
    page.
 2. Extract the zip anywhere writable, for example `C:\uocr\workbench`.
-3. Double-click `uocr-server.exe`.
-4. Open `http://127.0.0.1:8765/` if the browser does not open automatically.
-5. In the app, open **Models** and click **Download model**.
-6. Click **Choose Folder** to open the Windows folder picker, or paste a folder
+3. Optional: set `HF_TOKEN` in the same terminal before launch if Hugging Face
+   requires authenticated downloads.
+4. Double-click `uocr-server.exe`, or launch it from that terminal.
+5. Open `http://127.0.0.1:8765/` if the browser does not open automatically.
+6. In the app, open **Models** and click **Download missing**. The panel shows
+   per-file bytes, percent, MiB/s, ETA, auth status, retry, re-download, and
+   cancel.
+7. Click **Choose Folder** to open the Windows folder picker, or paste a folder
    path into the fallback path box.
-7. Click **Start Scan**.
+8. Click **Start Scan**.
 
 Supported inputs are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`,
 and `.webp`. Multi-page PDFs are rendered in-process by MuPDF embedded in
@@ -38,7 +42,9 @@ logs\uocr-server.log
 
 Startup logs include the app root, web root, log path, version, git SHA, and
 listening URL. Ingest logs include model loading, folder scan counts, PDF page
-rendering, and page OCR progress.
+rendering, and page OCR progress. Model download logs include auth availability
+without printing tokens, metadata checks, current file progress, MiB/s,
+verification, cancellation, and failures.
 
 ## Runtime Support
 
@@ -61,6 +67,10 @@ https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF
 
 The portable zip bundles native runtime DLLs; it does not bundle the large GGUF
 model files.
+
+Authenticated Hugging Face downloads use environment variables only. The server
+checks `HF_TOKEN` first, then `HUGGING_FACE_HUB_TOKEN`. Tokens are never shown
+in the UI, written to config, or printed to logs.
 
 ## Local Build
 

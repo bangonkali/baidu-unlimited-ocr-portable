@@ -24,14 +24,30 @@ rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
 files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
 `uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 
+Optional authenticated Hugging Face download:
+
+```powershell
+$env:HF_TOKEN = "hf_..."
+.\uocr-server.exe
+```
+
+`HF_TOKEN` is read only by the server process. If it is absent, the server falls
+back to `HUGGING_FACE_HUB_TOKEN`, then to public downloads. Token values are not
+displayed, persisted, or logged.
+
 First run sequence:
 
-1. Open **Models** and click **Download model**.
+1. Open **Models** and click **Download missing**.
 2. Click **Choose Folder** to use the trusted native Windows folder picker, or
    paste a path into the fallback text box.
 3. Click **Start Scan**.
 4. Watch the progress in the toolbar, the Diagnostics pane, the terminal, or
    `logs\uocr-server.log`.
+
+The Models panel shows the required GGUF files, auth status, current file,
+bytes downloaded versus total bytes, percentage, MiB/s, ETA, retry,
+re-download, and cancel. Cancelling keeps the `.download` partial file so a
+later retry can resume when Hugging Face supports range requests.
 
 One-line install to `~\.uocr`:
 

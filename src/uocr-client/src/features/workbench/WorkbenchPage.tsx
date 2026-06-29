@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import {
   queryKeys,
+  useCancelModelDownload,
   useDocumentPreviewImages,
   useDocumentRegions,
   useDocuments,
@@ -12,6 +13,7 @@ import {
   useDownloadModel,
   useIngestRuns,
   useLogs,
+  useModelDownloadEvents,
   useModels,
   useOpenFolderDialog,
   useRunCommand,
@@ -51,6 +53,7 @@ export function WorkbenchPage() {
   const previewImages = useDocumentPreviewImages(workbench.selection.fileHash);
   const folderDialog = useOpenFolderDialog();
   const downloadModel = useDownloadModel();
+  const cancelModelDownload = useCancelModelDownload();
   const startIngest = useStartIngest();
   const stopRun = useRunCommand('stop');
   const activeRunId = status.data?.active_run_id ?? null;
@@ -58,6 +61,11 @@ export function WorkbenchPage() {
 
   const model = models.data?.models[0];
   const modelReady = model?.status === 'downloaded';
+  useModelDownloadEvents(
+    model?.model_id && (model.status === 'downloading' || workbench.activeView === 'models')
+      ? model.model_id
+      : undefined,
+  );
   const selectedDocument = documents.data?.documents.find(
     (document) => document.file_hash === workbench.selection.fileHash,
   );
@@ -127,9 +135,10 @@ export function WorkbenchPage() {
         <div className={styles.body}>
           {workbench.activeView === 'models' ? (
             <ModelManager
-              busy={downloadModel.isPending}
+              busy={downloadModel.isPending || cancelModelDownload.isPending}
               models={models.data}
-              onDownloadModel={(modelId) => downloadModel.mutate(modelId)}
+              onCancelModel={(modelId) => cancelModelDownload.mutate(modelId)}
+              onDownloadModel={(modelId, force) => downloadModel.mutate({ force, modelId })}
               status={status.data}
             />
           ) : null}
