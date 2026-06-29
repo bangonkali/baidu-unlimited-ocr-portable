@@ -72,6 +72,8 @@ jobs:
           & "$env:VCPKG_ROOT\vcpkg.exe" version
 
       - name: Package workbench
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           .\scripts\windows\package-workbench.ps1 `
