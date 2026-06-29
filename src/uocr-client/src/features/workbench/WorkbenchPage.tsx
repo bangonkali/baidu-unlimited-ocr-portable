@@ -7,6 +7,7 @@ import {
   useDocumentRegions,
   useDocuments,
   useDocumentText,
+  useDownloadModel,
   useIngestRuns,
   useModels,
   useOpenFolderDialog,
@@ -43,6 +44,7 @@ export function WorkbenchPage() {
   const regions = useDocumentRegions(workbench.selection.fileHash);
   const text = useDocumentText(workbench.selection.fileHash);
   const folderDialog = useOpenFolderDialog();
+  const downloadModel = useDownloadModel();
   const startIngest = useStartIngest();
   const pauseRun = useRunCommand('pause');
   const stopRun = useRunCommand('stop');
@@ -137,7 +139,9 @@ export function WorkbenchPage() {
           <Panel defaultSize={23} minSize={17}>
             <DetailsPane
               labelsVisible={workbench.labelsVisible}
+              modelDownloadBusy={downloadModel.isPending}
               models={models.data}
+              onDownloadModel={(modelId) => downloadModel.mutate(modelId)}
               overlayVisible={workbench.overlayVisible}
               selectedFileHash={workbench.selection.fileHash}
               selectedRegionId={workbench.selection.regionId}

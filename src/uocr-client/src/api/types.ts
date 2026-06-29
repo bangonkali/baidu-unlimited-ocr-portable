@@ -37,11 +37,19 @@ export interface ModelAssetRecord {
   status: string;
   local_path?: string | null;
   size_bytes?: number | null;
+  error?: string | null;
+  model_file?: string;
+  mmproj_file?: string;
 }
 
 export interface ModelsPayload {
   models: ModelAssetRecord[];
   profiles: OcrProfileRecord[];
+}
+
+export interface ModelDownloadRecord {
+  model_id: string;
+  status: string;
 }
 
 export interface SettingsPayload {
@@ -81,6 +89,7 @@ export interface DocumentSummary {
   status: string;
   page_count: number;
   regions?: number;
+  error?: string;
 }
 
 export interface DocumentsPayload {

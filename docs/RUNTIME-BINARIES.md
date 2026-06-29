@@ -36,6 +36,10 @@ the generated React build under `web/`. Runtime binaries are staged under
 `thirdparty/uocr-runtime/`; GGUF model files are downloaded or validated after
 first launch and are not committed to git.
 
+Running `uocr-server.exe` appends launch and listener diagnostics to
+`logs/uocr-server.log`. Model downloads from the C++ workbench currently target
+the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`.
+
 Build the release zip locally:
 
 ```powershell

@@ -40,6 +40,10 @@ installed build with:
 ~\.uocr\uocr-server.exe --version
 ```
 
+Runtime logs are written to `logs\uocr-server.log` next to the executable. The
+workbench downloads the default Unlimited-OCR GGUF files into `models\`; image
+OCR uses the bundled `uocr-ffi` runtime after those files are present.
+
 The uv project name is `baidu-unlimited-ocr-portable`.
 
 ## Repository Layout

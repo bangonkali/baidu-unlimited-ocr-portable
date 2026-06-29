@@ -4,10 +4,10 @@
 
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <sstream>
 
-#include "uocr/core/profiles.hpp"
-#include "uocr/fs/file_scanner.hpp"
+#include "uocr/app/workbench_service.hpp"
 
 namespace uocr::server {
 namespace {
@@ -34,10 +34,7 @@ std::filesystem::path source_root() {
 
 std::filesystem::path resolve_openapi_path(const std::filesystem::path& app_root) {
   const auto bundled = app_root / "openapi" / "uocr.openapi.json";
-  if (std::filesystem::exists(bundled)) {
-    return bundled;
-  }
-  return source_root() / "openapi" / "uocr.openapi.json";
+  return std::filesystem::exists(bundled) ? bundled : source_root() / "openapi" / "uocr.openapi.json";
 }
 
 std::string read_text_file(const std::filesystem::path& path) {
@@ -54,90 +51,104 @@ drogon::HttpResponsePtr json_response(const Json::Value& value,
   return response;
 }
 
-Json::Value profile_json(const OcrProfileRecord& profile) {
-  Json::Value value;
-  value["key"] = profile.key;
-  value["label"] = profile.label;
-  value["engine_name"] = profile.engine_name;
-  value["description"] = profile.description;
-  value["default_max_tokens"] = profile.default_max_tokens;
-  value["ngram_size"] = profile.ngram_size;
-  value["ngram_window"] = profile.ngram_window;
-  value["pdf_ngram_window"] = profile.pdf_ngram_window;
-  value["force_prompt_eos"] = profile.force_prompt_eos;
-  value["no_image_end"] = profile.no_image_end;
-  return value;
+Json::Value request_json_or_empty(const drogon::HttpRequestPtr& request) {
+  const auto json = request->getJsonObject();
+  return json != nullptr ? *json : Json::Value(Json::objectValue);
 }
 
-void register_run_routes() {
+void register_run_routes(const std::shared_ptr<WorkbenchService>& service) {
   using namespace drogon;
-  app().registerHandler("/api/ingest/runs", [](const HttpRequestPtr&,
-                                                std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["runs"] = Json::arrayValue;
-    callback(json_response(payload));
+  app().registerHandler("/api/ingest/runs", [service](const HttpRequestPtr&,
+                                                       std::function<void(const HttpResponsePtr&)>&& callback) {
+    callback(json_response(service->list_runs()));
   });
 
-  app().registerHandler("/api/ingest/runs/{1}", [](const HttpRequestPtr&,
-                                                    std::function<void(const HttpResponsePtr&)>&& callback,
-                                                    const std::string& run_id) {
-    Json::Value payload;
-    payload["run_id"] = run_id;
-    payload["root_path"] = "";
-    payload["status"] = "unknown";
-    callback(json_response(payload));
+  app().registerHandler("/api/ingest/runs/{1}", [service](const HttpRequestPtr&,
+                                                           std::function<void(const HttpResponsePtr&)>&& callback,
+                                                           const std::string& run_id) {
+    callback(json_response(service->get_run(run_id)));
   });
 
-  auto run_command = [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
-                        const std::string& run_id) {
-    Json::Value payload;
-    payload["run_id"] = run_id;
-    payload["root_path"] = "";
-    payload["status"] = "requested";
-    callback(json_response(payload, k202Accepted));
-  };
-  app().registerHandler("/api/ingest/runs/{1}/pause", run_command, {Post});
-  app().registerHandler("/api/ingest/runs/{1}/resume", run_command, {Post});
-  app().registerHandler("/api/ingest/runs/{1}/stop", run_command, {Post});
+  app().registerHandler("/api/ingest/runs/{1}/pause",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& run_id) {
+                          callback(json_response(service->run_command(run_id, "pause"), k202Accepted));
+                        },
+                        {Post});
+  app().registerHandler("/api/ingest/runs/{1}/resume",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& run_id) {
+                          callback(json_response(service->run_command(run_id, "resume"), k202Accepted));
+                        },
+                        {Post});
+  app().registerHandler("/api/ingest/runs/{1}/stop",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& run_id) {
+                          callback(json_response(service->run_command(run_id, "stop"), k202Accepted));
+                        },
+                        {Post});
+
+  app().registerHandler("/api/ingest/runs/{1}/events", [service](const HttpRequestPtr&,
+                                                                  std::function<void(const HttpResponsePtr&)>&& callback,
+                                                                  const std::string& run_id) {
+    auto response = HttpResponse::newHttpResponse();
+    response->setStatusCode(k200OK);
+    response->setContentTypeString("text/event-stream");
+    response->setBody(service->run_event_stream(run_id));
+    callback(response);
+  });
 }
 
-void register_document_routes() {
+void register_document_routes(const std::shared_ptr<WorkbenchService>& service) {
   using namespace drogon;
-  app().registerHandler("/api/documents", [](const HttpRequestPtr&,
-                                              std::function<void(const HttpResponsePtr&)>&& callback) {
+  app().registerHandler("/api/documents", [service](const HttpRequestPtr& request,
+                                                     std::function<void(const HttpResponsePtr&)>&& callback) {
+    callback(json_response(service->list_documents(request->getParameter("q"))));
+  });
+
+  app().registerHandler("/api/documents/{1}", [service](const HttpRequestPtr&,
+                                                         std::function<void(const HttpResponsePtr&)>&& callback,
+                                                         const std::string& file_hash) {
+    callback(json_response(service->get_document(file_hash)));
+  });
+
+  app().registerHandler("/api/documents/{1}/regions", [service](const HttpRequestPtr&,
+                                                                 std::function<void(const HttpResponsePtr&)>&& callback,
+                                                                 const std::string& file_hash) {
+    callback(json_response(service->document_regions(file_hash)));
+  });
+
+  app().registerHandler("/api/documents/{1}/text", [service](const HttpRequestPtr&,
+                                                              std::function<void(const HttpResponsePtr&)>&& callback,
+                                                              const std::string& file_hash) {
+    callback(json_response(service->document_text(file_hash)));
+  });
+
+  app().registerHandler("/api/documents/{1}/preview-images", [](const HttpRequestPtr&,
+                                                                 std::function<void(const HttpResponsePtr&)>&& callback,
+                                                                 const std::string& file_hash) {
     Json::Value payload;
-    payload["documents"] = Json::arrayValue;
+    payload["file_hash"] = file_hash;
+    payload["variants"] = Json::arrayValue;
     callback(json_response(payload));
   });
 
-  app().registerHandler("/api/documents/{1}", [](const HttpRequestPtr&,
-                                                  std::function<void(const HttpResponsePtr&)>&& callback,
-                                                  const std::string& file_hash) {
-    Json::Value payload;
-    payload["file_hash"] = file_hash;
-    payload["display_name"] = file_hash;
-    payload["status"] = "unknown";
-    payload["page_count"] = 0;
-    callback(json_response(payload));
-  });
+  app().registerHandler("/api/documents/{1}/preview-images/{2}/{3}",
+                        [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                           const std::string&, const std::string&, int) {
+                          Json::Value payload;
+                          payload["error"] = "preview image not found";
+                          callback(json_response(payload, k404NotFound));
+                        });
 
-  app().registerHandler("/api/documents/{1}/regions", [](const HttpRequestPtr&,
-                                                          std::function<void(const HttpResponsePtr&)>&& callback,
-                                                          const std::string& file_hash) {
-    Json::Value payload;
-    payload["file_hash"] = file_hash;
-    payload["boxes"] = Json::arrayValue;
-    callback(json_response(payload));
-  });
-
-  app().registerHandler("/api/documents/{1}/text", [](const HttpRequestPtr&,
-                                                       std::function<void(const HttpResponsePtr&)>&& callback,
-                                                       const std::string& file_hash) {
-    Json::Value payload;
-    payload["file_hash"] = file_hash;
-    payload["pages"] = Json::arrayValue;
-    callback(json_response(payload));
-  });
+  app().registerHandler("/api/documents/{1}/annotations/visibility",
+                        [](const HttpRequestPtr& request, std::function<void(const HttpResponsePtr&)>&& callback,
+                           const std::string& file_hash) {
+                          auto payload = request_json_or_empty(request);
+                          payload["file_hash"] = file_hash;
+                          callback(json_response(payload));
+                        },
+                        {Put});
 }
 
 }  // namespace
@@ -145,6 +156,7 @@ void register_document_routes() {
 void register_api_routes(const std::filesystem::path& app_root) {
   using namespace drogon;
   const auto openapi_path = resolve_openapi_path(app_root);
+  auto service = std::make_shared<WorkbenchService>(app_root);
 
   app().registerHandler("/api/health", [](const HttpRequestPtr&,
                                            std::function<void(const HttpResponsePtr&)>&& callback) {
@@ -154,19 +166,12 @@ void register_api_routes(const std::filesystem::path& app_root) {
     callback(json_response(payload));
   });
 
-  app().registerHandler("/api/status", [](const HttpRequestPtr&,
-                                           std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["state"] = "idle";
-    payload["host"] = "127.0.0.1";
-    payload["active_run_id"] = Json::nullValue;
-    payload["default_profile"] = default_ocr_profile().key;
+  app().registerHandler("/api/status", [service](const HttpRequestPtr&,
+                                                  std::function<void(const HttpResponsePtr&)>&& callback) {
+    auto payload = service->status();
     payload["version"] = UOCR_APP_VERSION;
     payload["git_tag"] = UOCR_GIT_TAG;
     payload["git_sha"] = UOCR_GIT_SHA;
-    for (const auto* suffix : {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}) {
-      payload["supported_inputs"].append(suffix);
-    }
     callback(json_response(payload));
   });
 
@@ -178,37 +183,33 @@ void register_api_routes(const std::filesystem::path& app_root) {
     callback(response);
   }, {Get});
 
-  app().registerHandler("/api/models", [](const HttpRequestPtr&,
-                                           std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    Json::Value model;
-    model["model_id"] = "unlimited-ocr-q4-k-m";
-    model["display_name"] = "Unlimited-OCR Q4_K_M";
-    model["status"] = "unknown";
-    model["local_path"] = Json::nullValue;
-    model["size_bytes"] = Json::nullValue;
-    payload["models"].append(model);
-    payload["profiles"] = Json::arrayValue;
-    for (const auto& profile : ocr_profiles()) {
-      payload["profiles"].append(profile_json(profile));
-    }
-    callback(json_response(payload));
+  app().registerHandler("/api/models", [service](const HttpRequestPtr&,
+                                                  std::function<void(const HttpResponsePtr&)>&& callback) {
+    callback(json_response(service->models()));
   });
 
-  app().registerHandler("/api/settings", [](const HttpRequestPtr&,
-                                             std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["pdf_dpi"] = 200;
-    payload["ocr_concurrency"] = 1;
-    payload["default_profile"] = default_ocr_profile().key;
-    payload["retry_profile"] = "experimental-exact-prefill-q4";
-    callback(json_response(payload));
+  app().registerHandler("/api/models/{1}/download",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& model_id) {
+                          callback(json_response(service->start_model_download(model_id), k202Accepted));
+                        },
+                        {Post});
+
+  app().registerHandler("/api/models/{1}/cancel",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& model_id) {
+                          callback(json_response(service->cancel_model_download(model_id), k202Accepted));
+                        },
+                        {Post});
+
+  app().registerHandler("/api/settings", [service](const HttpRequestPtr&,
+                                                    std::function<void(const HttpResponsePtr&)>&& callback) {
+    callback(json_response(service->settings()));
   }, {Get});
 
   app().registerHandler("/api/settings", [](const HttpRequestPtr& request,
                                              std::function<void(const HttpResponsePtr&)>&& callback) {
-    const auto json = request->getJsonObject();
-    callback(json_response(json != nullptr ? *json : Json::Value(Json::objectValue)));
+    callback(json_response(request_json_or_empty(request)));
   }, {Put});
 
   app().registerHandler("/api/system/folder-dialog", [](const HttpRequestPtr&,
@@ -220,18 +221,10 @@ void register_api_routes(const std::filesystem::path& app_root) {
     callback(json_response(payload));
   }, {Post});
 
-  app().registerHandler("/api/ingest/start", [](const HttpRequestPtr& request,
-                                                 std::function<void(const HttpResponsePtr&)>&& callback) {
-    const auto json = request->getJsonObject();
-    const std::string root = json != nullptr ? (*json).get("root_path", "").asString() : "";
+  app().registerHandler("/api/ingest/start", [service](const HttpRequestPtr& request,
+                                                        std::function<void(const HttpResponsePtr&)>&& callback) {
     try {
-      const auto files = discover_supported_files(root);
-      Json::Value payload;
-      payload["run_id"] = "local-scaffold-run";
-      payload["root_path"] = root;
-      payload["status"] = "queued";
-      payload["queued_files"] = static_cast<Json::UInt64>(files.size());
-      callback(json_response(payload, k202Accepted));
+      callback(json_response(service->start_ingest(request_json_or_empty(request)), k202Accepted));
     } catch (const std::exception& error) {
       Json::Value payload;
       payload["error"] = error.what();
@@ -239,8 +232,8 @@ void register_api_routes(const std::filesystem::path& app_root) {
     }
   }, {Post});
 
-  register_run_routes();
-  register_document_routes();
+  register_run_routes(service);
+  register_document_routes(service);
 
   app().registerHandler("/api/commands/search", [](const HttpRequestPtr&,
                                                    std::function<void(const HttpResponsePtr&)>&& callback) {
@@ -268,8 +261,7 @@ void register_api_routes(const std::filesystem::path& app_root) {
 
   app().registerHandler("/api/annotation-settings", [](const HttpRequestPtr& request,
                                                        std::function<void(const HttpResponsePtr&)>&& callback) {
-    const auto json = request->getJsonObject();
-    callback(json_response(json != nullptr ? *json : Json::Value(Json::objectValue)));
+    callback(json_response(request_json_or_empty(request)));
   }, {Put});
 }
 

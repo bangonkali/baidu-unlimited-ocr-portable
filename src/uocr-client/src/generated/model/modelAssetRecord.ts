@@ -14,4 +14,8 @@ export interface ModelAssetRecord {
   local_path?: string | null;
   /** @nullable */
   size_bytes?: number | null;
+  /** @nullable */
+  error?: string | null;
+  model_file?: string;
+  mmproj_file?: string;
 }

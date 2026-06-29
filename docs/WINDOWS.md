@@ -17,6 +17,12 @@ Extract the zip anywhere and run `uocr-server.exe`. The server binds to
 automatically. The folder is self-contained except for downloaded GGUF model
 files under `models\`.
 
+Logs are appended to `logs\uocr-server.log` inside the extracted folder. The
+React workbench can download the default Unlimited-OCR Q4_K_M GGUF pair into
+`models\`; image files are sent through the bundled `uocr-ffi.dll` once those
+files are present. PDF files are discovered by the scanner, but C++ PDF page
+rendering is still a follow-up item.
+
 One-line install to `~\.uocr`:
 
 ```powershell

@@ -11,6 +11,7 @@ import type {
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
+  ModelDownloadRecord,
   ModelsPayload,
   SettingsPayload,
   StatusPayload,
@@ -71,6 +72,21 @@ export function useModels() {
     placeholderData: { models: [], profiles: [] },
     queryFn: ({ signal }) => getJson<ModelsPayload>('/api/models', signal),
     queryKey: queryKeys.models,
+    refetchInterval: 5000,
+  });
+}
+
+export function useDownloadModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (modelId: string) =>
+      postJson<ModelDownloadRecord, Record<string, never>>(
+        `/api/models/${encodeURIComponent(modelId)}/download`,
+        {},
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+    },
   });
 }
 
@@ -142,11 +158,13 @@ export function useRunEvents(runId?: string | null) {
       return undefined;
     }
     const source = new EventSource(`/api/ingest/runs/${runId}/events`);
-    source.onmessage = () => {
+    const invalidateRunQueries = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
       void queryClient.invalidateQueries({ queryKey: queryKeys.status });
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
     };
+    source.onmessage = invalidateRunQueries;
+    source.addEventListener('snapshot', invalidateRunQueries);
     return () => source.close();
   }, [queryClient, runId]);
 }

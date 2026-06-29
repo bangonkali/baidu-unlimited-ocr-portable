@@ -13,4 +13,5 @@ export interface DocumentSummary {
   status: string;
   page_count: number;
   regions?: number;
+  error?: string;
 }

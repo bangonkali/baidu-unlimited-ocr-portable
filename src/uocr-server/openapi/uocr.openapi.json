@@ -866,6 +866,9 @@
           },
           "regions": {
             "type": "integer"
+          },
+          "error": {
+            "type": "string"
           }
         }
       },
@@ -1123,6 +1126,16 @@
             "type": "integer",
             "format": "int64",
             "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "model_file": {
+            "type": "string"
+          },
+          "mmproj_file": {
+            "type": "string"
           }
         }
       },

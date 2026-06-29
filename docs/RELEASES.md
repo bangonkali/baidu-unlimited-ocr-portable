@@ -30,6 +30,16 @@ same binary reports its release metadata:
 .\uocr-server.exe --version
 ```
 
+Runtime logs are written beside the executable:
+
+```text
+logs/uocr-server.log
+```
+
+The zip bundles the native `uocr-ffi` runtime. GGUF model files are not bundled;
+use the workbench model download action or `POST /api/models/unlimited-ocr-q4-k-m/download`
+to place them under `models/`.
+
 ## Installer Commands
 
 Windows:

@@ -1,7 +1,8 @@
 import * as Checkbox from '@radix-ui/react-checkbox';
-import { Check } from 'lucide-react';
+import { Check, Download } from 'lucide-react';
 
 import type { ModelsPayload, SettingsPayload } from '../../api/types';
+import { IconButton } from '../../components/IconButton';
 import { setLabelsVisible, setOverlayVisible } from '../../stores/workbenchStore';
 import styles from './DetailsPane.module.css';
 
@@ -12,6 +13,8 @@ interface DetailsPaneProps {
   selectedRegionId?: string;
   overlayVisible: boolean;
   labelsVisible: boolean;
+  modelDownloadBusy?: boolean;
+  onDownloadModel?: (modelId: string) => void;
 }
 
 export function DetailsPane(props: DetailsPaneProps) {
@@ -29,6 +32,11 @@ export function DetailsPane(props: DetailsPaneProps) {
       <VisibilityControls
         labelsVisible={props.labelsVisible}
         overlayVisible={props.overlayVisible}
+      />
+      <ModelList
+        busy={props.modelDownloadBusy}
+        models={props.models}
+        onDownloadModel={props.onDownloadModel}
       />
       <ProfileList models={props.models} />
     </aside>
@@ -64,6 +72,32 @@ function VisibilityControls(props: Pick<DetailsPaneProps, 'labelsVisible' | 'ove
         </Checkbox.Root>
         Labels
       </label>
+    </div>
+  );
+}
+
+function ModelList({
+  busy,
+  models,
+  onDownloadModel,
+}: Pick<DetailsPaneProps, 'models' | 'onDownloadModel'> & { busy?: boolean }) {
+  return (
+    <div className={styles.group}>
+      <div className={styles.groupTitle}>Models</div>
+      {models?.models.map((model) => (
+        <div className={styles.model} key={model.model_id}>
+          <div className={styles.modelText}>
+            <span>{model.display_name}</span>
+            <small title={model.error ?? model.local_path ?? undefined}>{model.status}</small>
+          </div>
+          <IconButton
+            disabled={busy || model.status === 'downloaded' || model.status === 'downloading'}
+            icon={Download}
+            label={`Download ${model.display_name}`}
+            onClick={() => onDownloadModel?.(model.model_id)}
+          />
+        </div>
+      ))}
     </div>
   );
 }

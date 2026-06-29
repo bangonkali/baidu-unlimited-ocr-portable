@@ -81,8 +81,13 @@ if(UOCR_BUILD_SERVER)
     add_executable(uocr-server
       src/app/main.cpp
       src/app/routes.cpp
+      src/app/workbench_service.cpp
+      src/app/workbench_state.cpp
     )
     target_link_libraries(uocr-server PRIVATE uocr_core Drogon::Drogon)
+    if(WIN32)
+      target_link_libraries(uocr-server PRIVATE urlmon)
+    endif()
     target_compile_definitions(uocr-server PRIVATE
       UOCR_APP_VERSION="${UOCR_VERSION}"
       UOCR_GIT_SHA="${UOCR_GIT_SHA}"
