@@ -89,10 +89,29 @@ jobs:
           $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
           if (-not $exe) { throw "uocr-server.exe not found in archive" }
           & $exe.FullName --version
-          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--port", "8766", "--no-browser" -WorkingDirectory $exe.Directory.FullName -PassThru
+          $stdoutPath = Join-Path $env:RUNNER_TEMP "uocr-server.stdout.log"
+          $stderrPath = Join-Path $env:RUNNER_TEMP "uocr-server.stderr.log"
+          $process = Start-Process `
+            -FilePath $exe.FullName `
+            -ArgumentList "--port", "8766", "--no-browser" `
+            -WorkingDirectory $exe.Directory.FullName `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath `
+            -PassThru
           try {
-            Start-Sleep -Seconds 2
-            $health = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/health"
+            $health = $null
+            for ($attempt = 1; $attempt -le 60; $attempt++) {
+              $process.Refresh()
+              if ($process.HasExited) {
+                throw "uocr-server exited early with code $($process.ExitCode)"
+              }
+              try {
+                $health = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/health" -TimeoutSec 2
+                if ($health.ok -eq $true) { break }
+              } catch {
+                Start-Sleep -Milliseconds 500
+              }
+            }
             if ($health.ok -ne $true) { throw "health check failed" }
             $home = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
             if ($home.StatusCode -ne 200) { throw "SPA check failed" }
@@ -100,6 +119,17 @@ jobs:
             if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
             $logText = Get-Content -LiteralPath $logPath -Raw
             if ($logText -notmatch "listening http://127.0.0.1:8766/") { throw "server log did not record the listener URL" }
+          } catch {
+            Write-Host "::group::uocr-server smoke logs"
+            $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
+            foreach ($path in @($logPath, $stdoutPath, $stderrPath)) {
+              if (Test-Path $path) {
+                Write-Host "--- $path"
+                Get-Content -LiteralPath $path -ErrorAction SilentlyContinue
+              }
+            }
+            Write-Host "::endgroup::"
+            throw
           }
           finally {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
