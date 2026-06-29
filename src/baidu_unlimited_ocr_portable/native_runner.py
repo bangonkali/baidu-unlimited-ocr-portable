@@ -584,6 +584,16 @@ class _FfiSession:
 
 _ffi_lock = threading.RLock()
 _ffi_session: _FfiSession | None = None
+_dll_directory_handles: list[object] = []
+_dll_directory_paths: set[str] = set()
+_WINDOWS_RUNTIME_DEPENDENCY_DLLS = (
+    "cublas64_13.dll",
+    "cublasLt64_13.dll",
+    "cudart64_13.dll",
+    "libcrypto-3-x64.dll",
+    "libssl-3-x64.dll",
+    "nvrtc64_130_0.dll",
+)
 
 
 def _utf8(value: str | os.PathLike[str]) -> bytes:
@@ -600,9 +610,44 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _windows_dependency_dirs(path: Path) -> list[Path]:
+    dirs = [path.parent]
+    for raw in os.environ.get("PATH", "").split(os.pathsep):
+        if not raw:
+            continue
+        candidate = Path(raw.strip('"'))
+        dirs.append(candidate)
+        if candidate.name.lower() in {"bin", "cmd"} and candidate.parent.name.lower() == "git":
+            dirs.append(candidate.parent / "mingw64" / "bin")
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for directory in dirs:
+        try:
+            resolved = directory.resolve(strict=False)
+        except OSError:
+            continue
+        key = str(resolved).lower()
+        if key in seen or not resolved.is_dir():
+            continue
+        if resolved == path.parent or any((resolved / name).exists() for name in _WINDOWS_RUNTIME_DEPENDENCY_DLLS):
+            unique.append(resolved)
+            seen.add(key)
+    return unique
+
+
+def _add_windows_dll_directory(directory: Path) -> None:
+    key = str(directory.resolve(strict=False)).lower()
+    if key in _dll_directory_paths:
+        return
+    _dll_directory_handles.append(os.add_dll_directory(str(directory)))
+    _dll_directory_paths.add(key)
+
+
 def _load_ffi_library(path: Path) -> ctypes.CDLL:
     if os.name == "nt" and hasattr(os, "add_dll_directory"):
-        os.add_dll_directory(str(path.parent))
+        for directory in _windows_dependency_dirs(path):
+            _add_windows_dll_directory(directory)
     elif os.name != "nt":
         pattern = "lib*.dylib" if os.uname().sysname == "Darwin" else "lib*.so*"
         for sibling in sorted(path.parent.glob(pattern)):

@@ -117,6 +117,10 @@
       "required_libraries": [
         "uocr-ffi.dll"
       ],
+      "bundled_dependency_libraries": [
+        "libcrypto-3-x64.dll",
+        "libssl-3-x64.dll"
+      ],
       "library_globs": [
         "*.dll"
       ],

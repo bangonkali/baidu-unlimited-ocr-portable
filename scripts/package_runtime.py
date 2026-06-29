@@ -66,6 +66,47 @@ def find_one(build_dir: Path, names: list[str]) -> Path:
     return unique[0]
 
 
+def path_dirs() -> list[Path]:
+    dirs: list[Path] = []
+    for raw in os.environ.get("PATH", "").split(os.pathsep):
+        if raw:
+            dirs.append(Path(raw.strip('"')))
+    return dirs
+
+
+def dependency_search_dirs(build_dir: Path) -> list[Path]:
+    dirs = [
+        build_dir,
+        build_dir / "bin",
+        build_dir / "bin" / "Release",
+        build_dir / "Release",
+        *path_dirs(),
+    ]
+    if os.name == "nt":
+        for directory in path_dirs():
+            if directory.name.lower() in {"bin", "cmd"} and directory.parent.name.lower() == "git":
+                dirs.append(directory.parent / "mingw64" / "bin")
+
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for directory in dirs:
+        resolved = directory.resolve(strict=False)
+        if resolved not in seen and resolved.is_dir():
+            unique.append(resolved)
+            seen.add(resolved)
+    return unique
+
+
+def find_dependency(build_dir: Path, name: str) -> Path:
+    candidates = [Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)]
+    for directory in dependency_search_dirs(build_dir):
+        candidates.append(directory / name)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    die(f"could not find bundled runtime dependency: {name}")
+
+
 def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]:
     files: list[Path] = []
     executable_paths: list[Path] = []
@@ -75,6 +116,8 @@ def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]
         files.append(path)
     for library in target.get("required_libraries", []):
         files.append(find_one(build_dir, [library]))
+    for dependency in target.get("bundled_dependency_libraries", []):
+        files.append(find_dependency(build_dir, dependency))
 
     search_dirs = {path.parent for path in executable_paths}
     search_dirs.add(build_dir / "bin")
@@ -107,6 +150,15 @@ def library_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str
     return {library: by_name[library] for library in target.get("required_libraries", []) if library in by_name}
 
 
+def dependency_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
+    by_name = {path.name: f"bin/{path.name}" for path in files}
+    return {
+        library: by_name[library]
+        for library in target.get("bundled_dependency_libraries", [])
+        if library in by_name
+    }
+
+
 def make_package_manifest(
     *,
     platform_id: str,
@@ -135,6 +187,7 @@ def make_package_manifest(
             llama_commit = ""
 
     required_libraries = library_manifest(files, target)
+    dependency_libraries = dependency_manifest(files, target)
     return {
         "schema_version": 1,
         "platform": platform_id,
@@ -166,6 +219,7 @@ def make_package_manifest(
             "primary_binary": f"bin/{target['primary_binary']}",
             "executables": executable_manifest(files, target),
             "required_libraries": required_libraries,
+            "dependency_libraries": dependency_libraries,
             "ffi_library": next(iter(required_libraries.values()), ""),
             "files": sorted(f"bin/{path.name}" for path in files),
         },
