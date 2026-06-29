@@ -174,7 +174,7 @@ struct UnlimitedOcrFfiEngine::Impl {
       return;
     }
 #ifdef _WIN32
-    library = LoadLibraryA(paths.ffi_library.string().c_str());
+    library = LoadLibraryExA(paths.ffi_library.string().c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
 #else
     library = dlopen(paths.ffi_library.string().c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
@@ -282,4 +282,3 @@ OcrResult UnlimitedOcrFfiEngine::recognize_image(const OcrRequest& request,
 }
 
 }  // namespace uocr
-
