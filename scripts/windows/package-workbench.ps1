@@ -155,7 +155,7 @@ function Install-RuntimeFromRelease {
         if ($shaAsset) {
             $shaPath = Join-Path $downloadRoot $shaAsset.name
             Save-ReleaseAsset -Asset $shaAsset -Destination $shaPath
-            $expected = ((Get-Content -LiteralPath $shaPath -Raw).Trim() -split "\\s+")[0].ToLowerInvariant()
+            $expected = ((Get-Content -LiteralPath $shaPath -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
             $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($expected -and $expected -ne $actual) {
                 throw "Runtime checksum mismatch. Expected $expected, got $actual."
