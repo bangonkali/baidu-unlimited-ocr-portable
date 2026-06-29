@@ -152,14 +152,12 @@ jobs:
           $notes = @"
           Unlimited-OCR Workbench $env:UOCR_VERSION
 
-          Download `uocr-workbench-windows-x64-$env:UOCR_VERSION.zip`, extract it, and run `uocr-server.exe`.
-          The executable hosts the React app at http://127.0.0.1:8765/ and reports its release with `uocr-server --version`.
-          Runtime logs are written to `logs/uocr-server.log` inside the extracted folder.
+          Download uocr-workbench-windows-x64-$env:UOCR_VERSION.zip, extract it, and run uocr-server.exe.
+          The executable hosts the React app at http://127.0.0.1:8765/ and reports its release with uocr-server --version.
+          Runtime logs are written to logs/uocr-server.log inside the extracted folder.
 
           Installer:
-          ```powershell
           powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
-          ```
           "@
           $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
           $notes | Set-Content -LiteralPath $notesPath -Encoding utf8
