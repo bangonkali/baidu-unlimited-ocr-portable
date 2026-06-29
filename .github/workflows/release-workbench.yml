@@ -113,8 +113,8 @@ jobs:
               }
             }
             if ($health.ok -ne $true) { throw "health check failed" }
-            $home = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
-            if ($home.StatusCode -ne 200) { throw "SPA check failed" }
+            $homeResponse = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
+            if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
             $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
             if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
             $logText = Get-Content -LiteralPath $logPath -Raw
