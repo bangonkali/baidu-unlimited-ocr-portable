@@ -10,3 +10,10 @@ uocr-runtime-env.sh
 __pycache__/
 *.pyc
 /safetensors_probe
+/.skylos/
+/build/
+/src/uocr-client/dist/
+/src/uocr-client/storybook-static/
+/src/uocr-client/node_modules/
+*.tsbuildinfo
+.logs/
