@@ -4,3 +4,12 @@
 *.cmd text eol=crlf
 *.ps1 text eol=lf
 *.sh text eol=lf
+
+*.bmp binary
+*.jpeg binary
+*.jpg binary
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.png binary
+*.tif binary
+*.tiff binary
+*.webp binary
