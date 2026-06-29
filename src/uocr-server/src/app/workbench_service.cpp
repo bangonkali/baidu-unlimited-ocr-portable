@@ -3,6 +3,7 @@
 #include "workbench_state.hpp"
 
 #include <utility>
+#include <vector>
 
 #include "uocr/app/app_logger.hpp"
 #include "uocr/core/profiles.hpp"
@@ -15,31 +16,7 @@ WorkbenchService::WorkbenchService(std::filesystem::path app_root, std::shared_p
 
 Json::Value WorkbenchService::status() const {
   std::scoped_lock lock(impl_->mutex);
-  Json::Value payload;
-  payload["state"] = "idle";
-  payload["active_run_id"] = Json::nullValue;
-  for (auto it = impl_->runs.rbegin(); it != impl_->runs.rend(); ++it) {
-    if (it->second.status == "queued" || it->second.status == "running") {
-      payload["state"] = it->second.status;
-      payload["active_run_id"] = it->second.run_id;
-      break;
-    }
-  }
-  payload["host"] = "127.0.0.1";
-  payload["runtime_platform"] =
-#ifdef _WIN32
-      "windows-x86_64-cuda13";
-#else
-      "linux-x86_64-cuda13";
-#endif
-  payload["accelerator"] = "cuda";
-  payload["inference_engine"] = "Unlimited-OCR FFI";
-  payload["log_path"] = (impl_->app_root / "logs" / "uocr-server.log").string();
-  payload["default_profile"] = default_ocr_profile().key;
-  for (const auto* suffix : {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}) {
-    payload["supported_inputs"].append(suffix);
-  }
-  return payload;
+  return impl_->status_record();
 }
 
 Json::Value WorkbenchService::settings() const {
@@ -62,6 +39,8 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
     impl_->logger->info("ingest", "scan requested for " + root + " found " + std::to_string(files.size()) +
                                       " supported files");
   }
+  Json::Value run_event;
+  std::vector<Json::Value> document_events;
   {
     std::scoped_lock lock(impl_->mutex);
     Impl::RunState run;
@@ -76,9 +55,16 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
       document.relative_path = file.relative_path;
       run.file_hashes.push_back(document.file_hash);
       impl_->documents[document.file_hash] = std::move(document);
+      document_events.push_back(impl_->document_summary(impl_->documents[run.file_hashes.back()]));
     }
     impl_->runs[run_id] = run;
+    run_event = impl_->run_record(impl_->runs[run_id]);
   }
+  impl_->publish_event("run.changed", run_event);
+  for (const auto& document_event : document_events) {
+    impl_->publish_event("document.changed", document_event);
+  }
+  impl_->publish_status_changed();
   impl_->start_run(run_id, files, profile);
   return get_run(run_id);
 }
@@ -100,26 +86,37 @@ Json::Value WorkbenchService::get_run(const std::string& run_id) const {
 }
 
 Json::Value WorkbenchService::run_command(const std::string& run_id, const std::string& command) {
-  std::scoped_lock lock(impl_->mutex);
-  auto found = impl_->runs.find(run_id);
-  if (found == impl_->runs.end()) {
-    return error_json("run not found");
-  }
-  if (command != "stop") {
-    return error_json("unsupported run command");
-  }
-  found->second.cancel_requested = true;
-  found->second.status = "cancelled";
-  for (const auto& hash : found->second.file_hashes) {
-    auto& document = impl_->documents[hash];
-    if (document.status == "queued" || document.status == "running" || document.status == "rendering") {
-      document.status = "cancelled";
+  Json::Value run_event;
+  std::vector<Json::Value> document_events;
+  {
+    std::scoped_lock lock(impl_->mutex);
+    auto found = impl_->runs.find(run_id);
+    if (found == impl_->runs.end()) {
+      return error_json("run not found");
     }
+    if (command != "stop") {
+      return error_json("unsupported run command");
+    }
+    found->second.cancel_requested = true;
+    found->second.status = "cancelled";
+    for (const auto& hash : found->second.file_hashes) {
+      auto& document = impl_->documents[hash];
+      if (document.status == "queued" || document.status == "running" || document.status == "rendering") {
+        document.status = "cancelled";
+      }
+      document_events.push_back(impl_->document_summary(document));
+    }
+    run_event = impl_->run_record(found->second);
   }
   if (impl_->logger) {
     impl_->logger->warn("ingest", "stop requested for run " + run_id);
   }
-  return impl_->run_record(found->second);
+  impl_->publish_event("run.changed", run_event);
+  for (const auto& document_event : document_events) {
+    impl_->publish_event("document.changed", document_event);
+  }
+  impl_->publish_status_changed();
+  return run_event;
 }
 
 std::string WorkbenchService::run_event_stream(const std::string& run_id) const {
@@ -156,55 +153,26 @@ Json::Value WorkbenchService::get_document(const std::string& file_hash) const {
 
 Json::Value WorkbenchService::document_regions(const std::string& file_hash) const {
   std::scoped_lock lock(impl_->mutex);
-  Json::Value payload;
-  payload["file_hash"] = file_hash;
-  payload["boxes"] = Json::arrayValue;
   const auto found = impl_->documents.find(file_hash);
   if (found == impl_->documents.end()) {
+    Json::Value payload;
+    payload["file_hash"] = file_hash;
+    payload["boxes"] = Json::arrayValue;
     return payload;
   }
-  for (const auto& page : found->second.pages) {
-    for (const auto& box : page.boxes) {
-      Json::Value item;
-      item["region_id"] = box.region_id;
-      item["label"] = box.label;
-      item["page_no"] = box.page_no;
-      item["left_percent"] = box.left_percent;
-      item["top_percent"] = box.top_percent;
-      item["width_percent"] = box.width_percent;
-      item["height_percent"] = box.height_percent;
-      item["hidden"] = box.hidden;
-      payload["boxes"].append(item);
-    }
-  }
-  return payload;
+  return impl_->document_regions_record(found->second);
 }
 
 Json::Value WorkbenchService::document_text(const std::string& file_hash) const {
   std::scoped_lock lock(impl_->mutex);
-  Json::Value payload;
-  payload["file_hash"] = file_hash;
-  payload["pages"] = Json::arrayValue;
   const auto found = impl_->documents.find(file_hash);
   if (found == impl_->documents.end()) {
+    Json::Value payload;
+    payload["file_hash"] = file_hash;
+    payload["pages"] = Json::arrayValue;
     return payload;
   }
-  for (const auto& page_state : found->second.pages) {
-    Json::Value page;
-    page["page_no"] = page_state.page_no;
-    page["text"] = page_state.cleaned_text;
-    page["spans"] = Json::arrayValue;
-    for (const auto& span : page_state.spans) {
-      Json::Value item;
-      item["region_id"] = span.region_id;
-      item["page_no"] = span.page_no;
-      item["start"] = static_cast<Json::UInt64>(span.start);
-      item["end"] = static_cast<Json::UInt64>(span.end);
-      page["spans"].append(item);
-    }
-    payload["pages"].append(page);
-  }
-  return payload;
+  return impl_->document_text_record(found->second);
 }
 
 Json::Value WorkbenchService::document_preview_images(const std::string& file_hash) const {

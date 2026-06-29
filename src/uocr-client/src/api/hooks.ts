@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 
 import { buildApiUrl, getJson, postJson } from './http';
+import { queryKeys } from './queryKeys';
 import type {
   DocumentRegionsPayload,
   DocumentsPayload,
@@ -11,7 +11,6 @@ import type {
   IngestRunsPayload,
   IngestStartRequest,
   LogsPayload,
-  ModelAssetRecord,
   ModelDownloadRecord,
   ModelDownloadRequest,
   ModelsPayload,
@@ -20,23 +19,13 @@ import type {
   StatusPayload,
 } from './types';
 
-export const queryKeys = {
-  documents: (q: string) => ['documents', q] as const,
-  documentPreviewImages: (fileHash?: string) => ['document-preview-images', fileHash] as const,
-  documentRegions: (fileHash?: string) => ['document-regions', fileHash] as const,
-  documentText: (fileHash?: string) => ['document-text', fileHash] as const,
-  logs: ['logs'] as const,
-  models: ['models'] as const,
-  runs: ['runs'] as const,
-  settings: ['settings'] as const,
-  status: ['status'] as const,
-};
+export { queryKeys };
 
 export function useStatus() {
   return useQuery({
     queryFn: ({ signal }) => getJson<StatusPayload>('/api/status', signal),
     queryKey: queryKeys.status,
-    refetchInterval: 3000,
+    refetchInterval: 15000,
   });
 }
 
@@ -93,7 +82,6 @@ export function useModels() {
     placeholderData: { models: [], profiles: [] },
     queryFn: ({ signal }) => getJson<ModelsPayload>('/api/models', signal),
     queryKey: queryKeys.models,
-    refetchInterval: 1000,
   });
 }
 
@@ -132,40 +120,6 @@ export function useCancelModelDownload() {
   });
 }
 
-export function useModelDownloadEvents(modelId?: string) {
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!modelId) {
-      return undefined;
-    }
-    const source = new EventSource(`/api/models/${encodeURIComponent(modelId)}/events`);
-    const applyModelEvent = (event: MessageEvent<string>) => {
-      let model: ModelAssetRecord;
-      try {
-        model = JSON.parse(event.data) as ModelAssetRecord;
-      } catch {
-        return;
-      }
-      queryClient.setQueryData<ModelsPayload>(queryKeys.models, (current) => {
-        const existing = current ?? { models: [], profiles: [] };
-        const found = existing.models.some((item) => item.model_id === model.model_id);
-        return {
-          ...existing,
-          models: found
-            ? existing.models.map((item) => (item.model_id === model.model_id ? model : item))
-            : [...existing.models, model],
-        };
-      });
-      if (!['downloading', 'metadata', 'retrying'].includes(model.status)) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-      }
-    };
-    source.addEventListener('model', applyModelEvent as EventListener);
-    source.onmessage = applyModelEvent;
-    return () => source.close();
-  }, [queryClient, modelId]);
-}
-
 export function useSettings() {
   return useQuery({
     queryFn: ({ signal }) => getJson<SettingsPayload>('/api/settings', signal),
@@ -178,7 +132,6 @@ export function useIngestRuns() {
     placeholderData: { runs: [] },
     queryFn: ({ signal }) => getJson<IngestRunsPayload>('/api/ingest/runs', signal),
     queryKey: queryKeys.runs,
-    refetchInterval: 3000,
   });
 }
 
@@ -222,28 +175,5 @@ export function useLogs(limit = 200) {
     queryFn: ({ signal }) =>
       getJson<LogsPayload>(buildApiUrl('/api/logs/recent', { limit }), signal),
     queryKey: [...queryKeys.logs, limit],
-    refetchInterval: 3000,
   });
-}
-
-export function useRunEvents(runId?: string | null) {
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!runId) {
-      return undefined;
-    }
-    const source = new EventSource(`/api/ingest/runs/${runId}/events`);
-    const invalidateRunQueries = () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-      void queryClient.invalidateQueries({ queryKey: ['documents'] });
-      void queryClient.invalidateQueries({ queryKey: ['document-preview-images'] });
-      void queryClient.invalidateQueries({ queryKey: ['document-regions'] });
-      void queryClient.invalidateQueries({ queryKey: ['document-text'] });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-    };
-    source.onmessage = invalidateRunQueries;
-    source.addEventListener('snapshot', invalidateRunQueries);
-    return () => source.close();
-  }, [queryClient, runId]);
 }

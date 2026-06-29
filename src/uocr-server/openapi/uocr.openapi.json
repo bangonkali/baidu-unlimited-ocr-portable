@@ -605,6 +605,9 @@
           "log_path": {
             "type": "string"
           },
+          "realtime_path": {
+            "type": "string"
+          },
           "default_profile": {
             "type": "string"
           },

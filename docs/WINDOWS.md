@@ -49,6 +49,11 @@ bytes downloaded versus total bytes, percentage, MiB/s, ETA, retry,
 re-download, and cancel. Cancelling keeps the `.download` partial file so a
 later retry can resume when Hugging Face supports range requests.
 
+The browser keeps one websocket connection to `ws://127.0.0.1:8765/api/events`.
+Model progress, scan progress, new OCR text, bounding boxes, document status,
+and log entries update through that single channel. Folder selection, model
+download commands, and scan commands still use normal HTTP API requests.
+
 One-line install to `~\.uocr`:
 
 ```powershell

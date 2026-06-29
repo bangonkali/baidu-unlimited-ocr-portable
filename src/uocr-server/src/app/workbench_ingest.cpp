@@ -1,9 +1,7 @@
 #include "workbench_state.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -12,28 +10,9 @@
 #include "uocr/core/ocr_parser.hpp"
 #include "uocr/core/profiles.hpp"
 #include "uocr/ocr/unlimited_ocr_ffi_engine.hpp"
-#include "uocr/render/mupdf_page_renderer.hpp"
-#include "uocr/render/png_dimensions.hpp"
 
 namespace uocr::server {
 namespace {
-
-bool has_extension(const std::filesystem::path& path, std::string_view expected) {
-  auto ext = path.extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return ext == expected;
-}
-
-bool is_image_file(const std::filesystem::path& path) {
-  auto ext = path.extension().string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
-    return static_cast<char>(std::tolower(ch));
-  });
-  return ext == ".bmp" || ext == ".jpeg" || ext == ".jpg" || ext == ".png" || ext == ".tif" ||
-         ext == ".tiff" || ext == ".webp";
-}
 
 void log_info(const std::shared_ptr<AppLogger>& logger, std::string_view component, const std::string& message) {
   if (logger) {
@@ -85,44 +64,6 @@ std::string document_status_for(const WorkbenchService::Impl::DocumentState& doc
 
 }  // namespace
 
-std::vector<WorkbenchService::Impl::PageState> WorkbenchService::Impl::prepare_pages(
-    const DiscoveredFile& file, const std::string& file_hash) const {
-  if (is_image_file(file.absolute_path)) {
-    PageState page;
-    page.image_path = file.absolute_path;
-    try {
-      const auto size = read_png_dimensions(file.absolute_path);
-      page.width_px = size.width_px;
-      page.height_px = size.height_px;
-    } catch (const std::exception&) {
-      page.width_px = 0;
-      page.height_px = 0;
-    }
-    return {page};
-  }
-
-  if (!has_extension(file.absolute_path, ".pdf")) {
-    throw std::runtime_error("unsupported input type");
-  }
-
-  log_info(logger, "pdf", "rendering " + file.relative_path.generic_string() + " at 200 DPI with MuPDF");
-  const auto cache_root = app_root / "cache" / "rendered-pages" / file_hash;
-  MupdfPageRenderer renderer;
-  const auto rendered_pages = renderer.render_document(file.absolute_path, cache_root, 200);
-  std::vector<PageState> pages;
-  pages.reserve(rendered_pages.size());
-  for (const auto& rendered : rendered_pages) {
-    PageState page;
-    page.page_no = rendered.page_no;
-    page.image_path = rendered.image_path;
-    page.width_px = rendered.width_px;
-    page.height_px = rendered.height_px;
-    page.dpi = rendered.dpi;
-    pages.push_back(std::move(page));
-  }
-  return pages;
-}
-
 void WorkbenchService::Impl::start_run(std::string const& run_id,
                                        std::vector<DiscoveredFile> files,
                                        std::string profile_id) {
@@ -131,29 +72,21 @@ void WorkbenchService::Impl::start_run(std::string const& run_id,
   }).detach();
 }
 
-void WorkbenchService::Impl::fail_run(const std::string& run_id, const std::string& message) {
-  std::scoped_lock lock(mutex);
-  auto& run = runs[run_id];
-  run.status = "failed";
-  run.error = message;
-  for (const auto& hash : run.file_hashes) {
-    auto& document = documents[hash];
-    if (document.status == "queued" || document.status == "running" || document.status == "rendering") {
-      document.status = "failed";
-      document.error = message;
-    }
-  }
-}
-
 void WorkbenchService::Impl::process_run(const std::string& run_id,
                                          const std::vector<DiscoveredFile>& files,
                                          const std::string& profile_id) {
   const auto* profile = find_ocr_profile(profile_id);
   profile = profile != nullptr ? profile : &default_ocr_profile();
   if (files.empty()) {
-    std::scoped_lock lock(mutex);
-    runs[run_id].status = "completed";
+    Json::Value run_event;
+    {
+      std::scoped_lock lock(mutex);
+      runs[run_id].status = "completed";
+      run_event = run_record(runs[run_id]);
+    }
     log_info(logger, "ingest", "run " + run_id + " finished: no supported files found");
+    publish_event("run.changed", run_event);
+    publish_status_changed();
     return;
   }
   if (!model_ready()) {
@@ -170,37 +103,59 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
   log_info(logger, "models", "loading CUDA Unlimited-OCR runtime from " + ffi_path().string());
   UnlimitedOcrFfiEngine engine({ffi_path(), model_path(), mmproj_path()}, *profile);
   bool any_failed = false;
+  Json::Value run_event;
   {
     std::scoped_lock lock(mutex);
     runs[run_id].status = "running";
+    run_event = run_record(runs[run_id]);
   }
+  publish_event("run.changed", run_event);
+  publish_status_changed();
   log_info(logger, "ingest", "run " + run_id + " started with " + std::to_string(files.size()) + " files");
 
   for (const auto& file : files) {
     const auto hash = stable_hash(file);
+    Json::Value document_event;
+    run_event = Json::Value();
     {
       std::scoped_lock lock(mutex);
       if (runs[run_id].cancel_requested) {
         runs[run_id].status = "cancelled";
-        return;
+        run_event = run_record(runs[run_id]);
+      } else {
+        documents[hash].status = lower(file.absolute_path.extension().string()) == ".pdf" ? "rendering" : "running";
+        document_event = document_summary(documents[hash]);
       }
-      documents[hash].status = has_extension(file.absolute_path, ".pdf") ? "rendering" : "running";
     }
+    if (!run_event.isNull() && document_event.isNull()) {
+      publish_event("run.changed", run_event);
+      publish_status_changed();
+      return;
+    }
+    publish_event("document.changed", document_event);
 
     std::vector<PageState> pages;
     try {
       pages = prepare_pages(file, hash);
     } catch (const std::exception& error) {
-      std::scoped_lock lock(mutex);
-      auto& document = documents[hash];
-      document.status = "failed";
-      document.error = error.what();
-      runs[run_id].processed_pages += 1;
+      {
+        std::scoped_lock lock(mutex);
+        auto& document = documents[hash];
+        document.status = "failed";
+        document.error = error.what();
+        runs[run_id].processed_pages += 1;
+        document_event = document_summary(document);
+        run_event = run_record(runs[run_id]);
+      }
       any_failed = true;
       log_error(logger, "pdf", file.relative_path.generic_string() + " failed: " + error.what());
+      publish_event("document.changed", document_event);
+      publish_event("run.changed", run_event);
+      publish_status_changed();
       continue;
     }
 
+    std::vector<Json::Value> page_events;
     {
       std::scoped_lock lock(mutex);
       auto& run = runs[run_id];
@@ -208,18 +163,55 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       document.pages = pages;
       document.status = "running";
       run.total_pages += std::max(0, static_cast<int>(pages.size()) - 1);
+      document_event = document_summary(document);
+      run_event = run_record(run);
+      for (const auto& page : document.pages) {
+        page_events.push_back(document_page_record(document, page));
+      }
     }
+    publish_event("document.changed", document_event);
+    publish_event("run.changed", run_event);
+    for (const auto& page_event : page_events) {
+      publish_event("document.page.changed", page_event);
+    }
+    publish_status_changed();
 
     for (std::size_t index = 0; index < pages.size(); ++index) {
       const auto& page = pages[index];
+      Json::Value page_event;
+      std::vector<Json::Value> cancel_page_events;
+      bool cancelled = false;
       {
         std::scoped_lock lock(mutex);
         if (runs[run_id].cancel_requested) {
-          runs[run_id].status = "cancelled";
-          return;
+          auto& run = runs[run_id];
+          auto& document = documents[hash];
+          run.status = "cancelled";
+          document.status = "cancelled";
+          for (auto& page_state : document.pages) {
+            if (page_state.status == "queued" || page_state.status == "running") {
+              page_state.status = "cancelled";
+            }
+            cancel_page_events.push_back(document_page_record(document, page_state));
+          }
+          run_event = run_record(run);
+          document_event = document_summary(document);
+          cancelled = true;
+        } else {
+          documents[hash].pages[index].status = "running";
+          page_event = document_page_record(documents[hash], documents[hash].pages[index]);
         }
-        documents[hash].pages[index].status = "running";
       }
+      if (cancelled) {
+        publish_event("run.changed", run_event);
+        publish_event("document.changed", document_event);
+        for (const auto& item : cancel_page_events) {
+          publish_event("document.page.changed", item);
+        }
+        publish_status_changed();
+        return;
+      }
+      publish_event("document.page.changed", page_event);
       log_info(logger, "ocr", "processing " + page_label(file, page.page_no, static_cast<int>(pages.size())));
 
       OcrResult result;
@@ -234,36 +226,65 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
         error = exception.what();
       }
 
-      std::scoped_lock lock(mutex);
-      auto& document = documents[hash];
-      auto& page_state = document.pages[index];
+      Json::Value regions_event;
+      Json::Value text_event;
+      {
+        std::scoped_lock lock(mutex);
+        auto& document = documents[hash];
+        auto& page_state = document.pages[index];
+        if (!error.empty()) {
+          any_failed = true;
+          page_state.status = "failed";
+          page_state.error = error;
+        } else {
+          const auto parsed = parse_ocr_markers(result.text, {.file_hash = hash, .page_no = page.page_no});
+          page_state.raw_text = result.text;
+          page_state.cleaned_text = parsed.cleaned_text.empty() ? result.text : parsed.cleaned_text;
+          page_state.boxes = to_overlay_boxes(parsed, page.page_no);
+          page_state.spans = parsed.text_region_spans;
+          page_state.status = "completed";
+        }
+        refresh_document_aggregate(document);
+        runs[run_id].processed_pages += 1;
+        page_event = document_page_record(document, page_state);
+        document_event = document_summary(document);
+        regions_event = document_regions_record(document);
+        text_event = document_text_record(document);
+        run_event = run_record(runs[run_id]);
+      }
       if (!error.empty()) {
-        any_failed = true;
-        page_state.status = "failed";
-        page_state.error = error;
         log_error(logger, "ocr", page_label(file, page.page_no, static_cast<int>(pages.size())) + " failed: " + error);
       } else {
-        const auto parsed = parse_ocr_markers(result.text, {.file_hash = hash, .page_no = page.page_no});
-        page_state.raw_text = result.text;
-        page_state.cleaned_text = parsed.cleaned_text.empty() ? result.text : parsed.cleaned_text;
-        page_state.boxes = to_overlay_boxes(parsed, page.page_no);
-        page_state.spans = parsed.text_region_spans;
-        page_state.status = "completed";
         log_info(logger, "ocr", page_label(file, page.page_no, static_cast<int>(pages.size())) + " completed");
       }
-      refresh_document_aggregate(document);
-      runs[run_id].processed_pages += 1;
+      publish_event("document.page.changed", page_event);
+      publish_event("document.changed", document_event);
+      publish_event("document.regions.changed", regions_event);
+      publish_event("document.text.changed", text_event);
+      publish_event("run.changed", run_event);
+      publish_status_changed();
     }
 
-    std::scoped_lock lock(mutex);
-    auto& document = documents[hash];
-    document.status = document_status_for(document);
+    {
+      std::scoped_lock lock(mutex);
+      auto& document = documents[hash];
+      document.status = document_status_for(document);
+      document_event = document_summary(document);
+    }
+    publish_event("document.changed", document_event);
   }
 
-  std::scoped_lock lock(mutex);
-  auto& run = runs[run_id];
-  run.status = any_failed ? "completed_with_errors" : "completed";
-  log_info(logger, "ingest", "run " + run_id + " finished with status " + run.status);
+  std::string final_status;
+  {
+    std::scoped_lock lock(mutex);
+    auto& run = runs[run_id];
+    run.status = any_failed ? "completed_with_errors" : "completed";
+    final_status = run.status;
+    run_event = run_record(run);
+  }
+  log_info(logger, "ingest", "run " + run_id + " finished with status " + final_status);
+  publish_event("run.changed", run_event);
+  publish_status_changed();
 }
 
 }  // namespace uocr::server

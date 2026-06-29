@@ -98,6 +98,7 @@ std::vector<uocr::download::HfFileSpec> download_specs(
 
 void WorkbenchService::Impl::start_download(bool force) {
   const auto auth = uocr::download::read_hf_auth_from_environment();
+  Json::Value initial_event;
   {
     std::scoped_lock lock(mutex);
     if (model.downloading || (model_ready() && !force)) {
@@ -119,8 +120,10 @@ void WorkbenchService::Impl::start_download(bool force) {
     model.bytes_per_second = 0.0;
     model.eta_seconds = -1.0;
     model.last_event_at = utc_timestamp();
+    initial_event = model_event();
   }
 
+  publish_event("model.changed", initial_event);
   log_info(logger, "models", std::string("model download requested auth=") + (auth.available() ? "env" : "none"));
   std::thread([shared = shared_from_this(), auth, force]() {
     try {
@@ -136,10 +139,13 @@ void WorkbenchService::Impl::start_download(bool force) {
       auto last_progress_log =
           std::make_shared<std::chrono::steady_clock::time_point>(std::chrono::steady_clock::now());
       auto progress = [shared, last_progress_log](const uocr::download::HfDownloadProgress& update) {
+        Json::Value event;
         {
           std::scoped_lock lock(shared->mutex);
           apply_progress_locked(*shared, update);
+          event = shared->model_event();
         }
+        shared->publish_event("model.changed", event);
         const auto now = std::chrono::steady_clock::now();
         if (update.phase == "downloading" && now - *last_progress_log >= std::chrono::seconds(5)) {
           *last_progress_log = now;
@@ -152,27 +158,37 @@ void WorkbenchService::Impl::start_download(bool force) {
 
       downloader.download_files(download_specs(shared->model_files()), options, progress);
 
-      std::scoped_lock lock(shared->mutex);
-      shared->model.downloading = false;
-      shared->model.cancel_requested = false;
-      shared->model.status = "downloaded";
-      shared->model.current_file.clear();
-      shared->model.status_message = "Models are ready";
-      shared->model.overall_percent = 100.0;
-      shared->model.bytes_per_second = 0.0;
-      shared->model.eta_seconds = -1.0;
-      shared->model.last_event_at = utc_timestamp();
+      Json::Value event;
+      {
+        std::scoped_lock lock(shared->mutex);
+        shared->model.downloading = false;
+        shared->model.cancel_requested = false;
+        shared->model.status = "downloaded";
+        shared->model.current_file.clear();
+        shared->model.status_message = "Models are ready";
+        shared->model.overall_percent = 100.0;
+        shared->model.bytes_per_second = 0.0;
+        shared->model.eta_seconds = -1.0;
+        shared->model.last_event_at = utc_timestamp();
+        event = shared->model_event();
+      }
+      shared->publish_event("model.changed", event);
       log_info(shared->logger, "models", "model download completed");
     } catch (const std::exception& error) {
-      std::scoped_lock lock(shared->mutex);
+      Json::Value event;
       const bool cancelled = shared->model_cancel_requested.load();
-      shared->model.downloading = false;
-      shared->model.cancel_requested = false;
-      shared->model.status = cancelled ? "cancelled" : "error";
-      shared->model.error = cancelled ? std::string() : error.what();
-      shared->model.status_message = cancelled ? "Model download cancelled; retry will resume partial files"
-                                               : "Model download failed";
-      shared->model.last_event_at = utc_timestamp();
+      {
+        std::scoped_lock lock(shared->mutex);
+        shared->model.downloading = false;
+        shared->model.cancel_requested = false;
+        shared->model.status = cancelled ? "cancelled" : "error";
+        shared->model.error = cancelled ? std::string() : error.what();
+        shared->model.status_message = cancelled ? "Model download cancelled; retry will resume partial files"
+                                                 : "Model download failed";
+        shared->model.last_event_at = utc_timestamp();
+        event = shared->model_event();
+      }
+      shared->publish_event("model.changed", event);
       if (cancelled) {
         log_info(shared->logger, "models", "model download cancelled");
       } else {
@@ -183,15 +199,20 @@ void WorkbenchService::Impl::start_download(bool force) {
 }
 
 void WorkbenchService::Impl::cancel_download() {
-  std::scoped_lock lock(mutex);
-  if (!model.downloading) {
-    return;
+  Json::Value event;
+  {
+    std::scoped_lock lock(mutex);
+    if (!model.downloading) {
+      return;
+    }
+    model.cancel_requested = true;
+    model.status_message = "Cancelling model download";
+    model.last_event_at = utc_timestamp();
+    model_cancel_requested.store(true);
+    event = model_event();
   }
-  model.cancel_requested = true;
-  model.status_message = "Cancelling model download";
-  model.last_event_at = utc_timestamp();
-  model_cancel_requested.store(true);
   log_info(logger, "models", "model download cancel requested");
+  publish_event("model.changed", event);
 }
 
 }  // namespace uocr::server

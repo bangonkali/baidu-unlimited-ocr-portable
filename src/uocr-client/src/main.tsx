@@ -3,6 +3,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { RealtimeBridge } from './realtime/RealtimeBridge';
 import { router } from './router';
 import './styles/base.css';
 
@@ -25,6 +26,7 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <RealtimeBridge queryClient={queryClient} />
       <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,

@@ -1,6 +1,6 @@
 .statusBar {
   display: grid;
-  grid-template-columns: auto auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto auto auto minmax(0, 1fr);
   gap: 14px;
   align-items: center;
   height: 24px;
@@ -8,6 +8,10 @@
   font-size: 12px;
   color: #eafff4;
   background: var(--status);
+}
+
+.realtime {
+  text-transform: capitalize;
 }
 
 .path {

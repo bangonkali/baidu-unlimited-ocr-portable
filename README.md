@@ -46,6 +46,10 @@ rendering, and page OCR progress. Model download logs include auth availability
 without printing tokens, metadata checks, current file progress, MiB/s,
 verification, cancellation, and failures.
 
+The React app also keeps one websocket open at `/api/events`. Backend changes
+for model downloads, scan progress, document status, OCR text, bounding boxes,
+and logs update the UI without opening per-page event streams.
+
 ## Runtime Support
 
 The current Windows portable workbench supports the CUDA runtime label:

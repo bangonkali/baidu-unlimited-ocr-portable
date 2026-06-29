@@ -13,15 +13,14 @@ import {
   useDownloadModel,
   useIngestRuns,
   useLogs,
-  useModelDownloadEvents,
   useModels,
   useOpenFolderDialog,
   useRunCommand,
-  useRunEvents,
   useStartIngest,
   useStatus,
 } from '../../api/hooks';
 import { IconButton } from '../../components/IconButton';
+import { useRealtimeState } from '../../realtime/realtimeStore';
 import {
   setActiveView,
   setSelectedProfile,
@@ -41,6 +40,7 @@ import { WorkbenchPanels } from './WorkbenchPanels';
 export function WorkbenchPage() {
   const queryClient = useQueryClient();
   const workbench = useWorkbenchState();
+  const realtime = useRealtimeState();
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const status = useStatus();
@@ -57,15 +57,9 @@ export function WorkbenchPage() {
   const startIngest = useStartIngest();
   const stopRun = useRunCommand('stop');
   const activeRunId = status.data?.active_run_id ?? null;
-  useRunEvents(activeRunId);
 
   const model = models.data?.models[0];
   const modelReady = model?.status === 'downloaded';
-  useModelDownloadEvents(
-    model?.model_id && (model.status === 'downloading' || workbench.activeView === 'models')
-      ? model.model_id
-      : undefined,
-  );
   const selectedDocument = documents.data?.documents.find(
     (document) => document.file_hash === workbench.selection.fileHash,
   );
@@ -167,6 +161,7 @@ export function WorkbenchPage() {
           documentCount={documents.data?.documents.length ?? 0}
           host={window.location.host}
           logPath={status.data?.log_path}
+          realtimeState={realtime.connectionState}
           runState={status.data?.state ?? 'offline'}
           runtime={status.data?.runtime_platform ?? 'windows-x86_64-cuda13'}
           selectedRoot={workbench.selectedRoot}

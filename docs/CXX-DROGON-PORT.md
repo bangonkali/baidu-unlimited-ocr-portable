@@ -28,8 +28,13 @@ The server is structured around small service boundaries:
 - download: native libcurl/OpenSSL Hugging Face downloads with environment-only
   `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` auth, resumable temp files, SHA256
   verification when metadata provides it, per-file progress, speed, ETA,
-  cancellation, and SSE snapshots.
-- app: optional Drogon route registration and static OpenAPI serving.
+  cancellation, and typed realtime updates.
+- realtime: a single in-process event hub plus Drogon websocket controller at
+  `/api/events`. The websocket sends typed JSON envelopes for model progress,
+  run status, document/page changes, parsed regions, cleaned text, status, and
+  appended logs.
+- app: optional Drogon route registration, websocket registration, and static
+  OpenAPI serving.
 
 Drogon is optional at configure time so parser/schema/scanner tests can run on
 machines that have not installed Drogon yet. Build the core validation path:
@@ -73,6 +78,33 @@ The React client runs Orval against that file:
 cd src\uocr-client
 bun run generate-api
 ```
+
+## Realtime Contract
+
+The UI opens one websocket to `/api/events` after startup. Frontend commands and
+mutations continue to use the OpenAPI HTTP routes; the websocket is receive-only
+for backend state changes.
+
+Each websocket frame is a compact JSON envelope:
+
+```json
+{
+  "version": 1,
+  "sequence": 12,
+  "type": "document.regions.changed",
+  "occurred_at": "2026-06-30T00:00:00Z",
+  "payload": {}
+}
+```
+
+Current event types are `connection.ready`, `status.changed`, `model.changed`,
+`run.changed`, `document.changed`, `document.page.changed`,
+`document.regions.changed`, `document.text.changed`, and `log.appended`.
+
+These events drive immediate UI updates for the Models panel, ingest toolbar,
+explorer tree, preview overlays, text pane, diagnostics logs, and status bar.
+The client still keeps ordinary HTTP queries for initial loads, refresh, and
+fallback refetching.
 
 ## Traceability Model
 

@@ -21,6 +21,7 @@
 #endif
 
 #include "uocr/app/app_logger.hpp"
+#include "uocr/app/realtime_event_hub.hpp"
 #include "routes.hpp"
 
 namespace {
@@ -122,6 +123,9 @@ int run_server(int argc, char* argv[]) {
   const auto app_root = executable_dir(argv[0]);
   const auto log_file = app_root / "logs" / "uocr-server.log";
   auto logger = std::make_shared<uocr::server::AppLogger>(log_file);
+  logger->set_sink([](const Json::Value& record) {
+    uocr::server::RealtimeEventHub::instance().publish("log.appended", record);
+  });
   logger->info("server", "launch version=" UOCR_APP_VERSION " git_tag=" UOCR_GIT_TAG
                          " git_sha=" UOCR_GIT_SHA);
 

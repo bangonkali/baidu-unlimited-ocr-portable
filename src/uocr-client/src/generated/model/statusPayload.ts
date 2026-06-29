@@ -17,6 +17,7 @@ export interface StatusPayload {
   accelerator?: StatusPayloadAccelerator;
   inference_engine?: string;
   log_path?: string;
+  realtime_path?: string;
   default_profile: string;
   version?: string;
   git_tag?: string;

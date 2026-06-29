@@ -20,6 +20,7 @@ export interface StatusPayload {
   accelerator?: string;
   inference_engine?: string;
   log_path?: string;
+  realtime_path?: string;
 }
 
 export interface OcrProfileRecord {

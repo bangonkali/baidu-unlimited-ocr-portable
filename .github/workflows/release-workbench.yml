@@ -71,6 +71,17 @@ jobs:
           "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
           & "$env:VCPKG_ROOT\vcpkg.exe" version
 
+      - name: Test React client
+        working-directory: src/uocr-client
+        shell: pwsh
+        run: |
+          bun install --frozen-lockfile
+          bun run format:check
+          bun run lint
+          bun run test
+          bun run typecheck
+          bun run build-storybook
+
       - name: Package workbench
         env:
           GH_TOKEN: ${{ github.token }}
@@ -80,6 +91,16 @@ jobs:
             -Preset windows-workbench-ci `
             -Version $env:UOCR_VERSION `
             -RuntimeVersion $env:UOCR_RUNTIME_VERSION
+
+      - name: Test C++ server
+        shell: pwsh
+        run: |
+          cmake --build build/windows-workbench-ci --config Release --target `
+            uocr-core-tests `
+            uocr-download-tests `
+            uocr-render-tests `
+            uocr-realtime-tests
+          ctest --test-dir build/windows-workbench-ci -C Release --output-on-failure
 
       - name: Smoke packaged server
         shell: pwsh
@@ -122,6 +143,25 @@ jobs:
             if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
             $logs = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2
             if (-not $logs.logs) { throw "recent logs API returned no logs" }
+            $socket = [System.Net.WebSockets.ClientWebSocket]::new()
+            try {
+              $null = $socket.ConnectAsync([Uri]"ws://127.0.0.1:8766/api/events", [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+              $buffer = [byte[]]::new(4096)
+              $result = $socket.ReceiveAsync([ArraySegment[byte]]::new($buffer), [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+              $message = [Text.Encoding]::UTF8.GetString($buffer, 0, $result.Count)
+              if ($message -notmatch '"type":"connection.ready"') {
+                throw "websocket did not return connection.ready: $message"
+              }
+            } finally {
+              if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+                try {
+                  $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "done", [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+                } catch {
+                  Write-Host "websocket close handshake ended early: $($_.Exception.Message)"
+                }
+              }
+              $socket.Dispose()
+            }
             $models = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/models" -TimeoutSec 2
             if (-not $models.models -or -not $models.models[0].files) {
               throw "models API did not return per-file download state"

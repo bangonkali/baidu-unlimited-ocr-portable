@@ -4,6 +4,7 @@ interface StatusBarProps {
   documentCount: number;
   host: string;
   logPath?: string;
+  realtimeState: string;
   runState: string;
   runtime: string;
   selectedRoot: string;
@@ -13,6 +14,7 @@ export function StatusBar({
   documentCount,
   host,
   logPath,
+  realtimeState,
   runState,
   runtime,
   selectedRoot,
@@ -20,6 +22,7 @@ export function StatusBar({
   return (
     <footer className={styles.statusBar}>
       <span>{runState}</span>
+      <span className={styles.realtime}>{realtimeState}</span>
       <span>{documentCount} documents</span>
       <span>{host}</span>
       <span>{runtime}</span>

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 namespace uocr::server {
 namespace {
@@ -53,6 +54,11 @@ const std::filesystem::path& AppLogger::path() const {
   return log_path_;
 }
 
+void AppLogger::set_sink(Sink sink) {
+  std::scoped_lock lock(mutex_);
+  sink_ = std::move(sink);
+}
+
 void AppLogger::info(std::string_view component, std::string_view message) {
   write("INFO", component, message);
 }
@@ -68,14 +74,22 @@ void AppLogger::error(std::string_view component, std::string_view message) {
 void AppLogger::write(std::string_view level, std::string_view component, std::string_view message) {
   const auto line = utc_timestamp() + " " + std::string(level) + " " + std::string(component) +
                     " " + std::string(message);
-  std::scoped_lock lock(mutex_);
-  std::error_code error;
-  std::filesystem::create_directories(log_path_.parent_path(), error);
-  std::ofstream log(log_path_, std::ios::app);
-  if (log) {
-    log << line << '\n';
+  auto record = parse_line(line);
+  Sink sink;
+  {
+    std::scoped_lock lock(mutex_);
+    std::error_code error;
+    std::filesystem::create_directories(log_path_.parent_path(), error);
+    std::ofstream log(log_path_, std::ios::app);
+    if (log) {
+      log << line << '\n';
+    }
+    sink = sink_;
   }
   std::cout << line << std::endl;
+  if (sink) {
+    sink(record);
+  }
 }
 
 Json::Value AppLogger::recent_json(int limit) const {

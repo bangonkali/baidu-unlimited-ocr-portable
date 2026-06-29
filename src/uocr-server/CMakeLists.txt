@@ -166,9 +166,14 @@ if(UOCR_BUILD_SERVER)
       src/app/app_logger.cpp
       src/app/folder_dialog.cpp
       src/app/main.cpp
+      src/app/realtime_event_hub.cpp
+      src/app/realtime_ws.cpp
       src/app/routes.cpp
       src/app/workbench_ingest.cpp
       src/app/workbench_models.cpp
+      src/app/workbench_page_preparation.cpp
+      src/app/workbench_realtime_payloads.cpp
+      src/app/workbench_run_failures.cpp
       src/app/workbench_service.cpp
       src/app/workbench_service_models.cpp
       src/app/workbench_state.cpp
@@ -220,6 +225,16 @@ if(UOCR_BUILD_SERVER)
       target_compile_options(uocr-server PRIVATE /W4 /permissive-)
     else()
       target_compile_options(uocr-server PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    if(UOCR_BUILD_TESTS)
+      add_executable(uocr-realtime-tests
+        tests/realtime_tests.cpp
+        src/app/realtime_event_hub.cpp
+      )
+      target_include_directories(uocr-realtime-tests PRIVATE include)
+      target_link_libraries(uocr-realtime-tests PRIVATE Drogon::Drogon)
+      add_test(NAME uocr-realtime-tests COMMAND uocr-realtime-tests)
     endif()
   else()
     message(WARNING "Drogon was not found; uocr-server executable is skipped. uocr_core and tests still build.")

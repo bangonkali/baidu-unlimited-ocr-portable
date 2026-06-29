@@ -106,12 +106,18 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   Json::Value model_record() const;
   Json::Value model_event() const;
   bool model_downloading() const;
+  Json::Value status_record() const;
   Json::Value run_record(const RunState& run) const;
   Json::Value document_summary(const DocumentState& document) const;
+  Json::Value document_page_record(const DocumentState& document, const PageState& page) const;
+  Json::Value document_regions_record(const DocumentState& document) const;
+  Json::Value document_text_record(const DocumentState& document) const;
   bool is_image_document(const DocumentState& document) const;
   bool is_pdf_document(const DocumentState& document) const;
   std::vector<PageState> prepare_pages(const DiscoveredFile& file, const std::string& file_hash) const;
 
+  void publish_event(std::string_view type, const Json::Value& payload) const;
+  void publish_status_changed() const;
   void start_download(bool force);
   void cancel_download();
   void start_run(const std::string& run_id, std::vector<DiscoveredFile> files, std::string profile_id);
