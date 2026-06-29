@@ -1,0 +1,68 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-workbench",
+      "displayName": "Windows Workbench",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build/windows-workbench",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "UOCR_BUILD_SERVER": "ON",
+        "UOCR_BUILD_CLIENT": "ON",
+        "UOCR_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "windows-workbench-ci",
+      "displayName": "Windows Workbench CI",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-workbench-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "UOCR_BUILD_SERVER": "ON",
+        "UOCR_BUILD_CLIENT": "ON",
+        "UOCR_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-workbench-release",
+      "configurePreset": "windows-workbench",
+      "configuration": "Release",
+      "targets": [
+        "uocr-server"
+      ]
+    },
+    {
+      "name": "windows-workbench-ci-release",
+      "configurePreset": "windows-workbench-ci",
+      "configuration": "Release",
+      "targets": [
+        "uocr-server"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-workbench-release",
+      "configurePreset": "windows-workbench",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-workbench-ci-release",
+      "configurePreset": "windows-workbench-ci",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

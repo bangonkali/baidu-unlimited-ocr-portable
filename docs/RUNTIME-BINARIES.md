@@ -7,6 +7,41 @@ locally or when a release asset is not available.
 GGUF model files are not bundled in GitHub Release runtime archives. The setup
 scripts continue to download models from Hugging Face into `models/`.
 
+## C++ App Release Layout
+
+The Windows C++ workbench GitHub Release asset is:
+
+```text
+uocr-workbench-windows-x64-<tag>.zip
+```
+
+Extracting it produces a folder that contains:
+
+```text
+uocr-server.exe
+uocr-server.cmd
+web/
+models/
+data/
+cache/
+logs/
+config/
+uploads/
+openapi/uocr.openapi.json
+thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll
+```
+
+The release also bundles Drogon/Trantor/vcpkg DLLs needed by the C++ server and
+the generated React build under `web/`. Runtime binaries are staged under
+`thirdparty/uocr-runtime/`; GGUF model files are downloaded or validated after
+first launch and are not committed to git.
+
+Build the release zip locally:
+
+```powershell
+.\scripts\windows\package-workbench.ps1 -Version v0.0.9
+```
+
 ## Supported Platform Labels
 
 The exact supported runtime labels are defined in `runtime/platforms.json`:
@@ -64,11 +99,10 @@ The scripts write `uocr-runtime-env.sh` or `uocr-runtime-env.ps1` with
 `UOCR_FFI_LIB`, `UOCR_LLAMA_BIN`, model paths, and runtime metadata.
 
 The runtime archives include `libuocr-ffi`/`uocr-ffi.dll`, `llama-uocr-parity`,
-`llama-mtmd-cli`, and `llama-server`. The web app defaults to the persistent
-`ffi` backend, which loads the shared library through `ctypes` and reuses the
-resident model for every PDF page. The `server` backend keeps the persistent
-HTTP `llama-server` path available for comparison, and `executable` keeps the
-previous per-request `llama-uocr-parity` behavior.
+`llama-mtmd-cli`, and `llama-server`. The C++ workbench uses the `uocr-ffi`
+shared library through `UnlimitedOcrFfiEngine`. The Python reference app
+defaults to the persistent `ffi` backend through `ctypes`; its `server` and
+`executable` backends remain comparison paths.
 
 The native ABI contract is documented in [NATIVE-FFI.md](NATIVE-FFI.md).
 
@@ -77,6 +111,8 @@ The native ABI contract is documented in [NATIVE-FFI.md](NATIVE-FFI.md).
 Runtime release assets use these names:
 
 ```text
+uocr-workbench-windows-x64-<version>.zip
+uocr-workbench-windows-x64-<version>.zip.sha256
 uocr-runtime-macos-arm64-metal-<version>.tar.gz
 uocr-runtime-linux-x86_64-cuda13-<version>.tar.gz
 uocr-runtime-windows-x86_64-cuda13-<version>.zip
@@ -111,6 +147,11 @@ This avoids `native` GPU probing on GPU-less hosted runners and keeps the
 archive label tied to CUDA 13 rather than to one CI machine. The `120a-real`
 entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
 parallelism to reduce hosted-runner memory pressure.
+
+The workflow `.github/workflows/release-workbench.yml` builds the Windows
+C++/React workbench, downloads the selected Windows runtime archive, packages
+`uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted executable, and
+uploads the zip plus checksum to the same GitHub Release.
 
 Runtime GPU smoke validation should be run on self-hosted GPU runners before
 promoting a release as validated; GitHub-hosted standard runners compile the

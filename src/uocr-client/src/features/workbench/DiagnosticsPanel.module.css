@@ -1,0 +1,83 @@
+.panel {
+  display: grid;
+  grid-template-rows: 35px 33px 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.header,
+.tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.header {
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tabs {
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.tab {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+}
+
+.tab:hover {
+  background: var(--panel-3);
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.runRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 92px 72px;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgb(255 255 255 / 5%);
+}
+
+.runRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runRow small {
+  color: var(--subtle);
+}
+
+.ok {
+  color: var(--accent-2);
+}
+
+.bad {
+  color: var(--danger);
+}
+
+.pending {
+  color: var(--warning);
+}
+
+.empty {
+  padding: 12px;
+  color: var(--muted);
+}

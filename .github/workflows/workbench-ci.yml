@@ -1,0 +1,66 @@
+name: Workbench CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: React client
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        working-directory: src/uocr-client
+        run: bun install --frozen-lockfile
+
+      - name: Check formatting
+        working-directory: src/uocr-client
+        run: bun run format:check
+
+      - name: Lint
+        working-directory: src/uocr-client
+        run: bun run lint
+
+      - name: Typecheck
+        working-directory: src/uocr-client
+        run: bun run typecheck
+
+      - name: Build
+        working-directory: src/uocr-client
+        run: bun run build
+
+  cxx-core:
+    name: C++ core tests
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Configure
+        run: cmake -S . -B build/core -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_CLIENT=OFF -DUOCR_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build/core --config Release --target uocr-core-tests
+
+      - name: Test
+        run: ctest --test-dir build/core -C Release --output-on-failure

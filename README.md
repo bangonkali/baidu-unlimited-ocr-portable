@@ -1,7 +1,7 @@
 # Unlimited-OCR Portable
 
-This directory contains local portable-runtime experiments and the validation
-harness for comparing:
+This directory contains the local portable Unlimited-OCR workbench target,
+the Python reference/demo, and the validation harness for comparing:
 
 - SGLang BF16 reference output from WSL2/Linux.
 - llama.cpp/GGUF candidate output from Linux, macOS, or Windows.
@@ -14,17 +14,49 @@ decision, then use `analysis/summaries/SUMMARY.md` as the summary index.
 Use `TEST-PROCEDURE.md` as the canonical runbook for the validation pass that
 produced the current summary.
 
+The C++/React app is the target product path. The Python Gradio app remains a
+behavioral reference and portable-runtime demo; it is not the launched product
+runtime.
+
+## Install The Workbench
+
+Windows users should normally download one release archive:
+
+1. Open <https://github.com/bangonkali/baidu-unlimited-ocr-portable/releases>.
+2. Download `uocr-workbench-windows-x64-<tag>.zip`.
+3. Extract it anywhere, then run `uocr-server.exe`.
+4. Open <http://127.0.0.1:8765/> if the browser does not open automatically.
+
+PowerShell installer:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
+```
+
+The installer writes to `~\.uocr`. Uninstall by deleting that folder. Check the
+installed build with:
+
+```powershell
+~\.uocr\uocr-server.exe --version
+```
+
 The uv project name is `baidu-unlimited-ocr-portable`.
 
 ## Repository Layout
 
-- `src/baidu_unlimited_ocr_portable/`: custom web/native-runtime demo client.
+- `src/uocr-server/`: C++20 server core, optional Drogon API executable,
+  OpenAPI contract, DuckDB migrations, and native `uocr-ffi` integration.
+- `src/uocr-client/`: React 19 workbench SPA statically hosted by the C++
+  server in the target app.
+- `src/baidu_unlimited_ocr_portable/`: Python Gradio reference/demo client.
 - `analysis/uocr_harness/`: validation, comparison, and artifact harness.
 - `analysis/summaries/`: current and historical Markdown result summaries.
 - `docs/`: Linux, macOS, and Windows setup notes.
 - `scripts/mac/`: macOS setup/build and demo launch scripts.
 - `scripts/linux/`: Linux setup/build and demo launch scripts.
 - `scripts/windows/`: Windows setup/build and demo launch scripts.
+- `scripts/install.ps1`: one-line Windows release installer for `~\.uocr`.
+- `scripts/install.sh`: future macOS/Linux release installer entry point.
 - `runtime/platforms.json`: exact prebuilt runtime platform labels.
 - `thirdparty/llama.cpp/`: git submodule for the patched llama.cpp fork.
 - `models/`: local HF model asset directory and cache, ignored by git.
@@ -81,9 +113,9 @@ Run the doctor first on Linux CUDA machines:
 ./scripts/linux/setup-build.sh --doctor
 ```
 
-See `docs/MACOS.md`, `docs/WINDOWS.md`, `docs/LINUX.md`, and
-`docs/RUNTIME-BINARIES.md` for platform-specific quick starts and release binary
-details.
+See `docs/RELEASES.md`, `docs/MACOS.md`, `docs/WINDOWS.md`,
+`docs/LINUX.md`, and `docs/RUNTIME-BINARIES.md` for release, install,
+platform-specific quick starts, and runtime binary details.
 
 ## Validation Harness
 

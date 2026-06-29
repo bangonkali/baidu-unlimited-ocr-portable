@@ -1,6 +1,79 @@
 # Windows CUDA Quick Start
 
-This guide is for running the portable Unlimited-OCR candidate natively on
+This guide covers the Windows native path. The C++/React workbench is the
+target product path; the Python Gradio app remains a reference/demo for
+behavior and runtime parity checks.
+
+## Release Zip Path
+
+The preferred Windows onboarding path is the GitHub Release zip:
+
+```text
+uocr-workbench-windows-x64-<tag>.zip
+```
+
+Extract the zip anywhere and run `uocr-server.exe`. The server binds to
+`127.0.0.1:8765`, hosts the React workbench from `web/`, and opens the browser
+automatically. The folder is self-contained except for downloaded GGUF model
+files under `models\`.
+
+One-line install to `~\.uocr`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
+```
+
+Uninstall by deleting `~\.uocr`.
+
+Check the release tag associated with an executable:
+
+```powershell
+~\.uocr\uocr-server.exe --version
+```
+
+## C++ Workbench Path
+
+Build the dependency-light C++ core and tests first:
+
+```powershell
+cmake -S . -B build\uocr-server -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_TESTS=ON
+cmake --build build\uocr-server --config Release --target uocr-core-tests
+ctest --test-dir build\uocr-server -C Release --output-on-failure
+```
+
+Build the React SPA:
+
+```powershell
+cd src\uocr-client
+bun install
+bun run build
+bun run build-storybook
+cd ..\..
+```
+
+When Drogon, Trantor, DuckDB, and MuPDF are available through the Windows CMake
+toolchain, enable the server executable:
+
+```powershell
+cmake -S . -B build\uocr-server-drogon -DUOCR_BUILD_SERVER=ON
+cmake --build build\uocr-server-drogon --config Release --target uocr-server
+```
+
+The server binds to `127.0.0.1` by default and serves `/api/*`,
+`/api/openapi.json`, and the built React app in the release layout.
+
+Create the same zip layout that GitHub Actions publishes:
+
+```powershell
+.\scripts\windows\package-workbench.ps1 -Version v0.0.9
+```
+
+The output is written to `dist\uocr-workbench-windows-x64-v0.0.9.zip` plus a
+`.sha256` file.
+
+## Python Reference Path
+
+The reference/demo path runs the portable Unlimited-OCR candidate natively on
 Windows without SGLang. It uses:
 
 - `bangonkali/llama.cpp-baidu-unlimited-ocr`, branch

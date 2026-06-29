@@ -1,0 +1,30 @@
+.button {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled),
+.button[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border);
+}
+
+.button:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.button:disabled {
+  color: var(--subtle);
+  cursor: not-allowed;
+  opacity: 0.55;
+}

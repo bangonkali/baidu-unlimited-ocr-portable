@@ -4,6 +4,10 @@
 Unlimited-OCR sessions. The ABI is intended for Python `ctypes`, .NET P/Invoke,
 Dart FFI, Rust FFI, and other non-C++ integrations.
 
+The C++ workbench also uses this ABI through
+`src/uocr-server/include/uocr/ocr/unlimited_ocr_ffi_engine.hpp`. V1 serializes
+page OCR through one resident Unlimited-OCR session per profile/runtime path.
+
 ## Contract
 
 - All exported functions use `extern "C"` names from `tools/mtmd/uocr-ffi.h`.
@@ -35,3 +39,15 @@ Dart FFI, Rust FFI, and other non-C++ integrations.
 
 The Python implementation in `src/baidu_unlimited_ocr_portable/native_runner.py`
 is a reference binding, not a special-case API.
+
+## C++ Server Notes
+
+- Resolve the library from `thirdparty/uocr-runtime/<platform>/bin/` unless
+  configuration points at an explicit runtime path.
+- Check `uocr_ffi_abi_version()` before creating a session.
+- Use the built-in `best-zero-empty-q4` profile by default and
+  `experimental-exact-prefill-q4` only as the retry/diagnostic profile.
+- Send rendered PDF pages and image files through `uocr_ffi_run_image`; PDF
+  rendering is owned by the MuPDF page renderer.
+- Stream token events into the ingest event bus and persist final raw/cleaned
+  OCR text, parsed regions, text-region spans, timing, status, and errors.

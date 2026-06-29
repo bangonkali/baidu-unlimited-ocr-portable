@@ -1,0 +1,58 @@
+.textPane {
+  display: grid;
+  grid-template-rows: 35px 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.body {
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  line-height: 1.55;
+}
+
+.pageText {
+  margin: 0 0 16px;
+}
+
+.pageLabel {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--subtle);
+  text-transform: uppercase;
+}
+
+.pageText p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.span {
+  display: inline;
+  padding: 1px 3px;
+  color: var(--text);
+  background: rgb(76 194 255 / 14%);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.span:hover,
+.span[data-active="true"] {
+  border-color: var(--accent);
+}
+
+.empty {
+  color: var(--muted);
+}

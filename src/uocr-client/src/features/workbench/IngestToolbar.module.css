@@ -1,0 +1,43 @@
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(190px, 260px) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.rootPicker,
+.actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.pathInput,
+.select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  color: var(--text);
+  background: #1b1b1c;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.pathInput {
+  padding: 0 8px;
+}
+
+.select {
+  padding: 0 6px;
+}
+
+@media (max-width: 820px) {
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,138 @@
+name: Release workbench
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag, for example v0.0.9"
+        required: true
+        type: string
+      runtime_version:
+        description: "Runtime release tag to bundle, or latest"
+        required: false
+        default: latest
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-zip:
+    name: Windows zip
+    runs-on: windows-2025
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      UOCR_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set release version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            "UOCR_VERSION=${{ github.ref_name }}" >> $env:GITHUB_ENV
+          } else {
+            "UOCR_VERSION=${{ inputs.version }}" >> $env:GITHUB_ENV
+          }
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.6"
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Ensure vcpkg
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_ROOT) {
+            $env:VCPKG_ROOT = "C:\vcpkg"
+          }
+          if (-not (Test-Path $env:VCPKG_ROOT)) {
+            git clone https://github.com/microsoft/vcpkg "$env:VCPKG_ROOT"
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          }
+          "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+          & "$env:VCPKG_ROOT\vcpkg.exe" version
+
+      - name: Package workbench
+        shell: pwsh
+        run: |
+          .\scripts\windows\package-workbench.ps1 `
+            -Preset windows-workbench-ci `
+            -Version $env:UOCR_VERSION `
+            -RuntimeVersion $env:UOCR_RUNTIME_VERSION
+
+      - name: Smoke packaged server
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem dist -Filter "uocr-workbench-windows-x64-$env:UOCR_VERSION.zip" | Select-Object -First 1
+          if (-not $zip) { throw "release zip was not produced" }
+          $extract = Join-Path $env:RUNNER_TEMP "uocr-smoke"
+          Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
+          $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
+          if (-not $exe) { throw "uocr-server.exe not found in archive" }
+          & $exe.FullName --version
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--port", "8766", "--no-browser" -WorkingDirectory $exe.Directory.FullName -PassThru
+          try {
+            Start-Sleep -Seconds 2
+            $health = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/health"
+            if ($health.ok -ne $true) { throw "health check failed" }
+            $home = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
+            if ($home.StatusCode -ne 200) { throw "SPA check failed" }
+          }
+          finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}
+          path: |
+            dist/uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}.zip
+            dist/uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}.zip.sha256
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $notes = @"
+          Unlimited-OCR Workbench $env:UOCR_VERSION
+
+          Download `uocr-workbench-windows-x64-$env:UOCR_VERSION.zip`, extract it, and run `uocr-server.exe`.
+          The executable hosts the React app at http://127.0.0.1:8765/ and reports its release with `uocr-server --version`.
+
+          Installer:
+          ```powershell
+          powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
+          ```
+          "@
+          $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
+          $notes | Set-Content -LiteralPath $notesPath -Encoding utf8
+          gh release view $env:UOCR_VERSION *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:UOCR_VERSION --target $env:GITHUB_SHA --title "Unlimited-OCR Workbench $env:UOCR_VERSION" --notes-file $notesPath
+          }
+          gh release upload $env:UOCR_VERSION `
+            "dist/uocr-workbench-windows-x64-$env:UOCR_VERSION.zip" `
+            "dist/uocr-workbench-windows-x64-$env:UOCR_VERSION.zip.sha256" `
+            --clobber

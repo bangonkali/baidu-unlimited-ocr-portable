@@ -12,6 +12,7 @@ __pycache__/
 /safetensors_probe
 /.skylos/
 /build/
+/dist/
 /src/uocr-client/dist/
 /src/uocr-client/storybook-static/
 /src/uocr-client/node_modules/
