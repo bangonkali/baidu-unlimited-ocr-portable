@@ -28,6 +28,7 @@ jobs:
       contents: write
     env:
       UOCR_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
+      UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -35,14 +36,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set release version
+      - name: Validate release version
         shell: pwsh
         run: |
-          if ("${{ github.ref_type }}" -eq "tag") {
-            "UOCR_VERSION=${{ github.ref_name }}" >> $env:GITHUB_ENV
-          } else {
-            "UOCR_VERSION=${{ inputs.version }}" >> $env:GITHUB_ENV
+          if (-not $env:UOCR_VERSION) {
+            throw "Release version was not provided."
           }
+          Write-Host "Release version $env:UOCR_VERSION"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -96,6 +96,10 @@ jobs:
             if ($health.ok -ne $true) { throw "health check failed" }
             $home = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
             if ($home.StatusCode -ne 200) { throw "SPA check failed" }
+            $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
+            if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
+            $logText = Get-Content -LiteralPath $logPath -Raw
+            if ($logText -notmatch "listening http://127.0.0.1:8766/") { throw "server log did not record the listener URL" }
           }
           finally {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
@@ -120,6 +124,7 @@ jobs:
 
           Download `uocr-workbench-windows-x64-$env:UOCR_VERSION.zip`, extract it, and run `uocr-server.exe`.
           The executable hosts the React app at http://127.0.0.1:8765/ and reports its release with `uocr-server --version`.
+          Runtime logs are written to `logs/uocr-server.log` inside the extracted folder.
 
           Installer:
           ```powershell

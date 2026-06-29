@@ -53,6 +53,33 @@ function Get-GitHubRelease {
     Invoke-RestMethod -Uri $url -Headers (New-GitHubHeaders)
 }
 
+function Get-GitHubRuntimeRelease {
+    param([string]$Repo, [string]$Tag, [string]$Platform)
+    if ($Tag -ne "latest") {
+        return Get-GitHubRelease -Repo $Repo -Tag $Tag
+    }
+
+    $page = 1
+    while ($true) {
+        $url = "https://api.github.com/repos/$Repo/releases?per_page=30&page=$page"
+        $releases = @(Invoke-RestMethod -Uri $url -Headers (New-GitHubHeaders))
+        if (-not $releases -or $releases.Count -eq 0) {
+            break
+        }
+        foreach ($release in $releases) {
+            $asset = $release.assets |
+                Where-Object { $_.name -like "uocr-runtime-$Platform-*.zip" } |
+                Select-Object -First 1
+            if ($asset) {
+                return $release
+            }
+        }
+        $page += 1
+    }
+
+    throw "No release with a Windows runtime zip asset was found on $Repo."
+}
+
 function Find-ServerExe {
     $matches = Get-ChildItem -LiteralPath (Join-Path $RepoRoot "build") -Recurse -Filter "uocr-server.exe" |
         Where-Object { $_.FullName -notmatch "\\CMakeFiles\\" } |
@@ -110,7 +137,7 @@ function Install-RuntimeFromRelease {
         [string]$RuntimeDir
     )
 
-    $release = Get-GitHubRelease -Repo $Repo -Tag $Tag
+    $release = Get-GitHubRuntimeRelease -Repo $Repo -Tag $Tag -Platform $Platform
     $asset = $release.assets |
         Where-Object { $_.name -like "uocr-runtime-$Platform-*.zip" } |
         Sort-Object name -Descending |
@@ -198,6 +225,7 @@ Unlimited-OCR Workbench $Version
 
 Run uocr-server.exe to start the local backend and hosted React app.
 Default URL: http://127.0.0.1:8765/
+Logs: logs\uocr-server.log
 Uninstall: delete this folder.
 "@ | Set-Content -LiteralPath (Join-Path $StageRoot "README.txt") -Encoding utf8
 
