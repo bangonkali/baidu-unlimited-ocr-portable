@@ -18,4 +18,11 @@ export interface ModelAssetRecord {
   error?: string | null;
   model_file?: string;
   mmproj_file?: string;
+  /** @nullable */
+  current_file?: string | null;
+  /** @nullable */
+  status_message?: string | null;
+  downloaded_bytes?: number;
+  /** @nullable */
+  total_bytes?: number | null;
 }

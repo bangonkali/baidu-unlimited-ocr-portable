@@ -2,10 +2,10 @@ export type RunState =
   | 'idle'
   | 'queued'
   | 'running'
-  | 'paused'
   | 'cancelled'
   | 'failed'
-  | 'completed';
+  | 'completed'
+  | 'completed_with_errors';
 
 export interface StatusPayload {
   state: RunState | string;
@@ -16,6 +16,10 @@ export interface StatusPayload {
   git_tag?: string;
   git_sha?: string;
   supported_inputs: string[];
+  runtime_platform?: string;
+  accelerator?: string;
+  inference_engine?: string;
+  log_path?: string;
 }
 
 export interface OcrProfileRecord {
@@ -40,6 +44,10 @@ export interface ModelAssetRecord {
   error?: string | null;
   model_file?: string;
   mmproj_file?: string;
+  current_file?: string | null;
+  status_message?: string | null;
+  downloaded_bytes?: number;
+  total_bytes?: number | null;
 }
 
 export interface ModelsPayload {
@@ -134,6 +142,7 @@ export interface FolderDialogResponse {
   cancelled: boolean;
   selected_path: string;
   manual_path_supported: boolean;
+  error?: string;
 }
 
 export interface AnnotationSettingsPayload {
@@ -141,4 +150,22 @@ export interface AnnotationSettingsPayload {
   show_labels: boolean;
   box_color: string;
   active_box_color: string;
+}
+
+export interface PreviewImagesPayload {
+  file_hash: string;
+  variants: string[];
+  pages: number[];
+}
+
+export interface LogRecord {
+  timestamp: string;
+  level: string;
+  component: string;
+  message: string;
+}
+
+export interface LogsPayload {
+  log_path?: string;
+  logs: LogRecord[];
 }

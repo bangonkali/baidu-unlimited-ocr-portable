@@ -22,7 +22,9 @@ The server is structured around small service boundaries:
   text-region links, diagnostics, settings, and model leases.
 - ocr: abstract `OcrEngine` plus `UnlimitedOcrFfiEngine`, which loads
   `thirdparty/uocr-runtime/<platform>/bin/uocr-ffi.*`.
-- render: `PageRenderer` interface reserved for the MuPDF implementation.
+- render: `PageRenderer` with an embedded MuPDF implementation linked into
+  `uocr-server.exe`. PDF pages are rendered to cached PNG files at 200 DPI and
+  reused for preview and OCR.
 - app: optional Drogon route registration and static OpenAPI serving.
 
 Drogon is optional at configure time so parser/schema/scanner tests can run on
@@ -54,9 +56,11 @@ The default runtime command binds `127.0.0.1:8765`, serves `/api/*` plus
 ## API Contract
 
 `src/uocr-server/openapi/uocr.openapi.json` is the API source of truth. It
-covers health/status, trusted folder selection, ingest control, run events,
-documents, regions, text spans, preview images, search, commands, settings,
-annotation settings, and model download state.
+covers the currently implemented workbench surface: health/status, trusted
+folder selection, model download state, ingest start/stop, run snapshots/events,
+document lists/details, regions, text spans, preview images, recent logs, and
+settings. Removed or future-only surfaces are intentionally omitted from the UI
+and OpenAPI contract until they work end to end.
 
 The React client runs Orval against that file:
 

@@ -5,8 +5,10 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
-import type { DocumentSummary } from './documentSummary';
 
-export interface SearchPayload {
-  results: DocumentSummary[];
-}
+export type StatusPayloadAccelerator = typeof StatusPayloadAccelerator[keyof typeof StatusPayloadAccelerator];
+
+
+export const StatusPayloadAccelerator = {
+  cuda: 'cuda',
+} as const;

@@ -1,6 +1,6 @@
 .statusBar {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto auto minmax(0, 1fr);
   gap: 14px;
   align-items: center;
   height: 24px;

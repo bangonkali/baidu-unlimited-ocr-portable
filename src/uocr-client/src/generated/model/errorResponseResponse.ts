@@ -8,6 +8,6 @@
 import type { ErrorPayload } from './errorPayload';
 
 /**
- * Error
+ * Error payload
  */
 export type ErrorResponseResponse = ErrorPayload;

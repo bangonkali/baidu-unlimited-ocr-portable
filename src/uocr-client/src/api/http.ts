@@ -33,21 +33,6 @@ export async function postJson<TResponse, TBody>(
   return response.json() as Promise<TResponse>;
 }
 
-export async function putJson<TResponse, TBody>(
-  url: string,
-  body: TBody,
-  signal?: AbortSignal,
-): Promise<TResponse> {
-  const response = await fetch(toApiPath(url), {
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-    method: 'PUT',
-    signal,
-  });
-  await assertOk(response);
-  return response.json() as Promise<TResponse>;
-}
-
 export function buildApiUrl(path: ApiPath, params?: Record<string, string | number | undefined>) {
   const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(params ?? {})) {

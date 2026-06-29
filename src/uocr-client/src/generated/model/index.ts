@@ -6,12 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from './annotationSettingsPayload';
-export * from './annotationVisibilityRequest';
-export * from './commandSearchPayload';
-export * from './commandSearchPayloadCommandsItem';
-export * from './diagnosticProgressPayload';
-export * from './diagnosticTracePayload';
 export * from './documentDetail';
 export * from './documentRegionsPayload';
 export * from './documentsPayload';
@@ -19,16 +13,16 @@ export * from './documentSummary';
 export * from './documentTextPayload';
 export * from './errorPayload';
 export * from './errorResponseResponse';
-export * from './folderDialogRequest';
 export * from './folderDialogResponse';
-export * from './getDocumentTextParams';
+export * from './getOpenapi200';
+export * from './getRecentLogsParams';
 export * from './healthPayload';
-export * from './ingestEventRecord';
 export * from './ingestRunRecord';
 export * from './ingestRunsPayload';
 export * from './ingestStartRequest';
-export * from './ingestWorkUnitRecord';
 export * from './listDocumentsParams';
+export * from './logRecord';
+export * from './logsPayload';
 export * from './modelAssetRecord';
 export * from './modelDownloadRecord';
 export * from './modelsPayload';
@@ -36,9 +30,8 @@ export * from './ocrProfileRecord';
 export * from './overlayBox';
 export * from './pageTextRecord';
 export * from './previewImagesPayload';
-export * from './searchCommandsParams';
-export * from './searchDocumentsParams';
-export * from './searchPayload';
 export * from './settingsPayload';
 export * from './statusPayload';
+export * from './statusPayloadAccelerator';
+export * from './statusPayloadState';
 export * from './textRegionSpan';

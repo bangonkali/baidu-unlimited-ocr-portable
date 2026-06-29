@@ -7,6 +7,8 @@
 #include <memory>
 #include <sstream>
 
+#include "folder_dialog.hpp"
+#include "uocr/app/app_logger.hpp"
 #include "uocr/app/workbench_service.hpp"
 
 namespace uocr::server {
@@ -69,18 +71,6 @@ void register_run_routes(const std::shared_ptr<WorkbenchService>& service) {
     callback(json_response(service->get_run(run_id)));
   });
 
-  app().registerHandler("/api/ingest/runs/{1}/pause",
-                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
-                                  const std::string& run_id) {
-                          callback(json_response(service->run_command(run_id, "pause"), k202Accepted));
-                        },
-                        {Post});
-  app().registerHandler("/api/ingest/runs/{1}/resume",
-                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
-                                  const std::string& run_id) {
-                          callback(json_response(service->run_command(run_id, "resume"), k202Accepted));
-                        },
-                        {Post});
   app().registerHandler("/api/ingest/runs/{1}/stop",
                         [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
                                   const std::string& run_id) {
@@ -124,39 +114,33 @@ void register_document_routes(const std::shared_ptr<WorkbenchService>& service) 
     callback(json_response(service->document_text(file_hash)));
   });
 
-  app().registerHandler("/api/documents/{1}/preview-images", [](const HttpRequestPtr&,
-                                                                 std::function<void(const HttpResponsePtr&)>&& callback,
-                                                                 const std::string& file_hash) {
-    Json::Value payload;
-    payload["file_hash"] = file_hash;
-    payload["variants"] = Json::arrayValue;
-    callback(json_response(payload));
+  app().registerHandler("/api/documents/{1}/preview-images", [service](const HttpRequestPtr&,
+                                                                        std::function<void(const HttpResponsePtr&)>&& callback,
+                                                                        const std::string& file_hash) {
+    callback(json_response(service->document_preview_images(file_hash)));
   });
 
   app().registerHandler("/api/documents/{1}/preview-images/{2}/{3}",
-                        [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
-                           const std::string&, const std::string&, int) {
-                          Json::Value payload;
-                          payload["error"] = "preview image not found";
-                          callback(json_response(payload, k404NotFound));
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& file_hash, const std::string& variant, int page_no) {
+                          const auto image = service->document_preview_image(file_hash, variant, page_no);
+                          if (!image.has_value()) {
+                            Json::Value payload;
+                            payload["error"] = "preview image not found";
+                            callback(json_response(payload, k404NotFound));
+                            return;
+                          }
+                          callback(HttpResponse::newFileResponse(image->string()));
                         });
 
-  app().registerHandler("/api/documents/{1}/annotations/visibility",
-                        [](const HttpRequestPtr& request, std::function<void(const HttpResponsePtr&)>&& callback,
-                           const std::string& file_hash) {
-                          auto payload = request_json_or_empty(request);
-                          payload["file_hash"] = file_hash;
-                          callback(json_response(payload));
-                        },
-                        {Put});
 }
 
 }  // namespace
 
-void register_api_routes(const std::filesystem::path& app_root) {
+void register_api_routes(const std::filesystem::path& app_root, std::shared_ptr<AppLogger> logger) {
   using namespace drogon;
   const auto openapi_path = resolve_openapi_path(app_root);
-  auto service = std::make_shared<WorkbenchService>(app_root);
+  auto service = std::make_shared<WorkbenchService>(app_root, logger);
 
   app().registerHandler("/api/health", [](const HttpRequestPtr&,
                                            std::function<void(const HttpResponsePtr&)>&& callback) {
@@ -195,30 +179,17 @@ void register_api_routes(const std::filesystem::path& app_root) {
                         },
                         {Post});
 
-  app().registerHandler("/api/models/{1}/cancel",
-                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
-                                  const std::string& model_id) {
-                          callback(json_response(service->cancel_model_download(model_id), k202Accepted));
-                        },
-                        {Post});
-
   app().registerHandler("/api/settings", [service](const HttpRequestPtr&,
                                                     std::function<void(const HttpResponsePtr&)>&& callback) {
     callback(json_response(service->settings()));
   }, {Get});
 
-  app().registerHandler("/api/settings", [](const HttpRequestPtr& request,
-                                             std::function<void(const HttpResponsePtr&)>&& callback) {
-    callback(json_response(request_json_or_empty(request)));
-  }, {Put});
-
-  app().registerHandler("/api/system/folder-dialog", [](const HttpRequestPtr&,
-                                                        std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["cancelled"] = true;
-    payload["selected_path"] = "";
-    payload["manual_path_supported"] = true;
-    callback(json_response(payload));
+  app().registerHandler("/api/system/folder-dialog", [logger](const HttpRequestPtr&,
+                                                              std::function<void(const HttpResponsePtr&)>&& callback) {
+    if (logger) {
+      logger->info("folder", "folder picker requested");
+    }
+    callback(json_response(open_folder_dialog()));
   }, {Post});
 
   app().registerHandler("/api/ingest/start", [service](const HttpRequestPtr& request,
@@ -235,34 +206,19 @@ void register_api_routes(const std::filesystem::path& app_root) {
   register_run_routes(service);
   register_document_routes(service);
 
-  app().registerHandler("/api/commands/search", [](const HttpRequestPtr&,
-                                                   std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["commands"] = Json::arrayValue;
-    callback(json_response(payload));
+  app().registerHandler("/api/logs/recent", [logger](const HttpRequestPtr& request,
+                                                     std::function<void(const HttpResponsePtr&)>&& callback) {
+    const auto raw_limit = request->getParameter("limit");
+    int limit = 200;
+    if (!raw_limit.empty()) {
+      try {
+        limit = std::stoi(raw_limit);
+      } catch (const std::exception&) {
+        limit = 200;
+      }
+    }
+    callback(json_response(logger->recent_json(limit)));
   });
-
-  app().registerHandler("/api/search", [](const HttpRequestPtr&,
-                                           std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["results"] = Json::arrayValue;
-    callback(json_response(payload));
-  });
-
-  app().registerHandler("/api/annotation-settings", [](const HttpRequestPtr&,
-                                                       std::function<void(const HttpResponsePtr&)>&& callback) {
-    Json::Value payload;
-    payload["show_boxes"] = true;
-    payload["show_labels"] = true;
-    payload["box_color"] = "#4cc2ff";
-    payload["active_box_color"] = "#e2b86b";
-    callback(json_response(payload));
-  }, {Get});
-
-  app().registerHandler("/api/annotation-settings", [](const HttpRequestPtr& request,
-                                                       std::function<void(const HttpResponsePtr&)>&& callback) {
-    callback(json_response(request_json_or_empty(request)));
-  }, {Put});
 }
 
 }  // namespace uocr::server

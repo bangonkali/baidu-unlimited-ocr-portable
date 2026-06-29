@@ -6,15 +6,20 @@ interface WorkbenchSelection {
   regionId?: string;
 }
 
+export type ActiveView = 'workbench' | 'models' | 'diagnostics';
+
 interface WorkbenchState {
+  activeView: ActiveView;
   selectedRoot: string;
   selectedProfile: string;
   selection: WorkbenchSelection;
   overlayVisible: boolean;
   labelsVisible: boolean;
+  tourRun: boolean;
 }
 
 const initialState: WorkbenchState = {
+  activeView: 'workbench',
   labelsVisible: true,
   overlayVisible: true,
   selectedProfile: 'best-zero-empty-q4',
@@ -22,9 +27,10 @@ const initialState: WorkbenchState = {
   selection: {
     pageNo: 1,
   },
+  tourRun: false,
 };
 
-export const workbenchStore = new Store(initialState);
+const workbenchStore = new Store(initialState);
 
 export function useWorkbenchState() {
   return useStore(workbenchStore, (state) => state);
@@ -36,6 +42,10 @@ export function setSelectedRoot(selectedRoot: string) {
 
 export function setSelectedProfile(selectedProfile: string) {
   workbenchStore.setState((state) => ({ ...state, selectedProfile }));
+}
+
+export function setActiveView(activeView: WorkbenchState['activeView']) {
+  workbenchStore.setState((state) => ({ ...state, activeView }));
 }
 
 export function setSelection(selection: Partial<WorkbenchSelection>) {
@@ -51,4 +61,8 @@ export function setOverlayVisible(overlayVisible: boolean) {
 
 export function setLabelsVisible(labelsVisible: boolean) {
   workbenchStore.setState((state) => ({ ...state, labelsVisible }));
+}
+
+export function setTourRun(tourRun: boolean) {
+  workbenchStore.setState((state) => ({ ...state, tourRun }));
 }

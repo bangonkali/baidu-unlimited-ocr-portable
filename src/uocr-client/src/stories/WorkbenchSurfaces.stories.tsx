@@ -4,15 +4,17 @@ import { DetailsPane } from '../features/workbench/DetailsPane';
 import { DiagnosticsPanel } from '../features/workbench/DiagnosticsPanel';
 import { ExplorerTree } from '../features/workbench/ExplorerTree';
 import { IngestToolbar } from '../features/workbench/IngestToolbar';
+import { ModelManager } from '../features/workbench/ModelManager';
 import { PreviewPane } from '../features/workbench/PreviewPane';
+import { StartHere } from '../features/workbench/StartHere';
 import { TextPane } from '../features/workbench/TextPane';
 import {
   fixtureBoxes,
   fixtureDocuments,
+  fixtureLogs,
   fixtureModels,
   fixturePages,
   fixtureRuns,
-  fixtureSettings,
 } from './fixtures/workbenchFixtures';
 import './storybook.css';
 
@@ -28,7 +30,8 @@ export const Ingest: Story = {
   render: () => (
     <div className="storyFrame">
       <IngestToolbar
-        onPause={() => undefined}
+        modelReady
+        onRefresh={() => undefined}
         onPickFolder={() => undefined}
         onProfileChange={() => undefined}
         onRootPathChange={() => undefined}
@@ -36,7 +39,9 @@ export const Ingest: Story = {
         onStop={() => undefined}
         profiles={fixtureModels.profiles}
         rootPath="C:\\data\\incoming"
+        runState="idle"
         selectedProfile="best-zero-empty-q4"
+        supportedInputs={['.pdf', '.png', '.jpg', '.webp']}
       />
     </div>
   ),
@@ -53,7 +58,16 @@ export const Explorer: Story = {
 export const Traceability: Story = {
   render: () => (
     <div className="storySplit">
-      <PreviewPane boxes={fixtureBoxes} labelsVisible overlayVisible selectedRegionId="reg-total" />
+      <PreviewPane
+        boxes={fixtureBoxes}
+        fileHash="hash-invoice-014"
+        getImageUrl={() => fixturePreviewImage}
+        labelsVisible
+        overlayVisible
+        pages={[1]}
+        selectedPageNo={1}
+        selectedRegionId="reg-total"
+      />
       <TextPane pages={fixturePages} selectedRegionId="reg-total" />
     </div>
   ),
@@ -63,12 +77,10 @@ export const Details: Story = {
   render: () => (
     <div className="storyTall">
       <DetailsPane
+        document={fixtureDocuments[0]}
         labelsVisible
-        models={fixtureModels}
         overlayVisible
-        selectedFileHash="hash-invoice-014"
         selectedRegionId="reg-total"
-        settings={fixtureSettings}
       />
     </div>
   ),
@@ -77,7 +89,36 @@ export const Details: Story = {
 export const Diagnostics: Story = {
   render: () => (
     <div className="storyTall">
-      <DiagnosticsPanel runs={fixtureRuns} />
+      <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} />
     </div>
   ),
 };
+
+export const Models: Story = {
+  render: () => (
+    <div className="storyTall">
+      <ModelManager models={fixtureModels} onDownloadModel={() => undefined} />
+    </div>
+  ),
+};
+
+export const Start: Story = {
+  render: () => (
+    <div className="storyFrame">
+      <StartHere
+        model={{
+          display_name: 'Unlimited-OCR Q4_K_M',
+          model_id: 'unlimited-ocr-q4-k-m',
+          status: 'missing',
+        }}
+        onOpenModels={() => undefined}
+        onPickFolder={() => undefined}
+        onStart={() => undefined}
+        rootPath=""
+      />
+    </div>
+  ),
+};
+
+const fixturePreviewImage =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960"><rect width="720" height="960" fill="%23f7f7f2"/><text x="96" y="160" font-family="Segoe UI" font-size="36" fill="%23222">Supplier</text><text x="130" y="360" font-family="Segoe UI" font-size="34" fill="%23222">Invoice total: 1,240.00</text></svg>';

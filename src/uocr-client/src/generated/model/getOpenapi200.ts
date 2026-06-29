@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AnnotationVisibilityRequest {
-  region_id: string;
-  hidden: boolean;
-}
+export type GetOpenapi200 = { [key: string]: unknown };

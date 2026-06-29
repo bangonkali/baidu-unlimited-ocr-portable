@@ -9,4 +9,5 @@
 export interface PreviewImagesPayload {
   file_hash: string;
   variants: string[];
+  pages: number[];
 }

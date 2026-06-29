@@ -35,6 +35,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          submodules: recursive
 
       - name: Validate release version
         shell: pwsh
@@ -88,6 +89,8 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
           $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
           if (-not $exe) { throw "uocr-server.exe not found in archive" }
+          $mutool = Get-ChildItem -LiteralPath $extract -Recurse -Filter "mutool.exe" | Select-Object -First 1
+          if ($mutool) { throw "mutool.exe should not be shipped; MuPDF is embedded in uocr-server.exe" }
           & $exe.FullName --version
           $stdoutPath = Join-Path $env:RUNNER_TEMP "uocr-server.stdout.log"
           $stderrPath = Join-Path $env:RUNNER_TEMP "uocr-server.stderr.log"
@@ -115,6 +118,8 @@ jobs:
             if ($health.ok -ne $true) { throw "health check failed" }
             $homeResponse = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
             if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
+            $logs = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2
+            if (-not $logs.logs) { throw "recent logs API returned no logs" }
             $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
             if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
             $logText = Get-Content -LiteralPath $logPath -Raw

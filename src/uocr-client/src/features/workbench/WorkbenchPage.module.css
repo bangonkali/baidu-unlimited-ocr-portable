@@ -10,7 +10,7 @@
 
 .activityBar {
   display: grid;
-  grid-template-rows: 44px 1fr auto;
+  grid-template-rows: 44px 1fr;
   gap: 8px;
   padding: 6px;
   background: #181818;
@@ -38,7 +38,7 @@
 
 .main {
   display: grid;
-  grid-template-rows: 36px 43px minmax(0, 1fr) 24px;
+  grid-template-rows: 36px auto minmax(0, 1fr) 24px;
   min-width: 0;
   min-height: 0;
 }
@@ -67,6 +67,14 @@
 }
 
 .body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workbenchStack {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }

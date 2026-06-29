@@ -6,28 +6,23 @@
  * OpenAPI spec version: 0.1.0
  */
 import type {
-  AnnotationSettingsPayload,
-  AnnotationVisibilityRequest,
-  CommandSearchPayload,
   DocumentDetail,
   DocumentRegionsPayload,
   DocumentTextPayload,
   DocumentsPayload,
   ErrorResponseResponse,
-  FolderDialogRequest,
   FolderDialogResponse,
-  GetDocumentTextParams,
+  GetOpenapi200,
+  GetRecentLogsParams,
   HealthPayload,
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
   ListDocumentsParams,
+  LogsPayload,
   ModelDownloadRecord,
   ModelsPayload,
   PreviewImagesPayload,
-  SearchCommandsParams,
-  SearchDocumentsParams,
-  SearchPayload,
   SettingsPayload,
   StatusPayload
 } from './model';
@@ -112,6 +107,46 @@ export const getStatus = async ( options?: RequestInit): Promise<getStatusRespon
 
 
 
+export type getOpenapiResponse200 = {
+  data: GetOpenapi200
+  status: 200
+}
+
+export type getOpenapiResponseSuccess = (getOpenapiResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getOpenapiResponse = (getOpenapiResponseSuccess)
+
+export const getGetOpenapiUrl = () => {
+
+
+
+
+  return `/api/openapi.json`
+}
+
+export const getOpenapi = async ( options?: RequestInit): Promise<getOpenapiResponse> => {
+
+  const res = await fetch(getGetOpenapiUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getOpenapiResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getOpenapiResponse
+}
+
+
+
 export type openFolderDialogResponse200 = {
   data: FolderDialogResponse
   status: 200
@@ -132,14 +167,14 @@ export const getOpenFolderDialogUrl = () => {
   return `/api/system/folder-dialog`
 }
 
-export const openFolderDialog = async (folderDialogRequest?: FolderDialogRequest, options?: RequestInit): Promise<openFolderDialogResponse> => {
+export const openFolderDialog = async ( options?: RequestInit): Promise<openFolderDialogResponse> => {
 
   const res = await fetch(getOpenFolderDialogUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(folderDialogRequest)
+    method: 'POST'
+
+
   }
 )
 
@@ -275,86 +310,6 @@ export const getIngestRun = async (runId: string, options?: RequestInit): Promis
 
   const data: getIngestRunResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getIngestRunResponse
-}
-
-
-
-export type pauseIngestRunResponse202 = {
-  data: IngestRunRecord
-  status: 202
-}
-
-export type pauseIngestRunResponseSuccess = (pauseIngestRunResponse202) & {
-  headers: Headers;
-};
-;
-
-export type pauseIngestRunResponse = (pauseIngestRunResponseSuccess)
-
-export const getPauseIngestRunUrl = (runId: string,) => {
-
-
-
-
-  return `/api/ingest/runs/${runId}/pause`
-}
-
-export const pauseIngestRun = async (runId: string, options?: RequestInit): Promise<pauseIngestRunResponse> => {
-
-  const res = await fetch(getPauseIngestRunUrl(runId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: pauseIngestRunResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as pauseIngestRunResponse
-}
-
-
-
-export type resumeIngestRunResponse202 = {
-  data: IngestRunRecord
-  status: 202
-}
-
-export type resumeIngestRunResponseSuccess = (resumeIngestRunResponse202) & {
-  headers: Headers;
-};
-;
-
-export type resumeIngestRunResponse = (resumeIngestRunResponseSuccess)
-
-export const getResumeIngestRunUrl = (runId: string,) => {
-
-
-
-
-  return `/api/ingest/runs/${runId}/resume`
-}
-
-export const resumeIngestRun = async (runId: string, options?: RequestInit): Promise<resumeIngestRunResponse> => {
-
-  const res = await fetch(getResumeIngestRunUrl(runId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: resumeIngestRunResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as resumeIngestRunResponse
 }
 
 
@@ -578,26 +533,17 @@ export type getDocumentTextResponseSuccess = (getDocumentTextResponse200) & {
 
 export type getDocumentTextResponse = (getDocumentTextResponseSuccess)
 
-export const getGetDocumentTextUrl = (fileHash: string,
-    params?: GetDocumentTextParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getGetDocumentTextUrl = (fileHash: string,) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/documents/${fileHash}/text?${stringifiedParams}` : `/api/documents/${fileHash}/text`
+  return `/api/documents/${fileHash}/text`
 }
 
-export const getDocumentText = async (fileHash: string,
-    params?: GetDocumentTextParams, options?: RequestInit): Promise<getDocumentTextResponse> => {
+export const getDocumentText = async (fileHash: string, options?: RequestInit): Promise<getDocumentTextResponse> => {
 
-  const res = await fetch(getGetDocumentTextUrl(fileHash,params),
+  const res = await fetch(getGetDocumentTextUrl(fileHash),
   {
     ...options,
     method: 'GET'
@@ -615,19 +561,19 @@ export const getDocumentText = async (fileHash: string,
 
 
 
-export type listPreviewImagesResponse200 = {
+export type getDocumentPreviewImagesResponse200 = {
   data: PreviewImagesPayload
   status: 200
 }
 
-export type listPreviewImagesResponseSuccess = (listPreviewImagesResponse200) & {
+export type getDocumentPreviewImagesResponseSuccess = (getDocumentPreviewImagesResponse200) & {
   headers: Headers;
 };
 ;
 
-export type listPreviewImagesResponse = (listPreviewImagesResponseSuccess)
+export type getDocumentPreviewImagesResponse = (getDocumentPreviewImagesResponseSuccess)
 
-export const getListPreviewImagesUrl = (fileHash: string,) => {
+export const getGetDocumentPreviewImagesUrl = (fileHash: string,) => {
 
 
 
@@ -635,9 +581,9 @@ export const getListPreviewImagesUrl = (fileHash: string,) => {
   return `/api/documents/${fileHash}/preview-images`
 }
 
-export const listPreviewImages = async (fileHash: string, options?: RequestInit): Promise<listPreviewImagesResponse> => {
+export const getDocumentPreviewImages = async (fileHash: string, options?: RequestInit): Promise<getDocumentPreviewImagesResponse> => {
 
-  const res = await fetch(getListPreviewImagesUrl(fileHash),
+  const res = await fetch(getGetDocumentPreviewImagesUrl(fileHash),
   {
     ...options,
     method: 'GET'
@@ -649,26 +595,38 @@ export const listPreviewImages = async (fileHash: string, options?: RequestInit)
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listPreviewImagesResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listPreviewImagesResponse
+  const data: getDocumentPreviewImagesResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getDocumentPreviewImagesResponse
 }
 
 
 
-export type getPreviewImageResponse200 = {
+export type getDocumentPreviewImageResponse200ImagePng = {
   data: Blob
   status: 200
 }
 
-export type getPreviewImageResponseSuccess = (getPreviewImageResponse200) & {
+export type getDocumentPreviewImageResponse200ImageJpeg = {
+  data: Blob
+  status: 200
+}
+
+export type getDocumentPreviewImageResponse404 = {
+  data: ErrorResponseResponse
+  status: 404
+}
+
+export type getDocumentPreviewImageResponseSuccess = (getDocumentPreviewImageResponse200ImagePng | getDocumentPreviewImageResponse200ImageJpeg) & {
   headers: Headers;
 };
-;
+export type getDocumentPreviewImageResponseError = (getDocumentPreviewImageResponse404) & {
+  headers: Headers;
+};
 
-export type getPreviewImageResponse = (getPreviewImageResponseSuccess)
+export type getDocumentPreviewImageResponse = (getDocumentPreviewImageResponseSuccess | getDocumentPreviewImageResponseError)
 
-export const getGetPreviewImageUrl = (fileHash: string,
-    variant: string,
+export const getGetDocumentPreviewImageUrl = (fileHash: string,
+    variant: 'source',
     pageNo: number,) => {
 
 
@@ -677,11 +635,11 @@ export const getGetPreviewImageUrl = (fileHash: string,
   return `/api/documents/${fileHash}/preview-images/${variant}/${pageNo}`
 }
 
-export const getPreviewImage = async (fileHash: string,
-    variant: string,
-    pageNo: number, options?: RequestInit): Promise<getPreviewImageResponse> => {
+export const getDocumentPreviewImage = async (fileHash: string,
+    variant: 'source',
+    pageNo: number, options?: RequestInit): Promise<getDocumentPreviewImageResponse> => {
 
-  const res = await fetch(getGetPreviewImageUrl(fileHash,variant,pageNo),
+  const res = await fetch(getGetDocumentPreviewImageUrl(fileHash,variant,pageNo),
   {
     ...options,
     method: 'GET'
@@ -692,102 +650,8 @@ export const getPreviewImage = async (fileHash: string,
 
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
-  const data: getPreviewImageResponse['data'] = body as getPreviewImageResponse['data']
-  return { data, status: res.status, headers: res.headers } as getPreviewImageResponse
-}
-
-
-
-export type searchDocumentsResponse200 = {
-  data: SearchPayload
-  status: 200
-}
-
-export type searchDocumentsResponseSuccess = (searchDocumentsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type searchDocumentsResponse = (searchDocumentsResponseSuccess)
-
-export const getSearchDocumentsUrl = (params: SearchDocumentsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/search?${stringifiedParams}` : `/api/search`
-}
-
-export const searchDocuments = async (params: SearchDocumentsParams, options?: RequestInit): Promise<searchDocumentsResponse> => {
-
-  const res = await fetch(getSearchDocumentsUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: searchDocumentsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as searchDocumentsResponse
-}
-
-
-
-export type searchCommandsResponse200 = {
-  data: CommandSearchPayload
-  status: 200
-}
-
-export type searchCommandsResponseSuccess = (searchCommandsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type searchCommandsResponse = (searchCommandsResponseSuccess)
-
-export const getSearchCommandsUrl = (params?: SearchCommandsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/commands/search?${stringifiedParams}` : `/api/commands/search`
-}
-
-export const searchCommands = async (params?: SearchCommandsParams, options?: RequestInit): Promise<searchCommandsResponse> => {
-
-  const res = await fetch(getSearchCommandsUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: searchCommandsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as searchCommandsResponse
+  const data: getDocumentPreviewImageResponse['data'] = body as getDocumentPreviewImageResponse['data']
+  return { data, status: res.status, headers: res.headers } as getDocumentPreviewImageResponse
 }
 
 
@@ -828,167 +692,6 @@ export const getSettings = async ( options?: RequestInit): Promise<getSettingsRe
 
   const data: getSettingsResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getSettingsResponse
-}
-
-
-
-export type putSettingsResponse200 = {
-  data: SettingsPayload
-  status: 200
-}
-
-export type putSettingsResponseSuccess = (putSettingsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type putSettingsResponse = (putSettingsResponseSuccess)
-
-export const getPutSettingsUrl = () => {
-
-
-
-
-  return `/api/settings`
-}
-
-export const putSettings = async (settingsPayload: SettingsPayload, options?: RequestInit): Promise<putSettingsResponse> => {
-
-  const res = await fetch(getPutSettingsUrl(),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(settingsPayload)
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: putSettingsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as putSettingsResponse
-}
-
-
-
-export type getAnnotationSettingsResponse200 = {
-  data: AnnotationSettingsPayload
-  status: 200
-}
-
-export type getAnnotationSettingsResponseSuccess = (getAnnotationSettingsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getAnnotationSettingsResponse = (getAnnotationSettingsResponseSuccess)
-
-export const getGetAnnotationSettingsUrl = () => {
-
-
-
-
-  return `/api/annotation-settings`
-}
-
-export const getAnnotationSettings = async ( options?: RequestInit): Promise<getAnnotationSettingsResponse> => {
-
-  const res = await fetch(getGetAnnotationSettingsUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: getAnnotationSettingsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getAnnotationSettingsResponse
-}
-
-
-
-export type putAnnotationSettingsResponse200 = {
-  data: AnnotationSettingsPayload
-  status: 200
-}
-
-export type putAnnotationSettingsResponseSuccess = (putAnnotationSettingsResponse200) & {
-  headers: Headers;
-};
-;
-
-export type putAnnotationSettingsResponse = (putAnnotationSettingsResponseSuccess)
-
-export const getPutAnnotationSettingsUrl = () => {
-
-
-
-
-  return `/api/annotation-settings`
-}
-
-export const putAnnotationSettings = async (annotationSettingsPayload: AnnotationSettingsPayload, options?: RequestInit): Promise<putAnnotationSettingsResponse> => {
-
-  const res = await fetch(getPutAnnotationSettingsUrl(),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(annotationSettingsPayload)
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: putAnnotationSettingsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as putAnnotationSettingsResponse
-}
-
-
-
-export type putAnnotationVisibilityResponse200 = {
-  data: DocumentRegionsPayload
-  status: 200
-}
-
-export type putAnnotationVisibilityResponseSuccess = (putAnnotationVisibilityResponse200) & {
-  headers: Headers;
-};
-;
-
-export type putAnnotationVisibilityResponse = (putAnnotationVisibilityResponseSuccess)
-
-export const getPutAnnotationVisibilityUrl = (fileHash: string,) => {
-
-
-
-
-  return `/api/documents/${fileHash}/annotations/visibility`
-}
-
-export const putAnnotationVisibility = async (fileHash: string,
-    annotationVisibilityRequest: AnnotationVisibilityRequest, options?: RequestInit): Promise<putAnnotationVisibilityResponse> => {
-
-  const res = await fetch(getPutAnnotationVisibilityUrl(fileHash),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(annotationVisibilityRequest)
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: putAnnotationVisibilityResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as putAnnotationVisibilityResponse
 }
 
 
@@ -1073,32 +776,39 @@ export const downloadModel = async (modelId: string, options?: RequestInit): Pro
 
 
 
-export type cancelModelDownloadResponse202 = {
-  data: ModelDownloadRecord
-  status: 202
+export type getRecentLogsResponse200 = {
+  data: LogsPayload
+  status: 200
 }
 
-export type cancelModelDownloadResponseSuccess = (cancelModelDownloadResponse202) & {
+export type getRecentLogsResponseSuccess = (getRecentLogsResponse200) & {
   headers: Headers;
 };
 ;
 
-export type cancelModelDownloadResponse = (cancelModelDownloadResponseSuccess)
+export type getRecentLogsResponse = (getRecentLogsResponseSuccess)
 
-export const getCancelModelDownloadUrl = (modelId: string,) => {
+export const getGetRecentLogsUrl = (params?: GetRecentLogsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/models/${modelId}/cancel`
+  return stringifiedParams.length > 0 ? `/api/logs/recent?${stringifiedParams}` : `/api/logs/recent`
 }
 
-export const cancelModelDownload = async (modelId: string, options?: RequestInit): Promise<cancelModelDownloadResponse> => {
+export const getRecentLogs = async (params?: GetRecentLogsParams, options?: RequestInit): Promise<getRecentLogsResponse> => {
 
-  const res = await fetch(getCancelModelDownloadUrl(modelId),
+  const res = await fetch(getGetRecentLogsUrl(params),
   {
     ...options,
-    method: 'POST'
+    method: 'GET'
 
 
   }
@@ -1107,6 +817,6 @@ export const cancelModelDownload = async (modelId: string, options?: RequestInit
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: cancelModelDownloadResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as cancelModelDownloadResponse
+  const data: getRecentLogsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getRecentLogsResponse
 }

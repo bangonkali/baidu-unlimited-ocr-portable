@@ -10,4 +10,5 @@ export interface FolderDialogResponse {
   cancelled: boolean;
   selected_path: string;
   manual_path_supported: boolean;
+  error?: string;
 }

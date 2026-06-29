@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "uocr/core/types.hpp"
@@ -14,11 +15,34 @@
 
 namespace uocr::server {
 
+inline constexpr std::string_view kModelRepo =
+    "https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/";
+inline constexpr std::string_view kModelFile = "Unlimited-OCR-Q4_K_M.gguf";
+inline constexpr std::string_view kMmprojFile = "mmproj-Unlimited-OCR-F16.gguf";
+
 struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchService::Impl> {
   struct ModelState {
     std::string status = "missing";
     std::string error;
+    std::string current_file;
+    std::string status_message;
+    std::uint64_t downloaded_bytes = 0;
+    std::uint64_t total_bytes = 0;
     bool downloading = false;
+  };
+
+  struct PageState {
+    int page_no = 1;
+    std::filesystem::path image_path;
+    int width_px = 0;
+    int height_px = 0;
+    int dpi = 200;
+    std::string status = "queued";
+    std::string error;
+    std::string raw_text;
+    std::string cleaned_text;
+    std::vector<OverlayBox> boxes;
+    std::vector<TextRegionSpan> spans;
   };
 
   struct DocumentState {
@@ -31,6 +55,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
     std::string cleaned_text;
     std::vector<OverlayBox> boxes;
     std::vector<TextRegionSpan> spans;
+    std::vector<PageState> pages;
   };
 
   struct RunState {
@@ -45,7 +70,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
     std::vector<std::string> file_hashes;
   };
 
-  explicit Impl(std::filesystem::path root);
+  Impl(std::filesystem::path root, std::shared_ptr<AppLogger> app_logger);
 
   std::filesystem::path model_path() const;
   std::filesystem::path mmproj_path() const;
@@ -55,6 +80,9 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   Json::Value model_record() const;
   Json::Value run_record(const RunState& run) const;
   Json::Value document_summary(const DocumentState& document) const;
+  bool is_image_document(const DocumentState& document) const;
+  bool is_pdf_document(const DocumentState& document) const;
+  std::vector<PageState> prepare_pages(const DiscoveredFile& file, const std::string& file_hash) const;
 
   void start_download();
   void start_run(const std::string& run_id, std::vector<DiscoveredFile> files, std::string profile_id);
@@ -64,6 +92,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
                    const std::string& profile_id);
 
   std::filesystem::path app_root;
+  std::shared_ptr<AppLogger> logger;
   mutable std::mutex mutex;
   ModelState model;
   std::map<std::string, RunState> runs;

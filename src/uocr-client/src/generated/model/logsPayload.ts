@@ -5,9 +5,8 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
-import type { IngestEventRecord } from './ingestEventRecord';
+import type { LogRecord } from './logRecord';
 
-export interface DiagnosticTracePayload {
-  run_id?: string;
-  events?: IngestEventRecord[];
+export interface LogsPayload {
+  logs: LogRecord[];
 }

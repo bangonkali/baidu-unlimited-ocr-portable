@@ -17,11 +17,21 @@ Extract the zip anywhere and run `uocr-server.exe`. The server binds to
 automatically. The folder is self-contained except for downloaded GGUF model
 files under `models\`.
 
-Logs are appended to `logs\uocr-server.log` inside the extracted folder. The
-React workbench can download the default Unlimited-OCR Q4_K_M GGUF pair into
-`models\`; image files are sent through the bundled `uocr-ffi.dll` once those
-files are present. PDF files are discovered by the scanner, but C++ PDF page
-rendering is still a follow-up item.
+Logs are appended to `logs\uocr-server.log` inside the extracted folder and are
+also printed to the terminal running `uocr-server.exe`. The React workbench can
+download the default Unlimited-OCR Q4_K_M GGUF pair into `models\`; images and
+rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
+files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
+`uocr-server.exe`; the portable zip does not ship `mutool.exe`.
+
+First run sequence:
+
+1. Open **Models** and click **Download model**.
+2. Click **Choose Folder** to use the trusted native Windows folder picker, or
+   paste a path into the fallback text box.
+3. Click **Start Scan**.
+4. Watch the progress in the toolbar, the Diagnostics pane, the terminal, or
+   `logs\uocr-server.log`.
 
 One-line install to `~\.uocr`:
 
@@ -57,16 +67,26 @@ bun run build-storybook
 cd ..\..
 ```
 
-When Drogon, Trantor, DuckDB, and MuPDF are available through the Windows CMake
-toolchain, enable the server executable:
+The supported local workbench build script prepares the React app, builds the
+MuPDF static libraries from `thirdparty\mupdf`, links them into
+`uocr-server.exe`, and copies the React build to `web\`:
+
+```powershell
+.\scripts\windows\build-workbench.ps1
+```
+
+When Drogon and Trantor are available through the Windows CMake toolchain, the
+lower-level CMake path is:
 
 ```powershell
 cmake -S . -B build\uocr-server-drogon -DUOCR_BUILD_SERVER=ON
 cmake --build build\uocr-server-drogon --config Release --target uocr-server
 ```
 
-The server binds to `127.0.0.1` by default and serves `/api/*`,
-`/api/openapi.json`, and the built React app in the release layout.
+That lower-level path assumes the MuPDF static libraries already exist under
+`thirdparty\mupdf\platform\win32\x64\Release\`. The server binds to
+`127.0.0.1` by default and serves `/api/*`, `/api/openapi.json`, and the built
+React app in the release layout.
 
 Create the same zip layout that GitHub Actions publishes:
 

@@ -209,6 +209,11 @@ $RuntimeStage = Join-Path $StageRoot "thirdparty\uocr-runtime"
 New-Item -ItemType Directory -Force -Path $RuntimeStage | Out-Null
 Copy-Item -LiteralPath $RuntimeDir -Destination $RuntimeStage -Recurse -Force
 
+New-Item -ItemType Directory -Force -Path (Join-Path $StageRoot "thirdparty\mupdf") | Out-Null
+Copy-Item -LiteralPath (Join-Path $RepoRoot "thirdparty\mupdf\COPYING") `
+    -Destination (Join-Path $StageRoot "thirdparty\mupdf\COPYING") `
+    -Force
+
 foreach ($dir in @("models", "data", "cache", "logs", "config", "uploads")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $StageRoot $dir) | Out-Null
 }
@@ -226,6 +231,7 @@ Unlimited-OCR Workbench $Version
 Run uocr-server.exe to start the local backend and hosted React app.
 Default URL: http://127.0.0.1:8765/
 Logs: logs\uocr-server.log
+PDF support: native MuPDF is embedded in uocr-server.exe and renders pages at 200 DPI.
 Uninstall: delete this folder.
 "@ | Set-Content -LiteralPath (Join-Path $StageRoot "README.txt") -Encoding utf8
 
@@ -236,6 +242,7 @@ $manifest = [ordered]@{
     platform = "windows-x64"
     runtime_platform = $RuntimePlatform
     runtime_version = $RuntimeVersion
+    pdf_renderer = "embedded-mupdf"
     created_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $StageRoot "install-manifest.json") -Encoding utf8

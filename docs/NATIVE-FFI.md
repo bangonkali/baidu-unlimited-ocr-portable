@@ -44,10 +44,14 @@ is a reference binding, not a special-case API.
 
 - Resolve the library from `thirdparty/uocr-runtime/<platform>/bin/` unless
   configuration points at an explicit runtime path.
+- The Windows portable workbench currently resolves
+  `thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll`. CPU
+  inference is not packaged or selectable in the C++ workbench yet.
 - Check `uocr_ffi_abi_version()` before creating a session.
 - Use the built-in `best-zero-empty-q4` profile by default and
   `experimental-exact-prefill-q4` only as the retry/diagnostic profile.
 - Send rendered PDF pages and image files through `uocr_ffi_run_image`; PDF
-  rendering is owned by the MuPDF page renderer.
+  rendering is owned by the embedded MuPDF page renderer linked into
+  `uocr-server.exe`.
 - Stream token events into the ingest event bus and persist final raw/cleaned
   OCR text, parsed regions, text-region spans, timing, status, and errors.

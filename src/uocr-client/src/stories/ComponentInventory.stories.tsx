@@ -17,6 +17,9 @@ const components = [
   'TextPane',
   'DetailsPane',
   'DiagnosticsPanel',
+  'ModelManager',
+  'StartHere',
+  'GuidedTour',
   'StatusBar',
   'IconButton',
 ];

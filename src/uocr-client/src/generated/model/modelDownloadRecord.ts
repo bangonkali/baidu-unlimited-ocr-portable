@@ -9,7 +9,4 @@
 export interface ModelDownloadRecord {
   model_id: string;
   status: string;
-  received_bytes?: number;
-  /** @nullable */
-  total_bytes?: number | null;
 }

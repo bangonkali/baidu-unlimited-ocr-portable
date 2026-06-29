@@ -1,182 +1,168 @@
 import { useDebouncedValue } from '@tanstack/react-pacer';
-import { Bot, Database, FileSearch, Search, Settings } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { CircleHelp, Search } from 'lucide-react';
 import { useState } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import {
+  queryKeys,
+  useDocumentPreviewImages,
   useDocumentRegions,
   useDocuments,
   useDocumentText,
   useDownloadModel,
   useIngestRuns,
+  useLogs,
   useModels,
   useOpenFolderDialog,
   useRunCommand,
   useRunEvents,
-  useSettings,
   useStartIngest,
   useStatus,
 } from '../../api/hooks';
 import { IconButton } from '../../components/IconButton';
 import {
+  setActiveView,
   setSelectedProfile,
   setSelectedRoot,
+  setTourRun,
   useWorkbenchState,
 } from '../../stores/workbenchStore';
-import { DetailsPane } from './DetailsPane';
+import { ActivityBar } from './ActivityBar';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
-import { ExplorerTree } from './ExplorerTree';
+import { GuidedTour } from './GuidedTour';
 import { IngestToolbar } from './IngestToolbar';
-import { PreviewPane } from './PreviewPane';
+import { ModelManager } from './ModelManager';
 import { StatusBar } from './StatusBar';
-import { TextPane } from './TextPane';
 import styles from './WorkbenchPage.module.css';
+import { WorkbenchPanels } from './WorkbenchPanels';
 
 export function WorkbenchPage() {
+  const queryClient = useQueryClient();
   const workbench = useWorkbenchState();
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const status = useStatus();
   const documents = useDocuments(debouncedSearch);
   const models = useModels();
-  const settings = useSettings();
   const runs = useIngestRuns();
+  const logs = useLogs(220);
   const regions = useDocumentRegions(workbench.selection.fileHash);
   const text = useDocumentText(workbench.selection.fileHash);
+  const previewImages = useDocumentPreviewImages(workbench.selection.fileHash);
   const folderDialog = useOpenFolderDialog();
   const downloadModel = useDownloadModel();
   const startIngest = useStartIngest();
-  const pauseRun = useRunCommand('pause');
   const stopRun = useRunCommand('stop');
-  const activeRunId = status.data?.active_run_id ?? runs.data?.runs[0]?.run_id ?? null;
+  const activeRunId = status.data?.active_run_id ?? null;
   useRunEvents(activeRunId);
 
+  const model = models.data?.models[0];
+  const modelReady = model?.status === 'downloaded';
+  const selectedDocument = documents.data?.documents.find(
+    (document) => document.file_hash === workbench.selection.fileHash,
+  );
   const profiles = models.data?.profiles.length
     ? models.data.profiles
     : [
         {
           key: workbench.selectedProfile,
           label: 'Practical zero-empty Q4',
-          engine_name: '',
+          engine_name: 'Unlimited-OCR FFI',
           description: '',
           default_max_tokens: 8192,
         },
       ];
 
+  const pickFolder = () => {
+    void folderDialog.mutateAsync().then((result) => {
+      if (!result.cancelled) {
+        setSelectedRoot(result.selected_path);
+      }
+    });
+  };
+  const startScan = () =>
+    startIngest.mutate({
+      profile_id: workbench.selectedProfile,
+      root_path: workbench.selectedRoot,
+    });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+    void queryClient.invalidateQueries({ queryKey: ['documents'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+  };
+
   return (
     <div className={styles.shell}>
-      <ActivityBar />
+      <GuidedTour run={workbench.tourRun} />
+      <ActivityBar activeView={workbench.activeView} />
       <main className={styles.main}>
         <div className={styles.commandCenter}>
           <Search size={15} />
           <input
-            aria-label="Search"
+            aria-label="Search documents"
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search"
+            placeholder="Search documents"
             value={searchText}
           />
+          <IconButton icon={CircleHelp} label="Start guide" onClick={() => setTourRun(true)} />
         </div>
         <IngestToolbar
           activeRunId={activeRunId}
           busy={startIngest.isPending || folderDialog.isPending}
-          onPause={() => activeRunId && pauseRun.mutate(activeRunId)}
-          onPickFolder={() => {
-            void folderDialog.mutateAsync().then((result) => {
-              if (!result.cancelled) {
-                setSelectedRoot(result.selected_path);
-              }
-            });
-          }}
+          modelReady={modelReady}
+          onPickFolder={pickFolder}
           onProfileChange={setSelectedProfile}
+          onRefresh={refresh}
           onRootPathChange={setSelectedRoot}
-          onStart={() =>
-            startIngest.mutate({
-              profile_id: workbench.selectedProfile,
-              root_path: workbench.selectedRoot,
-            })
-          }
+          onStart={startScan}
           onStop={() => activeRunId && stopRun.mutate(activeRunId)}
           profiles={profiles}
           rootPath={workbench.selectedRoot}
+          runState={status.data?.state}
           selectedProfile={workbench.selectedProfile}
+          supportedInputs={status.data?.supported_inputs}
         />
-        <PanelGroup className={styles.body} direction="horizontal">
-          <Panel defaultSize={19} minSize={14}>
-            <ExplorerTree
-              documents={documents.data?.documents ?? []}
-              selectedFileHash={workbench.selection.fileHash}
-            />
-          </Panel>
-          <ResizeHandle />
-          <Panel defaultSize={58} minSize={34}>
-            <PanelGroup direction="vertical">
-              <Panel defaultSize={68} minSize={40}>
-                <PanelGroup direction="horizontal">
-                  <Panel defaultSize={58} minSize={30}>
-                    <PreviewPane
-                      boxes={regions.data?.boxes ?? []}
-                      labelsVisible={workbench.labelsVisible}
-                      overlayVisible={workbench.overlayVisible}
-                      selectedRegionId={workbench.selection.regionId}
-                    />
-                  </Panel>
-                  <ResizeHandle />
-                  <Panel defaultSize={42} minSize={24}>
-                    <TextPane
-                      pages={text.data?.pages ?? []}
-                      selectedRegionId={workbench.selection.regionId}
-                    />
-                  </Panel>
-                </PanelGroup>
-              </Panel>
-              <ResizeHandle horizontal />
-              <Panel defaultSize={32} minSize={16}>
-                <DiagnosticsPanel runs={runs.data?.runs ?? []} />
-              </Panel>
-            </PanelGroup>
-          </Panel>
-          <ResizeHandle />
-          <Panel defaultSize={23} minSize={17}>
-            <DetailsPane
-              labelsVisible={workbench.labelsVisible}
-              modelDownloadBusy={downloadModel.isPending}
+        <div className={styles.body}>
+          {workbench.activeView === 'models' ? (
+            <ModelManager
+              busy={downloadModel.isPending}
               models={models.data}
               onDownloadModel={(modelId) => downloadModel.mutate(modelId)}
-              overlayVisible={workbench.overlayVisible}
-              selectedFileHash={workbench.selection.fileHash}
-              selectedRegionId={workbench.selection.regionId}
-              settings={settings.data}
+              status={status.data}
             />
-          </Panel>
-        </PanelGroup>
+          ) : null}
+          {workbench.activeView === 'diagnostics' ? (
+            <DiagnosticsPanel logs={logs.data?.logs ?? []} runs={runs.data?.runs ?? []} />
+          ) : null}
+          {workbench.activeView === 'workbench' ? (
+            <WorkbenchPanels
+              documents={documents.data?.documents ?? []}
+              logs={logs.data?.logs ?? []}
+              model={model}
+              onOpenModels={() => setActiveView('models')}
+              onPickFolder={pickFolder}
+              onStart={startScan}
+              previewPages={previewImages.data?.pages ?? []}
+              regions={regions.data?.boxes ?? []}
+              rootPath={workbench.selectedRoot}
+              runs={runs.data?.runs ?? []}
+              selectedDocument={selectedDocument}
+              textPages={text.data?.pages ?? []}
+              workbench={workbench}
+            />
+          ) : null}
+        </div>
         <StatusBar
           documentCount={documents.data?.documents.length ?? 0}
+          host={window.location.host}
+          logPath={status.data?.log_path}
           runState={status.data?.state ?? 'offline'}
+          runtime={status.data?.runtime_platform ?? 'windows-x86_64-cuda13'}
           selectedRoot={workbench.selectedRoot}
         />
       </main>
     </div>
-  );
-}
-
-function ActivityBar() {
-  return (
-    <aside className={styles.activityBar} aria-label="Primary">
-      <div className={styles.brand}>U</div>
-      <nav className={styles.activityNav}>
-        <IconButton icon={FileSearch} label="Workbench" pressed />
-        <IconButton icon={Database} label="Models" />
-        <IconButton icon={Bot} label="Diagnostics" />
-      </nav>
-      <IconButton icon={Settings} label="Settings" />
-    </aside>
-  );
-}
-
-function ResizeHandle({ horizontal = false }: { horizontal?: boolean }) {
-  return (
-    <PanelResizeHandle
-      className={horizontal ? styles.resizeHandleHorizontal : styles.resizeHandle}
-    />
   );
 }

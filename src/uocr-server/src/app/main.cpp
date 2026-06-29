@@ -20,6 +20,7 @@
 #include <windows.h>
 #endif
 
+#include "uocr/app/app_logger.hpp"
 #include "routes.hpp"
 
 namespace {
@@ -54,30 +55,6 @@ void print_version() {
 void print_help() {
   print_version();
   std::cout << "\nUsage: uocr-server [--port PORT] [--no-browser] [--version]\n";
-}
-
-std::string utc_timestamp() {
-  const auto now = std::chrono::system_clock::now();
-  const auto time = std::chrono::system_clock::to_time_t(now);
-  std::tm utc{};
-#ifdef _WIN32
-  gmtime_s(&utc, &time);
-#else
-  gmtime_r(&time, &utc);
-#endif
-  std::ostringstream stream;
-  stream << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
-  return stream.str();
-}
-
-void append_server_log(const std::filesystem::path& log_path, std::string_view message) {
-  std::error_code error;
-  std::filesystem::create_directories(log_path.parent_path(), error);
-  std::ofstream log(log_path, std::ios::app);
-  if (!log) {
-    return;
-  }
-  log << utc_timestamp() << " " << message << '\n';
 }
 
 std::filesystem::path executable_dir(const char* executable_path) {
@@ -144,9 +121,9 @@ int run_server(int argc, char* argv[]) {
 
   const auto app_root = executable_dir(argv[0]);
   const auto log_file = app_root / "logs" / "uocr-server.log";
-  append_server_log(log_file,
-                    "launch version=" UOCR_APP_VERSION " git_tag=" UOCR_GIT_TAG
-                    " git_sha=" UOCR_GIT_SHA);
+  auto logger = std::make_shared<uocr::server::AppLogger>(log_file);
+  logger->info("server", "launch version=" UOCR_APP_VERSION " git_tag=" UOCR_GIT_TAG
+                         " git_sha=" UOCR_GIT_SHA);
 
   const auto port = parse_port(argc, argv);
   const auto web_root = app_root / "web";
@@ -154,21 +131,21 @@ int run_server(int argc, char* argv[]) {
   if (!std::filesystem::exists(index_html)) {
     std::cerr << "Missing React build: " << index_html << '\n';
     std::cerr << "Run scripts\\windows\\build-workbench.ps1 or copy src\\uocr-client\\dist to web\\.\n";
-    append_server_log(log_file, "startup failed missing React build at " + index_html.string());
+    logger->error("server", "startup failed missing React build at " + index_html.string());
     return 2;
   }
 
-  uocr::server::register_api_routes(app_root);
+  uocr::server::register_api_routes(app_root, logger);
   auto spa_response = drogon::HttpResponse::newFileResponse(index_html.string());
   spa_response->setStatusCode(drogon::k200OK);
   if (should_open_browser(argc, argv)) {
     open_browser_after_start(port);
   }
 
-  append_server_log(log_file, "app_root " + app_root.string());
-  append_server_log(log_file, "web_root " + web_root.string());
-  append_server_log(log_file,
-                    "listening http://127.0.0.1:" + std::to_string(port) + "/");
+  logger->info("server", "app_root " + app_root.string());
+  logger->info("server", "web_root " + web_root.string());
+  logger->info("server", "log_path " + log_file.string());
+  logger->info("server", "listening http://127.0.0.1:" + std::to_string(port) + "/");
   drogon::app()
       .setLogPath((app_root / "logs").string())
       .setLogLevel(trantor::Logger::kInfo)
@@ -176,7 +153,7 @@ int run_server(int argc, char* argv[]) {
       .setCustom404Page(spa_response, false)
       .addListener("127.0.0.1", port)
       .run();
-  append_server_log(log_file, "server stopped");
+  logger->info("server", "server stopped");
   return 0;
 }
 
@@ -187,8 +164,8 @@ int main(int argc, char* argv[]) {
     return run_server(argc, argv);
   } catch (const std::exception& error) {
     const auto app_root = executable_dir(argc > 0 ? argv[0] : ".");
-    append_server_log(app_root / "logs" / "uocr-server.log",
-                      std::string("fatal startup error: ") + error.what());
+    uocr::server::AppLogger logger(app_root / "logs" / "uocr-server.log");
+    logger.error("server", std::string("fatal startup error: ") + error.what());
     std::cerr << "uocr-server failed: " << error.what() << '\n';
     return 1;
   }

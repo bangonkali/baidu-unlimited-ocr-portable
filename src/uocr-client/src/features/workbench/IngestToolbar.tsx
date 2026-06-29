@@ -1,6 +1,7 @@
-import { FolderOpen, Pause, Play, RefreshCw, Square } from 'lucide-react';
+import { FolderOpen, Play, RefreshCw, Square } from 'lucide-react';
+import type { ComponentType } from 'react';
+
 import type { OcrProfileRecord } from '../../api/types';
-import { IconButton } from '../../components/IconButton';
 import styles from './IngestToolbar.module.css';
 
 interface IngestToolbarProps {
@@ -9,26 +10,30 @@ interface IngestToolbarProps {
   selectedProfile: string;
   activeRunId?: string | null;
   busy?: boolean;
+  modelReady?: boolean;
+  runState?: string;
+  supportedInputs?: string[];
   onPickFolder: () => void;
   onRootPathChange: (value: string) => void;
   onProfileChange: (value: string) => void;
   onStart: () => void;
-  onPause: () => void;
   onStop: () => void;
+  onRefresh: () => void;
 }
 
 export function IngestToolbar(props: IngestToolbarProps) {
-  const canControl = Boolean(props.activeRunId);
+  const canStop = Boolean(props.activeRunId) && props.runState === 'running';
+  const canStart = Boolean(props.rootPath.trim()) && props.modelReady && !props.busy;
 
   return (
     <header className={styles.toolbar}>
-      <div className={styles.rootPicker}>
-        <IconButton icon={FolderOpen} label="Pick folder" onClick={props.onPickFolder} />
+      <div className={styles.rootPicker} data-tour="folder">
+        <CommandButton icon={FolderOpen} label="Choose Folder" onClick={props.onPickFolder} />
         <input
           aria-label="Selected root"
           className={styles.pathInput}
           onChange={(event) => props.onRootPathChange(event.target.value)}
-          placeholder="Folder path"
+          placeholder="Or paste a folder path"
           value={props.rootPath}
         />
       </div>
@@ -45,16 +50,44 @@ export function IngestToolbar(props: IngestToolbarProps) {
         ))}
       </select>
       <div className={styles.actions}>
-        <IconButton
-          disabled={props.busy || !props.rootPath}
+        <CommandButton
+          disabled={!canStart}
           icon={Play}
-          label="Start"
+          label="Start Scan"
           onClick={props.onStart}
+          tour="start"
         />
-        <IconButton disabled={!canControl} icon={Pause} label="Pause" onClick={props.onPause} />
-        <IconButton disabled={!canControl} icon={Square} label="Stop" onClick={props.onStop} />
-        <IconButton disabled={props.busy} icon={RefreshCw} label="Refresh" />
+        <CommandButton disabled={!canStop} icon={Square} label="Stop" onClick={props.onStop} />
+        <CommandButton
+          disabled={props.busy}
+          icon={RefreshCw}
+          label="Refresh"
+          onClick={props.onRefresh}
+        />
       </div>
+      <div className={styles.supported}>{(props.supportedInputs ?? []).join('  ')}</div>
     </header>
+  );
+}
+
+function CommandButton(props: {
+  disabled?: boolean;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  label: string;
+  onClick?: () => void;
+  tour?: string;
+}) {
+  const Icon = props.icon;
+  return (
+    <button
+      className={styles.commandButton}
+      data-tour={props.tour}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      type="button"
+    >
+      <Icon size={15} strokeWidth={1.9} />
+      <span>{props.label}</span>
+    </button>
   );
 }

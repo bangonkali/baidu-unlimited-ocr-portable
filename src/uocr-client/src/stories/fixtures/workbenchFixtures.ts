@@ -1,6 +1,7 @@
 import type {
   DocumentSummary,
   IngestRunRecord,
+  LogRecord,
   ModelsPayload,
   OverlayBox,
   PageTextRecord,
@@ -17,11 +18,11 @@ export const fixtureDocuments: DocumentSummary[] = [
     status: 'completed',
   },
   {
-    display_name: 'shipping-form.pdf',
+    display_name: 'Sample 0001.pdf',
     file_hash: 'hash-shipping-form',
     page_count: 3,
     regions: 8,
-    relative_path: 'operations/shipping-form.pdf',
+    relative_path: 'dataset/Sample 0001.pdf',
     status: 'running',
   },
 ];
@@ -69,12 +70,29 @@ export const fixtureRuns: IngestRunRecord[] = [
   },
 ];
 
+export const fixtureLogs: LogRecord[] = [
+  {
+    component: 'server',
+    level: 'INFO',
+    message: 'listening http://127.0.0.1:8765/',
+    timestamp: '2026-06-29T04:10:00Z',
+  },
+  {
+    component: 'pdf',
+    level: 'INFO',
+    message: 'rendering dataset/Sample 0001.pdf at 200 DPI with MuPDF',
+    timestamp: '2026-06-29T04:10:12Z',
+  },
+];
+
 export const fixtureModels: ModelsPayload = {
   models: [
     {
       display_name: 'Unlimited-OCR Q4_K_M',
+      downloaded_bytes: 100,
       model_id: 'unlimited-ocr-q4-k-m',
-      status: 'ready',
+      status: 'downloaded',
+      total_bytes: 100,
     },
   ],
   profiles: [

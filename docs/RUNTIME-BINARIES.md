@@ -29,16 +29,20 @@ config/
 uploads/
 openapi/uocr.openapi.json
 thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll
+thirdparty/mupdf/COPYING
 ```
 
 The release also bundles Drogon/Trantor/vcpkg DLLs needed by the C++ server and
 the generated React build under `web/`. Runtime binaries are staged under
 `thirdparty/uocr-runtime/`; GGUF model files are downloaded or validated after
-first launch and are not committed to git.
+first launch and are not committed to git. MuPDF is linked into
+`uocr-server.exe`; the portable zip must not contain `mutool.exe`.
 
 Running `uocr-server.exe` appends launch and listener diagnostics to
 `logs/uocr-server.log`. Model downloads from the C++ workbench currently target
-the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`.
+the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`. PDF rendering
+uses embedded MuPDF at 200 DPI and writes page PNGs under
+`cache\rendered-pages\`.
 
 Build the release zip locally:
 
@@ -60,6 +64,9 @@ Linux and Windows CUDA labels require `nvidia-smi` to be available when
 installing a prebuilt runtime, and the machine must have NVIDIA driver/runtime
 libraries compatible with CUDA 13 binaries. If the accelerator probe fails, the
 downloader refuses to install a CUDA-labeled binary for that machine.
+
+The Windows C++ workbench currently selects only `windows-x86_64-cuda13`.
+There is no packaged CPU runtime selector in the workbench yet.
 
 CUDA 13 release binaries target compute capability 7.5 or newer and explicitly
 include Blackwell RTX 5090 support. NVIDIA's RTX 5090 specs list CUDA
@@ -130,8 +137,10 @@ the matching archive and `.sha256` assets.
 
 ## Building Releases
 
-The workflow `.github/workflows/build-runtime.yml` builds and packages all three
-runtime labels. It uploads archives as workflow artifacts on every manual run.
+The workflow `.github/workflows/build-runtime.yml` is intentionally disabled
+while the Windows portable zip is being stabilized. Re-enable it when runtime
+matrix builds are back in scope. When enabled, it builds and packages all three
+runtime labels and uploads archives as workflow artifacts on every manual run.
 
 It publishes GitHub Release assets when:
 
@@ -152,10 +161,10 @@ archive label tied to CUDA 13 rather than to one CI machine. The `120a-real`
 entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
 parallelism to reduce hosted-runner memory pressure.
 
-The workflow `.github/workflows/release-workbench.yml` builds the Windows
-C++/React workbench, downloads the selected Windows runtime archive, packages
-`uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted executable, and
-uploads the zip plus checksum to the same GitHub Release.
+The active workflow is `.github/workflows/release-workbench.yml`. It builds the
+Windows C++/React workbench, downloads the selected Windows CUDA runtime
+archive, packages `uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted
+executable, and uploads the zip plus checksum to the same GitHub Release.
 
 Runtime GPU smoke validation should be run on self-hosted GPU runners before
 promoting a release as validated; GitHub-hosted standard runners compile the

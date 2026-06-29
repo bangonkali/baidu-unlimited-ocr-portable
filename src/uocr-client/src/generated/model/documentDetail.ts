@@ -9,6 +9,4 @@ import type { DocumentSummary } from './documentSummary';
 
 export type DocumentDetail = DocumentSummary & {
   absolute_path?: string;
-  engine_id?: string;
-  profile_id?: string;
 };

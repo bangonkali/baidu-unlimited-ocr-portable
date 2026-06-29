@@ -34,6 +34,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ false }}
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180

@@ -5,52 +5,43 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
-#include <stdexcept>
-#include <thread>
+#include <utility>
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <urlmon.h>
-#endif
-
-#include "uocr/core/ocr_parser.hpp"
-#include "uocr/core/profiles.hpp"
-#include "uocr/ocr/unlimited_ocr_ffi_engine.hpp"
+#include "uocr/render/png_dimensions.hpp"
 
 namespace uocr::server {
 namespace {
 
-constexpr const char* kModelRepo = "https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/";
-constexpr const char* kModelFile = "Unlimited-OCR-Q4_K_M.gguf";
-constexpr const char* kMmprojFile = "mmproj-Unlimited-OCR-F16.gguf";
+bool has_extension(const std::filesystem::path& path, std::string_view expected) {
+  auto ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return ext == expected;
+}
 
 bool is_image_file(const std::filesystem::path& path) {
-  const auto ext = path.extension().string();
+  auto ext = path.extension().string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
   return ext == ".bmp" || ext == ".jpeg" || ext == ".jpg" || ext == ".png" || ext == ".tif" ||
          ext == ".tiff" || ext == ".webp";
 }
 
-void download_to_file(const std::string& url, const std::filesystem::path& destination) {
-  std::filesystem::create_directories(destination.parent_path());
-  const auto temp = destination.string() + ".download";
-#ifdef _WIN32
-  const auto result = URLDownloadToFileA(nullptr, url.c_str(), temp.c_str(), 0, nullptr);
-  if (result != S_OK) {
-    throw std::runtime_error("download failed for " + url);
+int page_count_for(const WorkbenchService::Impl::DocumentState& document) {
+  return document.pages.empty() ? 1 : static_cast<int>(document.pages.size());
+}
+
+std::size_t region_count_for(const WorkbenchService::Impl::DocumentState& document) {
+  if (document.pages.empty()) {
+    return document.boxes.size();
   }
-#else
-  (void)url;
-  throw std::runtime_error("model download is implemented for Windows portable builds first");
-#endif
-  std::error_code error;
-  std::filesystem::rename(temp, destination, error);
-  if (error) {
-    std::filesystem::remove(destination, error);
-    std::filesystem::rename(temp, destination, error);
+  std::size_t count = 0;
+  for (const auto& page : document.pages) {
+    count += page.boxes.size();
   }
-  if (error) {
-    throw std::runtime_error("could not finalize model download: " + destination.string());
-  }
+  return count;
 }
 
 }  // namespace
@@ -88,14 +79,15 @@ std::string stable_hash(const DiscoveredFile& file) {
   return out.str();
 }
 
-WorkbenchService::Impl::Impl(std::filesystem::path root) : app_root(std::move(root)) {}
+WorkbenchService::Impl::Impl(std::filesystem::path root, std::shared_ptr<AppLogger> app_logger)
+    : app_root(std::move(root)), logger(std::move(app_logger)) {}
 
 std::filesystem::path WorkbenchService::Impl::model_path() const {
-  return app_root / "models" / kModelFile;
+  return app_root / "models" / std::string(kModelFile);
 }
 
 std::filesystem::path WorkbenchService::Impl::mmproj_path() const {
-  return app_root / "models" / kMmprojFile;
+  return app_root / "models" / std::string(kMmprojFile);
 }
 
 std::filesystem::path WorkbenchService::Impl::ffi_path() const {
@@ -115,14 +107,21 @@ Json::Value WorkbenchService::Impl::model_record() const {
   item["model_id"] = "unlimited-ocr-q4-k-m";
   item["display_name"] = "Unlimited-OCR Q4_K_M";
   item["local_path"] = (app_root / "models").string();
-  item["model_file"] = kModelFile;
-  item["mmproj_file"] = kMmprojFile;
+  item["model_file"] = std::string(kModelFile);
+  item["mmproj_file"] = std::string(kMmprojFile);
   const auto ready = model_ready();
   item["status"] = model.downloading ? "downloading" : (ready ? "downloaded" : "missing");
   if (!ready && !model.error.empty()) {
     item["status"] = "error";
     item["error"] = model.error;
   }
+  item["current_file"] = model.current_file.empty() ? Json::Value(Json::nullValue) : Json::Value(model.current_file);
+  item["status_message"] =
+      model.status_message.empty() ? Json::Value(Json::nullValue) : Json::Value(model.status_message);
+  item["downloaded_bytes"] = static_cast<Json::UInt64>(model.downloaded_bytes);
+  item["total_bytes"] = model.total_bytes == 0 ? Json::Value(Json::nullValue)
+                                               : Json::Value(static_cast<Json::UInt64>(model.total_bytes));
+
   std::uintmax_t size = 0;
   std::error_code error;
   if (std::filesystem::exists(model_path())) {
@@ -133,6 +132,14 @@ Json::Value WorkbenchService::Impl::model_record() const {
   }
   item["size_bytes"] = static_cast<Json::UInt64>(size);
   return item;
+}
+
+bool WorkbenchService::Impl::is_image_document(const DocumentState& document) const {
+  return is_image_file(document.absolute_path);
+}
+
+bool WorkbenchService::Impl::is_pdf_document(const DocumentState& document) const {
+  return has_extension(document.absolute_path, ".pdf");
 }
 
 Json::Value WorkbenchService::Impl::run_record(const RunState& run) const {
@@ -153,131 +160,12 @@ Json::Value WorkbenchService::Impl::document_summary(const DocumentState& docume
   value["display_name"] = document.relative_path.filename().string();
   value["relative_path"] = document.relative_path.generic_string();
   value["status"] = document.status;
-  value["page_count"] = 1;
-  value["regions"] = static_cast<Json::UInt64>(document.boxes.size());
+  value["page_count"] = page_count_for(document);
+  value["regions"] = static_cast<Json::UInt64>(region_count_for(document));
   if (!document.error.empty()) {
     value["error"] = document.error;
   }
   return value;
-}
-
-void WorkbenchService::Impl::start_download() {
-  {
-    std::scoped_lock lock(mutex);
-    if (model.downloading || model_ready()) {
-      return;
-    }
-    model.downloading = true;
-    model.error.clear();
-    model.status = "downloading";
-  }
-  std::thread([shared = shared_from_this()]() {
-    try {
-      if (!std::filesystem::exists(shared->model_path())) {
-        download_to_file(std::string(kModelRepo) + kModelFile + "?download=true", shared->model_path());
-      }
-      if (!std::filesystem::exists(shared->mmproj_path())) {
-        download_to_file(std::string(kModelRepo) + kMmprojFile + "?download=true", shared->mmproj_path());
-      }
-      std::scoped_lock lock(shared->mutex);
-      shared->model.downloading = false;
-      shared->model.status = "downloaded";
-    } catch (const std::exception& error) {
-      std::scoped_lock lock(shared->mutex);
-      shared->model.downloading = false;
-      shared->model.status = "error";
-      shared->model.error = error.what();
-    }
-  }).detach();
-}
-
-void WorkbenchService::Impl::start_run(std::string const& run_id,
-                                       std::vector<DiscoveredFile> files,
-                                       std::string profile_id) {
-  std::thread([shared = shared_from_this(), run_id, files = std::move(files), profile_id = std::move(profile_id)]() {
-    shared->process_run(run_id, files, profile_id);
-  }).detach();
-}
-
-void WorkbenchService::Impl::fail_run(const std::string& run_id, const std::string& message) {
-  std::scoped_lock lock(mutex);
-  auto& run = runs[run_id];
-  run.status = "failed";
-  run.error = message;
-  for (const auto& hash : run.file_hashes) {
-    auto& document = documents[hash];
-    if (document.status == "queued" || document.status == "running") {
-      document.status = "failed";
-      document.error = message;
-    }
-  }
-}
-
-void WorkbenchService::Impl::process_run(const std::string& run_id,
-                                         const std::vector<DiscoveredFile>& files,
-                                         const std::string& profile_id) {
-  const auto* profile = find_ocr_profile(profile_id);
-  profile = profile != nullptr ? profile : &default_ocr_profile();
-  if (!model_ready()) {
-    fail_run(run_id, "model assets are missing; use POST /api/models/unlimited-ocr-q4-k-m/download");
-    return;
-  }
-  if (!std::filesystem::exists(ffi_path())) {
-    fail_run(run_id, "uocr-ffi runtime is missing: " + ffi_path().string());
-    return;
-  }
-
-  UnlimitedOcrFfiEngine engine({ffi_path(), model_path(), mmproj_path()}, *profile);
-  bool any_failed = false;
-  {
-    std::scoped_lock lock(mutex);
-    runs[run_id].status = "running";
-  }
-
-  for (const auto& file : files) {
-    const auto hash = stable_hash(file);
-    {
-      std::scoped_lock lock(mutex);
-      auto& run = runs[run_id];
-      if (run.cancel_requested) {
-        run.status = "cancelled";
-        return;
-      }
-      documents[hash].status = "running";
-    }
-
-    std::string error;
-    OcrResult result;
-    if (!is_image_file(file.absolute_path)) {
-      error = "PDF rendering is not implemented in this C++ portable build yet";
-    } else {
-      result = engine.recognize_image({file.absolute_path, "document parsing.", profile->default_max_tokens},
-                                      [](const OcrEvent&) {});
-      if (!result.ok) {
-        error = result.error.empty() ? "OCR failed" : result.error;
-      }
-    }
-
-    std::scoped_lock lock(mutex);
-    auto& document = documents[hash];
-    if (!error.empty()) {
-      any_failed = true;
-      document.status = "failed";
-      document.error = error;
-    } else {
-      const auto parsed = parse_ocr_markers(result.text, {.file_hash = hash, .page_no = 1});
-      document.raw_text = result.text;
-      document.cleaned_text = parsed.cleaned_text.empty() ? result.text : parsed.cleaned_text;
-      document.boxes = to_overlay_boxes(parsed, 1);
-      document.spans = parsed.text_region_spans;
-      document.status = "completed";
-    }
-    runs[run_id].processed_pages += 1;
-  }
-
-  std::scoped_lock lock(mutex);
-  auto& run = runs[run_id];
-  run.status = any_failed ? "completed_with_errors" : "completed";
 }
 
 }  // namespace uocr::server

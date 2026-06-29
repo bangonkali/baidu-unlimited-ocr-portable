@@ -2,3 +2,6 @@
 	path = thirdparty/llama.cpp
 	url = git@github.com:bangonkali/llama.cpp-baidu-unlimited-ocr.git
 	branch = uocr-deepseek-ocr-parity
+[submodule "thirdparty/mupdf"]
+	path = thirdparty/mupdf
+	url = git@github.com:ArtifexSoftware/mupdf.git

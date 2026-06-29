@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SearchDocumentsParams = {
-q: string;
-};
+export interface LogRecord {
+  timestamp: string;
+  level: string;
+  component: string;
+  message: string;
+}

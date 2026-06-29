@@ -9,6 +9,5 @@
 export interface IngestStartRequest {
   root_path: string;
   profile_id?: string;
-  engine_id?: string;
   reprocess?: boolean;
 }

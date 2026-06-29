@@ -1,39 +1,79 @@
-import { CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react';
+import { CircleAlert, CircleCheck, FileText, LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
 
-import type { IngestRunRecord } from '../../api/types';
+import type { IngestRunRecord, LogRecord } from '../../api/types';
 import styles from './DiagnosticsPanel.module.css';
 
 interface DiagnosticsPanelProps {
+  logs: LogRecord[];
   runs: IngestRunRecord[];
 }
 
-export function DiagnosticsPanel({ runs }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ logs, runs }: DiagnosticsPanelProps) {
+  const [tab, setTab] = useState<'runs' | 'logs'>('runs');
   return (
-    <section className={styles.panel} aria-label="Diagnostics">
+    <section className={styles.panel} aria-label="Diagnostics" data-tour="diagnostics">
       <div className={styles.header}>Diagnostics</div>
       <div className={styles.tabs}>
-        <button className={styles.tab} type="button">
-          Progress
+        <button
+          className={styles.tab}
+          data-active={tab === 'runs'}
+          onClick={() => setTab('runs')}
+          type="button"
+        >
+          Runs
         </button>
-        <button className={styles.tab} type="button">
-          Events
-        </button>
-        <button className={styles.tab} type="button">
-          Models
+        <button
+          className={styles.tab}
+          data-active={tab === 'logs'}
+          onClick={() => setTab('logs')}
+          type="button"
+        >
+          Logs
         </button>
       </div>
       <div className={styles.body}>
-        {runs.length === 0 ? <div className={styles.empty}>No runs</div> : null}
-        {runs.map((run) => (
-          <div className={styles.runRow} key={run.run_id}>
-            {iconForStatus(run.status)}
-            <span>{run.run_id}</span>
-            <strong>{run.status}</strong>
-            <small>{run.queued_files ?? 0} files</small>
-          </div>
-        ))}
+        {tab === 'runs' ? <RunList runs={runs} /> : <LogList logs={logs} />}
       </div>
     </section>
+  );
+}
+
+function RunList({ runs }: { runs: IngestRunRecord[] }) {
+  return (
+    <>
+      {runs.length === 0 ? <div className={styles.empty}>No runs</div> : null}
+      {runs.map((run) => (
+        <div className={styles.runRow} key={run.run_id}>
+          {iconForStatus(run.status)}
+          <span>{run.run_id}</span>
+          <strong>{run.status}</strong>
+          <small>
+            {run.processed_pages ?? 0}/{run.total_pages ?? 0} pages
+          </small>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function LogList({ logs }: { logs: LogRecord[] }) {
+  return (
+    <>
+      {logs.length === 0 ? <div className={styles.empty}>No logs</div> : null}
+      {logs.map((log) => (
+        <div
+          className={styles.logRow}
+          key={`${log.timestamp}-${log.level}-${log.component}-${log.message}`}
+        >
+          <FileText size={14} />
+          <span>{log.timestamp}</span>
+          <strong data-level={log.level}>{log.level}</strong>
+          <em>{log.component}</em>
+          <p>{log.message}</p>
+        </div>
+      ))}
+    </>
   );
 }
 

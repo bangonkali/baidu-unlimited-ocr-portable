@@ -8,7 +8,7 @@
   "servers": [
     {
       "url": "http://127.0.0.1:8765",
-      "description": "Local development server"
+      "description": "Portable local server"
     }
   ],
   "paths": {
@@ -46,22 +46,29 @@
         }
       }
     },
-    "/api/system/folder-dialog": {
-      "post": {
-        "operationId": "openFolderDialog",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FolderDialogRequest"
+    "/api/openapi.json": {
+      "get": {
+        "operationId": "getOpenapi",
+        "responses": {
+          "200": {
+            "description": "Checked-in API description",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/system/folder-dialog": {
+      "post": {
+        "operationId": "openFolderDialog",
         "responses": {
           "200": {
-            "description": "Native dialog result",
+            "description": "Native folder dialog result",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,50 +149,6 @@
         }
       }
     },
-    "/api/ingest/runs/{run_id}/pause": {
-      "post": {
-        "operationId": "pauseIngestRun",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/RunId"
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Pause requested",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IngestRunRecord"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ingest/runs/{run_id}/resume": {
-      "post": {
-        "operationId": "resumeIngestRun",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/RunId"
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Resume requested",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IngestRunRecord"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/ingest/runs/{run_id}/stop": {
       "post": {
         "operationId": "stopIngestRun",
@@ -218,7 +181,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Server-sent ingest events",
+            "description": "Server-sent run snapshots",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -289,7 +252,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Document regions",
+            "description": "Document overlay boxes",
             "content": {
               "application/json": {
                 "schema": {
@@ -307,20 +270,11 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/FileHash"
-          },
-          {
-            "name": "page_no",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Document text",
+            "description": "Cleaned OCR text with region spans",
             "content": {
               "application/json": {
                 "schema": {
@@ -334,7 +288,7 @@
     },
     "/api/documents/{file_hash}/preview-images": {
       "get": {
-        "operationId": "listPreviewImages",
+        "operationId": "getDocumentPreviewImages",
         "parameters": [
           {
             "$ref": "#/components/parameters/FileHash"
@@ -342,7 +296,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Preview image metadata",
+            "description": "Available preview variants and pages",
             "content": {
               "application/json": {
                 "schema": {
@@ -356,7 +310,7 @@
     },
     "/api/documents/{file_hash}/preview-images/{variant}/{page_no}": {
       "get": {
-        "operationId": "getPreviewImage",
+        "operationId": "getDocumentPreviewImage",
         "parameters": [
           {
             "$ref": "#/components/parameters/FileHash"
@@ -366,7 +320,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "source"
+              ]
             }
           },
           {
@@ -381,69 +338,24 @@
         ],
         "responses": {
           "200": {
-            "description": "Preview image",
+            "description": "Preview image bytes",
             "content": {
               "image/png": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/search": {
-      "get": {
-        "operationId": "searchDocuments",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Search results",
-            "content": {
-              "application/json": {
+              },
+              "image/jpeg": {
                 "schema": {
-                  "$ref": "#/components/schemas/SearchPayload"
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/commands/search": {
-      "get": {
-        "operationId": "searchCommands",
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Command results",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CommandSearchPayload"
-                }
-              }
-            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
         }
       }
@@ -453,110 +365,11 @@
         "operationId": "getSettings",
         "responses": {
           "200": {
-            "description": "Settings",
+            "description": "Read-only runtime settings",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SettingsPayload"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putSettings",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SettingsPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SettingsPayload"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/annotation-settings": {
-      "get": {
-        "operationId": "getAnnotationSettings",
-        "responses": {
-          "200": {
-            "description": "Annotation settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnnotationSettingsPayload"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "operationId": "putAnnotationSettings",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnotationSettingsPayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated annotation settings",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnnotationSettingsPayload"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/documents/{file_hash}/annotations/visibility": {
-      "put": {
-        "operationId": "putAnnotationVisibility",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/FileHash"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnnotationVisibilityRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Updated visibility",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocumentRegionsPayload"
                 }
               }
             }
@@ -569,7 +382,7 @@
         "operationId": "listModels",
         "responses": {
           "200": {
-            "description": "Model catalog",
+            "description": "Model assets and OCR profiles",
             "content": {
               "application/json": {
                 "schema": {
@@ -586,12 +399,17 @@
         "operationId": "downloadModel",
         "parameters": [
           {
-            "$ref": "#/components/parameters/ModelId"
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "202": {
-            "description": "Download queued",
+            "description": "Download started or already complete",
             "content": {
               "application/json": {
                 "schema": {
@@ -603,21 +421,29 @@
         }
       }
     },
-    "/api/models/{model_id}/cancel": {
-      "post": {
-        "operationId": "cancelModelDownload",
+    "/api/logs/recent": {
+      "get": {
+        "operationId": "getRecentLogs",
         "parameters": [
           {
-            "$ref": "#/components/parameters/ModelId"
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            }
           }
         ],
         "responses": {
-          "202": {
-            "description": "Download cancel requested",
+          "200": {
+            "description": "Recent server log lines",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModelDownloadRecord"
+                  "$ref": "#/components/schemas/LogsPayload"
                 }
               }
             }
@@ -628,24 +454,16 @@
   },
   "components": {
     "parameters": {
-      "FileHash": {
-        "name": "file_hash",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "ModelId": {
-        "name": "model_id",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string"
-        }
-      },
       "RunId": {
         "name": "run_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "FileHash": {
+        "name": "file_hash",
         "in": "path",
         "required": true,
         "schema": {
@@ -655,7 +473,7 @@
     },
     "responses": {
       "ErrorResponse": {
-        "description": "Error",
+        "description": "Error payload",
         "content": {
           "application/json": {
             "schema": {
@@ -668,7 +486,10 @@
     "schemas": {
       "HealthPayload": {
         "type": "object",
-        "required": ["ok", "service"],
+        "required": [
+          "ok",
+          "service"
+        ],
         "properties": {
           "ok": {
             "type": "boolean"
@@ -680,17 +501,45 @@
       },
       "StatusPayload": {
         "type": "object",
-        "required": ["state", "default_profile", "supported_inputs"],
+        "required": [
+          "state",
+          "default_profile",
+          "supported_inputs"
+        ],
         "properties": {
           "state": {
-            "type": "string"
-          },
-          "host": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "idle",
+              "queued",
+              "running",
+              "cancelled",
+              "failed",
+              "completed",
+              "completed_with_errors"
+            ]
           },
           "active_run_id": {
             "type": "string",
             "nullable": true
+          },
+          "host": {
+            "type": "string"
+          },
+          "runtime_platform": {
+            "type": "string"
+          },
+          "accelerator": {
+            "type": "string",
+            "enum": [
+              "cuda"
+            ]
+          },
+          "inference_engine": {
+            "type": "string"
+          },
+          "log_path": {
+            "type": "string"
           },
           "default_profile": {
             "type": "string"
@@ -712,18 +561,13 @@
           }
         }
       },
-      "FolderDialogRequest": {
-        "type": "object",
-        "properties": {
-          "initial_path": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
       "FolderDialogResponse": {
         "type": "object",
-        "required": ["cancelled", "selected_path", "manual_path_supported"],
+        "required": [
+          "cancelled",
+          "selected_path",
+          "manual_path_supported"
+        ],
         "properties": {
           "cancelled": {
             "type": "boolean"
@@ -733,23 +577,23 @@
           },
           "manual_path_supported": {
             "type": "boolean"
+          },
+          "error": {
+            "type": "string"
           }
         }
       },
       "IngestStartRequest": {
         "type": "object",
-        "required": ["root_path"],
+        "required": [
+          "root_path"
+        ],
         "properties": {
           "root_path": {
             "type": "string"
           },
           "profile_id": {
-            "type": "string",
-            "default": "best-zero-empty-q4"
-          },
-          "engine_id": {
-            "type": "string",
-            "default": "unlimited-ocr"
+            "type": "string"
           },
           "reprocess": {
             "type": "boolean",
@@ -759,7 +603,11 @@
       },
       "IngestRunRecord": {
         "type": "object",
-        "required": ["run_id", "root_path", "status"],
+        "required": [
+          "run_id",
+          "root_path",
+          "status"
+        ],
         "properties": {
           "run_id": {
             "type": "string"
@@ -771,8 +619,7 @@
             "type": "string"
           },
           "queued_files": {
-            "type": "integer",
-            "format": "int64"
+            "type": "integer"
           },
           "processed_pages": {
             "type": "integer"
@@ -788,7 +635,9 @@
       },
       "IngestRunsPayload": {
         "type": "object",
-        "required": ["runs"],
+        "required": [
+          "runs"
+        ],
         "properties": {
           "runs": {
             "type": "array",
@@ -798,56 +647,14 @@
           }
         }
       },
-      "IngestWorkUnitRecord": {
-        "type": "object",
-        "required": ["work_unit_id", "file_hash", "page_no", "status"],
-        "properties": {
-          "work_unit_id": {
-            "type": "string"
-          },
-          "file_hash": {
-            "type": "string"
-          },
-          "page_no": {
-            "type": "integer"
-          },
-          "status": {
-            "type": "string"
-          },
-          "attempts": {
-            "type": "integer"
-          },
-          "error": {
-            "type": "string",
-            "nullable": true
-          }
-        }
-      },
-      "IngestEventRecord": {
-        "type": "object",
-        "required": ["event_id", "run_id", "type", "created_at"],
-        "properties": {
-          "event_id": {
-            "type": "string"
-          },
-          "run_id": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "DocumentSummary": {
         "type": "object",
-        "required": ["file_hash", "display_name", "status", "page_count"],
+        "required": [
+          "file_hash",
+          "display_name",
+          "status",
+          "page_count"
+        ],
         "properties": {
           "file_hash": {
             "type": "string"
@@ -874,7 +681,9 @@
       },
       "DocumentsPayload": {
         "type": "object",
-        "required": ["documents"],
+        "required": [
+          "documents"
+        ],
         "properties": {
           "documents": {
             "type": "array",
@@ -894,12 +703,6 @@
             "properties": {
               "absolute_path": {
                 "type": "string"
-              },
-              "engine_id": {
-                "type": "string"
-              },
-              "profile_id": {
-                "type": "string"
               }
             }
           }
@@ -907,7 +710,15 @@
       },
       "OverlayBox": {
         "type": "object",
-        "required": ["region_id", "label", "page_no", "left_percent", "top_percent", "width_percent", "height_percent"],
+        "required": [
+          "region_id",
+          "label",
+          "page_no",
+          "left_percent",
+          "top_percent",
+          "width_percent",
+          "height_percent"
+        ],
         "properties": {
           "region_id": {
             "type": "string"
@@ -937,7 +748,10 @@
       },
       "DocumentRegionsPayload": {
         "type": "object",
-        "required": ["file_hash", "boxes"],
+        "required": [
+          "file_hash",
+          "boxes"
+        ],
         "properties": {
           "file_hash": {
             "type": "string"
@@ -952,7 +766,12 @@
       },
       "TextRegionSpan": {
         "type": "object",
-        "required": ["region_id", "page_no", "start", "end"],
+        "required": [
+          "region_id",
+          "page_no",
+          "start",
+          "end"
+        ],
         "properties": {
           "region_id": {
             "type": "string"
@@ -970,7 +789,11 @@
       },
       "PageTextRecord": {
         "type": "object",
-        "required": ["page_no", "text", "spans"],
+        "required": [
+          "page_no",
+          "text",
+          "spans"
+        ],
         "properties": {
           "page_no": {
             "type": "integer"
@@ -988,7 +811,10 @@
       },
       "DocumentTextPayload": {
         "type": "object",
-        "required": ["file_hash", "pages"],
+        "required": [
+          "file_hash",
+          "pages"
+        ],
         "properties": {
           "file_hash": {
             "type": "string"
@@ -1003,7 +829,11 @@
       },
       "PreviewImagesPayload": {
         "type": "object",
-        "required": ["file_hash", "variants"],
+        "required": [
+          "file_hash",
+          "variants",
+          "pages"
+        ],
         "properties": {
           "file_hash": {
             "type": "string"
@@ -1013,53 +843,29 @@
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "SearchPayload": {
-        "type": "object",
-        "required": ["results"],
-        "properties": {
-          "results": {
+          },
+          "pages": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DocumentSummary"
-            }
-          }
-        }
-      },
-      "CommandSearchPayload": {
-        "type": "object",
-        "required": ["commands"],
-        "properties": {
-          "commands": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["id", "label"],
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "label": {
-                  "type": "string"
-                }
-              }
+              "type": "integer"
             }
           }
         }
       },
       "SettingsPayload": {
         "type": "object",
-        "required": ["pdf_dpi", "ocr_concurrency", "default_profile", "retry_profile"],
+        "required": [
+          "pdf_dpi",
+          "ocr_concurrency",
+          "default_profile",
+          "retry_profile"
+        ],
         "properties": {
           "pdf_dpi": {
-            "type": "integer",
-            "default": 200
+            "type": "integer"
           },
           "ocr_concurrency": {
-            "type": "integer",
-            "default": 1
+            "type": "integer"
           },
           "default_profile": {
             "type": "string"
@@ -1075,39 +881,13 @@
           }
         }
       },
-      "AnnotationSettingsPayload": {
-        "type": "object",
-        "required": ["show_boxes", "show_labels", "box_color", "active_box_color"],
-        "properties": {
-          "show_boxes": {
-            "type": "boolean"
-          },
-          "show_labels": {
-            "type": "boolean"
-          },
-          "box_color": {
-            "type": "string"
-          },
-          "active_box_color": {
-            "type": "string"
-          }
-        }
-      },
-      "AnnotationVisibilityRequest": {
-        "type": "object",
-        "required": ["region_id", "hidden"],
-        "properties": {
-          "region_id": {
-            "type": "string"
-          },
-          "hidden": {
-            "type": "boolean"
-          }
-        }
-      },
       "ModelAssetRecord": {
         "type": "object",
-        "required": ["model_id", "display_name", "status"],
+        "required": [
+          "model_id",
+          "display_name",
+          "status"
+        ],
         "properties": {
           "model_id": {
             "type": "string"
@@ -1136,20 +916,16 @@
           },
           "mmproj_file": {
             "type": "string"
-          }
-        }
-      },
-      "ModelDownloadRecord": {
-        "type": "object",
-        "required": ["model_id", "status"],
-        "properties": {
-          "model_id": {
-            "type": "string"
           },
-          "status": {
-            "type": "string"
+          "current_file": {
+            "type": "string",
+            "nullable": true
           },
-          "received_bytes": {
+          "status_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloaded_bytes": {
             "type": "integer",
             "format": "int64"
           },
@@ -1160,9 +936,30 @@
           }
         }
       },
+      "ModelDownloadRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "status"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "OcrProfileRecord": {
         "type": "object",
-        "required": ["key", "label", "engine_name", "description", "default_max_tokens"],
+        "required": [
+          "key",
+          "label",
+          "engine_name",
+          "description",
+          "default_max_tokens"
+        ],
         "properties": {
           "key": {
             "type": "string"
@@ -1198,7 +995,10 @@
       },
       "ModelsPayload": {
         "type": "object",
-        "required": ["models", "profiles"],
+        "required": [
+          "models",
+          "profiles"
+        ],
         "properties": {
           "models": {
             "type": "array",
@@ -1214,37 +1014,48 @@
           }
         }
       },
-      "DiagnosticProgressPayload": {
+      "LogRecord": {
         "type": "object",
+        "required": [
+          "timestamp",
+          "level",
+          "component",
+          "message"
+        ],
         "properties": {
-          "active_run": {
-            "$ref": "#/components/schemas/IngestRunRecord"
+          "timestamp": {
+            "type": "string"
           },
-          "work_units": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/IngestWorkUnitRecord"
-            }
+          "level": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
           }
         }
       },
-      "DiagnosticTracePayload": {
+      "LogsPayload": {
         "type": "object",
+        "required": [
+          "logs"
+        ],
         "properties": {
-          "run_id": {
-            "type": "string"
-          },
-          "events": {
+          "logs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/IngestEventRecord"
+              "$ref": "#/components/schemas/LogRecord"
             }
           }
         }
       },
       "ErrorPayload": {
         "type": "object",
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "properties": {
           "error": {
             "type": "string"

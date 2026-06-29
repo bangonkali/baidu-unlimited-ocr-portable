@@ -6,12 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface IngestWorkUnitRecord {
-  work_unit_id: string;
-  file_hash: string;
-  page_no: number;
-  status: string;
-  attempts?: number;
-  /** @nullable */
-  error?: string | null;
-}
+export type GetRecentLogsParams = {
+/**
+ * @minimum 1
+ * @maximum 1000
+ */
+limit?: number;
+};

@@ -18,32 +18,44 @@
 
 .canvas {
   display: grid;
+  align-content: start;
+  gap: 18px;
   min-height: 0;
   padding: 18px;
   overflow: auto;
-  place-items: start center;
+}
+
+.pageBlock {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.pageLabel {
+  justify-self: start;
+  font-size: 11px;
+  color: var(--subtle);
+  text-transform: uppercase;
 }
 
 .page {
   position: relative;
-  width: min(92%, 760px);
-  min-width: 320px;
-  aspect-ratio: 1 / 1.35;
+  width: min(100%, 760px);
+  min-width: 280px;
+  overflow: hidden;
   background: #f7f7f2;
   border: 1px solid #777;
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
-.pageGrid {
-  position: absolute;
-  inset: 22px;
-  background:
-    linear-gradient(#d7d7d2 1px, transparent 1px),
-    linear-gradient(90deg, #e0e0dc 1px, transparent 1px);
-  background-size:
-    100% 38px,
-    48px 100%;
-  opacity: 0.75;
+.pageBlock[data-active="true"] .page {
+  border-color: var(--accent);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .box {
@@ -72,4 +84,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--accent);
+}
+
+.empty {
+  padding: 10px;
+  color: var(--muted);
 }

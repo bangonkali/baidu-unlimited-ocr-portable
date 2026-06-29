@@ -1,6 +1,6 @@
 .details {
   display: grid;
-  grid-template-rows: 35px auto auto auto 1fr;
+  grid-template-rows: 35px auto auto 1fr;
   min-height: 0;
   height: 100%;
   background: var(--panel);
@@ -75,45 +75,8 @@
   border-color: var(--accent-2);
 }
 
-.profile {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+.error {
+  padding: 12px;
   font-size: 12px;
-}
-
-.profile span,
-.profile small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile small {
-  color: var(--subtle);
-}
-
-.model {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
-  gap: 8px;
-  align-items: center;
-}
-
-.modelText {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  font-size: 12px;
-}
-
-.modelText span,
-.modelText small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.modelText small {
-  color: var(--subtle);
+  color: var(--danger);
 }

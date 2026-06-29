@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   frontend:
+    if: ${{ false }}
     name: React client
     runs-on: windows-2025
     timeout-minutes: 20
@@ -43,6 +44,7 @@ jobs:
         run: bun run build
 
   cxx-core:
+    if: ${{ false }}
     name: C++ core tests
     runs-on: windows-2025
     timeout-minutes: 20

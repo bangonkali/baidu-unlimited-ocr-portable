@@ -5,12 +5,18 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
+import type { StatusPayloadAccelerator } from './statusPayloadAccelerator';
+import type { StatusPayloadState } from './statusPayloadState';
 
 export interface StatusPayload {
-  state: string;
-  host?: string;
+  state: StatusPayloadState;
   /** @nullable */
   active_run_id?: string | null;
+  host?: string;
+  runtime_platform?: string;
+  accelerator?: StatusPayloadAccelerator;
+  inference_engine?: string;
+  log_path?: string;
   default_profile: string;
   version?: string;
   git_tag?: string;

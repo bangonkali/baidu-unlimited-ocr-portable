@@ -1,0 +1,120 @@
+.manager {
+  display: grid;
+  grid-template-rows: 35px 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+}
+
+.header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.body {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding: 14px;
+  overflow: auto;
+}
+
+.model {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+  padding: 14px;
+  background: #202020;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.titleRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.titleRow h2,
+.titleRow p {
+  margin: 0;
+}
+
+.titleRow h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.titleRow p,
+.error {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.downloadButton {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-width: 138px;
+  height: 32px;
+  padding: 0 12px;
+  color: #08131c;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent-2);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 70%, #fff);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.downloadButton:disabled {
+  color: var(--subtle);
+  background: var(--panel-3);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.progress {
+  height: 8px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.progress div {
+  height: 100%;
+  background: var(--accent-2);
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.meta dt {
+  color: var(--subtle);
+}
+
+.meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error {
+  color: var(--danger);
+}

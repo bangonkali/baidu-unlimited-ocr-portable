@@ -7,6 +7,7 @@
 #include "uocr/core/profiles.hpp"
 #include "uocr/core/runaway_guard.hpp"
 #include "uocr/fs/file_scanner.hpp"
+#include "uocr/render/png_dimensions.hpp"
 #include "uocr/storage/migrations.hpp"
 
 namespace {
@@ -41,12 +42,29 @@ void test_scanner() {
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(root / "nested");
   std::ofstream(root / "nested" / "page.png").put('x');
+  std::ofstream(root / "sample.pdf").put('x');
   std::ofstream(root / "notes.txt").put('x');
 
   const auto files = uocr::discover_supported_files(root);
-  assert(files.size() == 1);
+  assert(files.size() == 2);
   assert(files[0].relative_path.generic_string() == "nested/page.png");
+  assert(files[1].relative_path.generic_string() == "sample.pdf");
   std::filesystem::remove_all(root);
+}
+
+void test_png_dimensions() {
+  const auto path = std::filesystem::temp_directory_path() / "uocr_png_dimensions_test.png";
+  const unsigned char bytes[] = {
+      0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 13, 'I', 'H', 'D', 'R',
+      0,    0,   1,   0x2c, 0,    0,    0,    0xc8, 8, 2, 0, 0,
+  };
+  std::ofstream output(path, std::ios::binary);
+  output.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+  output.close();
+  const auto size = uocr::read_png_dimensions(path);
+  assert(size.width_px == 300);
+  assert(size.height_px == 200);
+  std::filesystem::remove(path);
 }
 
 void test_profiles_and_migrations() {
@@ -61,7 +79,7 @@ int main() {
   test_parser();
   test_runaway_guard();
   test_scanner();
+  test_png_dimensions();
   test_profiles_and_migrations();
   return 0;
 }
-

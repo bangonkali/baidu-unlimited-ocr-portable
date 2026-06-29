@@ -2,7 +2,8 @@ param(
     [string]$Configuration = "Release",
     [string]$Preset = "windows-workbench",
     [string]$Version = "",
-    [switch]$NoClientBuild
+    [switch]$NoClientBuild,
+    [switch]$NoMupdfBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +12,18 @@ $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $BuildPreset = "$Preset-$($Configuration.ToLowerInvariant())"
 $LogDir = Join-Path $RepoRoot ".logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+function Invoke-NativeChecked {
+    param(
+        [string]$Label,
+        [scriptblock]$Command
+    )
+
+    & $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Label failed with exit code $LASTEXITCODE"
+    }
+}
 
 function Resolve-UocrServerExe {
     param(
@@ -26,6 +39,13 @@ function Resolve-UocrServerExe {
         throw "Expected executable was not produced under $buildRoot"
     }
     return $matches[0].FullName
+}
+
+function Remove-ObsoleteMutoolBundle {
+    param([string]$ExePath)
+
+    $mutoolDir = Join-Path (Split-Path -Parent $ExePath) "thirdparty\mupdf"
+    Remove-Item -LiteralPath $mutoolDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 if (-not $Version) {
@@ -49,23 +69,29 @@ if (-not $env:VCPKG_ROOT -or -not (Test-Path (Join-Path $env:VCPKG_ROOT "scripts
 if (-not $NoClientBuild) {
     Push-Location (Join-Path $RepoRoot "src\uocr-client")
     try {
-        bun install
-        bun run build
+        Invoke-NativeChecked "bun install" { bun install }
+        Invoke-NativeChecked "bun run build" { bun run build }
     } finally {
         Pop-Location
     }
 }
 
+if (-not $NoMupdfBuild) {
+    & (Join-Path $PSScriptRoot "build-mupdf.ps1") -Configuration $Configuration
+}
+
 Push-Location $RepoRoot
 try {
-    cmake --preset $Preset "-DUOCR_VERSION=$Version"
-    cmake --build --preset $BuildPreset
+    Invoke-NativeChecked "cmake configure" { cmake --preset $Preset "-DUOCR_VERSION=$Version" }
+    Invoke-NativeChecked "cmake build" { cmake --build --preset $BuildPreset }
 } finally {
     Pop-Location
 }
 
 $Exe = Resolve-UocrServerExe -Root $RepoRoot -Config $Configuration
+Remove-ObsoleteMutoolBundle -ExePath $Exe
 
 Write-Host "Built $Exe"
+Write-Host "Linked embedded MuPDF renderer into uocr-server.exe"
 Write-Host "Version $Version"
 Write-Host "Double-click uocr-server.exe to launch the backend and open the hosted React app."

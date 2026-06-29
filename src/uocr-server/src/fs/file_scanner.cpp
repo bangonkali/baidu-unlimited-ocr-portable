@@ -91,4 +91,3 @@ std::vector<DiscoveredFile> discover_supported_files(const std::filesystem::path
 }
 
 }  // namespace uocr
-

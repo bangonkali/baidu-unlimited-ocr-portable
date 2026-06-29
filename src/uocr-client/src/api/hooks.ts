@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { buildApiUrl, getJson, postJson, putJson } from './http';
+import { buildApiUrl, getJson, postJson } from './http';
 import type {
-  AnnotationSettingsPayload,
   DocumentRegionsPayload,
   DocumentsPayload,
   DocumentTextPayload,
@@ -11,14 +10,20 @@ import type {
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
+  LogsPayload,
   ModelDownloadRecord,
   ModelsPayload,
+  PreviewImagesPayload,
   SettingsPayload,
   StatusPayload,
 } from './types';
 
-const queryKeys = {
+export const queryKeys = {
   documents: (q: string) => ['documents', q] as const,
+  documentPreviewImages: (fileHash?: string) => ['document-preview-images', fileHash] as const,
+  documentRegions: (fileHash?: string) => ['document-regions', fileHash] as const,
+  documentText: (fileHash?: string) => ['document-text', fileHash] as const,
+  logs: ['logs'] as const,
   models: ['models'] as const,
   runs: ['runs'] as const,
   settings: ['settings'] as const,
@@ -29,6 +34,7 @@ export function useStatus() {
   return useQuery({
     queryFn: ({ signal }) => getJson<StatusPayload>('/api/status', signal),
     queryKey: queryKeys.status,
+    refetchInterval: 3000,
   });
 }
 
@@ -50,7 +56,7 @@ export function useDocumentRegions(fileHash?: string) {
         `/api/documents/${encodeURIComponent(fileHash ?? '')}/regions`,
         signal,
       ),
-    queryKey: ['document-regions', fileHash],
+    queryKey: queryKeys.documentRegions(fileHash),
   });
 }
 
@@ -63,7 +69,20 @@ export function useDocumentText(fileHash?: string) {
         `/api/documents/${encodeURIComponent(fileHash ?? '')}/text`,
         signal,
       ),
-    queryKey: ['document-text', fileHash],
+    queryKey: queryKeys.documentText(fileHash),
+  });
+}
+
+export function useDocumentPreviewImages(fileHash?: string) {
+  return useQuery({
+    enabled: Boolean(fileHash),
+    placeholderData: { file_hash: fileHash ?? '', pages: [], variants: [] },
+    queryFn: ({ signal }) =>
+      getJson<PreviewImagesPayload>(
+        `/api/documents/${encodeURIComponent(fileHash ?? '')}/preview-images`,
+        signal,
+      ),
+    queryKey: queryKeys.documentPreviewImages(fileHash),
   });
 }
 
@@ -102,6 +121,7 @@ export function useIngestRuns() {
     placeholderData: { runs: [] },
     queryFn: ({ signal }) => getJson<IngestRunsPayload>('/api/ingest/runs', signal),
     queryKey: queryKeys.runs,
+    refetchInterval: 3000,
   });
 }
 
@@ -121,11 +141,12 @@ export function useStartIngest() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
       void queryClient.invalidateQueries({ queryKey: queryKeys.status });
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     },
   });
 }
 
-export function useRunCommand(command: 'pause' | 'resume' | 'stop') {
+export function useRunCommand(command: 'stop') {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (runId: string) =>
@@ -133,21 +154,18 @@ export function useRunCommand(command: 'pause' | 'resume' | 'stop') {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
       void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     },
   });
 }
 
-export function useUpdateAnnotationSettings() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (body: AnnotationSettingsPayload) =>
-      putJson<AnnotationSettingsPayload, AnnotationSettingsPayload>(
-        '/api/annotation-settings',
-        body,
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['annotation-settings'] });
-    },
+export function useLogs(limit = 200) {
+  return useQuery({
+    placeholderData: { logs: [] },
+    queryFn: ({ signal }) =>
+      getJson<LogsPayload>(buildApiUrl('/api/logs/recent', { limit }), signal),
+    queryKey: [...queryKeys.logs, limit],
+    refetchInterval: 3000,
   });
 }
 
@@ -162,6 +180,10 @@ export function useRunEvents(runId?: string | null) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
       void queryClient.invalidateQueries({ queryKey: queryKeys.status });
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
+      void queryClient.invalidateQueries({ queryKey: ['document-preview-images'] });
+      void queryClient.invalidateQueries({ queryKey: ['document-regions'] });
+      void queryClient.invalidateQueries({ queryKey: ['document-text'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     };
     source.onmessage = invalidateRunQueries;
     source.addEventListener('snapshot', invalidateRunQueries);
