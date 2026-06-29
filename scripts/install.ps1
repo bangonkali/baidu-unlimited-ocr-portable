@@ -8,42 +8,41 @@ param(
 $ErrorActionPreference = "Stop"
 $UserAgent = "uocr-installer"
 
-function Get-Release {
-    if ($Version -eq "latest") {
-        $url = "https://api.github.com/repos/$Repo/releases/latest"
+function Resolve-ReleaseTag {
+    if ($Version -ne "latest") {
+        return $Version
     }
-    else {
-        $url = "https://api.github.com/repos/$Repo/releases/tags/$Version"
+
+    $response = Invoke-WebRequest `
+        -Uri "https://github.com/$Repo/releases/latest" `
+        -Headers @{ "User-Agent" = $UserAgent } `
+        -UseBasicParsing
+    $finalUrl = $response.BaseResponse.RequestMessage.RequestUri.AbsoluteUri
+    if ($finalUrl -notmatch "/releases/tag/([^/?#]+)") {
+        throw "Could not resolve the latest release tag from $finalUrl."
     }
-    Invoke-RestMethod -Uri $url -Headers @{
-        "Accept" = "application/vnd.github+json"
-        "User-Agent" = $UserAgent
-        "X-GitHub-Api-Version" = "2022-11-28"
-    }
+    return $Matches[1]
 }
 
-function Get-Asset {
-    param($Release)
-    $asset = $Release.assets |
-        Where-Object { $_.name -like "uocr-workbench-windows-x64-*.zip" } |
-        Sort-Object name -Descending |
-        Select-Object -First 1
-    if (-not $asset) {
-        throw "No Windows workbench zip asset was found on release $($Release.tag_name)."
-    }
-    $asset
-}
-
-$release = Get-Release
-$asset = Get-Asset -Release $release
+$releaseTag = Resolve-ReleaseTag
+$assetName = "uocr-workbench-windows-x64-$releaseTag.zip"
+$assetUrl = "https://github.com/$Repo/releases/download/$releaseTag/$assetName"
+$shaUrl = "$assetUrl.sha256"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("uocr-install-" + [System.Guid]::NewGuid())
-$zipPath = Join-Path $tempRoot $asset.name
+$zipPath = Join-Path $tempRoot $assetName
+$shaPath = "$zipPath.sha256"
 $extractRoot = Join-Path $tempRoot "extract"
 
 New-Item -ItemType Directory -Force -Path $tempRoot, $extractRoot | Out-Null
 try {
-    Write-Host "Downloading $($asset.name) from $Repo $($release.tag_name)..."
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -Headers @{ "User-Agent" = $UserAgent }
+    Write-Host "Downloading $assetName from $Repo $releaseTag..."
+    Invoke-WebRequest -Uri $assetUrl -OutFile $zipPath -Headers @{ "User-Agent" = $UserAgent }
+    Invoke-WebRequest -Uri $shaUrl -OutFile $shaPath -Headers @{ "User-Agent" = $UserAgent }
+    $expected = ((Get-Content -LiteralPath $shaPath -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
+    $actual = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($expected -and $expected -ne $actual) {
+        throw "Checksum mismatch. Expected $expected, got $actual."
+    }
     Expand-Archive -LiteralPath $zipPath -DestinationPath $extractRoot -Force
     $exe = Get-ChildItem -LiteralPath $extractRoot -Recurse -Filter "uocr-server.exe" |
         Select-Object -First 1

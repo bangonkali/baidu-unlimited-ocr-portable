@@ -60,13 +60,14 @@ Local package:
 
 GitHub Actions:
 
-- `Workbench CI` checks the React client and C++ core tests on pushes and pull
-  requests.
+- `Release workbench` is the only automatic workflow while the Windows portable
+  zip is being stabilized.
 - `Release workbench` runs on `v*` tags and manual dispatch. It builds the
   Windows C++/React app, bundles the Windows runtime, smokes the extracted zip,
   and uploads the zip plus checksum to the GitHub Release.
-- `Build runtime binaries` still builds native runtime archives. Its ABI-only
-  validation accepts missing CUDA loader libraries when required FFI symbols are
-  present, because hosted runners do not expose the final driver runtime.
+- `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
+  their push/tag triggers after the Windows portable exe release path remains
+  stable.
 
-For the next app release after `v0.0.8`, tag `v0.0.9`.
+For app releases, increment the patch tag and push it, for example `v0.0.15`,
+`v0.0.16`, and so on.
