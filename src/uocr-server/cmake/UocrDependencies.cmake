@@ -76,7 +76,7 @@ function(uocr_link_duckdb target)
     return()
   endif()
 
-  find_package(duckdb CONFIG REQUIRED)
+  find_package(DuckDB CONFIG REQUIRED)
   foreach(_candidate IN ITEMS DuckDB::DuckDB duckdb::duckdb duckdb duckdb_static)
     if(TARGET ${_candidate})
       uocr_assert_vcpkg_target(${_candidate})

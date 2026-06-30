@@ -178,17 +178,31 @@ jobs:
           import sys
 
           ignored = re.compile(
-              r"node_modules|dist|generated|\\.json$|\\.md$|\\.github|analysis[\\\\/]|"
-              r"src[\\\\/]baidu_unlimited_ocr_portable[\\\\/]|trapo[\\\\/]migrations|tests[\\\\/]|"
-              r"scripts[\\\\/](install_runtime\\.py|package_runtime\\.py|test_ctypes_runtime\\.py|"
-              r"windows[\\\\/]package-workbench\\.ps1|windows[\\\\/]setup-build\\.ps1|"
-              r"mac[\\\\/]setup-build\\.sh|linux[\\\\/]setup-build\\.sh)"
+              r"node_modules|dist|generated|\.json$|\.md$|\.github|analysis/|"
+              r"src/baidu_unlimited_ocr_portable/|trapo/migrations|tests/|"
+              r"scripts/(install_runtime\.py|package_runtime\.py|test_ctypes_runtime\.py|"
+              r"windows/package-workbench\.ps1|windows/setup-build\.ps1|"
+              r"mac/setup-build\.sh|linux/setup-build\.sh)"
           )
+
+          def scc_files(payload):
+              if isinstance(payload, dict):
+                  return payload.get("Files", [])
+              if isinstance(payload, list):
+                  return [
+                      item
+                      for group in payload
+                      if isinstance(group, dict)
+                      for item in group.get("Files", [])
+                  ]
+              return []
+
           data = json.load(open(".logs/scc.json", encoding="utf-8"))
           offenders = [
               item
-              for item in data.get("Files", [])
-              if item.get("Lines", 0) > 300 and not ignored.search(item.get("Location", ""))
+              for item in scc_files(data)
+              if item.get("Lines", 0) > 300
+              and not ignored.search(item.get("Location", "").replace("\\", "/"))
           ]
           offenders.sort(key=lambda item: item.get("Lines", 0), reverse=True)
           for item in offenders:
