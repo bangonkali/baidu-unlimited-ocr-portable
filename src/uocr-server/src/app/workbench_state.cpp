@@ -97,22 +97,26 @@ std::string stable_hash(const DiscoveredFile& file) {
 
 WorkbenchService::Impl::Impl(std::filesystem::path root, std::shared_ptr<AppLogger> app_logger)
     : app_root(std::move(root)), logger(std::move(app_logger)) {
-  model.files = model_files();
   const auto auth = uocr::download::read_hf_auth_from_environment();
-  model.auth_available = auth.available();
-  model.auth_source = auth.source;
-  model.status_message = auth.available() ? "Hugging Face token detected in environment"
-                                          : "No Hugging Face token detected; public downloads will be used";
-  model.last_event_at = utc_timestamp();
+  for (const auto& entry : unlimited_ocr_model_catalog()) {
+    auto& model = models[std::string(entry.model_id)];
+    model.files = model_files(entry);
+    model.auth_available = auth.available();
+    model.auth_source = auth.source;
+    model.status_message = auth.available() ? "Hugging Face token detected in environment"
+                                            : "No Hugging Face token detected; public downloads will be used";
+    model.last_event_at = utc_timestamp();
+  }
   load_persisted_snapshot();
 }
 
-std::filesystem::path WorkbenchService::Impl::model_path() const {
-  return app_root / "models" / std::string(kModelFile);
+std::filesystem::path WorkbenchService::Impl::model_path(std::string_view model_id) const {
+  const auto* entry = find_model_catalog_entry(model_id);
+  return entry == nullptr ? std::filesystem::path{} : app_root / "models" / std::string(entry->model_file);
 }
 
 std::filesystem::path WorkbenchService::Impl::mmproj_path() const {
-  return app_root / "models" / std::string(kMmprojFile);
+  return app_root / "models" / std::string(shared_mmproj_file());
 }
 
 std::filesystem::path WorkbenchService::Impl::ffi_path() const {
@@ -123,115 +127,28 @@ std::filesystem::path WorkbenchService::Impl::ffi_path() const {
 #endif
 }
 
-bool WorkbenchService::Impl::model_ready() const {
+bool WorkbenchService::Impl::model_ready(std::string_view model_id) const {
+  const auto path = model_path(model_id);
+  if (path.empty()) {
+    return false;
+  }
   std::error_code error;
-  return std::filesystem::exists(model_path(), error) && std::filesystem::file_size(model_path(), error) > 0 &&
+  return std::filesystem::exists(path, error) && std::filesystem::file_size(path, error) > 0 &&
          std::filesystem::exists(mmproj_path(), error) && std::filesystem::file_size(mmproj_path(), error) > 0;
 }
 
-std::vector<WorkbenchService::Impl::ModelState::File> WorkbenchService::Impl::model_files() const {
+std::vector<WorkbenchService::Impl::ModelState::File> WorkbenchService::Impl::model_files(
+    const ModelCatalogEntry& entry) const {
   return {
-      {.file_id = "model", .file_name = std::string(kModelFile), .local_path = model_path()},
-      {.file_id = "mmproj", .file_name = std::string(kMmprojFile), .local_path = mmproj_path()},
+      {.file_id = "model",
+       .file_name = std::string(entry.model_file),
+       .local_path = model_path(entry.model_id),
+       .total_bytes = entry.model_size_bytes},
+      {.file_id = "mmproj",
+       .file_name = std::string(shared_mmproj_file()),
+       .local_path = mmproj_path(),
+       .total_bytes = shared_mmproj_size_bytes()},
   };
-}
-
-namespace {
-
-Json::Value model_file_json(const WorkbenchService::Impl::ModelState::File& file, bool downloading) {
-  auto record = file;
-  std::error_code error;
-  if (!downloading && std::filesystem::exists(record.local_path, error)) {
-    const auto size = static_cast<std::uint64_t>(std::filesystem::file_size(record.local_path, error));
-    if (!error && size > 0) {
-      record.status = "downloaded";
-      record.downloaded_bytes = size;
-      record.total_bytes = size;
-      record.percent = 100.0;
-    }
-  }
-
-  Json::Value value;
-  value["file_id"] = record.file_id;
-  value["file_name"] = record.file_name;
-  value["status"] = record.status;
-  value["local_path"] = record.local_path.string();
-  value["downloaded_bytes"] = static_cast<Json::UInt64>(record.downloaded_bytes);
-  value["total_bytes"] = record.total_bytes == 0 ? Json::Value(Json::nullValue)
-                                                  : Json::Value(static_cast<Json::UInt64>(record.total_bytes));
-  value["percent"] = record.percent;
-  value["bytes_per_second"] = record.bytes_per_second;
-  value["eta_seconds"] = record.eta_seconds < 0.0 ? Json::Value(Json::nullValue) : Json::Value(record.eta_seconds);
-  value["error"] = record.error.empty() ? Json::Value(Json::nullValue) : Json::Value(record.error);
-  return value;
-}
-
-}  // namespace
-
-Json::Value WorkbenchService::Impl::model_record() const {
-  Json::Value item;
-  item["model_id"] = std::string(kModelId);
-  item["display_name"] = "Unlimited-OCR Q4_K_M";
-  item["repo_id"] = std::string(kModelRepoId);
-  item["revision"] = std::string(kModelRevision);
-  item["local_path"] = (app_root / "models").string();
-  item["model_file"] = std::string(kModelFile);
-  item["mmproj_file"] = std::string(kMmprojFile);
-  const auto ready = model_ready();
-  if (model.downloading) {
-    item["status"] = "downloading";
-  } else if (ready) {
-    item["status"] = "downloaded";
-  } else if (model.status == "cancelled" || model.status == "error") {
-    item["status"] = model.status;
-  } else {
-    item["status"] = "missing";
-  }
-  if (item["status"].asString() == "error" && !model.error.empty()) {
-    item["error"] = model.error;
-  }
-  item["current_file"] = model.current_file.empty() ? Json::Value(Json::nullValue) : Json::Value(model.current_file);
-  item["status_message"] =
-      model.status_message.empty() ? Json::Value(Json::nullValue) : Json::Value(model.status_message);
-  item["downloaded_bytes"] = static_cast<Json::UInt64>(model.downloaded_bytes);
-  item["total_bytes"] = model.total_bytes == 0 ? Json::Value(Json::nullValue)
-                                               : Json::Value(static_cast<Json::UInt64>(model.total_bytes));
-  item["overall_downloaded_bytes"] = static_cast<Json::UInt64>(model.downloaded_bytes);
-  item["overall_total_bytes"] = model.total_bytes == 0 ? Json::Value(Json::nullValue)
-                                                       : Json::Value(static_cast<Json::UInt64>(model.total_bytes));
-  item["overall_percent"] = ready && !model.downloading ? 100.0 : model.overall_percent;
-  item["bytes_per_second"] = model.bytes_per_second;
-  item["eta_seconds"] = model.eta_seconds < 0.0 ? Json::Value(Json::nullValue) : Json::Value(model.eta_seconds);
-  item["auth_available"] = model.auth_available;
-  item["auth_source"] = model.auth_source.empty() ? Json::Value(Json::nullValue) : Json::Value(model.auth_source);
-  item["last_event_at"] = model.last_event_at.empty() ? Json::Value(Json::nullValue) : Json::Value(model.last_event_at);
-  item["files"] = Json::arrayValue;
-  const auto files = model.files.empty() ? model_files() : model.files;
-  for (const auto& file : files) {
-    item["files"].append(model_file_json(file, model.downloading));
-  }
-
-  std::uintmax_t size = 0;
-  std::error_code error;
-  if (std::filesystem::exists(model_path())) {
-    size += std::filesystem::file_size(model_path(), error);
-  }
-  if (std::filesystem::exists(mmproj_path())) {
-    size += std::filesystem::file_size(mmproj_path(), error);
-  }
-  item["size_bytes"] = static_cast<Json::UInt64>(size);
-  return item;
-}
-
-Json::Value WorkbenchService::Impl::model_event() const {
-  Json::Value event = model_record();
-  event["phase"] = model.status;
-  event["message"] = model.status_message.empty() ? event["status"] : Json::Value(model.status_message);
-  return event;
-}
-
-bool WorkbenchService::Impl::model_downloading() const {
-  return model.downloading;
 }
 
 bool WorkbenchService::Impl::is_image_document(const DocumentState& document) const {
@@ -250,6 +167,9 @@ Json::Value WorkbenchService::Impl::run_record(const RunState& run) const {
   value["queued_files"] = run.queued_files;
   value["processed_pages"] = run.processed_pages;
   value["total_pages"] = run.total_pages;
+  value["profile_id"] = run.profile_id;
+  value["engine_id"] = run.engine_id;
+  value["model_id"] = run.model_id;
   value["error"] = run.error.empty() ? Json::Value(Json::nullValue) : Json::Value(run.error);
   return value;
 }

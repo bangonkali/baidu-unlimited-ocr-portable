@@ -7,7 +7,8 @@ namespace uocr::storage {
 namespace {
 
 constexpr std::string_view kEngine = "unlimited-ocr";
-constexpr std::string_view kProfile = "best-zero-empty-q4";
+constexpr std::string_view kProfile = "experimental-exact-prefill-q4";
+constexpr std::string_view kModel = "unlimited-ocr-q4-k-m";
 
 std::string extension_for(const StoredDocument& document) {
   auto ext = document.absolute_path.extension().string();
@@ -30,24 +31,40 @@ void bind_nullable_text(Statement& statement, idx_t index, std::string_view valu
 void WorkbenchRepository::upsert_run(const StoredRun& run) {
   std::scoped_lock lock(impl_->mutex);
   auto statement = impl_->statement(
-      "INSERT INTO ingest_runs(run_id, root_path, status, profile_id, engine_id, reprocess, error, "
+      "INSERT INTO ingest_runs(run_id, root_path, status, profile_id, engine_id, model_id, reprocess, error, "
       "queued_files, processed_pages, total_pages, finished_at) "
-      "VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?, CASE WHEN ? IN "
+      "VALUES (?, ?, ?, ?, ?, ?, false, ?, ?, ?, ?, CASE WHEN ? IN "
       "('completed','completed_with_errors','failed','cancelled') THEN current_timestamp ELSE NULL END) "
       "ON CONFLICT(run_id) DO UPDATE SET status=excluded.status, error=excluded.error, "
       "queued_files=excluded.queued_files, processed_pages=excluded.processed_pages, "
-      "total_pages=excluded.total_pages, finished_at=excluded.finished_at");
+      "total_pages=excluded.total_pages, model_id=excluded.model_id, finished_at=excluded.finished_at");
   statement.bind_text(1, run.run_id);
   statement.bind_text(2, run.root_path);
   statement.bind_text(3, run.status);
   statement.bind_text(4, run.profile_id.empty() ? kProfile : std::string_view(run.profile_id));
   statement.bind_text(5, run.engine_id.empty() ? kEngine : std::string_view(run.engine_id));
-  bind_nullable_text(statement, 6, run.error);
-  statement.bind_int32(7, run.queued_files);
-  statement.bind_int32(8, run.processed_pages);
-  statement.bind_int32(9, run.total_pages);
-  statement.bind_text(10, run.status);
+  statement.bind_text(6, run.model_id.empty() ? kModel : std::string_view(run.model_id));
+  bind_nullable_text(statement, 7, run.error);
+  statement.bind_int32(8, run.queued_files);
+  statement.bind_int32(9, run.processed_pages);
+  statement.bind_int32(10, run.total_pages);
+  statement.bind_text(11, run.status);
   statement.execute();
+}
+
+void WorkbenchRepository::put_setting_string(std::string_view key, std::string_view value) {
+  std::scoped_lock lock(impl_->mutex);
+  const auto quoted_key = quote_sql_string(key);
+  impl_->execute("BEGIN TRANSACTION");
+  try {
+    impl_->execute("DELETE FROM settings WHERE key = " + quoted_key);
+    impl_->execute("INSERT INTO settings(key, value, updated_at) VALUES (" + quoted_key + ", " +
+                   quote_sql_string(escape_json_string(value)) + "::JSON, current_timestamp)");
+    impl_->execute("COMMIT");
+  } catch (...) {
+    impl_->execute("ROLLBACK");
+    throw;
+  }
 }
 
 void WorkbenchRepository::upsert_document(const StoredDocument& document, std::string_view root_path) {

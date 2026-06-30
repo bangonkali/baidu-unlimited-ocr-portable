@@ -41,7 +41,7 @@ const std::vector<OcrProfileRecord>& ocr_profiles() {
 }
 
 const OcrProfileRecord& default_ocr_profile() {
-  const OcrProfileRecord* profile = find_ocr_profile("best-zero-empty-q4");
+  const OcrProfileRecord* profile = find_ocr_profile("experimental-exact-prefill-q4");
   if (profile == nullptr) {
     throw std::logic_error("default OCR profile is not registered");
   }
@@ -58,4 +58,3 @@ const OcrProfileRecord* find_ocr_profile(const std::string& key) {
 }
 
 }  // namespace uocr
-

@@ -19,10 +19,11 @@ files under `models\`.
 
 Logs are appended to `logs\uocr-server.log` inside the extracted folder and are
 also printed to the terminal running `uocr-server.exe`. The React workbench can
-download the default Unlimited-OCR Q4_K_M GGUF pair into `models\`; images and
-rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
-files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
-`uocr-server.exe`; the portable zip does not ship `mutool.exe`.
+download any compatible Unlimited-OCR GGUF catalog model into `models\`; images
+and rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once
+the selected model and shared mmproj file are present. Multi-page PDFs are
+rendered in-process by MuPDF embedded in `uocr-server.exe`; the portable zip
+does not ship `mutool.exe`.
 
 The backend package dependency graph is vcpkg-managed. The current pinned
 baseline resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly;
@@ -51,17 +52,24 @@ displayed, persisted, or logged.
 
 First run sequence:
 
-1. Open **Models** and click **Download missing**.
-2. Click **Choose Folder** to use the trusted native Windows folder picker, or
+1. Open **Models**, choose a model card, and click **Download**. `Q4_K_M` is
+   the recommended default model; larger models need more GPU memory and
+   smaller models trade quality for memory.
+2. Click **Use** on the model you want OCR to run with. The selection is saved
+   in DuckDB and restored after restart.
+3. Click **Choose Folder** to use the trusted native Windows folder picker, or
    paste a path into the fallback text box.
-3. Click **Start Scan**.
-4. Watch the progress in the toolbar, the Diagnostics pane, the terminal, or
+4. Click **Start Scan**.
+5. Watch the progress in the toolbar, the Diagnostics pane, the terminal, or
    `logs\uocr-server.log`.
 
-The Models panel shows the required GGUF files, auth status, current file,
-bytes downloaded versus total bytes, percentage, MiB/s, ETA, retry,
-re-download, and cancel. Cancelling keeps the `.download` partial file so a
-later retry can resume when Hugging Face supports range requests.
+The Models panel shows all supported Sahil GGUF variants, which model is
+selected, which files are already downloaded, auth status, current file, bytes
+downloaded versus total bytes, percentage, MiB/s, ETA, retry, re-download, and
+cancel. Cancelling keeps the `.download` partial file so a later retry can
+resume when Hugging Face supports range requests. The C++ workbench default OCR
+profile is `experimental-exact-prefill-q4`; `best-zero-empty-q4` remains
+available as the retry/reference profile.
 
 The browser keeps one websocket connection to `ws://127.0.0.1:8765/api/events`.
 Model progress, scan progress, new OCR text, bounding boxes, document status,
@@ -444,7 +452,7 @@ foreach ($file in @(
 }
 ```
 
-Optional extra Sahil quants, not yet validated by this project:
+Additional Sahil quants supported by the C++ workbench model library:
 
 ```powershell
 foreach ($file in @(
@@ -880,9 +888,10 @@ comparison output.
   average similarity 0.672.
 - Q6_K with R-SWA reached 51 / 104 passes and is not currently useful as a
   quality improvement.
-- Exact-prefill/no-image-end Q4 with R-SWA is not the default. It tied
-  56 / 104 passes and improved average similarity to 0.719, but still had
-  5 empty rows.
+- Historical exact-prefill/no-image-end Q4 harness runs tied 56 / 104 passes
+  and improved average similarity to 0.719, but still had 5 empty rows. The C++
+  workbench now uses `experimental-exact-prefill-q4` as its default profile
+  while retaining `best-zero-empty-q4` as a reference/retry profile.
 - The patched gundam path combines local crop embeddings into SGLang's single
   local grid and passes the `sc-02` smoke. Larger target sets still have
   repetition failures.

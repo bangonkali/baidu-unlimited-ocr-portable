@@ -9,6 +9,10 @@ import type { ModelAssetRecord } from './modelAssetRecord';
 import type { OcrProfileRecord } from './ocrProfileRecord';
 
 export interface ModelsPayload {
+  selected_model_id?: string;
+  provider_repo?: string;
+  provider_label?: string;
+  shared_mmproj_file?: string;
   models: ModelAssetRecord[];
   profiles: OcrProfileRecord[];
 }

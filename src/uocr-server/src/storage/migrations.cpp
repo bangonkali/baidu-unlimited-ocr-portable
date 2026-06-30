@@ -195,6 +195,12 @@ CREATE INDEX IF NOT EXISTS idx_files_status_updated ON files(status, updated_at)
 CREATE INDEX IF NOT EXISTS idx_page_ocr_file_page ON document_page_ocr(file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_page_ocr_text ON document_page_ocr(file_hash, cleaned_text);
 )SQL"},
+      {3, "model_selection_persistence", R"SQL(
+ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS model_id TEXT DEFAULT 'unlimited-ocr-q4-k-m';
+INSERT INTO settings(key, value, updated_at)
+VALUES ('selected_model_id', '"unlimited-ocr-q4-k-m"'::JSON, current_timestamp)
+ON CONFLICT(key) DO NOTHING;
+)SQL"},
   };
   return migrations;
 }

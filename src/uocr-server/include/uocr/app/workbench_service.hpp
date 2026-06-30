@@ -17,6 +17,7 @@ class WorkbenchService {
 
   Json::Value status() const;
   Json::Value models() const;
+  Json::Value select_model(const std::string& model_id);
   Json::Value start_model_download(const std::string& model_id, bool force);
   Json::Value cancel_model_download(const std::string& model_id);
   Json::Value model_download_event(const std::string& model_id) const;

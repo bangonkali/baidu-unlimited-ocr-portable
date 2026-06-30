@@ -22,6 +22,7 @@ import type {
   LogsPayload,
   ModelDownloadRecord,
   ModelDownloadRequest,
+  ModelSelectRecord,
   ModelsPayload,
   PreviewImagesPayload,
   SearchDocumentsParams,
@@ -822,6 +823,46 @@ export const downloadModel = async (modelId: string,
 
   const data: downloadModelResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as downloadModelResponse
+}
+
+
+
+export type selectModelResponse202 = {
+  data: ModelSelectRecord
+  status: 202
+}
+
+export type selectModelResponseSuccess = (selectModelResponse202) & {
+  headers: Headers;
+};
+;
+
+export type selectModelResponse = (selectModelResponseSuccess)
+
+export const getSelectModelUrl = (modelId: string,) => {
+
+
+
+
+  return `/api/models/${modelId}/select`
+}
+
+export const selectModel = async (modelId: string, options?: RequestInit): Promise<selectModelResponse> => {
+
+  const res = await fetch(getSelectModelUrl(modelId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: selectModelResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as selectModelResponse
 }
 
 

@@ -42,8 +42,9 @@ struct StoredRun {
   std::string root_path;
   std::string status = "queued";
   std::string error;
-  std::string profile_id = "best-zero-empty-q4";
+  std::string profile_id = "experimental-exact-prefill-q4";
   std::string engine_id = "unlimited-ocr";
+  std::string model_id = "unlimited-ocr-q4-k-m";
   int queued_files = 0;
   int processed_pages = 0;
   int total_pages = 0;
@@ -69,8 +70,10 @@ class WorkbenchRepository {
   const std::filesystem::path& database_path() const;
   WorkbenchSnapshot load_snapshot() const;
   std::vector<std::string> search_document_hashes(std::string_view query, std::size_t limit) const;
+  std::string setting_string(std::string_view key, std::string_view fallback) const;
 
   void upsert_run(const StoredRun& run);
+  void put_setting_string(std::string_view key, std::string_view value);
   void upsert_document(const StoredDocument& document, std::string_view root_path);
   void upsert_page(const std::string& file_hash, const StoredPage& page);
   void replace_page_ocr(const std::string& file_hash,

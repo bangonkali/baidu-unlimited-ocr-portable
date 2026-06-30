@@ -15,8 +15,8 @@ The target product path is a local-first C++/React workbench:
 
 The server is structured around small service boundaries:
 
-- core: profile catalog, OCR marker parsing, stable region IDs, runaway-output
-  detection, and overlay conversion.
+- core: profile catalog, model catalog, OCR marker parsing, stable region IDs,
+  runaway-output detection, and overlay conversion.
 - fs: trusted folder validation and recursive supported-file discovery.
 - storage: ordered DuckDB migrations for files, runs, page OCR, regions,
   text-region links, diagnostics, settings, and model leases.
@@ -25,7 +25,8 @@ The server is structured around small service boundaries:
 - render: `PageRenderer` with an embedded MuPDF implementation linked into
   `uocr-server.exe`. PDF pages are rendered to cached PNG files at 200 DPI and
   reused for preview and OCR.
-- download: native libcurl Hugging Face downloads with environment-only
+- download: native libcurl Hugging Face downloads for every compatible
+  `sahilchachra/Unlimited-OCR-GGUF` catalog entry, with environment-only
   `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` auth, resumable temp files, SHA256
   verification through the same vcpkg `OpenSSL::Crypto` dependency used by the
   server stack, per-file progress, speed, ETA, cancellation, and typed realtime
@@ -86,7 +87,8 @@ The persisted OCR dashboard contract is:
 - `files` and `file_locations`: file identity, display path, status, page count,
   size, latest observed root, and error text.
 - `ingest_runs` and `ingest_work_units`: run state, root path, page work status,
-  attempts, cancellation/failure/completion markers, and progress counters.
+  selected model id, attempts, cancellation/failure/completion markers, and
+  progress counters.
 - `document_pages` and `document_preview_images`: page status, render metadata,
   source preview image paths, dimensions, and render DPI.
 - `document_page_ocr`: raw OCR output, cleaned display text, runtime profile,
@@ -99,6 +101,8 @@ The persisted OCR dashboard contract is:
 - `document_terms`: lowercase token index used by DuckDB-backed search.
 - `ingest_diagnostic_events`: persisted diagnostic messages for run progress and
   failures.
+- `settings`: persisted workbench settings such as `selected_model_id`, stored
+  as JSON values and loaded on startup.
 
 Startup reload reconstructs the in-memory workbench state from DuckDB so prior
 documents, text, boxes, previews, and recent runs are visible after restarting
@@ -110,11 +114,18 @@ and cleaned-text matching for partial terms.
 
 `src/uocr-server/openapi/uocr.openapi.json` is the API source of truth. It
 covers the currently implemented workbench surface: health/status, trusted
-folder selection, model download state, model download cancel/events, ingest
-start/stop, run snapshots/events, document lists/details, DuckDB-backed search,
-regions with selected-box content, text spans, preview images, recent logs, and
-settings. Removed or future-only surfaces are intentionally omitted from the UI
-and OpenAPI contract until they work end to end.
+folder selection, model catalog state, model selection, model download
+start/cancel/events, ingest start/stop, run snapshots/events, document
+lists/details, DuckDB-backed search, regions with selected-box content, text
+spans, preview images, recent logs, and settings. Removed or future-only
+surfaces are intentionally omitted from the UI and OpenAPI contract until they
+work end to end.
+
+The default OCR profile is `experimental-exact-prefill-q4`. The default model
+selection is `unlimited-ocr-q4-k-m`, but the model library exposes BF16, Q8,
+Q6, Q5, Q4, IQ4, Q3, IQ3, and IQ2 variants from the Sahil GGUF repo. The
+selected model id is included in ingest start requests, persisted in DuckDB,
+and recorded on each run.
 
 The React client runs Orval against that file:
 

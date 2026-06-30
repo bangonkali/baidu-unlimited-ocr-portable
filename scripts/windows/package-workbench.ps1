@@ -270,7 +270,7 @@ Run uocr-server.exe to start the local backend and hosted React app.
 Default URL: http://127.0.0.1:8765/
 Logs: logs\uocr-server.log
 Optional authenticated model downloads: set HF_TOKEN before launching uocr-server.exe.
-Open Models and click Download missing to download GGUF files with per-file progress, MiB/s, ETA, retry, and cancel.
+Open Models, choose a GGUF variant, click Download, then Use; progress shows per-file bytes, MiB/s, ETA, retry, and cancel.
 PDF support: native MuPDF is embedded in uocr-server.exe and renders pages at 200 DPI.
 Uninstall: delete this folder.
 "@ | Set-Content -LiteralPath (Join-Path $StageRoot "README.txt") -Encoding utf8

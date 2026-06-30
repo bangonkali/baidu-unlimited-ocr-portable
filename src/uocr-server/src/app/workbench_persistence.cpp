@@ -48,9 +48,12 @@ storage::StoredRun stored_run(const WorkbenchService::Impl::RunState& run) {
   stored.root_path = run.root_path;
   stored.status = run.status;
   stored.error = run.error;
+  stored.profile_id = run.profile_id;
+  stored.engine_id = run.engine_id;
   stored.queued_files = run.queued_files;
   stored.processed_pages = run.processed_pages;
   stored.total_pages = run.total_pages;
+  stored.model_id = run.model_id;
   stored.file_hashes = run.file_hashes;
   return stored;
 }
@@ -93,6 +96,8 @@ WorkbenchService::Impl::PageState page_state(const storage::StoredPage& stored) 
 void WorkbenchService::Impl::load_persisted_snapshot() {
   try {
     repository = std::make_shared<storage::WorkbenchRepository>(app_root / "data" / "uocr.duckdb");
+    const auto selected = repository->setting_string("selected_model_id", default_model_id());
+    selected_model_id = find_model_catalog_entry(selected) != nullptr ? selected : std::string(default_model_id());
     const auto snapshot = repository->load_snapshot();
     for (const auto& stored : snapshot.documents) {
       DocumentState document;
@@ -113,9 +118,12 @@ void WorkbenchService::Impl::load_persisted_snapshot() {
       run.root_path = stored.root_path;
       run.status = stored.status;
       run.error = stored.error;
+      run.profile_id = stored.profile_id;
+      run.engine_id = stored.engine_id;
       run.queued_files = stored.queued_files;
       run.processed_pages = stored.processed_pages;
       run.total_pages = stored.total_pages;
+      run.model_id = stored.model_id.empty() ? std::string(default_model_id()) : stored.model_id;
       run.file_hashes = stored.file_hashes;
       runs[run.run_id] = std::move(run);
     }
@@ -128,6 +136,19 @@ void WorkbenchService::Impl::load_persisted_snapshot() {
       logger->error("database", std::string("DuckDB persistence disabled: ") + error.what());
     }
     repository.reset();
+  }
+}
+
+void WorkbenchService::Impl::persist_selected_model() const {
+  if (!repository) {
+    return;
+  }
+  try {
+    repository->put_setting_string("selected_model_id", selected_model_id);
+  } catch (const std::exception& error) {
+    if (logger) {
+      logger->error("database", std::string("failed to persist selected model: ") + error.what());
+    }
   }
 }
 

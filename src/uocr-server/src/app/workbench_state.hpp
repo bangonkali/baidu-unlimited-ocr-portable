@@ -11,19 +11,12 @@
 #include <string_view>
 #include <vector>
 
+#include "uocr/core/model_catalog.hpp"
 #include "uocr/core/types.hpp"
 #include "uocr/fs/file_scanner.hpp"
 #include "uocr/storage/workbench_repository.hpp"
 
 namespace uocr::server {
-
-inline constexpr std::string_view kModelRepo =
-    "https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF/resolve/main/";
-inline constexpr std::string_view kModelRepoId = "sahilchachra/Unlimited-OCR-GGUF";
-inline constexpr std::string_view kModelRevision = "main";
-inline constexpr std::string_view kModelId = "unlimited-ocr-q4-k-m";
-inline constexpr std::string_view kModelFile = "Unlimited-OCR-Q4_K_M.gguf";
-inline constexpr std::string_view kMmprojFile = "mmproj-Unlimited-OCR-F16.gguf";
 
 struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchService::Impl> {
   struct ModelState {
@@ -93,20 +86,24 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
     int processed_pages = 0;
     int total_pages = 0;
     bool cancel_requested = false;
+    std::string profile_id = "experimental-exact-prefill-q4";
+    std::string engine_id = "unlimited-ocr";
+    std::string model_id = std::string(default_model_id());
     std::vector<std::string> file_hashes;
   };
 
   Impl(std::filesystem::path root, std::shared_ptr<AppLogger> app_logger);
 
-  std::filesystem::path model_path() const;
+  std::filesystem::path model_path(std::string_view model_id) const;
   std::filesystem::path mmproj_path() const;
   std::filesystem::path ffi_path() const;
-  std::vector<ModelState::File> model_files() const;
-  bool model_ready() const;
+  std::vector<ModelState::File> model_files(const ModelCatalogEntry& entry) const;
+  bool model_ready(std::string_view model_id) const;
 
-  Json::Value model_record() const;
-  Json::Value model_event() const;
-  bool model_downloading() const;
+  Json::Value model_record(const ModelCatalogEntry& entry) const;
+  Json::Value model_event(std::string_view model_id) const;
+  bool model_downloading(std::string_view model_id) const;
+  bool any_model_downloading() const;
   Json::Value status_record() const;
   Json::Value run_record(const RunState& run) const;
   Json::Value document_summary(const DocumentState& document) const;
@@ -136,20 +133,27 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
                          int attempts,
                          std::string_view error) const;
   void persist_diagnostic(const std::string& run_id, std::string_view level, std::string_view message) const;
-  void start_download(bool force);
-  void cancel_download();
-  void start_run(const std::string& run_id, std::vector<DiscoveredFile> files, std::string profile_id);
+  void persist_selected_model() const;
+  void start_download(std::string model_id, bool force);
+  void cancel_download(std::string_view model_id);
+  void start_run(const std::string& run_id,
+                 std::vector<DiscoveredFile> files,
+                 std::string profile_id,
+                 std::string model_id);
   void fail_run(const std::string& run_id, const std::string& message);
   void process_run(const std::string& run_id,
                    const std::vector<DiscoveredFile>& files,
-                   const std::string& profile_id);
+                   const std::string& profile_id,
+                   const std::string& model_id);
 
   std::filesystem::path app_root;
   std::shared_ptr<AppLogger> logger;
   std::shared_ptr<uocr::storage::WorkbenchRepository> repository;
   std::atomic_bool model_cancel_requested{false};
   mutable std::mutex mutex;
-  ModelState model;
+  std::string selected_model_id = std::string(default_model_id());
+  std::string active_download_model_id;
+  std::map<std::string, ModelState> models;
   std::map<std::string, RunState> runs;
   std::map<std::string, DocumentState> documents;
 };

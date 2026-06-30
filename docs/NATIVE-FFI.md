@@ -48,8 +48,11 @@ is a reference binding, not a special-case API.
   `thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll`. CPU
   inference is not packaged or selectable in the C++ workbench yet.
 - Check `uocr_ffi_abi_version()` before creating a session.
-- Use the built-in `best-zero-empty-q4` profile by default and
-  `experimental-exact-prefill-q4` only as the retry/diagnostic profile.
+- Use the persisted workbench model selection from `data/uocr.duckdb`. The
+  initial default model id is `unlimited-ocr-q4-k-m`, but users can select any
+  compatible catalog model downloaded from `sahilchachra/Unlimited-OCR-GGUF`.
+- Use the built-in `experimental-exact-prefill-q4` profile by default.
+  `best-zero-empty-q4` remains available as the retry/reference profile.
 - Send rendered PDF pages and image files through `uocr_ffi_run_image`; PDF
   rendering is owned by the embedded MuPDF page renderer linked into
   `uocr-server.exe`.

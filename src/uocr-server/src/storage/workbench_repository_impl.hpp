@@ -86,6 +86,7 @@ struct WorkbenchRepository::Impl {
 };
 
 std::string escape_json_string(std::string_view text);
+std::string quote_sql_string(std::string_view text);
 std::string make_event_id(std::string_view seed);
 std::string terminal_timestamp_sql(std::string_view status);
 

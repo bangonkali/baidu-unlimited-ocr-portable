@@ -183,6 +183,20 @@ std::string escape_json_string(std::string_view text) {
   return output.str();
 }
 
+std::string quote_sql_string(std::string_view text) {
+  std::string output;
+  output.reserve(text.size() + 2);
+  output.push_back('\'');
+  for (const char ch : text) {
+    if (ch == '\'') {
+      output.push_back('\'');
+    }
+    output.push_back(ch);
+  }
+  output.push_back('\'');
+  return output;
+}
+
 std::string make_event_id(std::string_view seed) {
   const auto now = std::chrono::system_clock::now().time_since_epoch();
   std::uint64_t hash = 14695981039346656037ULL;

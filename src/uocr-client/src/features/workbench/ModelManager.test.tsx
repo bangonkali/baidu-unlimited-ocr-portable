@@ -21,11 +21,15 @@ describe('ModelManager', () => {
         models={fixtureModels}
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
       />,
     );
     expect(html).toContain('Authenticated with HF_TOKEN');
     expect(html).toContain('Re-download');
     expect(html).toContain('Unlimited-OCR-Q4_K_M.gguf');
+    expect(html).toContain('Unlimited-OCR IQ2_M');
+    expect(html).toContain('In Use');
+    expect(html).toContain('Recommended');
   });
 
   test('renders live download state', () => {
@@ -34,6 +38,7 @@ describe('ModelManager', () => {
         models={fixtureDownloadingModels}
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
       />,
     );
     expect(html).toContain('Cancel');

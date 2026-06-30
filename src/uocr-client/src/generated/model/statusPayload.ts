@@ -20,6 +20,7 @@ export interface StatusPayload {
   database_path?: string;
   realtime_path?: string;
   default_profile: string;
+  selected_model_id?: string;
   version?: string;
   git_tag?: string;
   git_sha?: string;

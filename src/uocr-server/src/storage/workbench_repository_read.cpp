@@ -55,6 +55,37 @@ std::string lower_copy(std::string_view text) {
   return value;
 }
 
+std::string unquote_json_string(std::string_view text) {
+  if (text.size() < 2 || text.front() != '"' || text.back() != '"') {
+    return std::string(text);
+  }
+  std::string value;
+  value.reserve(text.size() - 2);
+  for (std::size_t index = 1; index + 1 < text.size(); ++index) {
+    const char ch = text[index];
+    if (ch != '\\' || index + 2 >= text.size()) {
+      value.push_back(ch);
+      continue;
+    }
+    const char escaped = text[++index];
+    switch (escaped) {
+      case 'n':
+        value.push_back('\n');
+        break;
+      case 'r':
+        value.push_back('\r');
+        break;
+      case 't':
+        value.push_back('\t');
+        break;
+      default:
+        value.push_back(escaped);
+        break;
+    }
+  }
+  return value;
+}
+
 std::vector<std::string> sort_scores(const std::map<std::string, int>& scores, std::size_t limit) {
   std::vector<std::pair<std::string, int>> ordered(scores.begin(), scores.end());
   std::sort(ordered.begin(), ordered.end(), [](const auto& left, const auto& right) {
@@ -187,7 +218,7 @@ WorkbenchSnapshot WorkbenchRepository::load_snapshot() const {
   }
 
   auto runs = impl_->query(
-      "SELECT run_id, root_path, status, coalesce(error, ''), profile_id, engine_id, "
+      "SELECT run_id, root_path, status, coalesce(error, ''), profile_id, engine_id, model_id, "
       "coalesce(queued_files, 0), coalesce(processed_pages, 0), coalesce(total_pages, 0) "
       "FROM ingest_runs ORDER BY started_at DESC LIMIT 50");
   for (idx_t row = 0; row < runs.rows(); ++row) {
@@ -198,9 +229,10 @@ WorkbenchSnapshot WorkbenchRepository::load_snapshot() const {
     run.error = runs.text(3, row);
     run.profile_id = runs.text(4, row);
     run.engine_id = runs.text(5, row);
-    run.queued_files = runs.int32(6, row);
-    run.processed_pages = runs.int32(7, row);
-    run.total_pages = runs.int32(8, row);
+    run.model_id = runs.text(6, row);
+    run.queued_files = runs.int32(7, row);
+    run.processed_pages = runs.int32(8, row);
+    run.total_pages = runs.int32(9, row);
     run.file_hashes = load_run_hashes(*impl_, run.run_id);
     snapshot.runs.push_back(std::move(run));
   }
@@ -238,6 +270,18 @@ std::vector<std::string> WorkbenchRepository::search_document_hashes(std::string
     hashes.push_back(result.text(0, row));
   }
   return hashes;
+}
+
+std::string WorkbenchRepository::setting_string(std::string_view key, std::string_view fallback) const {
+  std::scoped_lock lock(impl_->mutex);
+  auto statement = impl_->statement("SELECT coalesce(value::VARCHAR, '') FROM settings WHERE key = ?");
+  statement.bind_text(1, key);
+  auto result = statement.query();
+  if (result.rows() == 0) {
+    return std::string(fallback);
+  }
+  const auto value = unquote_json_string(result.text(0, 0));
+  return value.empty() ? std::string(fallback) : value;
 }
 
 }  // namespace uocr::storage

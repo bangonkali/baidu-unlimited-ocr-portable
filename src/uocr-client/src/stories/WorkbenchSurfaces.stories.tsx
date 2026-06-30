@@ -41,7 +41,7 @@ export const Ingest: Story = {
         profiles={fixtureModels.profiles}
         rootPath="C:\\data\\incoming"
         runState="idle"
-        selectedProfile="best-zero-empty-q4"
+        selectedProfile="experimental-exact-prefill-q4"
         supportedInputs={['.pdf', '.png', '.jpg', '.webp']}
       />
     </div>
@@ -103,6 +103,7 @@ export const Models: Story = {
         models={fixtureModels}
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
       />
     </div>
   ),
@@ -115,6 +116,7 @@ export const ModelsDownloading: Story = {
         models={fixtureDownloadingModels}
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
       />
     </div>
   ),

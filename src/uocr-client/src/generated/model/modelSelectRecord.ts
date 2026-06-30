@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface IngestStartRequest {
-  root_path: string;
-  profile_id?: string;
-  model_id?: string;
-  reprocess?: boolean;
+export interface ModelSelectRecord {
+  model_id: string;
+  status: string;
 }

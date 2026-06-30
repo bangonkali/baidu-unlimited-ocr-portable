@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <sstream>
 #include <string>
-#include <thread>
-#include <utility>
 
 #include "uocr/app/app_logger.hpp"
 #include "uocr/core/ocr_parser.hpp"
@@ -34,19 +32,18 @@ std::string page_label(const DiscoveredFile& file, int page_no, int page_count) 
 
 }  // namespace
 
-void WorkbenchService::Impl::start_run(std::string const& run_id,
-                                       std::vector<DiscoveredFile> files,
-                                       std::string profile_id) {
-  std::thread([shared = shared_from_this(), run_id, files = std::move(files), profile_id = std::move(profile_id)]() {
-    shared->process_run(run_id, files, profile_id);
-  }).detach();
-}
-
 void WorkbenchService::Impl::process_run(const std::string& run_id,
                                          const std::vector<DiscoveredFile>& files,
-                                         const std::string& profile_id) {
+                                         const std::string& profile_id,
+                                         const std::string& model_id) {
   const auto* profile = find_ocr_profile(profile_id);
   profile = profile != nullptr ? profile : &default_ocr_profile();
+  const auto* model_entry = find_model_catalog_entry(model_id);
+  if (model_entry == nullptr) {
+    fail_run(run_id, "unknown model id: " + model_id);
+    log_error(logger, "ingest", "run " + run_id + " failed because model id is unknown: " + model_id);
+    return;
+  }
   if (files.empty()) {
     Json::Value run_event;
     {
@@ -61,8 +58,8 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     publish_status_changed();
     return;
   }
-  if (!model_ready()) {
-    fail_run(run_id, "model assets are missing; open Models and download Unlimited-OCR Q4_K_M");
+  if (!model_ready(model_id)) {
+    fail_run(run_id, "model assets are missing; open Models and download " + std::string(model_entry->display_name));
     log_error(logger, "ingest", "run " + run_id + " failed because model assets are missing");
     return;
   }
@@ -72,15 +69,17 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     return;
   }
 
-  log_info(logger, "models", "loading CUDA Unlimited-OCR runtime from " + ffi_path().string());
-  UnlimitedOcrFfiEngine engine({ffi_path(), model_path(), mmproj_path()}, *profile);
+  log_info(logger, "models", "loading CUDA Unlimited-OCR runtime model=" + model_id +
+                                " file=" + std::string(model_entry->model_file));
+  UnlimitedOcrFfiEngine engine({ffi_path(), model_path(model_id), mmproj_path()}, *profile);
   bool any_failed = false;
   Json::Value run_event;
   {
     std::scoped_lock lock(mutex);
     runs[run_id].status = "running";
     persist_run(runs[run_id]);
-    persist_diagnostic(run_id, "info", "run started with " + std::to_string(files.size()) + " files");
+    persist_diagnostic(run_id, "info", "run started with " + std::to_string(files.size()) +
+                                             " files using " + model_id);
     run_event = run_record(runs[run_id]);
   }
   publish_event("run.changed", run_event);
@@ -228,7 +227,11 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
           page_state.status = "failed";
           page_state.error = error;
         } else {
-          const auto parsed = parse_ocr_markers(result.text, {.file_hash = hash, .page_no = page.page_no});
+          const auto parsed = parse_ocr_markers(result.text,
+                                                {.file_hash = hash,
+                                                 .page_no = page.page_no,
+                                                 .engine_id = "unlimited-ocr",
+                                                 .profile_id = profile->key});
           page_state.raw_text = result.text;
           page_state.cleaned_text = parsed.cleaned_text.empty() ? result.text : parsed.cleaned_text;
           page_state.boxes = to_overlay_boxes(parsed, page.page_no);

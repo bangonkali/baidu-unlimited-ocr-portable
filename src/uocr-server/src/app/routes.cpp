@@ -117,6 +117,13 @@ void register_model_routes(const std::shared_ptr<WorkbenchService>& service) {
                         },
                         {Post});
 
+  app().registerHandler("/api/models/{1}/select",
+                        [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
+                                  const std::string& model_id) {
+                          callback(json_response(service->select_model(model_id), k202Accepted));
+                        },
+                        {Post});
+
   app().registerHandler("/api/models/{1}/cancel",
                         [service](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback,
                                   const std::string& model_id) {

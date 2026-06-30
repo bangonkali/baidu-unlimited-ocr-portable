@@ -22,6 +22,7 @@ export interface StatusPayload {
   log_path?: string;
   database_path?: string;
   realtime_path?: string;
+  selected_model_id?: string;
 }
 
 export interface OcrProfileRecord {
@@ -61,6 +62,17 @@ export interface ModelAssetRecord {
   auth_source?: string | null;
   last_event_at?: string | null;
   files?: ModelDownloadFileRecord[];
+  quantization?: string;
+  bits?: number;
+  quality?: string;
+  hardware_tier?: string;
+  notes?: string;
+  recommended?: boolean;
+  selected?: boolean;
+  provider_name?: string;
+  total_required_bytes?: number | null;
+  downloaded_file_count?: number;
+  total_file_count?: number;
 }
 
 export interface ModelDownloadFileRecord {
@@ -79,9 +91,18 @@ export interface ModelDownloadFileRecord {
 export interface ModelsPayload {
   models: ModelAssetRecord[];
   profiles: OcrProfileRecord[];
+  selected_model_id?: string;
+  provider_repo?: string;
+  provider_label?: string;
+  shared_mmproj_file?: string;
 }
 
 export interface ModelDownloadRecord {
+  model_id: string;
+  status: string;
+}
+
+export interface ModelSelectRecord {
   model_id: string;
   status: string;
 }
@@ -102,6 +123,7 @@ export interface SettingsPayload {
 export interface IngestStartRequest {
   root_path: string;
   profile_id?: string;
+  model_id?: string;
   engine_id?: string;
   reprocess?: boolean;
 }
@@ -113,6 +135,9 @@ export interface IngestRunRecord {
   queued_files?: number;
   processed_pages?: number;
   total_pages?: number;
+  profile_id?: string;
+  engine_id?: string;
+  model_id?: string;
   error?: string | null;
 }
 

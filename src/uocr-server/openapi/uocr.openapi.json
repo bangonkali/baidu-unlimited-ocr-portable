@@ -458,6 +458,33 @@
         }
       }
     },
+    "/api/models/{model_id}/select": {
+      "post": {
+        "operationId": "selectModel",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Model selected for subsequent ingest runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSelectRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/models/{model_id}/cancel": {
       "post": {
         "operationId": "cancelModelDownload",
@@ -641,6 +668,9 @@
           "default_profile": {
             "type": "string"
           },
+          "selected_model_id": {
+            "type": "string"
+          },
           "version": {
             "type": "string"
           },
@@ -692,6 +722,9 @@
           "profile_id": {
             "type": "string"
           },
+          "model_id": {
+            "type": "string"
+          },
           "reprocess": {
             "type": "boolean",
             "default": false
@@ -723,6 +756,15 @@
           },
           "total_pages": {
             "type": "integer"
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "engine_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
           },
           "error": {
             "type": "string",
@@ -1077,6 +1119,41 @@
             "type": "string",
             "nullable": true
           },
+          "quantization": {
+            "type": "string"
+          },
+          "bits": {
+            "type": "integer"
+          },
+          "quality": {
+            "type": "string"
+          },
+          "hardware_tier": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "recommended": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "provider_name": {
+            "type": "string"
+          },
+          "total_required_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "downloaded_file_count": {
+            "type": "integer"
+          },
+          "total_file_count": {
+            "type": "integer"
+          },
           "files": {
             "type": "array",
             "items": {
@@ -1160,6 +1237,21 @@
           }
         }
       },
+      "ModelSelectRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "status"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "ModelDownloadEvent": {
         "allOf": [
           {
@@ -1227,6 +1319,18 @@
           "profiles"
         ],
         "properties": {
+          "selected_model_id": {
+            "type": "string"
+          },
+          "provider_repo": {
+            "type": "string"
+          },
+          "provider_label": {
+            "type": "string"
+          },
+          "shared_mmproj_file": {
+            "type": "string"
+          },
           "models": {
             "type": "array",
             "items": {

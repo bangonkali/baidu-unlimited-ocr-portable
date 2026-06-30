@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "uocr/core/ocr_parser.hpp"
+#include "uocr/core/model_catalog.hpp"
 #include "uocr/core/profiles.hpp"
 #include "uocr/core/runaway_guard.hpp"
 #include "uocr/fs/file_scanner.hpp"
@@ -68,8 +69,11 @@ void test_png_dimensions() {
 }
 
 void test_profiles_and_migrations() {
-  assert(uocr::default_ocr_profile().key == "best-zero-empty-q4");
+  assert(uocr::default_ocr_profile().key == "experimental-exact-prefill-q4");
   assert(uocr::find_ocr_profile("experimental-exact-prefill-q4") != nullptr);
+  assert(uocr::find_model_catalog_entry("unlimited-ocr-q4-k-m") != nullptr);
+  assert(uocr::unlimited_ocr_model_catalog().size() == 13);
+  assert(uocr::shared_mmproj_file() == "mmproj-Unlimited-OCR-F16.gguf");
   assert(!uocr::duckdb_migrations().empty());
 }
 

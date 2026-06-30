@@ -38,6 +38,7 @@ Json::Value WorkbenchService::Impl::status_record() const {
 #endif
   payload["accelerator"] = "cuda";
   payload["inference_engine"] = "Unlimited-OCR FFI";
+  payload["selected_model_id"] = selected_model_id;
   payload["log_path"] = (app_root / "logs" / "uocr-server.log").string();
   payload["database_path"] = (app_root / "data" / "uocr.duckdb").string();
   payload["default_profile"] = default_ocr_profile().key;

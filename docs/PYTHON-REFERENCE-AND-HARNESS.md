@@ -61,13 +61,15 @@ analysis/summaries/SUMMARY.md
 analysis/summaries/SUMMARY-uocr-rswa-executive.md
 ```
 
-The current practical Q4 profile is still the app default:
+The C++ workbench default profile is `experimental-exact-prefill-q4`. The
+Python reference app still keeps the historical practical Q4 profile available
+for comparison:
 
 ```text
 best-zero-empty-q4
 ```
 
-The diagnostic profile remains:
+The exact-prefill profile is:
 
 ```text
 experimental-exact-prefill-q4

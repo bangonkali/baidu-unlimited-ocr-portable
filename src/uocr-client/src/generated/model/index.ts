@@ -28,6 +28,7 @@ export * from './modelDownloadEvent';
 export * from './modelDownloadFileRecord';
 export * from './modelDownloadRecord';
 export * from './modelDownloadRequest';
+export * from './modelSelectRecord';
 export * from './modelsPayload';
 export * from './ocrProfileRecord';
 export * from './overlayBox';

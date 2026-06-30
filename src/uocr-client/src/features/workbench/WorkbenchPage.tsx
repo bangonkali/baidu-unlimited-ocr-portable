@@ -16,6 +16,7 @@ import {
   useModels,
   useOpenFolderDialog,
   useRunCommand,
+  useSelectModel,
   useStartIngest,
   useStatus,
 } from '../../api/hooks';
@@ -54,11 +55,15 @@ export function WorkbenchPage() {
   const folderDialog = useOpenFolderDialog();
   const downloadModel = useDownloadModel();
   const cancelModelDownload = useCancelModelDownload();
+  const selectModel = useSelectModel();
   const startIngest = useStartIngest();
   const stopRun = useRunCommand('stop');
   const activeRunId = status.data?.active_run_id ?? null;
 
-  const model = models.data?.models[0];
+  const model =
+    models.data?.models.find((item) => item.selected) ??
+    models.data?.models.find((item) => item.model_id === models.data?.selected_model_id) ??
+    models.data?.models[0];
   const modelReady = model?.status === 'downloaded';
   const selectedDocument = documents.data?.documents.find(
     (document) => document.file_hash === workbench.selection.fileHash,
@@ -68,7 +73,7 @@ export function WorkbenchPage() {
     : [
         {
           key: workbench.selectedProfile,
-          label: 'Practical zero-empty Q4',
+          label: 'Experimental exact-prefill Q4',
           engine_name: 'Unlimited-OCR FFI',
           description: '',
           default_max_tokens: 8192,
@@ -84,6 +89,7 @@ export function WorkbenchPage() {
   };
   const startScan = () =>
     startIngest.mutate({
+      model_id: model?.model_id,
       profile_id: workbench.selectedProfile,
       root_path: workbench.selectedRoot,
     });
@@ -129,10 +135,13 @@ export function WorkbenchPage() {
         <div className={styles.body}>
           {workbench.activeView === 'models' ? (
             <ModelManager
-              busy={downloadModel.isPending || cancelModelDownload.isPending}
+              busy={
+                downloadModel.isPending || cancelModelDownload.isPending || selectModel.isPending
+              }
               models={models.data}
               onCancelModel={(modelId) => cancelModelDownload.mutate(modelId)}
               onDownloadModel={(modelId, force) => downloadModel.mutate({ force, modelId })}
+              onSelectModel={(modelId) => selectModel.mutate(modelId)}
               status={status.data}
             />
           ) : null}

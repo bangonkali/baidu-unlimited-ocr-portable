@@ -88,12 +88,18 @@ export const fixtureLogs: LogRecord[] = [
 ];
 
 export const fixtureModels: ModelsPayload = {
+  provider_label: 'Sahil Chachra Unlimited-OCR GGUF',
+  provider_repo: 'sahilchachra/Unlimited-OCR-GGUF',
+  selected_model_id: 'unlimited-ocr-q4-k-m',
+  shared_mmproj_file: 'mmproj-Unlimited-OCR-F16.gguf',
   models: [
     {
       auth_available: true,
       auth_source: 'HF_TOKEN',
+      bits: 4,
       display_name: 'Unlimited-OCR Q4_K_M',
       downloaded_bytes: 4_900_000_000,
+      downloaded_file_count: 2,
       files: [
         {
           downloaded_bytes: 4_000_000_000,
@@ -112,20 +118,75 @@ export const fixtureModels: ModelsPayload = {
           total_bytes: 900_000_000,
         },
       ],
+      hardware_tier: 'Most CUDA GPUs',
       model_id: 'unlimited-ocr-q4-k-m',
+      notes: 'Default practical size and quality choice.',
       overall_downloaded_bytes: 4_900_000_000,
       overall_percent: 100,
       overall_total_bytes: 4_900_000_000,
+      quality: 'Recommended balance',
+      quantization: 'Q4_K_M',
+      recommended: true,
       repo_id: 'sahilchachra/Unlimited-OCR-GGUF',
       revision: 'main',
+      selected: true,
       status: 'downloaded',
+      total_file_count: 2,
+      total_required_bytes: 2_762_203_232,
       total_bytes: 4_900_000_000,
+    },
+    {
+      auth_available: true,
+      auth_source: 'HF_TOKEN',
+      bits: 2,
+      display_name: 'Unlimited-OCR IQ2_M',
+      downloaded_bytes: 811_876_448,
+      downloaded_file_count: 1,
+      files: [
+        {
+          downloaded_bytes: 0,
+          file_id: 'model',
+          file_name: 'Unlimited-OCR-IQ2_M.gguf',
+          percent: 0,
+          status: 'missing',
+          total_bytes: 1_232_148_224,
+        },
+        {
+          downloaded_bytes: 811_876_448,
+          file_id: 'mmproj',
+          file_name: 'mmproj-Unlimited-OCR-F16.gguf',
+          percent: 100,
+          status: 'downloaded',
+          total_bytes: 811_876_448,
+        },
+      ],
+      hardware_tier: 'Very tight memory',
+      model_id: 'unlimited-ocr-iq2-m',
+      notes: 'Smallest option; quality tradeoffs are expected.',
+      overall_downloaded_bytes: 811_876_448,
+      overall_percent: 39.7,
+      overall_total_bytes: 2_044_024_672,
+      quality: 'Smallest experimental',
+      quantization: 'IQ2_M',
+      repo_id: 'sahilchachra/Unlimited-OCR-GGUF',
+      revision: 'main',
+      selected: false,
+      status: 'missing',
+      total_file_count: 2,
+      total_required_bytes: 2_044_024_672,
     },
   ],
   profiles: [
     {
       default_max_tokens: 8192,
-      description: 'Current R-SWA Q4 demo default.',
+      description: 'Higher avg similarity diagnostic profile.',
+      engine_name: 'llamacpp-q4_k_m-uocr-rswa-noimgend-noeos-full',
+      key: 'experimental-exact-prefill-q4',
+      label: 'Experimental exact-prefill Q4',
+    },
+    {
+      default_max_tokens: 8192,
+      description: 'Zero-empty fallback profile.',
       engine_name: 'llamacpp-q4_k_m-uocr-rswa-eos-origin-ngram-default-full',
       key: 'best-zero-empty-q4',
       label: 'Practical zero-empty Q4',
@@ -177,8 +238,8 @@ export const fixtureDownloadingModels: ModelsPayload = {
 };
 
 export const fixtureSettings: SettingsPayload = {
-  default_profile: 'best-zero-empty-q4',
+  default_profile: 'experimental-exact-prefill-q4',
   ocr_concurrency: 1,
   pdf_dpi: 200,
-  retry_profile: 'experimental-exact-prefill-q4',
+  retry_profile: 'best-zero-empty-q4',
 };

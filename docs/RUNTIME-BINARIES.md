@@ -54,10 +54,33 @@ into `uocr-server.exe`.
 not import `libcrypto` for SHA verification.
 
 Running `uocr-server.exe` appends launch and listener diagnostics to
-`logs/uocr-server.log`. Model downloads from the C++ workbench currently target
-the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`. PDF rendering
-uses embedded MuPDF at 200 DPI and writes page PNGs under
-`cache\rendered-pages\`.
+`logs/uocr-server.log`. Model downloads from the C++ workbench target the
+selected Unlimited-OCR GGUF variant plus the shared F16 mmproj file in
+`models/`. PDF rendering uses embedded MuPDF at 200 DPI and writes page PNGs
+under `cache\rendered-pages\`.
+
+The built-in model catalog currently covers all compatible GGUF files from
+`sahilchachra/Unlimited-OCR-GGUF`:
+
+| Model id | File | Notes |
+| --- | --- | --- |
+| `unlimited-ocr-bf16` | `Unlimited-OCR-BF16.gguf` | Largest diagnostic/reference model |
+| `unlimited-ocr-q8-0` | `Unlimited-OCR-Q8_0.gguf` | High quality, high VRAM |
+| `unlimited-ocr-q6-k` | `Unlimited-OCR-Q6_K.gguf` | Medium-high VRAM |
+| `unlimited-ocr-q5-k-m` | `Unlimited-OCR-Q5_K_M.gguf` | Balanced higher-quality option |
+| `unlimited-ocr-q5-k-s` | `Unlimited-OCR-Q5_K_S.gguf` | Smaller Q5 variant |
+| `unlimited-ocr-q4-k-m` | `Unlimited-OCR-Q4_K_M.gguf` | Recommended default model |
+| `unlimited-ocr-q4-k-s` | `Unlimited-OCR-Q4_K_S.gguf` | Smaller Q4 variant |
+| `unlimited-ocr-iq4-nl` | `Unlimited-OCR-IQ4_NL.gguf` | Edge-tuned I-quant |
+| `unlimited-ocr-iq4-xs` | `Unlimited-OCR-IQ4_XS.gguf` | Compact I-quant Q4 |
+| `unlimited-ocr-q3-k-m` | `Unlimited-OCR-Q3_K_M.gguf` | Tight-memory option |
+| `unlimited-ocr-iq3-m` | `Unlimited-OCR-IQ3_M.gguf` | I-quant 3-bit option |
+| `unlimited-ocr-iq3-xxs` | `Unlimited-OCR-IQ3_XXS.gguf` | Very small 3-bit option |
+| `unlimited-ocr-iq2-m` | `Unlimited-OCR-IQ2_M.gguf` | Smallest experimental option |
+
+Every model card also requires `mmproj-Unlimited-OCR-F16.gguf`. The UI records
+which files are already present, the selected model id, per-file progress,
+overall progress, transfer speed, ETA, and the active auth source.
 
 The C++ workbench downloads Hugging Face files through its embedded libcurl
 client, not Python or the `hf` CLI. It reads `HF_TOKEN`, then

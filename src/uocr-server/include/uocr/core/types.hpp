@@ -10,7 +10,7 @@ struct ParseContext {
   std::string file_hash = "unknown";
   int page_no = 1;
   std::string engine_id = "unlimited-ocr";
-  std::string profile_id = "best-zero-empty-q4";
+  std::string profile_id = "experimental-exact-prefill-q4";
 };
 
 struct NormalizedBox {

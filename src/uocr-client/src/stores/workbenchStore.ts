@@ -22,7 +22,7 @@ const initialState: WorkbenchState = {
   activeView: 'workbench',
   labelsVisible: true,
   overlayVisible: true,
-  selectedProfile: 'best-zero-empty-q4',
+  selectedProfile: 'experimental-exact-prefill-q4',
   selectedRoot: '',
   selection: {
     pageNo: 1,

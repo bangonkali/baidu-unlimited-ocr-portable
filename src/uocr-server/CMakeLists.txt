@@ -37,6 +37,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/UocrDependencies.cmake")
 uocr_configure_openssl()
 
 add_library(uocr_core STATIC
+  src/core/model_catalog.cpp
   src/core/ocr_parser.cpp
   src/core/profiles.cpp
   src/core/runaway_guard.cpp
@@ -167,6 +168,8 @@ if(UOCR_BUILD_SERVER)
       src/app/routes.cpp
       src/app/workbench_document_state.cpp
       src/app/workbench_ingest.cpp
+      src/app/workbench_ingest_start.cpp
+      src/app/workbench_model_records.cpp
       src/app/workbench_models.cpp
       src/app/workbench_page_preparation.cpp
       src/app/workbench_persistence.cpp

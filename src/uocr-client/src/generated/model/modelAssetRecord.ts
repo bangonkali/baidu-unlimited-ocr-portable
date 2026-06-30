@@ -40,5 +40,17 @@ export interface ModelAssetRecord {
   auth_source?: string | null;
   /** @nullable */
   last_event_at?: string | null;
+  quantization?: string;
+  bits?: number;
+  quality?: string;
+  hardware_tier?: string;
+  notes?: string;
+  recommended?: boolean;
+  selected?: boolean;
+  provider_name?: string;
+  /** @nullable */
+  total_required_bytes?: number | null;
+  downloaded_file_count?: number;
+  total_file_count?: number;
   files?: ModelDownloadFileRecord[];
 }

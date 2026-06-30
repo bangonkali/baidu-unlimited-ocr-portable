@@ -13,12 +13,14 @@ validation tools, but they are not the launched product runtime.
    requires authenticated downloads.
 4. Double-click `uocr-server.exe`, or launch it from that terminal.
 5. Open `http://127.0.0.1:8765/` if the browser does not open automatically.
-6. In the app, open **Models** and click **Download missing**. The panel shows
-   per-file bytes, percent, MiB/s, ETA, auth status, retry, re-download, and
-   cancel.
-7. Click **Choose Folder** to open the Windows folder picker, or paste a folder
+6. In the app, open **Models**, choose a compatible Unlimited-OCR GGUF variant,
+   and click **Download** on that model card. The panel shows per-file bytes,
+   percent, MiB/s, ETA, auth status, retry, re-download, and cancel.
+7. Click **Use** on the downloaded model you want for OCR. The selection is
+   persisted in `data\uocr.duckdb` and restored after restart.
+8. Click **Choose Folder** to open the Windows folder picker, or paste a folder
    path into the fallback path box.
-8. Click **Start Scan**.
+9. Click **Start Scan**.
 
 Supported inputs are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`,
 and `.webp`. Multi-page PDFs are rendered in-process by MuPDF embedded in
@@ -87,8 +89,13 @@ GGUF model files are downloaded after first launch into `models\` from:
 https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF
 ```
 
-The portable zip bundles native runtime DLLs; it does not bundle the large GGUF
-model files.
+The model library supports BF16, Q8_0, Q6_K, Q5_K_M, Q5_K_S, Q4_K_M, Q4_K_S,
+IQ4_NL, IQ4_XS, Q3_K_M, IQ3_M, IQ3_XXS, and IQ2_M. The shared
+`mmproj-Unlimited-OCR-F16.gguf` is downloaded once and reused. `Q4_K_M` remains
+the recommended default model, while the default OCR profile is
+`experimental-exact-prefill-q4`; `best-zero-empty-q4` remains available as the
+retry/reference profile. The portable zip bundles native runtime DLLs; it does
+not bundle the large GGUF model files.
 
 Authenticated Hugging Face downloads use environment variables only. The server
 checks `HF_TOKEN` first, then `HUGGING_FACE_HUB_TOKEN`. Tokens are never shown

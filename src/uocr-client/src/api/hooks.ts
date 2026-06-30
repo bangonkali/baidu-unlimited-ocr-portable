@@ -13,6 +13,7 @@ import type {
   LogsPayload,
   ModelDownloadRecord,
   ModelDownloadRequest,
+  ModelSelectRecord,
   ModelsPayload,
   PreviewImagesPayload,
   SettingsPayload,
@@ -115,6 +116,22 @@ export function useCancelModelDownload() {
       ),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+    },
+  });
+}
+
+export function useSelectModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (modelId: string) =>
+      postJson<ModelSelectRecord, Record<string, never>>(
+        `/api/models/${encodeURIComponent(modelId)}/select`,
+        {},
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.status });
       void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     },
   });

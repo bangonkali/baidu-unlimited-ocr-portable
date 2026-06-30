@@ -47,13 +47,19 @@ void persist_document(uocr::storage::WorkbenchRepository& repository) {
   run.queued_files = 1;
   run.processed_pages = 1;
   run.total_pages = 1;
+  run.profile_id = "experimental-exact-prefill-q4";
+  run.model_id = "unlimited-ocr-q5-k-m";
   run.file_hashes.push_back("file_abc");
   repository.upsert_run(run);
+  repository.put_setting_string("selected_model_id", "unlimited-ocr-q5-k-m");
 
   auto document = sample_document();
   repository.upsert_document(document, run.root_path);
   repository.upsert_page(document.file_hash, document.pages.front());
-  repository.replace_page_ocr(document.file_hash, document.pages.front(), "unlimited-ocr", "best-zero-empty-q4");
+  repository.replace_page_ocr(document.file_hash,
+                              document.pages.front(),
+                              "unlimited-ocr",
+                              "experimental-exact-prefill-q4");
   repository.upsert_work_unit(run.run_id, document.file_hash, 1, "completed", 1, "");
 }
 
@@ -70,21 +76,26 @@ int main() {
     persist_document(repository);
   }
 
-  uocr::storage::WorkbenchRepository reopened(db_path);
-  const auto snapshot = reopened.load_snapshot();
-  assert(snapshot.documents.size() == 1);
-  assert(snapshot.runs.size() == 1);
-  const auto& document = snapshot.documents.front();
-  assert(document.file_hash == "file_abc");
-  assert(document.pages.size() == 1);
-  assert(document.pages.front().cleaned_text == "Invoice total");
-  assert(document.pages.front().boxes.size() == 1);
-  assert(document.pages.front().boxes.front().content_markdown == "Invoice total");
-  assert(document.pages.front().spans.front().region_id == "reg_total");
+  {
+    uocr::storage::WorkbenchRepository reopened(db_path);
+    const auto snapshot = reopened.load_snapshot();
+    assert(snapshot.documents.size() == 1);
+    assert(snapshot.runs.size() == 1);
+    assert(snapshot.runs.front().model_id == "unlimited-ocr-q5-k-m");
+    assert(snapshot.runs.front().profile_id == "experimental-exact-prefill-q4");
+    assert(reopened.setting_string("selected_model_id", "") == "unlimited-ocr-q5-k-m");
+    const auto& document = snapshot.documents.front();
+    assert(document.file_hash == "file_abc");
+    assert(document.pages.size() == 1);
+    assert(document.pages.front().cleaned_text == "Invoice total");
+    assert(document.pages.front().boxes.size() == 1);
+    assert(document.pages.front().boxes.front().content_markdown == "Invoice total");
+    assert(document.pages.front().spans.front().region_id == "reg_total");
 
-  const auto results = reopened.search_document_hashes("invoice", 10);
-  assert(results.size() == 1);
-  assert(results.front() == "file_abc");
+    const auto results = reopened.search_document_hashes("invoice", 10);
+    assert(results.size() == 1);
+    assert(results.front() == "file_abc");
+  }
   std::filesystem::remove_all(root);
   return 0;
 }

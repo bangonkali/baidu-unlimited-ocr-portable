@@ -16,9 +16,14 @@ function applyModelEvent(
 ) {
   queryClient.setQueryData<ModelsPayload>(queryKeys.models, (current) => {
     const existing = current ?? { models: [], profiles: [] };
+    const incoming = event.payload;
+    const models = upsertById(existing.models, incoming, (model) => model.model_id);
     return {
       ...existing,
-      models: upsertById(existing.models, event.payload, (model) => model.model_id),
+      models: incoming.selected
+        ? models.map((model) => ({ ...model, selected: model.model_id === incoming.model_id }))
+        : models,
+      selected_model_id: incoming.selected ? incoming.model_id : existing.selected_model_id,
     };
   });
 }

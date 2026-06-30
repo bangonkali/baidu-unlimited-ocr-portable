@@ -37,8 +37,12 @@ logs/uocr-server.log
 ```
 
 The zip bundles the native `uocr-ffi` runtime. GGUF model files are not bundled;
-use the workbench model download action or `POST /api/models/unlimited-ocr-q4-k-m/download`
-to place them under `models/`.
+use the workbench **Models** panel to choose a catalog model, download it, and
+mark it **In Use**. API automation can call `GET /api/models`, then
+`POST /api/models/{model_id}/download`, then
+`POST /api/models/{model_id}/select`. The initial default model id is
+`unlimited-ocr-q4-k-m`; the default OCR profile is
+`experimental-exact-prefill-q4`.
 
 ## Installer Commands
 

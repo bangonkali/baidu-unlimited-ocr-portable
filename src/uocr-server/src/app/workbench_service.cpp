@@ -3,6 +3,7 @@
 #include "workbench_state.hpp"
 
 #include <exception>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -25,7 +26,7 @@ Json::Value WorkbenchService::settings() const {
   payload["pdf_dpi"] = 200;
   payload["ocr_concurrency"] = 1;
   payload["default_profile"] = default_ocr_profile().key;
-  payload["retry_profile"] = "experimental-exact-prefill-q4";
+  payload["retry_profile"] = "best-zero-empty-q4";
   payload["cache_path"] = (impl_->app_root / "cache").string();
   payload["database_path"] = (impl_->app_root / "data" / "uocr.duckdb").string();
   return payload;
@@ -34,6 +35,15 @@ Json::Value WorkbenchService::settings() const {
 Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
   const std::string root = request.get("root_path", "").asString();
   const std::string profile = request.get("profile_id", default_ocr_profile().key).asString();
+  const std::string requested_model = request.get("model_id", "").asString();
+  std::string model_id;
+  {
+    std::scoped_lock lock(impl_->mutex);
+    model_id = requested_model.empty() ? impl_->selected_model_id : requested_model;
+  }
+  if (find_model_catalog_entry(model_id) == nullptr) {
+    throw std::runtime_error("unknown model id: " + model_id);
+  }
   const auto files = discover_supported_files(root);
   const auto run_id = now_id();
   if (impl_->logger) {
@@ -49,6 +59,8 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
     run.root_path = root;
     run.queued_files = static_cast<int>(files.size());
     run.total_pages = static_cast<int>(files.size());
+    run.profile_id = profile;
+    run.model_id = model_id;
     for (const auto& file : files) {
       Impl::DocumentState document;
       document.file_hash = stable_hash(file);
@@ -68,7 +80,7 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
     impl_->publish_event("document.changed", document_event);
   }
   impl_->publish_status_changed();
-  impl_->start_run(run_id, files, profile);
+  impl_->start_run(run_id, files, profile, model_id);
   return get_run(run_id);
 }
 
