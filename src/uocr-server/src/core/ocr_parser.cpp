@@ -1,6 +1,7 @@
 #include "uocr/core/ocr_parser.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <iomanip>
 #include <regex>
 #include <sstream>
