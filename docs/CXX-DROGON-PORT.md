@@ -34,29 +34,34 @@ The server is structured around small service boundaries:
   `/api/events`. The websocket sends typed JSON envelopes for model progress,
   run status, document/page changes, parsed regions, cleaned text, status, and
   appended logs.
-- app: optional Drogon route registration, websocket registration, and static
-  OpenAPI serving.
+- app: Drogon route registration, websocket registration, and static OpenAPI
+  serving for the portable product executable.
 
-Drogon is optional at configure time so parser/schema/scanner tests can run on
-machines that have not installed Drogon yet. Build the core validation path:
+Package dependencies are resolved through vcpkg by default. The local core
+validation path can skip the server target, but it still uses the vcpkg
+toolchain so curl/OpenSSL resolve the same way as the release package:
 
 ```powershell
-cmake -S . -B build/uocr-server -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_TESTS=ON
+cmake -S . -B build/uocr-server `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+  -DUOCR_BUILD_SERVER=OFF `
+  -DUOCR_BUILD_TESTS=ON
 cmake --build build/uocr-server --config Release --target uocr-core-tests
 ctest --test-dir build/uocr-server -C Release --output-on-failure
 ```
 
-For the Windows portable product build, dependencies come from the vcpkg
-manifest whenever vcpkg provides the package. The current pinned baseline
-resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon keep OpenSSL TLS
-enabled, and SHA verification links `OpenSSL::Crypto` from the same vcpkg
-install.
+For the Windows portable product build, package dependencies come from the
+vcpkg manifest. The current pinned baseline resolves Drogon `1.9.13` exactly
+and OpenSSL `3.6.3` exactly; Trantor/Drogon keep OpenSSL TLS enabled, and SHA
+verification links `OpenSSL::Crypto` from the same vcpkg install. CMake fails
+early if the vcpkg toolchain is missing unless `UOCR_REQUIRE_VCPKG=OFF` is set
+for one-off diagnostics.
 
-When Drogon is available through CMake package discovery, enable the executable:
+Build the executable with the repository preset:
 
 ```powershell
-cmake -S . -B build/uocr-server-drogon -DUOCR_BUILD_SERVER=ON
-cmake --build build/uocr-server-drogon --config Release --target uocr-server
+cmake --preset windows-workbench
+cmake --build --preset windows-workbench-release
 ```
 
 Release builds inject `UOCR_VERSION` from the tag. The executable reports that

@@ -41,11 +41,14 @@ are downloaded or validated after first launch and are not committed to git.
 MuPDF is linked into `uocr-server.exe`; the portable zip must not contain
 `mutool.exe`.
 
-Native C++ dependencies are vcpkg-managed where available. The current pinned
-baseline resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon use that
-OpenSSL for TLS, and `uocr-server.exe` uses the same vcpkg `OpenSSL::Crypto`
-target for SHA256 verification of downloaded model files. The release root
-therefore includes the matching `libssl*.dll` and `libcrypto*.dll` files.
+Native C++ package dependencies are vcpkg-managed. The current pinned baseline
+resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly; Trantor/Drogon
+use that OpenSSL for TLS, and `uocr-server.exe` uses the same vcpkg
+`OpenSSL::Crypto` target for SHA256 verification of downloaded model files. The
+release root therefore includes the matching `libssl*.dll` and
+`libcrypto*.dll` files. DuckDB and MuPDF are deliberate exceptions because the
+portable app bundles a DuckDB Windows SDK snapshot and links the MuPDF submodule
+into `uocr-server.exe`.
 `package-workbench.ps1` and the release workflow inspect dependencies with
 `dumpbin` and fail if Trantor is not OpenSSL/TLS-enabled or if the server does
 not import `libcrypto` for SHA verification.

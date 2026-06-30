@@ -8,10 +8,23 @@ option(UOCR_BUILD_SERVER "Build the Drogon API server when Drogon is available" 
 option(UOCR_BUILD_TESTS "Build uocr-server unit tests" ON)
 option(UOCR_BUILD_CLIENT "Build and copy the React client beside uocr-server" ON)
 option(UOCR_EMBED_MUPDF "Link the MuPDF renderer into uocr-server" ON)
+option(UOCR_REQUIRE_VCPKG "Require dependency packages to resolve through vcpkg" ON)
 set(UOCR_VERSION "" CACHE STRING "uocr-server release version, usually the git tag")
 set(UOCR_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../uocr-client" CACHE PATH "React client directory")
 set(UOCR_MUPDF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/mupdf" CACHE PATH "MuPDF submodule root")
 set(UOCR_DUCKDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/duckdb/windows-amd64" CACHE PATH "Bundled DuckDB Windows SDK root")
+
+if(UOCR_REQUIRE_VCPKG)
+  string(TOLOWER "${CMAKE_TOOLCHAIN_FILE}" UOCR_TOOLCHAIN_LOWER)
+  if(NOT UOCR_TOOLCHAIN_LOWER MATCHES "vcpkg[\\\\/]scripts[\\\\/]buildsystems[\\\\/]vcpkg\\.cmake$")
+    message(FATAL_ERROR
+      "uocr-server requires the vcpkg toolchain for package dependencies. "
+      "Configure with -DCMAKE_TOOLCHAIN_FILE=$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake "
+      "or set -DUOCR_REQUIRE_VCPKG=OFF only for local diagnostics."
+    )
+  endif()
+  message(STATUS "Using vcpkg dependency manager: ${CMAKE_TOOLCHAIN_FILE}")
+endif()
 
 find_package(CURL REQUIRED)
 

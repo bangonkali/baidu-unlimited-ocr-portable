@@ -116,7 +116,7 @@ function Assert-VcpkgOpenSslRuntime {
         if ($deps -match "libcrypto|libssl") {
             $importsOpenSsl = $true
         }
-        if ($binary.Name -eq "trantor.dll" -and $deps -notmatch "libssl" -and $deps -notmatch "libcrypto") {
+        if ($binary.Name -eq "trantor.dll" -and ($deps -notmatch "libssl" -or $deps -notmatch "libcrypto")) {
             throw "trantor.dll does not import OpenSSL; Drogon TLS support is not enabled."
         }
         if ($binary.Name -eq $Exe.Name -and $deps -notmatch "libcrypto") {

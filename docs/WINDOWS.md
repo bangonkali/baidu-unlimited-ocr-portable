@@ -24,11 +24,14 @@ rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
 files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
 `uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 
-The backend dependency graph is vcpkg-managed. The current pinned baseline
-resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon use that OpenSSL
-for TLS, and `uocr-server.exe` uses the same vcpkg `OpenSSL::Crypto` target for
-model-file SHA verification. The release zip includes the matching
-`libcrypto*.dll` and `libssl*.dll` files beside the executable.
+The backend package dependency graph is vcpkg-managed. The current pinned
+baseline resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly;
+Trantor/Drogon use that OpenSSL for TLS, and `uocr-server.exe` uses the same
+vcpkg `OpenSSL::Crypto` target for model-file SHA verification. The release zip
+includes the matching `libcrypto*.dll` and `libssl*.dll` files beside the
+executable. DuckDB and MuPDF are the intentional native exceptions: DuckDB is a
+bundled Windows SDK snapshot, and MuPDF is linked from the submodule into the
+single server executable for PDF support.
 
 The app also creates `data\uocr.duckdb` on startup. This DuckDB file stores scan
 runs, files, rendered page metadata, OCR raw/cleaned text, bounding boxes,
@@ -84,7 +87,10 @@ Check the release tag associated with an executable:
 Build the dependency-light C++ core and tests first:
 
 ```powershell
-cmake -S . -B build\uocr-server -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_TESTS=ON
+cmake -S . -B build\uocr-server `
+  -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+  -DUOCR_BUILD_SERVER=OFF `
+  -DUOCR_BUILD_TESTS=ON
 cmake --build build\uocr-server --config Release --target uocr-core-tests
 ctest --test-dir build\uocr-server -C Release --output-on-failure
 ```
@@ -109,11 +115,12 @@ React build to `web\`:
 ```
 
 The script expects MSVC, CMake, Bun, and vcpkg. The lower-level CMake path for
-local development is:
+local development should use the repository preset so the vcpkg manifest stays
+authoritative:
 
 ```powershell
-cmake -S . -B build\uocr-server-drogon -DUOCR_BUILD_SERVER=ON
-cmake --build build\uocr-server-drogon --config Release --target uocr-server
+cmake --preset windows-workbench
+cmake --build --preset windows-workbench-release
 ```
 
 That lower-level path assumes the MuPDF static libraries already exist under

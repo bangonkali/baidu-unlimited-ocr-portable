@@ -74,9 +74,10 @@ GitHub Actions:
   zip is being stabilized.
 - `Release workbench` runs on `v*` tags and manual dispatch. It builds the
   Windows C++/React app through the vcpkg manifest, bundles the Windows
-  runtime, smokes the extracted zip, verifies Trantor uses vcpkg OpenSSL for
-  TLS and the server uses the same `libcrypto` for SHA verification, and uploads
-  the zip plus checksum to the GitHub Release.
+  runtime, smokes the extracted zip, verifies Drogon `1.9.13`, verifies Trantor
+  uses the same vcpkg OpenSSL `3.6.3` for TLS and the server uses that
+  same `libcrypto` for SHA verification, and uploads the zip plus checksum to
+  the GitHub Release.
 - `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
   their push/tag triggers after the Windows portable exe release path remains
   stable.

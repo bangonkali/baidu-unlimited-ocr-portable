@@ -59,7 +59,7 @@ function(uocr_copy_duckdb_runtime target)
 endfunction()
 
 function(uocr_configure_openssl)
-  find_package(OpenSSL 3.6.3 REQUIRED)
+  find_package(OpenSSL 3.6.3 EXACT REQUIRED)
   add_library(uocr_openssl_crypto INTERFACE)
   target_link_libraries(uocr_openssl_crypto INTERFACE OpenSSL::Crypto)
   set(_uocr_openssl_version "${OPENSSL_VERSION}")
