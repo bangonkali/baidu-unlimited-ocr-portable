@@ -91,8 +91,9 @@ windows-x86_64-cpu
 
 The portable package defaults to staging the CUDA runtime plus a CPU fallback.
 ROCm is exposed in Settings when a matching runtime is present and the machine
-passes the AMD probe. Ubuntu 24.04 CUDA/ROCm/CPU and macOS arm64/Metal are the
-next release targets.
+passes the AMD probe. The release workflow also builds an Apple Silicon macOS
+zip with the `macos-arm64-metal` runtime after the Windows zip passes. Ubuntu
+24.04 CUDA/ROCm/CPU is the next platform target.
 
 GGUF model files are downloaded after first launch into `models\` from:
 

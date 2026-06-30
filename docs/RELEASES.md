@@ -1,7 +1,8 @@
 # Workbench Releases
 
-The release goal is a single Windows zip that can be downloaded from GitHub,
-extracted anywhere, and launched by running `uocr-server.exe`.
+The release goal is a small set of portable zips that can be downloaded from
+GitHub, extracted anywhere writable, and launched directly. Windows remains the
+primary package; Apple Silicon macOS is built after the Windows package passes.
 
 ## Windows User Flow
 
@@ -44,6 +45,25 @@ mark it **In Use**. API automation can call `GET /api/models`, then
 `unlimited-ocr-q4-k-m`; the default OCR profile is
 `experimental-exact-prefill-q4`.
 
+## macOS Apple Silicon User Flow
+
+Asset:
+
+```text
+uocr-workbench-macos-arm64-<tag>.zip
+```
+
+Extract it and run:
+
+```sh
+./uocr-server.command
+```
+
+The app uses the same local URL, log path, DuckDB database layout, model
+download flow, and in-process vcpkg MuPDF renderer as the Windows package. The
+zip bundles the `macos-arm64-metal` native runtime and downloads GGUF model
+files after first launch.
+
 ## Installer Commands
 
 Windows:
@@ -74,17 +94,20 @@ Local package:
 
 GitHub Actions:
 
-- `Release workbench` is the only automatic workflow while the Windows portable
-  zip is being stabilized.
+- `Release workbench` is the only automatic workflow while the portable zip
+  path is being stabilized.
 - `Release workbench` runs on `v*` tags and manual dispatch. It builds the
   Windows C++/React app through the vcpkg manifest, bundles the Windows
   runtime, smokes the extracted zip, verifies Drogon `1.9.13`, verifies Trantor
   uses the same vcpkg OpenSSL `3.6.3` for TLS, verifies the server uses that
   same `libcrypto` for SHA verification, runs `uocr-dependency-tests`, and
   uploads the zip plus checksum to the GitHub Release.
+- After the Windows job succeeds, the same workflow builds the macOS arm64
+  C++/React app through vcpkg, bundles the `macos-arm64-metal` runtime, runs
+  the C++ test targets, smokes the extracted zip on `macos-15`, and uploads the
+  macOS zip plus checksum to the same GitHub Release.
 - `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
-  their push/tag triggers after the Windows portable exe release path remains
-  stable.
+  their push/tag triggers after the portable app release path remains stable.
 
 For app releases, increment the patch tag and push it, for example `v0.0.15`,
 `v0.0.16`, and so on.
