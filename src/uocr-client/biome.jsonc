@@ -16,6 +16,7 @@
       "biome.jsonc",
       ".storybook/**",
       "!!src/generated",
+      "!!src/routeTree.gen.ts",
       "!!dist",
       "!!storybook-static",
       "!!node_modules",

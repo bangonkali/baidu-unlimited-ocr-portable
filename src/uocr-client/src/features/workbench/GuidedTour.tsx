@@ -1,7 +1,8 @@
 import type { EventData, Step } from 'react-joyride';
 import { Joyride, STATUS } from 'react-joyride';
 
-import { setActiveView, setTourRun } from '../../stores/workbenchStore';
+import type { ActiveView } from '../../stores/workbenchStore';
+import { setTourRun } from '../../stores/workbenchStore';
 
 const steps: Step[] = [
   {
@@ -29,13 +30,14 @@ const steps: Step[] = [
 
 interface GuidedTourProps {
   run: boolean;
+  onViewChange: (view: ActiveView) => void;
 }
 
-export function GuidedTour({ run }: GuidedTourProps) {
+export function GuidedTour({ onViewChange, run }: GuidedTourProps) {
   return (
     <Joyride
       continuous
-      onEvent={handleTourEvent}
+      onEvent={(event) => handleTourEvent(event, onViewChange)}
       options={{
         arrowColor: '#252526',
         backgroundColor: '#252526',
@@ -53,18 +55,18 @@ export function GuidedTour({ run }: GuidedTourProps) {
   );
 }
 
-function handleTourEvent(event: EventData) {
+function handleTourEvent(event: EventData, onViewChange: (view: ActiveView) => void) {
   if (event.status === STATUS.FINISHED || event.status === STATUS.SKIPPED) {
     setTourRun(false);
     return;
   }
   if (event.index === 0) {
-    setActiveView('models');
+    onViewChange('models');
   }
   if (event.index === 1 || event.index === 2 || event.index === 3) {
-    setActiveView('workbench');
+    onViewChange('workbench');
   }
   if (event.index === 4) {
-    setActiveView('diagnostics');
+    onViewChange('diagnostics');
   }
 }

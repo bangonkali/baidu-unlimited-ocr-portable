@@ -35,6 +35,11 @@
   border-radius: 4px;
 }
 
+.group[data-active="true"] {
+  border-color: color-mix(in srgb, var(--accent) 64%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .group h2 {
   margin: 0;
   color: var(--text);

@@ -4,6 +4,7 @@ import type { ModelsPayload, OcrProfileRecord, SettingsPayload } from '../../api
 import styles from './SettingsPanel.module.css';
 
 interface SettingsPanelProps {
+  activeSection?: 'runtime' | 'ocr' | 'storage' | 'models';
   busy?: boolean;
   models?: ModelsPayload;
   profiles: OcrProfileRecord[];
@@ -25,7 +26,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         <span>Settings</span>
       </header>
       <div className={styles.grid}>
-        <section className={styles.group}>
+        <section className={styles.group} data-active={props.activeSection === 'runtime'}>
           <h2>Inference</h2>
           <label>
             <span>Runtime</span>
@@ -48,7 +49,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
           <RuntimeList settings={props.settings} />
         </section>
 
-        <section className={styles.group}>
+        <section
+          className={styles.group}
+          data-active={props.activeSection === 'ocr' || props.activeSection === 'models'}
+        >
           <h2>OCR Defaults</h2>
           <label>
             <span>Model</span>
@@ -84,7 +88,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
           </div>
         </section>
 
-        <section className={styles.group}>
+        <section className={styles.group} data-active={props.activeSection === 'storage'}>
           <h2>Storage</h2>
           <p>{props.settings?.database_path ?? 'Database path unavailable'}</p>
           <p>{props.settings?.cache_path ?? 'Cache path unavailable'}</p>

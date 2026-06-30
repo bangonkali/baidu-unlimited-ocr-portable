@@ -9,10 +9,23 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 0 12px;
   font-size: 12px;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
+}
+
+.headerActions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.copyStatus {
+  color: var(--subtle);
+  font-size: 11px;
 }
 
 .body {
@@ -26,8 +39,15 @@
   margin: 0 0 16px;
 }
 
-.pageLabel {
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.pageLabel {
   font-size: 11px;
   color: var(--subtle);
   text-transform: uppercase;
@@ -36,6 +56,73 @@
 .pageText p {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.markdownBody {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.markdownBody > *:first-child {
+  margin-top: 0;
+}
+
+.markdownBody > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdownBody p,
+.markdownBody ul,
+.markdownBody ol,
+.markdownBody blockquote,
+.markdownBody pre,
+.markdownBody table {
+  margin: 0 0 10px;
+}
+
+.markdownBody h1,
+.markdownBody h2,
+.markdownBody h3,
+.markdownBody h4,
+.markdownBody h5,
+.markdownBody h6 {
+  margin: 12px 0 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.markdownBody code,
+.markdownBody pre {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.markdownBody pre {
+  padding: 8px;
+  overflow: auto;
+  background: #151515;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.markdownBody a {
+  color: var(--accent);
+}
+
+.tableViewport {
+  overflow: auto;
+}
+
+.tableViewport table {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+}
+
+.tableViewport th,
+.tableViewport td {
+  padding: 5px 7px;
+  border: 1px solid var(--border);
 }
 
 .span {
@@ -51,6 +138,75 @@
 .span:hover,
 .span[data-active="true"] {
   border-color: var(--accent);
+}
+
+.headerIcon,
+.pageCopy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.headerIcon {
+  gap: 1px;
+  width: 36px;
+  height: 24px;
+}
+
+.pageCopy {
+  width: 24px;
+  height: 24px;
+}
+
+.headerIcon:hover:not(:disabled),
+.pageCopy:hover:not(:disabled),
+.headerIcon[data-state="open"] {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border);
+}
+
+.headerIcon:disabled,
+.pageCopy:disabled {
+  color: var(--subtle);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.copyMenu {
+  min-width: 160px;
+  padding: 4px;
+  color: var(--text);
+  background: #252526;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 36%);
+  z-index: 60;
+}
+
+.copyMenuItem {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.copyMenuItem[data-highlighted] {
+  background: var(--panel-3);
+}
+
+.liveHint {
+  margin-top: 6px;
+  color: var(--subtle);
+  font-size: 11px;
 }
 
 .empty {

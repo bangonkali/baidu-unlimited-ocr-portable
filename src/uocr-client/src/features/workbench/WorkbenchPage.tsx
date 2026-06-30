@@ -1,10 +1,9 @@
 import { useDebouncedValue } from '@tanstack/react-pacer';
 import { useQueryClient } from '@tanstack/react-query';
-import { CircleHelp, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import {
-  queryKeys,
   useCancelModelDownload,
   useDocumentPreviewImages,
   useDocumentRegions,
@@ -22,140 +21,56 @@ import {
   useStatus,
   useUpdateSettings,
 } from '../../api/hooks';
-import type { DocumentRegionsPayload, ModelsPayload, OcrProfileRecord } from '../../api/types';
-import { IconButton } from '../../components/IconButton';
 import { useRealtimeState } from '../../realtime/realtimeStore';
-import {
-  followLatestRegion,
-  setActiveView,
-  setSelectedProfile,
-  setSelectedRoot,
-  setTourRun,
-  useWorkbenchState,
-} from '../../stores/workbenchStore';
+import type {
+  DiagnosticsRouteSearch,
+  ModelRouteSearch,
+  SettingsRouteSearch,
+  WorkbenchRouteSearch,
+} from '../../routeSearch';
+import type { ActiveView } from '../../stores/workbenchStore';
+import { setSelectedRoot, setTourRun, useWorkbenchState } from '../../stores/workbenchStore';
 import { ActivityBar } from './ActivityBar';
-import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { GuidedTour } from './GuidedTour';
 import { IngestToolbar } from './IngestToolbar';
-import { ModelManager } from './ModelManager';
-import { SettingsPanel } from './SettingsPanel';
-import { StatusBar } from './StatusBar';
+import { useModelRouteActions } from './useModelRouteActions';
+import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
+import { useRouteSearchSync, useRouteSearchText } from './useWorkbenchRouteSync';
 import styles from './WorkbenchPage.module.css';
-import { WorkbenchPanels } from './WorkbenchPanels';
+import {
+  CommandCenter,
+  profileOptions,
+  selectedModel,
+  useAutoFollowLatestRegion,
+  usePersistentProfile,
+  useWorkbenchRefresh,
+  WorkbenchFooter,
+} from './WorkbenchPageSupport';
+import { WorkbenchViewContent } from './WorkbenchViewContent';
+import { viewPath } from './workbenchRouteState';
 
-function selectedModel(models?: ModelsPayload) {
-  return (
-    models?.models.find((item) => item.selected) ??
-    models?.models.find((item) => item.model_id === models.selected_model_id) ??
-    models?.models[0]
-  );
+interface WorkbenchPageProps {
+  activeView?: ActiveView;
+  diagnosticsSearch?: DiagnosticsRouteSearch;
+  modelScope?: 'library' | 'downloads';
+  modelSearch?: ModelRouteSearch;
+  settingsSearch?: SettingsRouteSearch;
+  workbenchSearch?: WorkbenchRouteSearch;
 }
 
-function profileOptions(profiles: OcrProfileRecord[] | undefined, selectedProfile: string) {
-  return profiles?.length
-    ? profiles
-    : [
-        {
-          key: selectedProfile,
-          label: 'Experimental exact-prefill Q4',
-          engine_name: 'Unlimited-OCR FFI',
-          description: '',
-          default_max_tokens: 8192,
-        },
-      ];
-}
-
-function useAutoFollowLatestRegion(
-  workbench: ReturnType<typeof useWorkbenchState>,
-  regions?: DocumentRegionsPayload,
-) {
-  const latestRegion = regions?.boxes.at(-1);
-  useEffect(() => {
-    if (!workbench.autoFollowRegions || !regions || !latestRegion) {
-      return;
-    }
-    if (workbench.selection.regionId === latestRegion.region_id) {
-      return;
-    }
-    followLatestRegion(regions.file_hash, regions.boxes);
-  }, [latestRegion, regions, workbench.autoFollowRegions, workbench.selection.regionId]);
-}
-
-function WorkbenchFooter(props: {
-  accelerator?: string;
-  documentCount: number;
-  logPath?: string;
-  realtimeState: string;
-  runState: string;
-  runtimePlatform?: string;
-  selectedRoot: string;
-}) {
-  return (
-    <StatusBar
-      documentCount={props.documentCount}
-      host={window.location.host}
-      logPath={props.logPath}
-      realtimeState={props.realtimeState}
-      runState={props.runState}
-      runtime={`${props.runtimePlatform ?? 'windows-x86_64-cuda13'} / ${
-        props.accelerator ?? 'cuda'
-      }`}
-      selectedRoot={props.selectedRoot}
-    />
-  );
-}
-
-function CommandCenter(props: {
-  searchText: string;
-  onSearchTextChange: (value: string) => void;
-  onStartGuide: () => void;
-}) {
-  return (
-    <div className={styles.commandCenter}>
-      <Search size={15} />
-      <input
-        aria-label="Search documents"
-        onChange={(event) => props.onSearchTextChange(event.target.value)}
-        placeholder="Search documents"
-        value={props.searchText}
-      />
-      <IconButton icon={CircleHelp} label="Start guide" onClick={props.onStartGuide} />
-    </div>
-  );
-}
-
-function usePersistentProfile(
-  defaultProfile: string | undefined,
-  selectedProfile: string,
-  saveProfile: (profileId: string) => void,
-) {
-  useEffect(() => {
-    if (defaultProfile && defaultProfile !== selectedProfile) {
-      setSelectedProfile(defaultProfile);
-    }
-  }, [defaultProfile, selectedProfile]);
-
-  return (profileId: string) => {
-    setSelectedProfile(profileId);
-    saveProfile(profileId);
-  };
-}
-
-function useWorkbenchRefresh(queryClient: ReturnType<typeof useQueryClient>) {
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.models });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
-    void queryClient.invalidateQueries({ queryKey: ['documents'] });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-  };
-}
-
-export function WorkbenchPage() {
+export function WorkbenchPage({
+  activeView = 'workbench',
+  diagnosticsSearch,
+  modelScope = 'library',
+  modelSearch,
+  settingsSearch,
+  workbenchSearch,
+}: WorkbenchPageProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const workbench = useWorkbenchState();
   const realtime = useRealtimeState();
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState(workbenchSearch?.q ?? diagnosticsSearch?.q ?? '');
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const status = useStatus();
   const documents = useDocuments(debouncedSearch);
@@ -182,7 +97,9 @@ export function WorkbenchPage() {
     (document) => document.file_hash === workbench.selection.fileHash,
   );
   const profiles = profileOptions(models.data?.profiles, workbench.selectedProfile);
+  useRouteSearchText(activeView, diagnosticsSearch, workbenchSearch, searchText, setSearchText);
   useAutoFollowLatestRegion(workbench, regions.data);
+  useRouteSearchSync({ activeView, navigate, searchText, workbench, workbenchSearch });
   const changeProfile = usePersistentProfile(
     settings.data?.default_profile,
     workbench.selectedProfile,
@@ -190,23 +107,25 @@ export function WorkbenchPage() {
   );
   const refresh = useWorkbenchRefresh(queryClient);
 
-  const pickFolder = () => {
-    void folderDialog.mutateAsync().then((result) => {
-      if (!result.cancelled) {
-        setSelectedRoot(result.selected_path);
-      }
-    });
+  const { pickFolder, startScan } = useWorkbenchIngestActions({
+    folderDialog,
+    model,
+    rootPath: workbench.selectedRoot,
+    selectedProfile: workbench.selectedProfile,
+    startIngest,
+  });
+  const navigateView = (view: ActiveView) => {
+    void navigate({ to: viewPath(view) });
   };
-  const startScan = () =>
-    startIngest.mutate({
-      model_id: model?.model_id,
-      profile_id: workbench.selectedProfile,
-      root_path: workbench.selectedRoot,
-    });
+  const { changeModelScope, updateModelRouteSearch } = useModelRouteActions(
+    navigate,
+    modelScope,
+    modelSearch,
+  );
   return (
     <div className={styles.shell}>
-      <GuidedTour run={workbench.tourRun} />
-      <ActivityBar activeView={workbench.activeView} />
+      <GuidedTour onViewChange={navigateView} run={workbench.tourRun} />
+      <ActivityBar activeView={activeView} />
       <main className={styles.main}>
         <CommandCenter
           onSearchTextChange={setSearchText}
@@ -231,52 +150,44 @@ export function WorkbenchPage() {
           supportedInputs={status.data?.supported_inputs}
         />
         <div className={styles.body}>
-          {workbench.activeView === 'models' ? (
-            <ModelManager
-              busy={
-                downloadModel.isPending || cancelModelDownload.isPending || selectModel.isPending
-              }
-              models={models.data}
-              onCancelModel={(modelId) => cancelModelDownload.mutate(modelId)}
-              onDownloadModel={(modelId, force) => downloadModel.mutate({ force, modelId })}
-              onSelectModel={(modelId) => selectModel.mutate(modelId)}
-              status={status.data}
-            />
-          ) : null}
-          {workbench.activeView === 'diagnostics' ? (
-            <DiagnosticsPanel logs={logs.data?.logs ?? []} runs={runs.data?.runs ?? []} />
-          ) : null}
-          {workbench.activeView === 'settings' ? (
-            <SettingsPanel
-              busy={selectModel.isPending || updateSettings.isPending}
-              models={models.data}
-              onModelChange={(modelId) => selectModel.mutate(modelId)}
-              onProfileChange={changeProfile}
-              onRuntimeChange={(runtimeId) =>
-                updateSettings.mutate({ selected_runtime_id: runtimeId })
-              }
-              profiles={profiles}
-              selectedProfile={workbench.selectedProfile}
-              settings={settings.data}
-            />
-          ) : null}
-          {workbench.activeView === 'workbench' ? (
-            <WorkbenchPanels
-              documents={documents.data?.documents ?? []}
-              logs={logs.data?.logs ?? []}
-              model={model}
-              onOpenModels={() => setActiveView('models')}
-              onPickFolder={pickFolder}
-              onStart={startScan}
-              previewPages={previewImages.data?.pages ?? []}
-              regions={regions.data?.boxes ?? []}
-              rootPath={workbench.selectedRoot}
-              runs={runs.data?.runs ?? []}
-              selectedDocument={selectedDocument}
-              textPages={text.data?.pages ?? []}
-              workbench={workbench}
-            />
-          ) : null}
+          <WorkbenchViewContent
+            activeView={activeView}
+            documents={documents.data?.documents ?? []}
+            logs={logs.data?.logs ?? []}
+            model={model}
+            modelBusy={
+              downloadModel.isPending || cancelModelDownload.isPending || selectModel.isPending
+            }
+            modelScope={modelScope}
+            modelSearch={modelSearch}
+            models={models.data}
+            onCancelModel={(modelId) => cancelModelDownload.mutate(modelId)}
+            onDownloadModel={(modelId, force) => downloadModel.mutate({ force, modelId })}
+            onModelChange={(modelId) => selectModel.mutate(modelId)}
+            onModelRouteSearchChange={updateModelRouteSearch}
+            onModelScopeChange={changeModelScope}
+            onOpenModels={() => navigateView('models')}
+            onPickFolder={pickFolder}
+            onProfileChange={changeProfile}
+            onRuntimeChange={(runtimeId) =>
+              updateSettings.mutate({ selected_runtime_id: runtimeId })
+            }
+            onSelectModel={(modelId) => selectModel.mutate(modelId)}
+            onStart={startScan}
+            previewPages={previewImages.data?.pages ?? []}
+            profiles={profiles}
+            regions={regions.data?.boxes ?? []}
+            rootPath={workbench.selectedRoot}
+            runs={runs.data?.runs ?? []}
+            selectedDocument={selectedDocument}
+            selectedProfile={workbench.selectedProfile}
+            settings={settings.data}
+            settingsBusy={selectModel.isPending || updateSettings.isPending}
+            settingsSearch={settingsSearch}
+            status={status.data}
+            textPages={text.data?.pages ?? []}
+            workbench={workbench}
+          />
         </div>
         <WorkbenchFooter
           accelerator={status.data?.accelerator}

@@ -1,30 +1,12 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createRouter } from '@tanstack/react-router';
 
-import { WorkbenchPage } from './features/workbench/WorkbenchPage';
+import { routeTree } from './routeTree.gen';
 
-function RootLayout() {
-  return <Outlet />;
-}
-
-const rootRoute = createRootRoute({
-  component: RootLayout,
+export const router = createRouter({
+  defaultPreload: 'intent',
+  routeTree,
+  scrollRestoration: true,
 });
-
-const indexRoute = createRoute({
-  component: WorkbenchPage,
-  getParentRoute: () => rootRoute,
-  path: '/',
-});
-
-const settingsRoute = createRoute({
-  component: WorkbenchPage,
-  getParentRoute: () => rootRoute,
-  path: '/settings',
-});
-
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);
-
-export const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {
   interface Register {

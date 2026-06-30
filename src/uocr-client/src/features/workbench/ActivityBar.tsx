@@ -1,8 +1,8 @@
+import { Link } from '@tanstack/react-router';
 import { Bot, Database, FileSearch, Settings } from 'lucide-react';
+import type { ComponentType } from 'react';
 
-import { IconButton } from '../../components/IconButton';
 import type { ActiveView } from '../../stores/workbenchStore';
-import { setActiveView } from '../../stores/workbenchStore';
 import styles from './WorkbenchPage.module.css';
 
 export function ActivityBar({ activeView }: { activeView: ActiveView }) {
@@ -10,33 +10,57 @@ export function ActivityBar({ activeView }: { activeView: ActiveView }) {
     <aside className={styles.activityBar} aria-label="Primary">
       <div className={styles.brand}>U</div>
       <nav className={styles.activityNav}>
-        <IconButton
+        <ActivityLink
+          active={activeView === 'workbench'}
           icon={FileSearch}
           label="Workbench"
-          onClick={() => setActiveView('workbench')}
-          pressed={activeView === 'workbench'}
+          to="/workbench"
         />
         <div data-tour="models">
-          <IconButton
+          <ActivityLink
+            active={activeView === 'models'}
             icon={Database}
             label="Models"
-            onClick={() => setActiveView('models')}
-            pressed={activeView === 'models'}
+            to="/models"
           />
         </div>
-        <IconButton
+        <ActivityLink
+          active={activeView === 'settings'}
           icon={Settings}
           label="Settings"
-          onClick={() => setActiveView('settings')}
-          pressed={activeView === 'settings'}
+          to="/settings"
         />
-        <IconButton
+        <ActivityLink
+          active={activeView === 'diagnostics'}
           icon={Bot}
           label="Diagnostics"
-          onClick={() => setActiveView('diagnostics')}
-          pressed={activeView === 'diagnostics'}
+          to="/diagnostics"
         />
       </nav>
     </aside>
+  );
+}
+
+function ActivityLink({
+  active,
+  icon: Icon,
+  label,
+  to,
+}: {
+  active: boolean;
+  icon: ComponentType<{ size?: number; strokeWidth?: number }>;
+  label: string;
+  to: '/workbench' | '/models' | '/settings' | '/diagnostics';
+}) {
+  return (
+    <Link
+      aria-label={label}
+      aria-pressed={active}
+      className={styles.activityLink}
+      title={label}
+      to={to}
+    >
+      <Icon size={17} strokeWidth={1.8} />
+    </Link>
   );
 }

@@ -4,6 +4,7 @@ import { renderToString } from 'react-dom/server';
 import { fixtureDownloadingModels, fixtureModels } from '../../stories/fixtures/workbenchFixtures';
 import { ModelManager } from './ModelManager';
 import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
+import { visibleModels } from './modelLibrary';
 
 describe('model download formatting', () => {
   test('formats progress values for the model dashboard', () => {
@@ -22,6 +23,7 @@ describe('ModelManager', () => {
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
         onSelectModel={() => undefined}
+        routeSearch={{ view: 'cards' }}
       />,
     );
     expect(html).toContain('Authenticated with HF_TOKEN');
@@ -39,10 +41,35 @@ describe('ModelManager', () => {
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
         onSelectModel={() => undefined}
+        routeSearch={{ view: 'cards' }}
       />,
     );
     expect(html).toContain('Cancel');
     expect(html).toContain('36.7%');
     expect(html).toContain('11.25 MiB/s');
+  });
+
+  test('renders compact grid headers by default', () => {
+    const html = renderToString(
+      <ModelManager
+        models={fixtureModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
+      />,
+    );
+    expect(html).toContain('VRAM / Tier');
+    expect(html).toContain('Downloads');
+  });
+
+  test('filters downloads and sorts by size', () => {
+    const downloads = visibleModels(fixtureModels.models, {
+      scope: 'downloads',
+      status: 'pending',
+    });
+    expect(downloads.map((model) => model.model_id)).toEqual(['unlimited-ocr-iq2-m']);
+
+    const bySize = visibleModels(fixtureModels.models, { dir: 'asc', sort: 'size' });
+    expect(bySize[0]?.model_id).toBe('unlimited-ocr-iq2-m');
   });
 });

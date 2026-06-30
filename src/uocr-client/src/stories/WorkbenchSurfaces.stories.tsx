@@ -74,7 +74,25 @@ export const Traceability: Story = {
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
       />
-      <TextPane pages={fixturePages} selectedRegionId="reg-total" />
+      <TextPane
+        autoFollowRegions
+        document={fixtureDocuments[0]}
+        pages={fixturePages}
+        selectedRegionId="reg-total"
+      />
+    </div>
+  ),
+};
+
+export const LiveText: Story = {
+  render: () => (
+    <div className="storyTall">
+      <TextPane
+        autoFollowRegions
+        document={fixtureDocuments[1]}
+        pages={fixturePages}
+        selectedRegionId="reg-supplier"
+      />
     </div>
   ),
 };
@@ -122,6 +140,21 @@ export const ModelsDownloading: Story = {
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
         onSelectModel={() => undefined}
+      />
+    </div>
+  ),
+};
+
+export const ModelDownloads: Story = {
+  render: () => (
+    <div className="storyTall">
+      <ModelManager
+        models={fixtureDownloadingModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
+        routeSearch={{ status: 'all', view: 'grid' }}
+        scope="downloads"
       />
     </div>
   ),

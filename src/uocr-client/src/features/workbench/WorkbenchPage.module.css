@@ -36,6 +36,31 @@
   justify-items: center;
 }
 
+.activityLink {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.activityLink:hover,
+.activityLink[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border);
+}
+
+.activityLink:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 1px;
+}
+
 .main {
   display: grid;
   grid-template-rows: 36px auto minmax(0, 1fr) 24px;

@@ -1,293 +1,183 @@
-import {
-  CheckCircle2,
-  CircleDot,
-  Cpu,
-  Download,
-  HardDriveDownload,
-  Library,
-  RotateCcw,
-  ShieldCheck,
-  ShieldOff,
-  Star,
-  XCircle,
-} from 'lucide-react';
+import { ArrowDownAZ, ArrowUpAZ, Cpu, HardDriveDownload, Library } from 'lucide-react';
 
+import type { ModelsPayload, StatusPayload } from '../../api/types';
 import type {
-  ModelAssetRecord,
-  ModelDownloadFileRecord,
-  ModelsPayload,
-  StatusPayload,
-} from '../../api/types';
-import fileStyles from './ModelFileTable.module.css';
+  DownloadStatusFilter,
+  ModelRouteSearch,
+  ModelSortKey,
+  ModelViewMode,
+  SortDirection,
+} from '../../routeSearch';
+import { ModelCards } from './ModelCards';
+import { ModelDataGrid } from './ModelDataGrid';
 import styles from './ModelManager.module.css';
-import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
+import { formatBytes } from './modelDownloadFormat';
+import { modelRequiredBytes, visibleModels } from './modelLibrary';
 
 interface ModelManagerProps {
   busy?: boolean;
   models?: ModelsPayload;
+  routeSearch?: ModelRouteSearch;
+  scope?: 'library' | 'downloads';
   status?: StatusPayload;
   onCancelModel: (modelId: string) => void;
   onDownloadModel: (modelId: string, force?: boolean) => void;
+  onRouteSearchChange?: (patch: Partial<ModelRouteSearch>) => void;
+  onScopeChange?: (scope: 'library' | 'downloads') => void;
   onSelectModel: (modelId: string) => void;
 }
 
-export function ModelManager({
-  busy,
-  models,
-  status,
-  onCancelModel,
-  onDownloadModel,
-  onSelectModel,
-}: ModelManagerProps) {
-  const library = models?.models ?? [];
+export function ModelManager(props: ModelManagerProps) {
+  const library = props.models?.models ?? [];
   const selected =
     library.find((model) => model.selected) ??
-    library.find((model) => model.model_id === models?.selected_model_id) ??
+    library.find((model) => model.model_id === props.models?.selected_model_id) ??
     library[0];
+  const scope = props.scope ?? 'library';
+  const view = props.routeSearch?.view ?? 'grid';
+  const sort = props.routeSearch?.sort ?? 'status';
+  const dir = props.routeSearch?.dir ?? 'asc';
+  const statusFilter = props.routeSearch?.status ?? 'all';
+  const shown = visibleModels(library, { dir, scope, sort, status: statusFilter });
+  const updateSearch = props.onRouteSearchChange ?? (() => undefined);
+  const changeSort = (nextSort: ModelSortKey) =>
+    updateSearch({ dir: nextSort === sort && dir === 'asc' ? 'desc' : 'asc', sort: nextSort });
 
   return (
     <section className={styles.manager} aria-label="Models" data-tour="models">
       <header className={styles.header}>
         <div className={styles.headerTitle}>
           <Library size={16} />
-          <span>Model Library</span>
+          <span>{scope === 'downloads' ? 'Model Downloads' : 'Model Library'}</span>
         </div>
-        <span className={styles.provider}>{models?.provider_repo ?? selected?.repo_id}</span>
+        <span className={styles.provider}>{props.models?.provider_repo ?? selected?.repo_id}</span>
       </header>
-      <div className={styles.summary}>
-        <div>
-          <span className={styles.eyebrow}>Selected model</span>
-          <h2>{selected?.display_name ?? 'No model selected'}</h2>
-          <p>{selected?.notes ?? 'Choose a model variant and download its required files.'}</p>
-        </div>
-        <div className={styles.summaryStats}>
-          <span>
-            <Cpu size={14} />
-            {status?.runtime_platform ?? 'windows-x86_64-cuda13'} / {status?.accelerator ?? 'cuda'}
-          </span>
-          <span>
-            <HardDriveDownload size={14} />
-            {selected
-              ? formatBytes(selected.total_required_bytes ?? selected.overall_total_bytes)
-              : '0 B'}
-          </span>
-        </div>
-      </div>
-      <div className={styles.body}>
-        {library.map((model) => (
-          <ModelCard
-            busy={busy}
-            key={model.model_id}
-            model={model}
-            onCancelModel={onCancelModel}
-            onDownloadModel={onDownloadModel}
-            onSelectModel={onSelectModel}
-          />
-        ))}
-      </div>
+      <ModelSummary selected={selected} status={props.status} />
+      <ModelToolbar
+        dir={dir}
+        scope={scope}
+        sort={sort}
+        status={statusFilter}
+        view={view}
+        onDirChange={(nextDir) => updateSearch({ dir: nextDir })}
+        onSortChange={(nextSort) => updateSearch({ sort: nextSort })}
+        onStatusChange={(nextStatus) => updateSearch({ status: nextStatus })}
+        onViewChange={(nextView) => updateSearch({ view: nextView })}
+        onScopeChange={props.onScopeChange ?? (() => undefined)}
+      />
+      {view === 'cards' ? (
+        <ModelCards {...props} models={shown} />
+      ) : (
+        <ModelDataGrid {...props} dir={dir} models={shown} sort={sort} onSortChange={changeSort} />
+      )}
     </section>
   );
 }
 
-function ModelCard({
-  busy,
-  model,
-  onCancelModel,
-  onDownloadModel,
-  onSelectModel,
+function ModelSummary({
+  selected,
+  status,
 }: {
-  busy?: boolean;
-  model: ModelAssetRecord;
-  onCancelModel: (modelId: string) => void;
-  onDownloadModel: (modelId: string, force?: boolean) => void;
-  onSelectModel: (modelId: string) => void;
+  selected?: ModelsPayload['models'][number];
+  status?: StatusPayload;
 }) {
-  const isDownloading = model.status === 'downloading';
-  const isReady = model.status === 'downloaded';
-  const isRetry = ['error', 'cancelled'].includes(model.status);
-  const percent = isReady ? 100 : (model.overall_percent ?? modelPercentage(model));
   return (
-    <article className={styles.model} data-selected={model.selected === true}>
-      <div className={styles.titleRow}>
-        <div className={styles.titleBlock}>
-          <div className={styles.badges}>
-            <span className={styles.statusBadge} data-status={model.status}>
-              {statusIcon(model.status)}
-              {model.status}
-            </span>
-            {model.selected ? <span className={styles.badge}>Selected</span> : null}
-            {model.recommended ? (
-              <span className={styles.badge}>
-                <Star size={12} />
-                Recommended
-              </span>
-            ) : null}
-          </div>
-          <h3>{model.display_name}</h3>
-          <p>{model.quality ?? model.status_message ?? statusText(model.status)}</p>
-        </div>
-        <div className={styles.actions}>
-          <button
-            className={model.selected ? styles.selectedButton : styles.secondaryButton}
-            disabled={busy || model.selected}
-            onClick={() => onSelectModel(model.model_id)}
-            type="button"
-          >
-            <CircleDot size={15} strokeWidth={1.9} />
-            <span>{model.selected ? 'In Use' : 'Use'}</span>
-          </button>
-          {isDownloading ? (
-            <button
-              className={styles.secondaryButton}
-              disabled={busy}
-              onClick={() => onCancelModel(model.model_id)}
-              type="button"
-            >
-              <XCircle size={15} strokeWidth={1.9} />
-              <span>Cancel</span>
-            </button>
-          ) : null}
-          {!isReady && !isDownloading ? (
-            <button
-              className={styles.downloadButton}
-              disabled={busy}
-              onClick={() => onDownloadModel(model.model_id)}
-              type="button"
-            >
-              {isRetry ? (
-                <RotateCcw size={15} strokeWidth={1.9} />
-              ) : (
-                <Download size={15} strokeWidth={1.9} />
-              )}
-              <span>{isRetry ? 'Retry' : 'Download'}</span>
-            </button>
-          ) : null}
-          {isReady ? (
-            <button
-              className={styles.secondaryButton}
-              disabled={busy}
-              onClick={() => onDownloadModel(model.model_id, true)}
-              type="button"
-            >
-              <RotateCcw size={15} strokeWidth={1.9} />
-              <span>Re-download</span>
-            </button>
-          ) : null}
-        </div>
+    <div className={styles.summary}>
+      <div>
+        <span className={styles.eyebrow}>Selected model</span>
+        <h2>{selected?.display_name ?? 'No model selected'}</h2>
+        <p>{selected?.notes ?? 'Choose a model variant and download its required files.'}</p>
       </div>
-
-      <div className={styles.specGrid}>
-        <span>{model.quantization ?? 'GGUF'}</span>
-        <span>{model.bits ? `${model.bits}-bit` : 'mixed'}</span>
-        <span>{model.hardware_tier ?? 'CUDA runtime'}</span>
-        <span>{formatBytes(model.total_required_bytes ?? model.overall_total_bytes)}</span>
-      </div>
-
-      <div className={styles.authRow}>
-        {model.auth_available ? <ShieldCheck size={15} /> : <ShieldOff size={15} />}
+      <div className={styles.summaryStats}>
         <span>
-          {model.auth_available
-            ? `Authenticated with ${model.auth_source}`
-            : 'Using public Hugging Face download'}
+          <Cpu size={14} />
+          {status?.runtime_platform ?? 'windows-x86_64-cuda13'} / {status?.accelerator ?? 'cuda'}
+        </span>
+        <span>
+          <HardDriveDownload size={14} />
+          {selected ? formatBytes(modelRequiredBytes(selected)) : '0 B'}
         </span>
       </div>
-
-      <div
-        aria-label={`${model.display_name} download progress`}
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={percent}
-        className={styles.progress}
-        role="progressbar"
-      >
-        <div style={{ width: `${percent}%` }} />
-      </div>
-
-      <dl className={styles.meta}>
-        <dt>Progress</dt>
-        <dd>
-          {formatBytes(model.overall_downloaded_bytes ?? model.downloaded_bytes)} /{' '}
-          {formatBytes(model.overall_total_bytes ?? model.total_required_bytes)} (
-          {formatPercent(percent)})
-        </dd>
-        <dt>Speed</dt>
-        <dd>{formatRate(model.bytes_per_second)}</dd>
-        <dt>ETA</dt>
-        <dd>{formatEta(model.eta_seconds)}</dd>
-        <dt>Files</dt>
-        <dd>
-          {model.downloaded_file_count ?? 0}/{model.total_file_count ?? 2} ready
-        </dd>
-      </dl>
-
-      <FileTable files={model.files ?? fallbackFiles(model)} />
-      {model.error ? <div className={styles.error}>{model.error}</div> : null}
-    </article>
+    </div>
   );
 }
 
-function FileTable({ files }: { files: ModelDownloadFileRecord[] }) {
+function ModelToolbar(props: {
+  dir: SortDirection;
+  scope: 'library' | 'downloads';
+  sort: ModelSortKey;
+  status: DownloadStatusFilter;
+  view: ModelViewMode;
+  onDirChange: (dir: SortDirection) => void;
+  onSortChange: (sort: ModelSortKey) => void;
+  onScopeChange: (scope: 'library' | 'downloads') => void;
+  onStatusChange: (status: DownloadStatusFilter) => void;
+  onViewChange: (view: ModelViewMode) => void;
+}) {
+  const DirectionIcon = props.dir === 'desc' ? ArrowDownAZ : ArrowUpAZ;
   return (
-    <table className={fileStyles.files} aria-label="Required model files">
-      <thead>
-        <tr className={fileStyles.fileHeader}>
-          <th scope="col">File</th>
-          <th scope="col">Status</th>
-          <th scope="col">Progress</th>
-          <th scope="col">Rate</th>
-          <th scope="col">ETA</th>
-        </tr>
-      </thead>
-      <tbody>
-        {files.map((file) => (
-          <tr className={fileStyles.fileRow} key={file.file_id}>
-            <td title={file.file_name}>{file.file_name}</td>
-            <td>{file.status}</td>
-            <td>
-              {formatBytes(file.downloaded_bytes)} / {formatBytes(file.total_bytes)} (
-              {formatPercent(file.percent)})
-            </td>
-            <td>{formatRate(file.bytes_per_second)}</td>
-            <td>{formatEta(file.eta_seconds)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className={styles.toolbar}>
+      <div className={styles.segmented}>
+        <button
+          aria-pressed={props.view === 'grid'}
+          onClick={() => props.onViewChange('grid')}
+          type="button"
+        >
+          Grid
+        </button>
+        <button
+          aria-pressed={props.view === 'cards'}
+          onClick={() => props.onViewChange('cards')}
+          type="button"
+        >
+          Cards
+        </button>
+      </div>
+      <label>
+        <span>Sort</span>
+        <select
+          onChange={(event) => props.onSortChange(event.target.value as ModelSortKey)}
+          value={props.sort}
+        >
+          <option value="status">Status</option>
+          <option value="progress">Progress</option>
+          <option value="size">Size</option>
+          <option value="bits">Bits</option>
+          <option value="vram">VRAM tier</option>
+          <option value="speed">Speed</option>
+          <option value="eta">ETA</option>
+          <option value="name">Name</option>
+        </select>
+      </label>
+      <button
+        className={styles.directionButton}
+        onClick={() => props.onDirChange(props.dir === 'asc' ? 'desc' : 'asc')}
+        type="button"
+      >
+        <DirectionIcon size={14} strokeWidth={1.9} />
+        {props.dir}
+      </button>
+      {props.scope === 'downloads' ? (
+        <label>
+          <span>Status</span>
+          <select
+            onChange={(event) => props.onStatusChange(event.target.value as DownloadStatusFilter)}
+            value={props.status}
+          >
+            <option value="all">All pending</option>
+            <option value="active">Active</option>
+            <option value="queued">Queued</option>
+            <option value="pending">Pending</option>
+          </select>
+        </label>
+      ) : null}
+      <button
+        className={styles.routeLink}
+        onClick={() => props.onScopeChange(props.scope === 'downloads' ? 'library' : 'downloads')}
+        type="button"
+      >
+        {props.scope === 'downloads' ? 'Library' : 'Downloads'}
+      </button>
+    </div>
   );
-}
-
-function statusIcon(status: string) {
-  return status === 'downloaded' ? <CheckCircle2 size={12} /> : <CircleDot size={12} />;
-}
-
-function statusText(status: string) {
-  if (status === 'downloaded') {
-    return 'Model files are present. Scans can start.';
-  }
-  if (status === 'downloading') {
-    return 'Downloading model assets from Hugging Face.';
-  }
-  if (status === 'error') {
-    return 'Download failed. Check Diagnostics for the detailed error and retry.';
-  }
-  if (status === 'cancelled') {
-    return 'Download was cancelled. Retry will resume partial files when possible.';
-  }
-  return 'Download the model files before starting OCR.';
-}
-
-function modelPercentage(model: ModelAssetRecord) {
-  const total = model.overall_total_bytes ?? model.total_bytes ?? 0;
-  const downloaded = model.overall_downloaded_bytes ?? model.downloaded_bytes ?? 0;
-  return total > 0 ? Math.min(100, (downloaded / total) * 100) : 0;
-}
-
-function fallbackFiles(model: ModelAssetRecord): ModelDownloadFileRecord[] {
-  return [model.model_file, model.mmproj_file].filter(Boolean).map((fileName, index) => ({
-    downloaded_bytes: 0,
-    file_id: index === 0 ? 'model' : 'mmproj',
-    file_name: fileName ?? '',
-    percent: 0,
-    status: model.status,
-  }));
 }

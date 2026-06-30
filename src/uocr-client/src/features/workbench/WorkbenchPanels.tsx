@@ -94,6 +94,8 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
           <ResizeHandle />
           <Panel defaultSize={42} minSize={24}>
             <TextPane
+              autoFollowRegions={props.workbench.autoFollowRegions}
+              document={props.selectedDocument}
               pages={props.textPages}
               selectedRegionId={props.workbench.selection.regionId}
             />
