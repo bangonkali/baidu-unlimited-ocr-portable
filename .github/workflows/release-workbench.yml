@@ -294,6 +294,12 @@ jobs:
     env:
       UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Download packaged artifacts
         uses: actions/download-artifact@v4
         with:
