@@ -9,6 +9,7 @@ import type {
   PageTextRecord,
 } from '../../api/types';
 import type { useWorkbenchState } from '../../stores/workbenchStore';
+import { setAutoFollowRegions } from '../../stores/workbenchStore';
 import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { ExplorerTree } from './ExplorerTree';
@@ -79,6 +80,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
         <PanelGroup direction="horizontal">
           <Panel defaultSize={58} minSize={30}>
             <PreviewPane
+              autoFollowRegions={props.workbench.autoFollowRegions}
               boxes={props.regions}
               fileHash={props.workbench.selection.fileHash}
               labelsVisible={props.workbench.labelsVisible}
@@ -86,6 +88,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
               pages={props.previewPages}
               selectedPageNo={props.workbench.selection.pageNo}
               selectedRegionId={props.workbench.selection.regionId}
+              onAutoFollowChange={setAutoFollowRegions}
             />
           </Panel>
           <ResizeHandle />

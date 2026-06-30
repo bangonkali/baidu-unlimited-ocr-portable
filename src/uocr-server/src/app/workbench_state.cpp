@@ -46,6 +46,41 @@ std::size_t region_count_for(const WorkbenchService::Impl::DocumentState& docume
   return count;
 }
 
+bool is_terminal_status(std::string_view status) {
+  return status == "completed" || status == "completed_with_errors" || status == "failed" ||
+         status == "cancelled";
+}
+
+int current_page_for(int processed_pages, int total_pages, std::string_view status) {
+  if (total_pages <= 0) {
+    return 0;
+  }
+  if (is_terminal_status(status) || processed_pages >= total_pages) {
+    return total_pages;
+  }
+  return std::clamp(processed_pages + 1, 1, total_pages);
+}
+
+double progress_percent_for(int processed_pages, int total_pages, std::string_view status) {
+  if (total_pages <= 0) {
+    return 0.0;
+  }
+  if (status == "completed" || status == "completed_with_errors") {
+    return 100.0;
+  }
+  const auto clamped = std::clamp(processed_pages, 0, total_pages);
+  return static_cast<double>(clamped) / static_cast<double>(total_pages) * 100.0;
+}
+
+int processed_pages_for(const WorkbenchService::Impl::DocumentState& document) {
+  if (document.pages.empty()) {
+    return is_terminal_status(document.status) ? 1 : 0;
+  }
+  return static_cast<int>(std::count_if(document.pages.begin(), document.pages.end(), [](const auto& page) {
+    return is_terminal_status(page.status);
+  }));
+}
+
 }  // namespace
 
 Json::Value error_json(const std::string& message) {
@@ -167,6 +202,8 @@ Json::Value WorkbenchService::Impl::run_record(const RunState& run) const {
   value["queued_files"] = run.queued_files;
   value["processed_pages"] = run.processed_pages;
   value["total_pages"] = run.total_pages;
+  value["current_page"] = current_page_for(run.processed_pages, run.total_pages, run.status);
+  value["progress_percent"] = progress_percent_for(run.processed_pages, run.total_pages, run.status);
   value["profile_id"] = run.profile_id;
   value["engine_id"] = run.engine_id;
   value["model_id"] = run.model_id;
@@ -180,7 +217,13 @@ Json::Value WorkbenchService::Impl::document_summary(const DocumentState& docume
   value["display_name"] = document.relative_path.filename().string();
   value["relative_path"] = document.relative_path.generic_string();
   value["status"] = document.status;
-  value["page_count"] = page_count_for(document);
+  const auto total_pages = page_count_for(document);
+  const auto processed_pages = processed_pages_for(document);
+  value["page_count"] = total_pages;
+  value["processed_pages"] = processed_pages;
+  value["total_pages"] = total_pages;
+  value["current_page"] = current_page_for(processed_pages, total_pages, document.status);
+  value["progress_percent"] = progress_percent_for(processed_pages, total_pages, document.status);
   value["regions"] = static_cast<Json::UInt64>(region_count_for(document));
   if (!document.error.empty()) {
     value["error"] = document.error;

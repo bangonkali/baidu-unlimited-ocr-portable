@@ -12,6 +12,10 @@ export interface DocumentSummary {
   relative_path?: string;
   status: string;
   page_count: number;
+  processed_pages?: number;
+  total_pages?: number;
+  current_page?: number;
+  progress_percent?: number;
   regions?: number;
   error?: string;
 }

@@ -60,8 +60,10 @@ First run sequence:
 3. Click **Choose Folder** to use the trusted native Windows folder picker, or
    paste a path into the fallback text box.
 4. Click **Start Scan**.
-5. Watch the progress in the toolbar, the Diagnostics pane, the terminal, or
-   `logs\uocr-server.log`.
+5. Keep **Auto Follow On** in Preview to center the newest OCR bounding box as
+   page results arrive. Turn it off when reviewing an earlier region.
+6. Watch estimated page-based progress in the toolbar, explorer grid,
+   Diagnostics pane, terminal, or `logs\uocr-server.log`.
 
 The Models panel shows all supported Sahil GGUF variants, which model is
 selected, which files are already downloaded, auth status, current file, bytes
@@ -75,6 +77,14 @@ The browser keeps one websocket connection to `ws://127.0.0.1:8765/api/events`.
 Model progress, scan progress, new OCR text, bounding boxes, document status,
 and log entries update through that single channel. Folder selection, model
 download commands, and scan commands still use normal HTTP API requests.
+
+The folder selector is native because the server must receive a trusted local
+filesystem path that it can recursively scan. Browser-only folder APIs cannot
+reliably provide that unrestricted path for this local desktop workflow. On
+Windows, `uocr-server.exe` requests per-monitor DPI awareness at startup before
+any native picker is shown, so the picker should follow the desktop display
+scale on high-DPI and 4K monitors. The manual path input remains available if a
+Windows shell dialog is still affected by local display-driver settings.
 
 One-line install to `~\.uocr`:
 

@@ -58,6 +58,15 @@ void print_help() {
   std::cout << "\nUsage: uocr-server [--port PORT] [--no-browser] [--version]\n";
 }
 
+void configure_process_dpi_awareness() {
+#ifdef _WIN32
+  if (SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
+    return;
+  }
+  SetProcessDPIAware();
+#endif
+}
+
 std::filesystem::path executable_dir(const char* executable_path) {
   std::error_code error;
   auto path = std::filesystem::absolute(executable_path, error);
@@ -164,6 +173,7 @@ int run_server(int argc, char* argv[]) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+  configure_process_dpi_awareness();
   try {
     return run_server(argc, argv);
   } catch (const std::exception& error) {

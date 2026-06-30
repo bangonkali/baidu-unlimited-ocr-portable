@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import type { IngestRunRecord, LogRecord } from '../../api/types';
 import styles from './DiagnosticsPanel.module.css';
+import { clampProgress, percentLabel, runPageLabel } from './progressFormat';
 
 interface DiagnosticsPanelProps {
   logs: LogRecord[];
@@ -49,8 +50,18 @@ function RunList({ runs }: { runs: IngestRunRecord[] }) {
           <span>{run.run_id}</span>
           <strong>{run.status}</strong>
           <small>
-            {run.processed_pages ?? 0}/{run.total_pages ?? 0} pages
+            {runPageLabel(run)} · {percentLabel(run.progress_percent)}
           </small>
+          <span
+            aria-label={`Run ${run.run_id} progress ${percentLabel(run.progress_percent)}`}
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={Math.round(clampProgress(run.progress_percent))}
+            className={styles.progressTrack}
+            role="progressbar"
+          >
+            <span style={{ width: `${clampProgress(run.progress_percent)}%` }} />
+          </span>
         </div>
       ))}
     </>

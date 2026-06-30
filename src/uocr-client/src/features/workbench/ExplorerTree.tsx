@@ -6,6 +6,7 @@ import { useMemo, useRef } from 'react';
 import type { DocumentSummary } from '../../api/types';
 import { setSelection } from '../../stores/workbenchStore';
 import styles from './ExplorerTree.module.css';
+import { clampProgress, documentPageLabel, percentLabel } from './progressFormat';
 
 interface ExplorerTreeProps {
   documents: DocumentSummary[];
@@ -36,7 +37,7 @@ export function ExplorerTree({ documents, selectedFileHash }: ExplorerTreeProps)
   const rows = table.getRowModel().rows;
   const virtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: () => 32,
+    estimateSize: () => 46,
     getScrollElement: () => parentRef.current,
     overscan: 8,
   });
@@ -44,6 +45,11 @@ export function ExplorerTree({ documents, selectedFileHash }: ExplorerTreeProps)
   return (
     <section className={styles.explorer} aria-label="Explorer">
       <div className={styles.header}>Explorer</div>
+      <div className={styles.gridHeader}>
+        <span>Document</span>
+        <span>Pages</span>
+        <span>Progress</span>
+      </div>
       <div className={styles.scroll} ref={parentRef}>
         <div className={styles.virtualSpace} style={{ height: virtualizer.getTotalSize() }}>
           {rows.length === 0 ? <div className={styles.empty}>No documents</div> : null}
@@ -87,7 +93,21 @@ function DocumentRow(props: { document: DocumentSummary; isActive: boolean; offs
       type="button"
     >
       <FileText size={15} />
-      <span>{document.display_name}</span>
+      <span className={styles.name}>{document.display_name}</span>
+      <span className={styles.pages}>{documentPageLabel(document)}</span>
+      <span className={styles.progressCell}>
+        <span
+          aria-label={`${document.display_name} progress ${percentLabel(document.progress_percent)}`}
+          className={styles.progressTrack}
+          role="progressbar"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={Math.round(clampProgress(document.progress_percent))}
+        >
+          <span style={{ width: `${clampProgress(document.progress_percent)}%` }} />
+        </span>
+        <span className={styles.percent}>{percentLabel(document.progress_percent)}</span>
+      </span>
       <span className={styles.badge}>{document.status}</span>
     </button>
   );

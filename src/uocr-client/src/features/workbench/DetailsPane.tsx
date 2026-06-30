@@ -4,6 +4,7 @@ import { Check } from 'lucide-react';
 import type { DocumentSummary, OverlayBox } from '../../api/types';
 import { setLabelsVisible, setOverlayVisible } from '../../stores/workbenchStore';
 import styles from './DetailsPane.module.css';
+import { documentPageLabel, percentLabel } from './progressFormat';
 
 interface DetailsPaneProps {
   document?: DocumentSummary;
@@ -24,6 +25,12 @@ export function DetailsPane(props: DetailsPaneProps) {
         <dd>{props.document?.status ?? 'No selection'}</dd>
         <dt>Pages</dt>
         <dd>{props.document?.page_count ?? 0}</dd>
+        <dt>Progress</dt>
+        <dd>
+          {props.document
+            ? `${documentPageLabel(props.document)} · ${percentLabel(props.document.progress_percent)}`
+            : 'No selection'}
+        </dd>
         <dt>Regions</dt>
         <dd>{props.document?.regions ?? 0}</dd>
         <dt>Region</dt>

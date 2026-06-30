@@ -18,9 +18,12 @@ validation tools, but they are not the launched product runtime.
    percent, MiB/s, ETA, auth status, retry, re-download, and cancel.
 7. Click **Use** on the downloaded model you want for OCR. The selection is
    persisted in `data\uocr.duckdb` and restored after restart.
-8. Click **Choose Folder** to open the Windows folder picker, or paste a folder
-   path into the fallback path box.
+8. Click **Choose Folder** to open the DPI-aware Windows folder picker, or
+   paste a folder path into the fallback path box.
 9. Click **Start Scan**.
+10. Leave **Auto Follow On** in the Preview pane to keep the newest OCR
+    bounding box centered as page results arrive, or turn it off while
+    inspecting a previous annotation.
 
 Supported inputs are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`,
 and `.webp`. Multi-page PDFs are rendered in-process by MuPDF embedded in
@@ -54,9 +57,11 @@ The search box uses that DuckDB state after text has been persisted.
 
 Startup logs include the app root, web root, log path, version, git SHA, and
 listening URL. Ingest logs include model loading, folder scan counts, PDF page
-rendering, and page OCR progress. Model download logs include auth availability
-without printing tokens, metadata checks, current file progress, MiB/s,
-verification, cancellation, and failures.
+rendering, and page OCR progress. The toolbar, explorer grid, and diagnostics
+panel show estimated page-based progress for the selected file and active
+workflow. Model download logs include auth availability without printing
+tokens, metadata checks, current file progress, MiB/s, verification,
+cancellation, and failures.
 
 Backend package dependencies come from the vcpkg manifest. The current pinned
 baseline resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly.

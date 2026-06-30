@@ -51,7 +51,7 @@
 
 .runRow {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 92px 72px;
+  grid-template-columns: 16px minmax(0, 1fr) 92px 124px 88px;
   gap: 8px;
   align-items: center;
   min-height: 30px;
@@ -68,6 +68,20 @@
 
 .runRow small {
   color: var(--subtle);
+}
+
+.progressTrack {
+  height: 7px;
+  overflow: hidden;
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  background: var(--accent-2);
 }
 
 .logRow {

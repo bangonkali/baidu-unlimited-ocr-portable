@@ -31,6 +31,7 @@ export const Ingest: Story = {
   render: () => (
     <div className="storyFrame">
       <IngestToolbar
+        activeRun={fixtureRuns[0]}
         modelReady
         onRefresh={() => undefined}
         onPickFolder={() => undefined}
@@ -60,6 +61,7 @@ export const Traceability: Story = {
   render: () => (
     <div className="storySplit">
       <PreviewPane
+        autoFollowRegions
         boxes={fixtureBoxes}
         fileHash="hash-invoice-014"
         getImageUrl={() => fixturePreviewImage}
@@ -68,6 +70,7 @@ export const Traceability: Story = {
         pages={[1]}
         selectedPageNo={1}
         selectedRegionId="reg-total"
+        onAutoFollowChange={() => undefined}
       />
       <TextPane pages={fixturePages} selectedRegionId="reg-total" />
     </div>

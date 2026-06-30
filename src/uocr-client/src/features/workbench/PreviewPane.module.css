@@ -9,11 +9,34 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   padding: 0 12px;
   font-size: 12px;
   color: var(--muted);
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+}
+
+.followToggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 9px;
+  color: var(--text);
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.followToggle[aria-pressed="true"] {
+  color: #08131c;
+  background: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 70%, #fff);
 }
 
 .canvas {

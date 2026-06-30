@@ -13,6 +13,8 @@ export interface IngestRunRecord {
   queued_files?: number;
   processed_pages?: number;
   total_pages?: number;
+  current_page?: number;
+  progress_percent?: number;
   profile_id?: string;
   engine_id?: string;
   model_id?: string;

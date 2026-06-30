@@ -17,7 +17,8 @@ const steps: Step[] = [
     target: '[data-tour="start"]',
   },
   {
-    content: 'OCR boxes and text spans stay linked. Select either side to focus the same region.',
+    content:
+      'Auto Follow keeps the newest OCR box in view. Turn it off when you want to inspect another region.',
     target: '[data-tour="preview"]',
   },
   {

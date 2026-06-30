@@ -88,7 +88,8 @@ The persisted OCR dashboard contract is:
   size, latest observed root, and error text.
 - `ingest_runs` and `ingest_work_units`: run state, root path, page work status,
   selected model id, attempts, cancellation/failure/completion markers, and
-  progress counters.
+  progress counters. API run records expose `current_page` and
+  `progress_percent` derived from processed and total page counts.
 - `document_pages` and `document_preview_images`: page status, render metadata,
   source preview image paths, dimensions, and render DPI.
 - `document_page_ocr`: raw OCR output, cleaned display text, runtime profile,
@@ -120,6 +121,11 @@ lists/details, DuckDB-backed search, regions with selected-box content, text
 spans, preview images, recent logs, and settings. Removed or future-only
 surfaces are intentionally omitted from the UI and OpenAPI contract until they
 work end to end.
+
+Document summaries include `processed_pages`, `total_pages`, `current_page`,
+and `progress_percent` so the React explorer grid, selected-document details,
+and diagnostics panel can show page-based progress without guessing from log
+messages.
 
 The default OCR profile is `experimental-exact-prefill-q4`. The default model
 selection is `unlimited-ocr-q4-k-m`, but the model library exposes BF16, Q8,
@@ -160,6 +166,11 @@ These events drive immediate UI updates for the Models panel, ingest toolbar,
 explorer tree, preview overlays, text pane, diagnostics logs, and status bar.
 The client still keeps ordinary HTTP queries for initial loads, refresh, and
 fallback refetching.
+
+When a `document.regions.changed` event arrives, the React store can auto-follow
+the newest region in that payload. This keeps the latest parsed OCR bounding box
+centered in the preview by default while preserving a visible **Auto Follow**
+toggle for manual review.
 
 ## Traceability Model
 

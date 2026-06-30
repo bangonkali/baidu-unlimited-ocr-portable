@@ -1,14 +1,16 @@
 import { FolderOpen, Play, RefreshCw, Square } from 'lucide-react';
 import type { ComponentType } from 'react';
 
-import type { OcrProfileRecord } from '../../api/types';
+import type { IngestRunRecord, OcrProfileRecord } from '../../api/types';
 import styles from './IngestToolbar.module.css';
+import { clampProgress, percentLabel, runPageLabel } from './progressFormat';
 
 interface IngestToolbarProps {
   rootPath: string;
   profiles: OcrProfileRecord[];
   selectedProfile: string;
   activeRunId?: string | null;
+  activeRun?: IngestRunRecord;
   busy?: boolean;
   modelReady?: boolean;
   runState?: string;
@@ -65,8 +67,29 @@ export function IngestToolbar(props: IngestToolbarProps) {
           onClick={props.onRefresh}
         />
       </div>
+      <WorkflowProgress run={props.activeRun} />
       <div className={styles.supported}>{(props.supportedInputs ?? []).join('  ')}</div>
     </header>
+  );
+}
+
+function WorkflowProgress({ run }: { run?: IngestRunRecord }) {
+  const progress = clampProgress(run?.progress_percent);
+  return (
+    <div className={styles.workflowProgress}>
+      <span>{run ? `Workflow ${percentLabel(run.progress_percent)}` : 'Workflow idle'}</span>
+      <span>{runPageLabel(run)}</span>
+      <span
+        aria-label={`Workflow progress ${percentLabel(run?.progress_percent)}`}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={Math.round(progress)}
+        className={styles.progressTrack}
+        role="progressbar"
+      >
+        <span style={{ width: `${progress}%` }} />
+      </span>
+    </div>
   );
 }
 

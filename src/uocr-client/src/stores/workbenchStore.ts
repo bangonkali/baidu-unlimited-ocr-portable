@@ -1,5 +1,7 @@
 import { Store, useStore } from '@tanstack/react-store';
 
+import type { OverlayBox } from '../api/types';
+
 interface WorkbenchSelection {
   fileHash?: string;
   pageNo: number;
@@ -8,11 +10,12 @@ interface WorkbenchSelection {
 
 export type ActiveView = 'workbench' | 'models' | 'diagnostics';
 
-interface WorkbenchState {
+export interface WorkbenchState {
   activeView: ActiveView;
   selectedRoot: string;
   selectedProfile: string;
   selection: WorkbenchSelection;
+  autoFollowRegions: boolean;
   overlayVisible: boolean;
   labelsVisible: boolean;
   tourRun: boolean;
@@ -20,6 +23,7 @@ interface WorkbenchState {
 
 const initialState: WorkbenchState = {
   activeView: 'workbench',
+  autoFollowRegions: true,
   labelsVisible: true,
   overlayVisible: true,
   selectedProfile: 'experimental-exact-prefill-q4',
@@ -34,6 +38,10 @@ const workbenchStore = new Store(initialState);
 
 export function useWorkbenchState() {
   return useStore(workbenchStore, (state) => state);
+}
+
+export function getWorkbenchSnapshot() {
+  return workbenchStore.state;
 }
 
 export function setSelectedRoot(selectedRoot: string) {
@@ -55,8 +63,29 @@ export function setSelection(selection: Partial<WorkbenchSelection>) {
   }));
 }
 
+export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
+  const latest = boxes.at(-1);
+  if (!latest || !workbenchStore.state.autoFollowRegions) {
+    return;
+  }
+  workbenchStore.setState((state) => ({
+    ...state,
+    activeView: 'workbench',
+    selection: {
+      ...state.selection,
+      fileHash,
+      pageNo: latest.page_no,
+      regionId: latest.region_id,
+    },
+  }));
+}
+
 export function setOverlayVisible(overlayVisible: boolean) {
   workbenchStore.setState((state) => ({ ...state, overlayVisible }));
+}
+
+export function setAutoFollowRegions(autoFollowRegions: boolean) {
+  workbenchStore.setState((state) => ({ ...state, autoFollowRegions }));
 }
 
 export function setLabelsVisible(labelsVisible: boolean) {

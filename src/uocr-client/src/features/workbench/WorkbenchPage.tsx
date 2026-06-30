@@ -1,7 +1,7 @@
 import { useDebouncedValue } from '@tanstack/react-pacer';
 import { useQueryClient } from '@tanstack/react-query';
 import { CircleHelp, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   queryKeys,
@@ -20,9 +20,11 @@ import {
   useStartIngest,
   useStatus,
 } from '../../api/hooks';
+import type { DocumentRegionsPayload, ModelsPayload, OcrProfileRecord } from '../../api/types';
 import { IconButton } from '../../components/IconButton';
 import { useRealtimeState } from '../../realtime/realtimeStore';
 import {
+  followLatestRegion,
   setActiveView,
   setSelectedProfile,
   setSelectedRoot,
@@ -37,6 +39,44 @@ import { ModelManager } from './ModelManager';
 import { StatusBar } from './StatusBar';
 import styles from './WorkbenchPage.module.css';
 import { WorkbenchPanels } from './WorkbenchPanels';
+
+function selectedModel(models?: ModelsPayload) {
+  return (
+    models?.models.find((item) => item.selected) ??
+    models?.models.find((item) => item.model_id === models.selected_model_id) ??
+    models?.models[0]
+  );
+}
+
+function profileOptions(profiles: OcrProfileRecord[] | undefined, selectedProfile: string) {
+  return profiles?.length
+    ? profiles
+    : [
+        {
+          key: selectedProfile,
+          label: 'Experimental exact-prefill Q4',
+          engine_name: 'Unlimited-OCR FFI',
+          description: '',
+          default_max_tokens: 8192,
+        },
+      ];
+}
+
+function useAutoFollowLatestRegion(
+  workbench: ReturnType<typeof useWorkbenchState>,
+  regions?: DocumentRegionsPayload,
+) {
+  const latestRegion = regions?.boxes.at(-1);
+  useEffect(() => {
+    if (!workbench.autoFollowRegions || !regions || !latestRegion) {
+      return;
+    }
+    if (workbench.selection.regionId === latestRegion.region_id) {
+      return;
+    }
+    followLatestRegion(regions.file_hash, regions.boxes);
+  }, [latestRegion, regions, workbench.autoFollowRegions, workbench.selection.regionId]);
+}
 
 export function WorkbenchPage() {
   const queryClient = useQueryClient();
@@ -59,26 +99,15 @@ export function WorkbenchPage() {
   const startIngest = useStartIngest();
   const stopRun = useRunCommand('stop');
   const activeRunId = status.data?.active_run_id ?? null;
+  const activeRun = runs.data?.runs.find((run) => run.run_id === activeRunId);
 
-  const model =
-    models.data?.models.find((item) => item.selected) ??
-    models.data?.models.find((item) => item.model_id === models.data?.selected_model_id) ??
-    models.data?.models[0];
+  const model = selectedModel(models.data);
   const modelReady = model?.status === 'downloaded';
   const selectedDocument = documents.data?.documents.find(
     (document) => document.file_hash === workbench.selection.fileHash,
   );
-  const profiles = models.data?.profiles.length
-    ? models.data.profiles
-    : [
-        {
-          key: workbench.selectedProfile,
-          label: 'Experimental exact-prefill Q4',
-          engine_name: 'Unlimited-OCR FFI',
-          description: '',
-          default_max_tokens: 8192,
-        },
-      ];
+  const profiles = profileOptions(models.data?.profiles, workbench.selectedProfile);
+  useAutoFollowLatestRegion(workbench, regions.data);
 
   const pickFolder = () => {
     void folderDialog.mutateAsync().then((result) => {
@@ -117,6 +146,7 @@ export function WorkbenchPage() {
           <IconButton icon={CircleHelp} label="Start guide" onClick={() => setTourRun(true)} />
         </div>
         <IngestToolbar
+          activeRun={activeRun}
           activeRunId={activeRunId}
           busy={startIngest.isPending || folderDialog.isPending}
           modelReady={modelReady}

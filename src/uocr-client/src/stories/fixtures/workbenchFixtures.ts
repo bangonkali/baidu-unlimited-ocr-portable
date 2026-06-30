@@ -12,18 +12,26 @@ export const fixtureDocuments: DocumentSummary[] = [
   {
     display_name: 'invoice-014.png',
     file_hash: 'hash-invoice-014',
+    current_page: 1,
     page_count: 1,
+    processed_pages: 1,
+    progress_percent: 100,
     regions: 2,
     relative_path: 'finance/invoice-014.png',
     status: 'completed',
+    total_pages: 1,
   },
   {
     display_name: 'Sample 0001.pdf',
     file_hash: 'hash-shipping-form',
+    current_page: 2,
     page_count: 3,
+    processed_pages: 1,
+    progress_percent: 33.3,
     regions: 8,
     relative_path: 'dataset/Sample 0001.pdf',
     status: 'running',
+    total_pages: 3,
   },
 ];
 
@@ -63,6 +71,8 @@ export const fixturePages: PageTextRecord[] = [
 
 export const fixtureRuns: IngestRunRecord[] = [
   {
+    current_page: 8,
+    progress_percent: 16.3,
     processed_pages: 7,
     queued_files: 18,
     root_path: 'C:\\data\\incoming',

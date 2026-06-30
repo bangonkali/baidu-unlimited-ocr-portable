@@ -59,6 +59,11 @@ selected Unlimited-OCR GGUF variant plus the shared F16 mmproj file in
 `models/`. PDF rendering uses embedded MuPDF at 200 DPI and writes page PNGs
 under `cache\rendered-pages\`.
 
+On Windows, the executable requests per-monitor DPI awareness at startup before
+the native folder picker is opened. The picker remains native because the server
+needs a trusted recursive scan root path; the web UI also keeps the manual path
+input for environments where the shell dialog is not desirable.
+
 The built-in model catalog currently covers all compatible GGUF files from
 `sahilchachra/Unlimited-OCR-GGUF`:
 
