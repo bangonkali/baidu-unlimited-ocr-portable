@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { buildApiUrl, getJson, postJson } from './http';
+import { buildApiUrl, getJson, postJson, putJson } from './http';
 import { queryKeys } from './queryKeys';
 import type {
   DocumentRegionsPayload,
@@ -17,6 +17,7 @@ import type {
   ModelsPayload,
   PreviewImagesPayload,
   SettingsPayload,
+  SettingsUpdateRequest,
   StatusPayload,
 } from './types';
 
@@ -141,6 +142,19 @@ export function useSettings() {
   return useQuery({
     queryFn: ({ signal }) => getJson<SettingsPayload>('/api/settings', signal),
     queryKey: queryKeys.settings,
+  });
+}
+
+export function useUpdateSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SettingsUpdateRequest) =>
+      putJson<SettingsPayload, SettingsUpdateRequest>('/api/settings', body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+    },
   });
 }
 

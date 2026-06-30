@@ -22,17 +22,18 @@ also printed to the terminal running `uocr-server.exe`. The React workbench can
 download any compatible Unlimited-OCR GGUF catalog model into `models\`; images
 and rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once
 the selected model and shared mmproj file are present. Multi-page PDFs are
-rendered in-process by MuPDF embedded in `uocr-server.exe`; the portable zip
-does not ship `mutool.exe`.
+rendered in-process by vcpkg `libmupdf` statically linked into
+`uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 
 The backend package dependency graph is vcpkg-managed. The current pinned
-baseline resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly;
-Trantor/Drogon use that OpenSSL for TLS, and `uocr-server.exe` uses the same
-vcpkg `OpenSSL::Crypto` target for model-file SHA verification. The release zip
-includes the matching `libcrypto*.dll` and `libssl*.dll` files beside the
-executable. DuckDB and MuPDF are the intentional native exceptions: DuckDB is a
-bundled Windows SDK snapshot, and MuPDF is linked from the submodule into the
-single server executable for PDF support.
+baseline resolves Drogon `1.9.13` exactly, Trantor `1.5.28`, and OpenSSL
+`3.6.3` exactly; Trantor/Drogon use that OpenSSL for TLS, and
+`uocr-server.exe` uses the same vcpkg `OpenSSL::Crypto` target for model-file
+SHA verification. The release zip includes the matching `libcrypto*.dll` and
+`libssl*.dll` files beside the executable. MuPDF resolves through vcpkg
+`libmupdf`. The only Windows dependency exception is DuckDB: the package uses
+the bundled Windows SDK snapshot because the vcpkg `duckdb` port currently
+fails on MSVC 19.51 with `C1083` generated-file errors.
 
 The app also creates `data\uocr.duckdb` on startup. This DuckDB file stores scan
 runs, files, rendered page metadata, OCR raw/cleaned text, bounding boxes,
@@ -123,10 +124,9 @@ bun run build-storybook
 cd ..\..
 ```
 
-The supported local workbench build script prepares the React app, builds the
-MuPDF static libraries from `thirdparty\mupdf`, links them into
-`uocr-server.exe`, resolves Drogon/OpenSSL/curl through vcpkg, and copies the
-React build to `web\`:
+The supported local workbench build script prepares the React app, resolves
+Drogon/Trantor/OpenSSL/curl/libmupdf through vcpkg, links the PDF renderer into
+`uocr-server.exe`, and copies the React build to `web\`:
 
 ```powershell
 .\scripts\windows\build-workbench.ps1
@@ -141,10 +141,8 @@ cmake --preset windows-workbench
 cmake --build --preset windows-workbench-release
 ```
 
-That lower-level path assumes the MuPDF static libraries already exist under
-`thirdparty\mupdf\platform\win32\x64\Release\`. The server binds to
-`127.0.0.1` by default and serves `/api/*`, `/api/openapi.json`, and the built
-React app in the release layout.
+The server binds to `127.0.0.1` by default and serves `/api/*`,
+`/api/openapi.json`, and the built React app in the release layout.
 
 Create the same zip layout that GitHub Actions publishes:
 

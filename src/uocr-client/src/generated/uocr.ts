@@ -10,6 +10,7 @@ import type {
   DocumentRegionsPayload,
   DocumentTextPayload,
   DocumentsPayload,
+  ErrorPayload,
   ErrorResponseResponse,
   FolderDialogResponse,
   GetOpenapi200,
@@ -27,6 +28,7 @@ import type {
   PreviewImagesPayload,
   SearchDocumentsParams,
   SettingsPayload,
+  SettingsUpdateRequest,
   StatusPayload
 } from './model';
 
@@ -742,6 +744,53 @@ export const getSettings = async ( options?: RequestInit): Promise<getSettingsRe
 
   const data: getSettingsResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getSettingsResponse
+}
+
+
+
+export type updateSettingsResponse200 = {
+  data: SettingsPayload
+  status: 200
+}
+
+export type updateSettingsResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type updateSettingsResponseSuccess = (updateSettingsResponse200) & {
+  headers: Headers;
+};
+export type updateSettingsResponseError = (updateSettingsResponse400) & {
+  headers: Headers;
+};
+
+export type updateSettingsResponse = (updateSettingsResponseSuccess | updateSettingsResponseError)
+
+export const getUpdateSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+export const updateSettings = async (settingsUpdateRequest: SettingsUpdateRequest, options?: RequestInit): Promise<updateSettingsResponse> => {
+
+  const res = await fetch(getUpdateSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(settingsUpdateRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateSettingsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as updateSettingsResponse
 }
 
 

@@ -392,11 +392,46 @@
         "operationId": "getSettings",
         "responses": {
           "200": {
-            "description": "Read-only runtime settings",
+            "description": "Runtime settings",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SettingsPayload"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated runtime settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsPayload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported setting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
                 }
               }
             }
@@ -650,8 +685,14 @@
           "accelerator": {
             "type": "string",
             "enum": [
-              "cuda"
+              "cuda",
+              "rocm",
+              "metal",
+              "cpu"
             ]
+          },
+          "runtime_selectable": {
+            "type": "boolean"
           },
           "inference_engine": {
             "type": "string"
@@ -684,6 +725,12 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "runtime_variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeVariantRecord"
             }
           }
         }
@@ -771,6 +818,9 @@
             "type": "string"
           },
           "model_id": {
+            "type": "string"
+          },
+          "runtime_id": {
             "type": "string"
           },
           "error": {
@@ -1043,6 +1093,87 @@
             "type": "string"
           },
           "database_path": {
+            "type": "string"
+          },
+          "selected_runtime_id": {
+            "type": "string"
+          },
+          "selected_accelerator": {
+            "type": "string"
+          },
+          "selected_model_id": {
+            "type": "string"
+          },
+          "runtime_variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeVariantRecord"
+            }
+          }
+        }
+      },
+      "SettingsUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "default_profile": {
+            "type": "string"
+          },
+          "selected_runtime_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeVariantRecord": {
+        "type": "object",
+        "required": [
+          "runtime_id",
+          "label",
+          "platform",
+          "accelerator",
+          "backend",
+          "installed",
+          "hardware_supported",
+          "selectable",
+          "selected"
+        ],
+        "properties": {
+          "runtime_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "accelerator": {
+            "type": "string",
+            "enum": [
+              "cuda",
+              "rocm",
+              "metal",
+              "cpu"
+            ]
+          },
+          "backend": {
+            "type": "string"
+          },
+          "ffi_library": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "hardware_supported": {
+            "type": "boolean"
+          },
+          "selectable": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "support_detail": {
             "type": "string"
           }
         }

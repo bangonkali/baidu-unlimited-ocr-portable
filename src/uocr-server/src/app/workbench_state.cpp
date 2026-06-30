@@ -7,6 +7,7 @@
 #include <sstream>
 #include <utility>
 
+#include "uocr/app/app_logger.hpp"
 #include "uocr/download/download_progress.hpp"
 #include "uocr/download/hf_auth.hpp"
 #include "uocr/render/png_dimensions.hpp"
@@ -132,6 +133,7 @@ std::string stable_hash(const DiscoveredFile& file) {
 
 WorkbenchService::Impl::Impl(std::filesystem::path root, std::shared_ptr<AppLogger> app_logger)
     : app_root(std::move(root)), logger(std::move(app_logger)) {
+  hardware_probe = detect_runtime_hardware();
   const auto auth = uocr::download::read_hf_auth_from_environment();
   for (const auto& entry : unlimited_ocr_model_catalog()) {
     auto& model = models[std::string(entry.model_id)];
@@ -143,6 +145,16 @@ WorkbenchService::Impl::Impl(std::filesystem::path root, std::shared_ptr<AppLogg
     model.last_event_at = utc_timestamp();
   }
   load_persisted_snapshot();
+  selected_runtime_id = choose_runtime_id(runtime_variants(), selected_runtime_id);
+  if (logger) {
+    const auto runtime = selected_runtime();
+    logger->info("runtime", "hardware probe cuda=" + std::string(hardware_probe.cuda ? "true" : "false") +
+                                " rocm=" + std::string(hardware_probe.rocm ? "true" : "false") +
+                                " metal=" + std::string(hardware_probe.metal ? "true" : "false"));
+    logger->info("runtime", "selected runtime " + runtime.runtime_id + " accelerator=" + runtime.accelerator +
+                                " installed=" + std::string(runtime.installed ? "true" : "false") +
+                                " selectable=" + std::string(runtime.selectable ? "true" : "false"));
+  }
 }
 
 std::filesystem::path WorkbenchService::Impl::model_path(std::string_view model_id) const {
@@ -154,12 +166,29 @@ std::filesystem::path WorkbenchService::Impl::mmproj_path() const {
   return app_root / "models" / std::string(shared_mmproj_file());
 }
 
-std::filesystem::path WorkbenchService::Impl::ffi_path() const {
-#ifdef _WIN32
-  return app_root / "thirdparty" / "uocr-runtime" / "windows-x86_64-cuda13" / "bin" / "uocr-ffi.dll";
-#else
-  return app_root / "thirdparty" / "uocr-runtime" / "linux-x86_64-cuda13" / "bin" / "libuocr-ffi.so";
-#endif
+RuntimeVariant WorkbenchService::Impl::selected_runtime() const {
+  const auto variants = runtime_variants();
+  const auto selected = choose_runtime_id(variants, selected_runtime_id);
+  const auto* runtime = find_runtime_variant(variants, selected);
+  return runtime != nullptr ? *runtime : RuntimeVariant{};
+}
+
+std::vector<RuntimeVariant> WorkbenchService::Impl::runtime_variants() const {
+  return runtime_variants_for(app_root, hardware_probe);
+}
+
+bool WorkbenchService::Impl::select_runtime(std::string_view runtime_id) {
+  const auto variants = runtime_variants();
+  const auto* runtime = find_runtime_variant(variants, runtime_id);
+  if (runtime == nullptr || !runtime->selectable) {
+    return false;
+  }
+  selected_runtime_id = runtime->runtime_id;
+  persist_selected_runtime();
+  if (logger) {
+    logger->info("runtime", "selected runtime " + selected_runtime_id + " accelerator=" + runtime->accelerator);
+  }
+  return true;
 }
 
 bool WorkbenchService::Impl::model_ready(std::string_view model_id) const {
@@ -207,6 +236,7 @@ Json::Value WorkbenchService::Impl::run_record(const RunState& run) const {
   value["profile_id"] = run.profile_id;
   value["engine_id"] = run.engine_id;
   value["model_id"] = run.model_id;
+  value["runtime_id"] = run.runtime_id.empty() ? selected_runtime().runtime_id : run.runtime_id;
   value["error"] = run.error.empty() ? Json::Value(Json::nullValue) : Json::Value(run.error);
   return value;
 }

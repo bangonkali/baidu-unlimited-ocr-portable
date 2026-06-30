@@ -11,7 +11,6 @@ option(UOCR_EMBED_MUPDF "Link the MuPDF renderer into uocr-server" ON)
 option(UOCR_REQUIRE_VCPKG "Require dependency packages to resolve through vcpkg" ON)
 set(UOCR_VERSION "" CACHE STRING "uocr-server release version, usually the git tag")
 set(UOCR_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../uocr-client" CACHE PATH "React client directory")
-set(UOCR_MUPDF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/mupdf" CACHE PATH "MuPDF submodule root")
 set(UOCR_DUCKDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/duckdb/windows-amd64" CACHE PATH "Bundled DuckDB Windows SDK root")
 
 if(UOCR_REQUIRE_VCPKG)
@@ -41,6 +40,7 @@ add_library(uocr_core STATIC
   src/core/ocr_parser.cpp
   src/core/profiles.cpp
   src/core/runaway_guard.cpp
+  src/core/runtime_catalog.cpp
   src/fs/file_scanner.cpp
   src/ocr/unlimited_ocr_ffi_engine.cpp
   src/render/png_dimensions.cpp
@@ -103,7 +103,7 @@ if(UOCR_BUILD_TESTS)
   target_link_libraries(uocr-download-tests PRIVATE uocr_download)
   add_test(NAME uocr-download-tests COMMAND uocr-download-tests)
 
-  if(WIN32 AND UOCR_EMBED_MUPDF)
+  if(UOCR_EMBED_MUPDF)
     add_executable(uocr-render-tests
       tests/render_tests.cpp
       src/render/mupdf_page_renderer.cpp
@@ -230,6 +230,10 @@ if(UOCR_BUILD_SERVER)
     endif()
 
     if(UOCR_BUILD_TESTS)
+      add_executable(uocr-dependency-tests tests/dependency_tests.cpp)
+      target_link_libraries(uocr-dependency-tests PRIVATE Drogon::Drogon uocr_openssl_crypto)
+      add_test(NAME uocr-dependency-tests COMMAND uocr-dependency-tests)
+
       add_executable(uocr-realtime-tests
         tests/realtime_tests.cpp
         src/app/realtime_event_hub.cpp

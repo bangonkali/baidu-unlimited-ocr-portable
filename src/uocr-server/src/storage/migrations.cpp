@@ -201,6 +201,15 @@ INSERT INTO settings(key, value, updated_at)
 VALUES ('selected_model_id', '"unlimited-ocr-q4-k-m"'::JSON, current_timestamp)
 ON CONFLICT(key) DO NOTHING;
 )SQL"},
+      {4, "runtime_selection_persistence", R"SQL(
+ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS runtime_id TEXT;
+INSERT INTO settings(key, value, updated_at)
+VALUES ('selected_runtime_id', '""'::JSON, current_timestamp)
+ON CONFLICT(key) DO NOTHING;
+INSERT INTO settings(key, value, updated_at)
+VALUES ('selected_profile_id', '"experimental-exact-prefill-q4"'::JSON, current_timestamp)
+ON CONFLICT(key) DO NOTHING;
+)SQL"},
   };
   return migrations;
 }

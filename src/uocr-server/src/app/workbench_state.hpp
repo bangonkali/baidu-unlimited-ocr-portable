@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "uocr/core/model_catalog.hpp"
+#include "uocr/core/runtime_catalog.hpp"
 #include "uocr/core/types.hpp"
 #include "uocr/fs/file_scanner.hpp"
 #include "uocr/storage/workbench_repository.hpp"
@@ -89,6 +90,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
     std::string profile_id = "experimental-exact-prefill-q4";
     std::string engine_id = "unlimited-ocr";
     std::string model_id = std::string(default_model_id());
+    std::string runtime_id;
     std::vector<std::string> file_hashes;
   };
 
@@ -96,7 +98,8 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
 
   std::filesystem::path model_path(std::string_view model_id) const;
   std::filesystem::path mmproj_path() const;
-  std::filesystem::path ffi_path() const;
+  RuntimeVariant selected_runtime() const;
+  std::vector<RuntimeVariant> runtime_variants() const;
   std::vector<ModelState::File> model_files(const ModelCatalogEntry& entry) const;
   bool model_ready(std::string_view model_id) const;
 
@@ -134,6 +137,9 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
                          std::string_view error) const;
   void persist_diagnostic(const std::string& run_id, std::string_view level, std::string_view message) const;
   void persist_selected_model() const;
+  void persist_selected_runtime() const;
+  void persist_selected_profile() const;
+  bool select_runtime(std::string_view runtime_id);
   void start_download(std::string model_id, bool force);
   void cancel_download(std::string_view model_id);
   void start_run(const std::string& run_id,
@@ -152,6 +158,9 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   std::atomic_bool model_cancel_requested{false};
   mutable std::mutex mutex;
   std::string selected_model_id = std::string(default_model_id());
+  std::string selected_profile_id = "experimental-exact-prefill-q4";
+  RuntimeHardwareProbe hardware_probe;
+  std::string selected_runtime_id;
   std::string active_download_model_id;
   std::map<std::string, ModelState> models;
   std::map<std::string, RunState> runs;

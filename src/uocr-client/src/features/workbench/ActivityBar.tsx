@@ -1,4 +1,4 @@
-import { Bot, Database, FileSearch } from 'lucide-react';
+import { Bot, Database, FileSearch, Settings } from 'lucide-react';
 
 import { IconButton } from '../../components/IconButton';
 import type { ActiveView } from '../../stores/workbenchStore';
@@ -24,6 +24,12 @@ export function ActivityBar({ activeView }: { activeView: ActiveView }) {
             pressed={activeView === 'models'}
           />
         </div>
+        <IconButton
+          icon={Settings}
+          label="Settings"
+          onClick={() => setActiveView('settings')}
+          pressed={activeView === 'settings'}
+        />
         <IconButton
           icon={Bot}
           label="Diagnostics"

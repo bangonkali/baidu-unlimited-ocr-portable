@@ -101,6 +101,7 @@ jobs:
             uocr-download-tests `
             uocr-render-tests `
             uocr-storage-tests `
+            uocr-dependency-tests `
             uocr-realtime-tests
           ctest --test-dir build/windows-workbench-ci -C Release --output-on-failure
 

@@ -218,7 +218,7 @@ WorkbenchSnapshot WorkbenchRepository::load_snapshot() const {
   }
 
   auto runs = impl_->query(
-      "SELECT run_id, root_path, status, coalesce(error, ''), profile_id, engine_id, model_id, "
+      "SELECT run_id, root_path, status, coalesce(error, ''), profile_id, engine_id, model_id, coalesce(runtime_id, ''), "
       "coalesce(queued_files, 0), coalesce(processed_pages, 0), coalesce(total_pages, 0) "
       "FROM ingest_runs ORDER BY started_at DESC LIMIT 50");
   for (idx_t row = 0; row < runs.rows(); ++row) {
@@ -230,9 +230,10 @@ WorkbenchSnapshot WorkbenchRepository::load_snapshot() const {
     run.profile_id = runs.text(4, row);
     run.engine_id = runs.text(5, row);
     run.model_id = runs.text(6, row);
-    run.queued_files = runs.int32(7, row);
-    run.processed_pages = runs.int32(8, row);
-    run.total_pages = runs.int32(9, row);
+    run.runtime_id = runs.text(7, row);
+    run.queued_files = runs.int32(8, row);
+    run.processed_pages = runs.int32(9, row);
+    run.total_pages = runs.int32(10, row);
     run.file_hashes = load_run_hashes(*impl_, run.run_id);
     snapshot.runs.push_back(std::move(run));
   }

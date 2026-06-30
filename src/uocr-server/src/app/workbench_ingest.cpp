@@ -63,15 +63,24 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     log_error(logger, "ingest", "run " + run_id + " failed because model assets are missing");
     return;
   }
-  if (!std::filesystem::exists(ffi_path())) {
-    fail_run(run_id, "uocr-ffi runtime is missing: " + ffi_path().string());
+  const auto runtime = selected_runtime();
+  if (!runtime.selectable) {
+    fail_run(run_id, "runtime is not ready: " + runtime.runtime_id + " (" + runtime.support_detail + ")");
+    log_error(logger, "ingest", "run " + run_id + " failed because runtime is not selectable: " +
+                                     runtime.runtime_id);
+    return;
+  }
+  if (!std::filesystem::exists(runtime.ffi_library)) {
+    fail_run(run_id, "uocr-ffi runtime is missing: " + runtime.ffi_library.string());
     log_error(logger, "ingest", "run " + run_id + " failed because uocr-ffi is missing");
     return;
   }
 
-  log_info(logger, "models", "loading CUDA Unlimited-OCR runtime model=" + model_id +
+  log_info(logger, "models", "loading Unlimited-OCR runtime=" + runtime.runtime_id +
+                                " accelerator=" + runtime.accelerator + " model=" + model_id +
                                 " file=" + std::string(model_entry->model_file));
-  UnlimitedOcrFfiEngine engine({ffi_path(), model_path(model_id), mmproj_path()}, *profile);
+  UnlimitedOcrFfiEngine engine({runtime.ffi_library, model_path(model_id), mmproj_path(), runtime.n_gpu_layers},
+                               *profile);
   bool any_failed = false;
   Json::Value run_event;
   {

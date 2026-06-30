@@ -8,7 +8,8 @@
       "binaryDir": "${sourceDir}/build/windows-workbench",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-release",
+        "TRANTOR_USE_TLS": "openssl",
         "UOCR_BUILD_SERVER": "ON",
         "UOCR_BUILD_CLIENT": "ON",
         "UOCR_BUILD_TESTS": "ON"
@@ -22,7 +23,24 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-release",
+        "TRANTOR_USE_TLS": "openssl",
+        "UOCR_BUILD_SERVER": "ON",
+        "UOCR_BUILD_CLIENT": "ON",
+        "UOCR_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "macos-arm64-workbench-ci",
+      "displayName": "macOS arm64 Workbench CI",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-arm64-workbench-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "TRANTOR_USE_TLS": "openssl",
         "UOCR_BUILD_SERVER": "ON",
         "UOCR_BUILD_CLIENT": "ON",
         "UOCR_BUILD_TESTS": "ON"
@@ -45,6 +63,14 @@
       "targets": [
         "uocr-server"
       ]
+    },
+    {
+      "name": "macos-arm64-workbench-ci-release",
+      "configurePreset": "macos-arm64-workbench-ci",
+      "configuration": "Release",
+      "targets": [
+        "uocr-server"
+      ]
     }
   ],
   "testPresets": [
@@ -59,6 +85,14 @@
     {
       "name": "windows-workbench-ci-release",
       "configurePreset": "windows-workbench-ci",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-arm64-workbench-ci-release",
+      "configurePreset": "macos-arm64-workbench-ci",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

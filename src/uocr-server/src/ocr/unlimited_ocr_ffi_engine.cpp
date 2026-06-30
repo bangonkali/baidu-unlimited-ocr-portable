@@ -210,7 +210,7 @@ struct UnlimitedOcrFfiEngine::Impl {
         .chat_template = "deepseek-ocr",
         .ctx_size = profile.ctx_size,
         .n_batch = 2048,
-        .n_gpu_layers = -2,
+        .n_gpu_layers = paths.n_gpu_layers,
         .log_verbosity = 2,
         .force_prompt_eos = profile.force_prompt_eos ? 1 : 0,
         .no_image_end = profile.no_image_end ? 1 : 0,

@@ -45,6 +45,7 @@ struct StoredRun {
   std::string profile_id = "experimental-exact-prefill-q4";
   std::string engine_id = "unlimited-ocr";
   std::string model_id = "unlimited-ocr-q4-k-m";
+  std::string runtime_id;
   int queued_files = 0;
   int processed_pages = 0;
   int total_pages = 0;

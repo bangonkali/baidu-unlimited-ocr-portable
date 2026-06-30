@@ -22,19 +22,65 @@ Json::Value WorkbenchService::status() const {
 }
 
 Json::Value WorkbenchService::settings() const {
+  std::scoped_lock lock(impl_->mutex);
+  const auto runtime = impl_->selected_runtime();
   Json::Value payload;
   payload["pdf_dpi"] = 200;
   payload["ocr_concurrency"] = 1;
-  payload["default_profile"] = default_ocr_profile().key;
+  payload["default_profile"] = impl_->selected_profile_id;
   payload["retry_profile"] = "best-zero-empty-q4";
   payload["cache_path"] = (impl_->app_root / "cache").string();
   payload["database_path"] = (impl_->app_root / "data" / "uocr.duckdb").string();
+  payload["selected_runtime_id"] = runtime.runtime_id;
+  payload["selected_accelerator"] = runtime.accelerator;
+  payload["selected_model_id"] = impl_->selected_model_id;
+  payload["runtime_variants"] = Json::arrayValue;
+  for (const auto& variant : impl_->runtime_variants()) {
+    Json::Value item;
+    item["runtime_id"] = variant.runtime_id;
+    item["label"] = variant.label;
+    item["platform"] = variant.platform;
+    item["accelerator"] = variant.accelerator;
+    item["backend"] = variant.backend;
+    item["ffi_library"] = variant.ffi_library.string();
+    item["installed"] = variant.installed;
+    item["hardware_supported"] = variant.hardware_supported;
+    item["selectable"] = variant.selectable;
+    item["selected"] = variant.runtime_id == runtime.runtime_id;
+    item["support_detail"] = variant.support_detail;
+    payload["runtime_variants"].append(item);
+  }
   return payload;
+}
+
+Json::Value WorkbenchService::update_settings(const Json::Value& request) {
+  {
+    std::scoped_lock lock(impl_->mutex);
+    const auto requested_runtime = request.get("selected_runtime_id", "").asString();
+    if (!requested_runtime.empty() && !impl_->select_runtime(requested_runtime)) {
+      return error_json("runtime is not supported on this device or is not installed: " + requested_runtime);
+    }
+    const auto requested_profile = request.get("default_profile", "").asString();
+    if (!requested_profile.empty()) {
+      if (find_ocr_profile(requested_profile) == nullptr) {
+        return error_json("unknown OCR profile: " + requested_profile);
+      }
+      impl_->selected_profile_id = requested_profile;
+      impl_->persist_selected_profile();
+    }
+  }
+  impl_->publish_status_changed();
+  return settings();
 }
 
 Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
   const std::string root = request.get("root_path", "").asString();
-  const std::string profile = request.get("profile_id", default_ocr_profile().key).asString();
+  std::string default_profile;
+  {
+    std::scoped_lock lock(impl_->mutex);
+    default_profile = impl_->selected_profile_id;
+  }
+  const std::string profile = request.get("profile_id", default_profile).asString();
   const std::string requested_model = request.get("model_id", "").asString();
   std::string model_id;
   {
@@ -61,6 +107,7 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
     run.total_pages = static_cast<int>(files.size());
     run.profile_id = profile;
     run.model_id = model_id;
+    run.runtime_id = impl_->selected_runtime().runtime_id;
     for (const auto& file : files) {
       Impl::DocumentState document;
       document.file_hash = stable_hash(file);

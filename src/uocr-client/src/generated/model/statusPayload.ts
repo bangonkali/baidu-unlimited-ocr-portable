@@ -5,6 +5,7 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
+import type { RuntimeVariantRecord } from './runtimeVariantRecord';
 import type { StatusPayloadAccelerator } from './statusPayloadAccelerator';
 import type { StatusPayloadState } from './statusPayloadState';
 
@@ -15,6 +16,7 @@ export interface StatusPayload {
   host?: string;
   runtime_platform?: string;
   accelerator?: StatusPayloadAccelerator;
+  runtime_selectable?: boolean;
   inference_engine?: string;
   log_path?: string;
   database_path?: string;
@@ -25,4 +27,5 @@ export interface StatusPayload {
   git_tag?: string;
   git_sha?: string;
   supported_inputs: string[];
+  runtime_variants?: RuntimeVariantRecord[];
 }

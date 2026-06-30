@@ -258,6 +258,13 @@ void register_api_routes(const std::filesystem::path& app_root, std::shared_ptr<
     callback(json_response(service->settings()));
   }, {Get});
 
+  app().registerHandler("/api/settings",
+                        [service](const HttpRequestPtr& request, std::function<void(const HttpResponsePtr&)>&& callback) {
+                          const auto payload = service->update_settings(request_json_or_empty(request));
+                          callback(json_response(payload, payload.isMember("error") ? k400BadRequest : k200OK));
+                        },
+                        {Put});
+
   app().registerHandler("/api/system/folder-dialog", [logger](const HttpRequestPtr&,
                                                               std::function<void(const HttpResponsePtr&)>&& callback) {
     if (logger) {

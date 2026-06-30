@@ -3,8 +3,14 @@
   "version-string": "0.1.0",
   "dependencies": [
     "curl",
+    "drogon",
+    {
+      "name": "duckdb",
+      "platform": "!windows"
+    },
+    "libmupdf",
     "openssl",
-    "drogon"
+    "trantor"
   ],
   "overrides": [
     {
@@ -15,6 +21,10 @@
     {
       "name": "openssl",
       "version": "3.6.3"
+    },
+    {
+      "name": "trantor",
+      "version": "1.5.28"
     }
   ],
   "builtin-baseline": "a0400024711b283056538ac19ced80b91a83c24c"

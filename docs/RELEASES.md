@@ -79,9 +79,9 @@ GitHub Actions:
 - `Release workbench` runs on `v*` tags and manual dispatch. It builds the
   Windows C++/React app through the vcpkg manifest, bundles the Windows
   runtime, smokes the extracted zip, verifies Drogon `1.9.13`, verifies Trantor
-  uses the same vcpkg OpenSSL `3.6.3` for TLS and the server uses that
-  same `libcrypto` for SHA verification, and uploads the zip plus checksum to
-  the GitHub Release.
+  uses the same vcpkg OpenSSL `3.6.3` for TLS, verifies the server uses that
+  same `libcrypto` for SHA verification, runs `uocr-dependency-tests`, and
+  uploads the zip plus checksum to the GitHub Release.
 - `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
   their push/tag triggers after the Windows portable exe release path remains
   stable.

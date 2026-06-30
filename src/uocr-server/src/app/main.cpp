@@ -113,6 +113,8 @@ void open_browser_after_start(std::uint16_t port) {
     const std::string url = "http://127.0.0.1:" + std::to_string(port) + "/";
 #ifdef _WIN32
     ShellExecuteA(nullptr, "open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+#elif defined(__APPLE__)
+    (void)std::system(("open '" + url + "' >/dev/null 2>&1").c_str());
 #else
     (void)std::system(("xdg-open '" + url + "' >/dev/null 2>&1").c_str());
 #endif

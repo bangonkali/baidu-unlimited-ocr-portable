@@ -24,6 +24,7 @@ class WorkbenchService {
   bool model_downloading(const std::string& model_id) const;
 
   Json::Value settings() const;
+  Json::Value update_settings(const Json::Value& request);
   Json::Value start_ingest(const Json::Value& request);
   Json::Value list_runs() const;
   Json::Value get_run(const std::string& run_id) const;

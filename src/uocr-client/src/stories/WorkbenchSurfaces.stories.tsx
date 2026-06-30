@@ -6,6 +6,7 @@ import { ExplorerTree } from '../features/workbench/ExplorerTree';
 import { IngestToolbar } from '../features/workbench/IngestToolbar';
 import { ModelManager } from '../features/workbench/ModelManager';
 import { PreviewPane } from '../features/workbench/PreviewPane';
+import { SettingsPanel } from '../features/workbench/SettingsPanel';
 import { StartHere } from '../features/workbench/StartHere';
 import { TextPane } from '../features/workbench/TextPane';
 import {
@@ -16,6 +17,7 @@ import {
   fixtureModels,
   fixturePages,
   fixtureRuns,
+  fixtureSettings,
 } from './fixtures/workbenchFixtures';
 import './storybook.css';
 
@@ -120,6 +122,22 @@ export const ModelsDownloading: Story = {
         onCancelModel={() => undefined}
         onDownloadModel={() => undefined}
         onSelectModel={() => undefined}
+      />
+    </div>
+  ),
+};
+
+export const Settings: Story = {
+  render: () => (
+    <div className="storyTall">
+      <SettingsPanel
+        models={fixtureModels}
+        onModelChange={() => undefined}
+        onProfileChange={() => undefined}
+        onRuntimeChange={() => undefined}
+        profiles={fixtureModels.profiles}
+        selectedProfile="experimental-exact-prefill-q4"
+        settings={fixtureSettings}
       />
     </div>
   ),

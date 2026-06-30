@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import subprocess
 import shutil
 import sys
@@ -16,11 +17,19 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
 
 
 USER_AGENT = "baidu-unlimited-ocr-portable-runtime-installer"
+GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+GITHUB_DOWNLOAD_HOSTS = {
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
 
 
 @dataclass(frozen=True)
@@ -40,6 +49,21 @@ def die(message: str) -> None:
 
 def eprint(message: str) -> None:
     print(message, file=sys.stderr)
+
+
+def validate_github_repo(value: str) -> str:
+    repo = value.strip("/")
+    if not GITHUB_REPO_RE.fullmatch(repo):
+        die(f"--runtime-repo must be OWNER/REPO with GitHub-safe characters, got: {value}")
+    return repo
+
+
+def validate_github_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in GITHUB_DOWNLOAD_HOSTS:
+        die(f"refusing non-GitHub runtime download URL: {url}")
+    return url
 
 
 def normalize_arch(raw: str) -> str:
@@ -198,20 +222,34 @@ def detect_platform(repo_root: Path, requested_platform: str | None = None) -> D
             reason=f"no supported runtime label for {os_name}/{arch}",
         )
 
+    failures: list[str] = []
+    for platform_id, target in candidates:
+        accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
+        if accelerator_ok:
+            return DetectedPlatform(
+                platform_id=platform_id,
+                os_name=os_name,
+                arch=arch,
+                accelerator_ok=True,
+                accelerator_detail=accelerator_detail,
+                supported=True,
+                reason="supported",
+            )
+        failures.append(f"{platform_id}: {accelerator_detail}")
     platform_id, target = candidates[0]
-    accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
     return DetectedPlatform(
         platform_id=platform_id,
         os_name=os_name,
         arch=arch,
-        accelerator_ok=accelerator_ok,
-        accelerator_detail=accelerator_detail,
-        supported=accelerator_ok,
-        reason="supported" if accelerator_ok else accelerator_detail,
+        accelerator_ok=False,
+        accelerator_detail="; ".join(failures),
+        supported=False,
+        reason="; ".join(failures),
     )
 
 
 def request_json(url: str) -> dict[str, Any]:
+    url = validate_github_url(url)
     headers = {
         "Accept": "application/vnd.github+json",
         "User-Agent": USER_AGENT,
@@ -226,6 +264,7 @@ def request_json(url: str) -> dict[str, Any]:
 
 
 def download_url(url: str, output_path: Path) -> None:
+    url = validate_github_url(url)
     headers = {"User-Agent": USER_AGENT}
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if token and "github.com" in url:
@@ -236,9 +275,7 @@ def download_url(url: str, output_path: Path) -> None:
 
 
 def github_release(runtime_repo: str, runtime_version: str) -> dict[str, Any]:
-    repo = runtime_repo.strip("/")
-    if "/" not in repo:
-        die(f"--runtime-repo must be OWNER/REPO, got: {runtime_repo}")
+    repo = validate_github_repo(runtime_repo)
     if runtime_version == "latest":
         url = f"https://api.github.com/repos/{repo}/releases/latest"
     else:

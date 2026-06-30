@@ -30,20 +30,31 @@ Json::Value WorkbenchService::Impl::status_record() const {
     }
   }
   payload["host"] = "127.0.0.1";
-  payload["runtime_platform"] =
-#ifdef _WIN32
-      "windows-x86_64-cuda13";
-#else
-      "linux-x86_64-cuda13";
-#endif
-  payload["accelerator"] = "cuda";
+  const auto runtime = selected_runtime();
+  payload["runtime_platform"] = runtime.platform;
+  payload["accelerator"] = runtime.accelerator;
+  payload["runtime_selectable"] = runtime.selectable;
   payload["inference_engine"] = "Unlimited-OCR FFI";
   payload["selected_model_id"] = selected_model_id;
   payload["log_path"] = (app_root / "logs" / "uocr-server.log").string();
   payload["database_path"] = (app_root / "data" / "uocr.duckdb").string();
-  payload["default_profile"] = default_ocr_profile().key;
+  payload["default_profile"] = selected_profile_id;
   for (const auto* suffix : {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}) {
     payload["supported_inputs"].append(suffix);
+  }
+  payload["runtime_variants"] = Json::arrayValue;
+  for (const auto& variant : runtime_variants()) {
+    Json::Value item;
+    item["runtime_id"] = variant.runtime_id;
+    item["label"] = variant.label;
+    item["accelerator"] = variant.accelerator;
+    item["backend"] = variant.backend;
+    item["installed"] = variant.installed;
+    item["hardware_supported"] = variant.hardware_supported;
+    item["selectable"] = variant.selectable;
+    item["selected"] = variant.runtime_id == runtime.runtime_id;
+    item["support_detail"] = variant.support_detail;
+    payload["runtime_variants"].append(item);
   }
   payload["realtime_path"] = "/api/events";
   return payload;

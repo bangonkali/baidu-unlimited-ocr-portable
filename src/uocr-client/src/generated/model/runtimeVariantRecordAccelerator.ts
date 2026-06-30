@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type StatusPayloadAccelerator = typeof StatusPayloadAccelerator[keyof typeof StatusPayloadAccelerator];
+export type RuntimeVariantRecordAccelerator = typeof RuntimeVariantRecordAccelerator[keyof typeof RuntimeVariantRecordAccelerator];
 
 
-export const StatusPayloadAccelerator = {
+export const RuntimeVariantRecordAccelerator = {
   cuda: 'cuda',
   rocm: 'rocm',
   metal: 'metal',

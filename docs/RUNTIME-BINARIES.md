@@ -30,7 +30,8 @@ uploads/
 openapi/uocr.openapi.json
 duckdb.dll
 thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll
-thirdparty/mupdf/COPYING
+thirdparty/uocr-runtime/windows-x86_64-cpu/bin/uocr-ffi.dll
+thirdparty/libmupdf/copyright
 ```
 
 The release also bundles Drogon/Trantor/vcpkg DLLs needed by the C++ server and
@@ -42,13 +43,14 @@ MuPDF is linked into `uocr-server.exe`; the portable zip must not contain
 `mutool.exe`.
 
 Native C++ package dependencies are vcpkg-managed. The current pinned baseline
-resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly; Trantor/Drogon
-use that OpenSSL for TLS, and `uocr-server.exe` uses the same vcpkg
-`OpenSSL::Crypto` target for SHA256 verification of downloaded model files. The
-release root therefore includes the matching `libssl*.dll` and
-`libcrypto*.dll` files. DuckDB and MuPDF are deliberate exceptions because the
-portable app bundles a DuckDB Windows SDK snapshot and links the MuPDF submodule
-into `uocr-server.exe`.
+resolves Drogon `1.9.13` exactly, Trantor `1.5.28`, and OpenSSL `3.6.3`
+exactly; Trantor/Drogon use that OpenSSL for TLS, and `uocr-server.exe` uses
+the same vcpkg `OpenSSL::Crypto` target for SHA256 verification of downloaded
+model files. The release root therefore includes the matching `libssl*.dll` and
+`libcrypto*.dll` files. MuPDF is vcpkg `libmupdf` and is statically linked into
+`uocr-server.exe`. The Windows DuckDB SDK snapshot is the only dependency
+exception because the vcpkg `duckdb` port currently fails on MSVC 19.51 with
+`C1083` generated-file errors.
 `package-workbench.ps1` and the release workflow inspect dependencies with
 `dumpbin` and fail if Trantor is not OpenSSL/TLS-enabled or if the server does
 not import `libcrypto` for SHA verification.
@@ -107,16 +109,23 @@ The exact supported runtime labels are defined in `runtime/platforms.json`:
 | Label | OS / arch | Backend | Archive |
 | --- | --- | --- | --- |
 | `macos-arm64-metal` | macOS arm64 | Metal | `.tar.gz` |
+| `macos-arm64-cpu` | macOS arm64 | CPU | `.tar.gz` |
 | `linux-x86_64-cuda13` | Linux x86_64 | CUDA 13 | `.tar.gz` |
+| `linux-x86_64-rocm6` | Linux x86_64 | ROCm 6 | `.tar.gz` |
+| `linux-x86_64-cpu` | Linux x86_64 | CPU | `.tar.gz` |
 | `windows-x86_64-cuda13` | Windows x86_64 | CUDA 13 | `.zip` |
+| `windows-x86_64-rocm6` | Windows x86_64 | ROCm 6 | `.zip` |
+| `windows-x86_64-cpu` | Windows x86_64 | CPU | `.zip` |
 
 Linux and Windows CUDA labels require `nvidia-smi` to be available when
 installing a prebuilt runtime, and the machine must have NVIDIA driver/runtime
 libraries compatible with CUDA 13 binaries. If the accelerator probe fails, the
 downloader refuses to install a CUDA-labeled binary for that machine.
 
-The Windows C++ workbench currently selects only `windows-x86_64-cuda13`.
-There is no packaged CPU runtime selector in the workbench yet.
+The C++ workbench runtime selector defaults to CUDA, then ROCm or Metal, then
+CPU, but only for runtime directories that are installed and whose hardware
+probe passes. The Windows package stages CUDA plus CPU by default; ROCm becomes
+selectable when a matching runtime is installed and the AMD probe passes.
 
 CUDA 13 release binaries target compute capability 7.5 or newer and explicitly
 include Blackwell RTX 5090 support. NVIDIA's RTX 5090 specs list CUDA
@@ -212,10 +221,10 @@ entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
 parallelism to reduce hosted-runner memory pressure.
 
 The active workflow is `.github/workflows/release-workbench.yml`. It builds the
-Windows C++/React workbench through the vcpkg manifest, downloads the selected
-Windows CUDA runtime archive, packages `uocr-workbench-windows-x64-<tag>.zip`,
-smokes the extracted executable, checks the shared OpenSSL dependency path, and
-uploads the zip plus checksum to the same GitHub Release.
+Windows C++/React workbench through the vcpkg manifest, stages Windows runtime
+archives, packages `uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted
+executable, checks the shared OpenSSL dependency path, runs the dependency
+version/TLS test, and uploads the zip plus checksum to the same GitHub Release.
 
 Runtime GPU smoke validation should be run on self-hosted GPU runners before
 promoting a release as validated; GitHub-hosted standard runners compile the

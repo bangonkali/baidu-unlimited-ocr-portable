@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "uocr/app/app_logger.hpp"
+#include "uocr/core/profiles.hpp"
 
 namespace uocr::server {
 namespace {
@@ -54,6 +55,7 @@ storage::StoredRun stored_run(const WorkbenchService::Impl::RunState& run) {
   stored.processed_pages = run.processed_pages;
   stored.total_pages = run.total_pages;
   stored.model_id = run.model_id;
+  stored.runtime_id = run.runtime_id;
   stored.file_hashes = run.file_hashes;
   return stored;
 }
@@ -98,6 +100,9 @@ void WorkbenchService::Impl::load_persisted_snapshot() {
     repository = std::make_shared<storage::WorkbenchRepository>(app_root / "data" / "uocr.duckdb");
     const auto selected = repository->setting_string("selected_model_id", default_model_id());
     selected_model_id = find_model_catalog_entry(selected) != nullptr ? selected : std::string(default_model_id());
+    const auto selected_profile = repository->setting_string("selected_profile_id", selected_profile_id);
+    selected_profile_id = find_ocr_profile(selected_profile) != nullptr ? selected_profile : default_ocr_profile().key;
+    selected_runtime_id = repository->setting_string("selected_runtime_id", "");
     const auto snapshot = repository->load_snapshot();
     for (const auto& stored : snapshot.documents) {
       DocumentState document;
@@ -124,6 +129,7 @@ void WorkbenchService::Impl::load_persisted_snapshot() {
       run.processed_pages = stored.processed_pages;
       run.total_pages = stored.total_pages;
       run.model_id = stored.model_id.empty() ? std::string(default_model_id()) : stored.model_id;
+      run.runtime_id = stored.runtime_id;
       run.file_hashes = stored.file_hashes;
       runs[run.run_id] = std::move(run);
     }
@@ -148,6 +154,32 @@ void WorkbenchService::Impl::persist_selected_model() const {
   } catch (const std::exception& error) {
     if (logger) {
       logger->error("database", std::string("failed to persist selected model: ") + error.what());
+    }
+  }
+}
+
+void WorkbenchService::Impl::persist_selected_runtime() const {
+  if (!repository) {
+    return;
+  }
+  try {
+    repository->put_setting_string("selected_runtime_id", selected_runtime_id);
+  } catch (const std::exception& error) {
+    if (logger) {
+      logger->error("database", std::string("failed to persist selected runtime: ") + error.what());
+    }
+  }
+}
+
+void WorkbenchService::Impl::persist_selected_profile() const {
+  if (!repository) {
+    return;
+  }
+  try {
+    repository->put_setting_string("selected_profile_id", selected_profile_id);
+  } catch (const std::exception& error) {
+    if (logger) {
+      logger->error("database", std::string("failed to persist selected profile: ") + error.what());
     }
   }
 }

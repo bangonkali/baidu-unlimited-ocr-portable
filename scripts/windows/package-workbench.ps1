@@ -6,9 +6,11 @@ param(
     [string]$RuntimeVersion = "latest",
     [string]$RuntimeRepo = "bangonkali/baidu-unlimited-ocr-portable",
     [string]$RuntimePlatform = "windows-x86_64-cuda13",
+    [string[]]$AdditionalRuntimePlatforms = @("windows-x86_64-cpu"),
     [string]$OutputDir = "",
     [switch]$NoBuild,
-    [switch]$NoRuntimeDownload
+    [switch]$NoRuntimeDownload,
+    [switch]$NoCpuRuntimeBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -134,6 +136,77 @@ function Copy-ServerRootDlls {
         Copy-Item -Destination $DestinationDir -Force
 }
 
+function Copy-VcpkgCopyright {
+    param(
+        [string]$Package,
+        [string]$Destination
+    )
+    $match = Get-ChildItem -LiteralPath (Join-Path $RepoRoot "build") -Recurse -Filter "copyright" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "\\vcpkg_installed\\.*\\share\\$([Regex]::Escape($Package))\\copyright$" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if (-not $match) {
+        throw "vcpkg copyright file was not found for $Package."
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Destination) | Out-Null
+    Copy-Item -LiteralPath $match.FullName -Destination $Destination -Force
+}
+
+function Get-VcpkgToolchainPath {
+    if (-not $env:VCPKG_ROOT) {
+        throw "VCPKG_ROOT is not set; the portable package requires vcpkg-managed dependencies."
+    }
+    $toolchain = Join-Path $env:VCPKG_ROOT "scripts\buildsystems\vcpkg.cmake"
+    if (-not (Test-Path $toolchain)) {
+        throw "vcpkg toolchain was not found: $toolchain"
+    }
+    return $toolchain
+}
+
+function Get-VcpkgTripletRoot {
+    $triplet = "x64-windows-release"
+    $preferred = Join-Path $RepoRoot "build\$Preset\vcpkg_installed\$triplet"
+    if (Test-Path $preferred) {
+        return $preferred
+    }
+    $fallback = Get-ChildItem -LiteralPath (Join-Path $RepoRoot "build") -Recurse -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "\\vcpkg_installed\\$triplet$" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($fallback) {
+        return $fallback.FullName
+    }
+    throw "vcpkg triplet root was not found for $triplet. Build the workbench before packaging."
+}
+
+function Invoke-LoggedNative {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments,
+        [string]$FailureMessage
+    )
+
+    & $FilePath @Arguments 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        throw "$FailureMessage with exit code $LASTEXITCODE"
+    }
+}
+
+function Copy-VcpkgOpenSslRuntimeDlls {
+    param(
+        [string]$TripletRoot,
+        [string]$Destination
+    )
+    $bin = Join-Path $TripletRoot "bin"
+    foreach ($pattern in @("libcrypto*.dll", "libssl*.dll")) {
+        $matches = Get-ChildItem -LiteralPath $bin -Filter $pattern -ErrorAction SilentlyContinue
+        if (-not $matches) {
+            throw "Expected vcpkg OpenSSL runtime DLL matching $pattern under $bin."
+        }
+        $matches | Copy-Item -Destination $Destination -Force
+    }
+}
+
 function Save-ReleaseAsset {
     param($Asset, [string]$Destination)
     Invoke-WebRequest `
@@ -205,6 +278,95 @@ function Install-RuntimeFromRelease {
     }
 }
 
+function Find-BuiltRuntimeFile {
+    param([string]$BuildDir, [string]$Name)
+    $match = Get-ChildItem -LiteralPath $BuildDir -Recurse -Filter $Name -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch "\\CMakeFiles\\" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if (-not $match) {
+        throw "Built runtime file was not found under $BuildDir`: $Name"
+    }
+    return $match
+}
+
+function Install-CpuRuntimeFromSource {
+    param([string]$RuntimeDir)
+
+    if ($NoCpuRuntimeBuild) {
+        throw "CPU runtime is missing and -NoCpuRuntimeBuild was specified."
+    }
+    $llamaDir = Join-Path $RepoRoot "thirdparty\llama.cpp"
+    if (-not (Test-Path (Join-Path $llamaDir "CMakeLists.txt"))) {
+        throw "llama.cpp submodule is missing; cannot build CPU runtime."
+    }
+    $buildDir = Join-Path $llamaDir "build-windows-x86_64-cpu"
+    $vcpkgToolchain = Get-VcpkgToolchainPath
+    $vcpkgTripletRoot = Get-VcpkgTripletRoot
+    Write-Host "Building Windows CPU runtime for portable fallback"
+    Invoke-LoggedNative `
+        -FilePath "cmake" `
+        -Arguments @(
+            "-B", $buildDir,
+            "-S", $llamaDir,
+            "-G", "Visual Studio 18 2026",
+            "-A", "x64",
+            "-DGGML_NATIVE=OFF",
+            "-DCMAKE_TOOLCHAIN_FILE=$vcpkgToolchain",
+            "-DVCPKG_TARGET_TRIPLET=x64-windows-release",
+            "-DCMAKE_PREFIX_PATH=$vcpkgTripletRoot",
+            "-DOPENSSL_ROOT_DIR=$vcpkgTripletRoot",
+            "-DOPENSSL_USE_STATIC_LIBS=OFF"
+        ) `
+        -FailureMessage "CPU runtime configure failed"
+    Invoke-LoggedNative `
+        -FilePath "cmake" `
+        -Arguments @("--build", $buildDir, "--config", "Release", "--target", "llama-mtmd-cli", "llama-uocr-parity", "llama-server", "uocr-ffi", "--parallel", "3") `
+        -FailureMessage "CPU runtime build failed"
+
+    $binDir = Join-Path $RuntimeDir "bin"
+    Remove-Item -LiteralPath $RuntimeDir -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+    foreach ($name in @("uocr-ffi.dll", "llama-uocr-parity.exe", "llama-mtmd-cli.exe", "llama-server.exe")) {
+        $file = Find-BuiltRuntimeFile -BuildDir $buildDir -Name $name
+        Copy-Item -LiteralPath $file.FullName -Destination $binDir -Force
+    }
+    $runtimeDllDirs = Get-ChildItem -LiteralPath $buildDir -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -notmatch "\\CMakeFiles\\" } |
+        Select-Object -ExpandProperty DirectoryName -Unique
+    foreach ($dir in $runtimeDllDirs) {
+        Get-ChildItem -LiteralPath $dir -Filter "*.dll" |
+            Copy-Item -Destination $binDir -Force
+    }
+    Copy-VcpkgOpenSslRuntimeDlls -TripletRoot $vcpkgTripletRoot -Destination $binDir
+}
+
+function Ensure-RuntimePlatform {
+    param([string]$Platform)
+
+    $runtimeRoot = Join-Path $RepoRoot "thirdparty\uocr-runtime"
+    $runtimeDir = Join-Path $runtimeRoot $Platform
+    $runtimeFfi = Join-Path $runtimeDir "bin\uocr-ffi.dll"
+    if (Test-Path $runtimeFfi) {
+        return $runtimeDir
+    }
+    if ($Platform -eq "windows-x86_64-cpu") {
+        Install-CpuRuntimeFromSource -RuntimeDir $runtimeDir
+        return $runtimeDir
+    }
+    if (-not $NoRuntimeDownload) {
+        Install-RuntimeFromRelease `
+            -Repo $RuntimeRepo `
+            -Tag $RuntimeVersion `
+            -Platform $Platform `
+            -RuntimeDir $runtimeDir
+    }
+    if (-not (Test-Path $runtimeFfi)) {
+        throw "Runtime FFI library is missing: $runtimeFfi"
+    }
+    return $runtimeDir
+}
+
 if (-not $NoBuild) {
     & (Join-Path $PSScriptRoot "build-workbench.ps1") `
         -Configuration $Configuration `
@@ -212,18 +374,10 @@ if (-not $NoBuild) {
         -Version $Version
 }
 
-$RuntimeRoot = Join-Path $RepoRoot "thirdparty\uocr-runtime"
-$RuntimeDir = Join-Path $RuntimeRoot $RuntimePlatform
-$RuntimeFfi = Join-Path $RuntimeDir "bin\uocr-ffi.dll"
-if (-not (Test-Path $RuntimeFfi) -and -not $NoRuntimeDownload) {
-    Install-RuntimeFromRelease `
-        -Repo $RuntimeRepo `
-        -Tag $RuntimeVersion `
-        -Platform $RuntimePlatform `
-        -RuntimeDir $RuntimeDir
-}
-if (-not (Test-Path $RuntimeFfi)) {
-    throw "Runtime FFI library is missing: $RuntimeFfi"
+$RuntimeDirs = @{}
+$AllRuntimePlatforms = @($RuntimePlatform) + @($AdditionalRuntimePlatforms) | Select-Object -Unique
+foreach ($platform in $AllRuntimePlatforms) {
+    $RuntimeDirs[$platform] = Ensure-RuntimePlatform -Platform $platform
 }
 
 $Exe = Find-ServerExe
@@ -245,12 +399,13 @@ Copy-DirectoryIfExists -Source (Join-Path $ExeDir "openapi") -Destination (Join-
 
 $RuntimeStage = Join-Path $StageRoot "thirdparty\uocr-runtime"
 New-Item -ItemType Directory -Force -Path $RuntimeStage | Out-Null
-Copy-Item -LiteralPath $RuntimeDir -Destination $RuntimeStage -Recurse -Force
+foreach ($platform in $AllRuntimePlatforms) {
+    Copy-Item -LiteralPath $RuntimeDirs[$platform] -Destination $RuntimeStage -Recurse -Force
+}
 
-New-Item -ItemType Directory -Force -Path (Join-Path $StageRoot "thirdparty\mupdf") | Out-Null
-Copy-Item -LiteralPath (Join-Path $RepoRoot "thirdparty\mupdf\COPYING") `
-    -Destination (Join-Path $StageRoot "thirdparty\mupdf\COPYING") `
-    -Force
+Copy-VcpkgCopyright `
+    -Package "libmupdf" `
+    -Destination (Join-Path $StageRoot "thirdparty\libmupdf\copyright")
 
 foreach ($dir in @("models", "data", "cache", "logs", "config", "uploads")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $StageRoot $dir) | Out-Null
@@ -270,8 +425,9 @@ Run uocr-server.exe to start the local backend and hosted React app.
 Default URL: http://127.0.0.1:8765/
 Logs: logs\uocr-server.log
 Optional authenticated model downloads: set HF_TOKEN before launching uocr-server.exe.
+Open Settings to choose the runtime/accelerator and default model/profile. CUDA is preferred when supported; the zip also bundles a CPU runtime fallback.
 Open Models, choose a GGUF variant, click Download, then Use; progress shows per-file bytes, MiB/s, ETA, retry, and cancel.
-PDF support: native MuPDF is embedded in uocr-server.exe and renders pages at 200 DPI.
+PDF support: native vcpkg libmupdf is statically linked into uocr-server.exe and renders pages at 200 DPI.
 Uninstall: delete this folder.
 "@ | Set-Content -LiteralPath (Join-Path $StageRoot "README.txt") -Encoding utf8
 
@@ -281,8 +437,9 @@ $manifest = [ordered]@{
     version = $Version
     platform = "windows-x64"
     runtime_platform = $RuntimePlatform
+    runtime_platforms = @($AllRuntimePlatforms)
     runtime_version = $RuntimeVersion
-    pdf_renderer = "embedded-mupdf"
+    pdf_renderer = "vcpkg-libmupdf"
     created_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $StageRoot "install-manifest.json") -Encoding utf8

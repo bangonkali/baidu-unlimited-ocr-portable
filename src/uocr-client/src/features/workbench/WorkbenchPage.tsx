@@ -17,8 +17,10 @@ import {
   useOpenFolderDialog,
   useRunCommand,
   useSelectModel,
+  useSettings,
   useStartIngest,
   useStatus,
+  useUpdateSettings,
 } from '../../api/hooks';
 import type { DocumentRegionsPayload, ModelsPayload, OcrProfileRecord } from '../../api/types';
 import { IconButton } from '../../components/IconButton';
@@ -36,6 +38,7 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { GuidedTour } from './GuidedTour';
 import { IngestToolbar } from './IngestToolbar';
 import { ModelManager } from './ModelManager';
+import { SettingsPanel } from './SettingsPanel';
 import { StatusBar } from './StatusBar';
 import styles from './WorkbenchPage.module.css';
 import { WorkbenchPanels } from './WorkbenchPanels';
@@ -78,6 +81,76 @@ function useAutoFollowLatestRegion(
   }, [latestRegion, regions, workbench.autoFollowRegions, workbench.selection.regionId]);
 }
 
+function WorkbenchFooter(props: {
+  accelerator?: string;
+  documentCount: number;
+  logPath?: string;
+  realtimeState: string;
+  runState: string;
+  runtimePlatform?: string;
+  selectedRoot: string;
+}) {
+  return (
+    <StatusBar
+      documentCount={props.documentCount}
+      host={window.location.host}
+      logPath={props.logPath}
+      realtimeState={props.realtimeState}
+      runState={props.runState}
+      runtime={`${props.runtimePlatform ?? 'windows-x86_64-cuda13'} / ${
+        props.accelerator ?? 'cuda'
+      }`}
+      selectedRoot={props.selectedRoot}
+    />
+  );
+}
+
+function CommandCenter(props: {
+  searchText: string;
+  onSearchTextChange: (value: string) => void;
+  onStartGuide: () => void;
+}) {
+  return (
+    <div className={styles.commandCenter}>
+      <Search size={15} />
+      <input
+        aria-label="Search documents"
+        onChange={(event) => props.onSearchTextChange(event.target.value)}
+        placeholder="Search documents"
+        value={props.searchText}
+      />
+      <IconButton icon={CircleHelp} label="Start guide" onClick={props.onStartGuide} />
+    </div>
+  );
+}
+
+function usePersistentProfile(
+  defaultProfile: string | undefined,
+  selectedProfile: string,
+  saveProfile: (profileId: string) => void,
+) {
+  useEffect(() => {
+    if (defaultProfile && defaultProfile !== selectedProfile) {
+      setSelectedProfile(defaultProfile);
+    }
+  }, [defaultProfile, selectedProfile]);
+
+  return (profileId: string) => {
+    setSelectedProfile(profileId);
+    saveProfile(profileId);
+  };
+}
+
+function useWorkbenchRefresh(queryClient: ReturnType<typeof useQueryClient>) {
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.models });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+    void queryClient.invalidateQueries({ queryKey: ['documents'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+  };
+}
+
 export function WorkbenchPage() {
   const queryClient = useQueryClient();
   const workbench = useWorkbenchState();
@@ -89,6 +162,7 @@ export function WorkbenchPage() {
   const models = useModels();
   const runs = useIngestRuns();
   const logs = useLogs(220);
+  const settings = useSettings();
   const regions = useDocumentRegions(workbench.selection.fileHash);
   const text = useDocumentText(workbench.selection.fileHash);
   const previewImages = useDocumentPreviewImages(workbench.selection.fileHash);
@@ -96,6 +170,7 @@ export function WorkbenchPage() {
   const downloadModel = useDownloadModel();
   const cancelModelDownload = useCancelModelDownload();
   const selectModel = useSelectModel();
+  const updateSettings = useUpdateSettings();
   const startIngest = useStartIngest();
   const stopRun = useRunCommand('stop');
   const activeRunId = status.data?.active_run_id ?? null;
@@ -108,6 +183,12 @@ export function WorkbenchPage() {
   );
   const profiles = profileOptions(models.data?.profiles, workbench.selectedProfile);
   useAutoFollowLatestRegion(workbench, regions.data);
+  const changeProfile = usePersistentProfile(
+    settings.data?.default_profile,
+    workbench.selectedProfile,
+    (profileId) => updateSettings.mutate({ default_profile: profileId }),
+  );
+  const refresh = useWorkbenchRefresh(queryClient);
 
   const pickFolder = () => {
     void folderDialog.mutateAsync().then((result) => {
@@ -122,36 +203,23 @@ export function WorkbenchPage() {
       profile_id: workbench.selectedProfile,
       root_path: workbench.selectedRoot,
     });
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.models });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
-    void queryClient.invalidateQueries({ queryKey: ['documents'] });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-  };
-
   return (
     <div className={styles.shell}>
       <GuidedTour run={workbench.tourRun} />
       <ActivityBar activeView={workbench.activeView} />
       <main className={styles.main}>
-        <div className={styles.commandCenter}>
-          <Search size={15} />
-          <input
-            aria-label="Search documents"
-            onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search documents"
-            value={searchText}
-          />
-          <IconButton icon={CircleHelp} label="Start guide" onClick={() => setTourRun(true)} />
-        </div>
+        <CommandCenter
+          onSearchTextChange={setSearchText}
+          onStartGuide={() => setTourRun(true)}
+          searchText={searchText}
+        />
         <IngestToolbar
           activeRun={activeRun}
           activeRunId={activeRunId}
           busy={startIngest.isPending || folderDialog.isPending}
           modelReady={modelReady}
           onPickFolder={pickFolder}
-          onProfileChange={setSelectedProfile}
+          onProfileChange={changeProfile}
           onRefresh={refresh}
           onRootPathChange={setSelectedRoot}
           onStart={startScan}
@@ -178,6 +246,20 @@ export function WorkbenchPage() {
           {workbench.activeView === 'diagnostics' ? (
             <DiagnosticsPanel logs={logs.data?.logs ?? []} runs={runs.data?.runs ?? []} />
           ) : null}
+          {workbench.activeView === 'settings' ? (
+            <SettingsPanel
+              busy={selectModel.isPending || updateSettings.isPending}
+              models={models.data}
+              onModelChange={(modelId) => selectModel.mutate(modelId)}
+              onProfileChange={changeProfile}
+              onRuntimeChange={(runtimeId) =>
+                updateSettings.mutate({ selected_runtime_id: runtimeId })
+              }
+              profiles={profiles}
+              selectedProfile={workbench.selectedProfile}
+              settings={settings.data}
+            />
+          ) : null}
           {workbench.activeView === 'workbench' ? (
             <WorkbenchPanels
               documents={documents.data?.documents ?? []}
@@ -196,13 +278,13 @@ export function WorkbenchPage() {
             />
           ) : null}
         </div>
-        <StatusBar
+        <WorkbenchFooter
+          accelerator={status.data?.accelerator}
           documentCount={documents.data?.documents.length ?? 0}
-          host={window.location.host}
           logPath={status.data?.log_path}
           realtimeState={realtime.connectionState}
           runState={status.data?.state ?? 'offline'}
-          runtime={status.data?.runtime_platform ?? 'windows-x86_64-cuda13'}
+          runtimePlatform={status.data?.runtime_platform}
           selectedRoot={workbench.selectedRoot}
         />
       </main>

@@ -1,9 +1,28 @@
 import { Crosshair } from 'lucide-react';
+import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
 import type { OverlayBox } from '../../api/types';
 import { setSelection } from '../../stores/workbenchStore';
 import styles from './PreviewPane.module.css';
+
+interface ScrollGeometry {
+  rootScroll: number;
+  rootSize: number;
+  rootStart: number;
+  targetSize: number;
+  targetStart: number;
+}
+
+export function centeredScrollOffset(geometry: ScrollGeometry) {
+  return (
+    geometry.rootScroll +
+    geometry.targetStart -
+    geometry.rootStart +
+    geometry.targetSize / 2 -
+    geometry.rootSize / 2
+  );
+}
 
 interface PreviewPaneProps {
   autoFollowRegions: boolean;
@@ -30,6 +49,7 @@ export function PreviewPane({
   selectedRegionId,
   onAutoFollowChange,
 }: PreviewPaneProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
   return (
     <section className={styles.preview} aria-label="Preview" data-tour="preview">
       <div className={styles.header}>
@@ -44,7 +64,7 @@ export function PreviewPane({
           <span>{autoFollowRegions ? 'Auto Follow On' : 'Auto Follow Off'}</span>
         </button>
       </div>
-      <div className={styles.canvas}>
+      <div className={styles.canvas} ref={canvasRef}>
         {!fileHash || pages.length === 0 ? (
           <div className={styles.empty}>No preview yet</div>
         ) : null}
@@ -58,6 +78,7 @@ export function PreviewPane({
                 labelsVisible={labelsVisible}
                 overlayVisible={overlayVisible}
                 pageNo={pageNo}
+                scrollRootRef={canvasRef}
                 selectedPageNo={selectedPageNo}
                 selectedRegionId={selectedRegionId}
               />
@@ -75,12 +96,14 @@ function PagePreview(props: {
   labelsVisible: boolean;
   overlayVisible: boolean;
   pageNo: number;
+  scrollRootRef: RefObject<HTMLDivElement | null>;
   selectedPageNo: number;
   selectedRegionId?: string;
 }) {
   const pageRef = useRef<HTMLElement>(null);
   const activeBoxRef = useRef<HTMLButtonElement>(null);
   const selectedRegionId = props.selectedRegionId;
+  const scrollRootRef = props.scrollRootRef;
   const imageUrl =
     props.getImageUrl?.(props.fileHash, props.pageNo) ??
     `/api/documents/${encodeURIComponent(props.fileHash)}/preview-images/source/${props.pageNo}`;
@@ -90,8 +113,30 @@ function PagePreview(props: {
       return;
     }
     const target = selectedRegionId ? (activeBoxRef.current ?? pageRef.current) : pageRef.current;
-    target?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
-  }, [props.pageNo, props.selectedPageNo, selectedRegionId]);
+    const root = scrollRootRef.current;
+    if (!target || !root) {
+      return;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    root.scrollTo({
+      behavior: 'smooth',
+      left: centeredScrollOffset({
+        rootScroll: root.scrollLeft,
+        rootSize: rootRect.width,
+        rootStart: rootRect.left,
+        targetSize: targetRect.width,
+        targetStart: targetRect.left,
+      }),
+      top: centeredScrollOffset({
+        rootScroll: root.scrollTop,
+        rootSize: rootRect.height,
+        rootStart: rootRect.top,
+        targetSize: targetRect.height,
+        targetStart: targetRect.top,
+      }),
+    });
+  }, [props.pageNo, props.selectedPageNo, scrollRootRef, selectedRegionId]);
 
   return (
     <article

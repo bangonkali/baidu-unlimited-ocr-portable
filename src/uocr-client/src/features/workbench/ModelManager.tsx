@@ -63,7 +63,7 @@ export function ModelManager({
         <div className={styles.summaryStats}>
           <span>
             <Cpu size={14} />
-            {status?.runtime_platform ?? 'windows-x86_64-cuda13'} / CUDA
+            {status?.runtime_platform ?? 'windows-x86_64-cuda13'} / {status?.accelerator ?? 'cuda'}
           </span>
           <span>
             <HardDriveDownload size={14} />

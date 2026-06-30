@@ -8,7 +8,7 @@ interface WorkbenchSelection {
   regionId?: string;
 }
 
-export type ActiveView = 'workbench' | 'models' | 'diagnostics';
+export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics';
 
 export interface WorkbenchState {
   activeView: ActiveView;

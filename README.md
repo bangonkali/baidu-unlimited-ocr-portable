@@ -26,9 +26,9 @@ validation tools, but they are not the launched product runtime.
     inspecting a previous annotation.
 
 Supported inputs are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`,
-and `.webp`. Multi-page PDFs are rendered in-process by MuPDF embedded in
-`uocr-server.exe`; there is no separate `mutool.exe` application in the
-portable zip.
+and `.webp`. Multi-page PDFs are rendered in-process by vcpkg `libmupdf`
+statically linked into `uocr-server.exe`; there is no separate `mutool.exe`
+application in the portable zip.
 
 ## What The Exe Does
 
@@ -63,13 +63,14 @@ workflow. Model download logs include auth availability without printing
 tokens, metadata checks, current file progress, MiB/s, verification,
 cancellation, and failures.
 
-Backend package dependencies come from the vcpkg manifest. The current pinned
-baseline resolves Drogon `1.9.13` exactly and OpenSSL `3.6.3` exactly.
+Backend package dependencies come from the vcpkg manifest. CMake requires
+Drogon `1.9.13` exactly, Trantor `1.5.28`, and OpenSSL `3.6.3` exactly.
 Trantor/Drogon use that OpenSSL for TLS, and the model downloader links the
 same `OpenSSL::Crypto` target for SHA verification. The portable root therefore
-includes the matching vcpkg `libssl*.dll` and `libcrypto*.dll` files. The only
-native exceptions are deliberate bundled components: the DuckDB Windows SDK
-snapshot and the MuPDF submodule used for the embedded PDF renderer.
+includes the matching vcpkg `libssl*.dll` and `libcrypto*.dll` files. MuPDF is
+vcpkg `libmupdf`. The only Windows dependency exception is the bundled DuckDB
+SDK snapshot, because the vcpkg `duckdb` port currently fails on MSVC 19.51
+with `C1083: Cannot open compiler generated file: '': Invalid argument`.
 
 The React app also keeps one websocket open at `/api/events`. Backend changes
 for model downloads, scan progress, document status, OCR text, bounding boxes,
@@ -77,16 +78,21 @@ and logs update the UI without opening per-page event streams.
 
 ## Runtime Support
 
-The current Windows portable workbench supports the CUDA runtime label:
+The runtime catalog supports CUDA, AMD/ROCm, CPU, and macOS Metal labels. On
+Windows the default selection is CUDA when a CUDA runtime is installed and
+`nvidia-smi` is available, then ROCm when an installed ROCm runtime passes the
+AMD probe, then CPU.
 
 ```text
 windows-x86_64-cuda13
+windows-x86_64-rocm6
+windows-x86_64-cpu
 ```
 
-CPU inference is not currently packaged or selected by the C++ workbench. The
-server status endpoint and UI report CUDA explicitly so this is visible at
-runtime. Ubuntu 24.04 CUDA and macOS arm64/Metal are planned next; CPU fallback
-would need a separate runtime build and selector.
+The portable package defaults to staging the CUDA runtime plus a CPU fallback.
+ROCm is exposed in Settings when a matching runtime is present and the machine
+passes the AMD probe. Ubuntu 24.04 CUDA/ROCm/CPU and macOS arm64/Metal are the
+next release targets.
 
 GGUF model files are downloaded after first launch into `models\` from:
 
@@ -116,9 +122,9 @@ git submodule update --init --recursive
 .\scripts\windows\package-workbench.ps1 -Version v0.0.0-local -NoRuntimeDownload
 ```
 
-The build script compiles MuPDF static libraries, resolves Drogon/OpenSSL/curl
-through the repository vcpkg manifest, and builds the React SPA. The package
-script validates that
+The build script resolves Drogon/Trantor/OpenSSL/curl/libmupdf through the
+repository vcpkg manifest and builds the React SPA. The package script
+validates that
 `trantor.dll` imports OpenSSL for TLS and that `uocr-server.exe` imports the
 same vcpkg `libcrypto` for SHA verification.
 

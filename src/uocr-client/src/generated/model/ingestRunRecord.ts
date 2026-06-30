@@ -18,6 +18,7 @@ export interface IngestRunRecord {
   profile_id?: string;
   engine_id?: string;
   model_id?: string;
+  runtime_id?: string;
   /** @nullable */
   error?: string | null;
 }

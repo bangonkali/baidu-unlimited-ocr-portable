@@ -11,6 +11,7 @@ struct UnlimitedOcrRuntimePaths {
   std::filesystem::path ffi_library;
   std::filesystem::path model;
   std::filesystem::path mmproj;
+  int n_gpu_layers = -2;
 };
 
 class UnlimitedOcrFfiEngine final : public OcrEngine {
@@ -31,4 +32,3 @@ class UnlimitedOcrFfiEngine final : public OcrEngine {
 };
 
 }  // namespace uocr
-

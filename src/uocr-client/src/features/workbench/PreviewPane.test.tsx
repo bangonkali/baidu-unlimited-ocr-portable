@@ -2,9 +2,21 @@ import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
 import { fixtureBoxes } from '../../stories/fixtures/workbenchFixtures';
-import { PreviewPane } from './PreviewPane';
+import { centeredScrollOffset, PreviewPane } from './PreviewPane';
 
 describe('PreviewPane', () => {
+  test('centers selected overlay inside the preview scroll root', () => {
+    expect(
+      centeredScrollOffset({
+        rootScroll: 100,
+        rootSize: 500,
+        rootStart: 20,
+        targetSize: 40,
+        targetStart: 420,
+      }),
+    ).toBe(270);
+  });
+
   test('renders visible auto-follow state and active box', () => {
     const html = renderToString(
       <PreviewPane

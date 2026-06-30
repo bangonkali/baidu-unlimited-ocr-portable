@@ -7,6 +7,7 @@
 #include "uocr/core/model_catalog.hpp"
 #include "uocr/core/profiles.hpp"
 #include "uocr/core/runaway_guard.hpp"
+#include "uocr/core/runtime_catalog.hpp"
 #include "uocr/fs/file_scanner.hpp"
 #include "uocr/render/png_dimensions.hpp"
 #include "uocr/storage/migrations.hpp"
@@ -77,6 +78,29 @@ void test_profiles_and_migrations() {
   assert(!uocr::duckdb_migrations().empty());
 }
 
+void test_runtime_selection() {
+  const auto root = std::filesystem::temp_directory_path() / "uocr_runtime_catalog_test";
+  std::filesystem::remove_all(root);
+  const auto runtime_root = root / "thirdparty" / "uocr-runtime";
+#ifdef _WIN32
+  const auto cuda = runtime_root / "windows-x86_64-cuda13" / "bin";
+  const auto cpu = runtime_root / "windows-x86_64-cpu" / "bin";
+  std::filesystem::create_directories(cuda);
+  std::filesystem::create_directories(cpu);
+  std::ofstream(cuda / "uocr-ffi.dll").put('x');
+  std::ofstream(cpu / "uocr-ffi.dll").put('x');
+  uocr::RuntimeHardwareProbe probe;
+  probe.cuda = true;
+  const auto variants = uocr::runtime_variants_for(root, probe);
+  assert(uocr::choose_runtime_id(variants, "") == "windows-x86_64-cuda13");
+  assert(uocr::choose_runtime_id(variants, "windows-x86_64-cpu") == "windows-x86_64-cpu");
+  const auto* rocm = uocr::find_runtime_variant(variants, "windows-x86_64-rocm6");
+  assert(rocm != nullptr);
+  assert(!rocm->selectable);
+#endif
+  std::filesystem::remove_all(root);
+}
+
 }  // namespace
 
 int main() {
@@ -85,5 +109,6 @@ int main() {
   test_scanner();
   test_png_dimensions();
   test_profiles_and_migrations();
+  test_runtime_selection();
   return 0;
 }

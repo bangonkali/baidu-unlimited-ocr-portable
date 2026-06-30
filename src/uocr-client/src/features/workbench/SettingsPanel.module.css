@@ -1,0 +1,121 @@
+.panel {
+  display: grid;
+  grid-template-rows: 35px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 10px;
+  min-height: 0;
+  padding: 10px;
+  overflow: auto;
+}
+
+.group {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.group h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.group label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.group select {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  color: var(--text);
+  font-size: 12px;
+  background: #1b1b1c;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.group p,
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.runtimeList {
+  display: grid;
+  gap: 6px;
+}
+
+.runtimeCard {
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  color: var(--muted);
+  background: #1b1b1c;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.runtimeCard[data-selected="true"] {
+  border-color: var(--accent);
+}
+
+.runtimeCard div {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.runtimeCard strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.runtimeCard span,
+.runtimeCard small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -22,9 +22,9 @@ The server is structured around small service boundaries:
   text-region links, diagnostics, settings, and model leases.
 - ocr: abstract `OcrEngine` plus `UnlimitedOcrFfiEngine`, which loads
   `thirdparty/uocr-runtime/<platform>/bin/uocr-ffi.*`.
-- render: `PageRenderer` with an embedded MuPDF implementation linked into
-  `uocr-server.exe`. PDF pages are rendered to cached PNG files at 200 DPI and
-  reused for preview and OCR.
+- render: `PageRenderer` with an embedded MuPDF implementation linked from
+  vcpkg `libmupdf` into `uocr-server.exe`. PDF pages are rendered to cached PNG
+  files at 200 DPI and reused for preview and OCR.
 - download: native libcurl Hugging Face downloads for every compatible
   `sahilchachra/Unlimited-OCR-GGUF` catalog entry, with environment-only
   `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` auth, resumable temp files, SHA256
@@ -51,12 +51,16 @@ cmake --build build/uocr-server --config Release --target uocr-core-tests
 ctest --test-dir build/uocr-server -C Release --output-on-failure
 ```
 
-For the Windows portable product build, package dependencies come from the
-vcpkg manifest. The current pinned baseline resolves Drogon `1.9.13` exactly
-and OpenSSL `3.6.3` exactly; Trantor/Drogon keep OpenSSL TLS enabled, and SHA
-verification links `OpenSSL::Crypto` from the same vcpkg install. CMake fails
-early if the vcpkg toolchain is missing unless `UOCR_REQUIRE_VCPKG=OFF` is set
-for one-off diagnostics.
+For the portable product build, package dependencies come from the vcpkg
+manifest. The current pinned baseline resolves Drogon `1.9.13` exactly,
+Trantor `1.5.28`, and OpenSSL `3.6.3` exactly; Trantor/Drogon keep OpenSSL TLS
+enabled, and SHA verification links `OpenSSL::Crypto` from the same vcpkg
+install. CMake fails early if the vcpkg toolchain is missing unless
+`UOCR_REQUIRE_VCPKG=OFF` is set for one-off diagnostics.
+
+The `uocr-dependency-tests` target asserts those versions at compile/runtime:
+Drogon header version `1.9.13`, OpenSSL header text `3.6.3`, Trantor runtime
+TLS backend `OpenSSL`, and `drogon::app().supportSSL()`.
 
 Build the executable with the repository preset:
 
@@ -80,7 +84,9 @@ The default runtime command binds `127.0.0.1:8765`, serves `/api/*` plus
 The workbench creates and migrates `data/uocr.duckdb` at server startup. The
 Windows release uses the bundled DuckDB C API runtime (`duckdb.dll`) staged
 beside `uocr-server.exe`; DuckDB is not built from source in the release
-workflow.
+workflow because the vcpkg `duckdb` port currently fails on MSVC 19.51 with
+`C1083` generated-file errors. Non-Windows builds continue to resolve DuckDB
+through vcpkg.
 
 The persisted OCR dashboard contract is:
 

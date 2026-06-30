@@ -76,8 +76,8 @@ if (-not $NoClientBuild) {
     }
 }
 
-if (-not $NoMupdfBuild) {
-    & (Join-Path $PSScriptRoot "build-mupdf.ps1") -Configuration $Configuration
+if ($NoMupdfBuild) {
+    Write-Warning "-NoMupdfBuild is no longer needed; MuPDF resolves through the vcpkg libmupdf package."
 }
 
 Push-Location $RepoRoot
@@ -95,6 +95,6 @@ $Exe = Resolve-UocrServerExe -Root $RepoRoot -Config $Configuration
 Remove-ObsoleteMutoolBundle -ExePath $Exe
 
 Write-Host "Built $Exe"
-Write-Host "Linked embedded MuPDF renderer into uocr-server.exe"
+Write-Host "Linked embedded MuPDF renderer through vcpkg libmupdf"
 Write-Host "Version $Version"
 Write-Host "Double-click uocr-server.exe to launch the backend and open the hosted React app."

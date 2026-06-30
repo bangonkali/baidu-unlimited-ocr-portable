@@ -5,6 +5,7 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
+import type { RuntimeVariantRecord } from './runtimeVariantRecord';
 
 export interface SettingsPayload {
   pdf_dpi: number;
@@ -13,4 +14,8 @@ export interface SettingsPayload {
   retry_profile: string;
   cache_path?: string;
   database_path?: string;
+  selected_runtime_id?: string;
+  selected_accelerator?: string;
+  selected_model_id?: string;
+  runtime_variants?: RuntimeVariantRecord[];
 }
