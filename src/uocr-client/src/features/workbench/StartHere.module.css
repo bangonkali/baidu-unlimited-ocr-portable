@@ -3,7 +3,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
-  background: #202020;
+  background: var(--card-bg);
   border-bottom: 1px solid var(--border);
 }
 

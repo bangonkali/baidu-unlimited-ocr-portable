@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
 import { fixtureDownloadingModels, fixtureModels } from '../../stories/fixtures/workbenchFixtures';
+import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
 import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
 import { visibleModels } from './modelLibrary';
@@ -71,5 +72,19 @@ describe('ModelManager', () => {
 
     const bySize = visibleModels(fixtureModels.models, { dir: 'asc', sort: 'size' });
     expect(bySize[0]?.model_id).toBe('unlimited-ocr-iq2-m');
+  });
+
+  test('renders dedicated model detail surface', () => {
+    const html = renderToString(
+      <ModelDetailPanel
+        model={fixtureModels.models[0]}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
+      />,
+    );
+    expect(html).toContain('Model Metadata');
+    expect(html).toContain('sahilchachra/Unlimited-OCR-GGUF');
+    expect(html).toContain('Download Progress');
   });
 });

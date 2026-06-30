@@ -30,6 +30,7 @@ describe('PreviewPane', () => {
         selectedPageNo={1}
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
+        onSelectRegion={() => undefined}
       />,
     );
 

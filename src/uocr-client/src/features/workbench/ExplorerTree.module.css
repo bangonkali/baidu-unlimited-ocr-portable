@@ -87,7 +87,7 @@
 .progressTrack {
   height: 7px;
   overflow: hidden;
-  background: #111;
+  background: var(--control-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
 }

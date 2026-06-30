@@ -13,7 +13,7 @@
   grid-template-rows: 44px 1fr;
   gap: 8px;
   padding: 6px;
-  background: #181818;
+  background: var(--activity-bg);
   border-right: 1px solid var(--border);
 }
 
@@ -23,7 +23,7 @@
   height: 32px;
   margin: 0 auto;
   font-weight: 700;
-  color: #111;
+  color: var(--accent-foreground);
   background: var(--accent-2);
   border-radius: 4px;
   place-items: center;
@@ -63,32 +63,82 @@
 
 .main {
   display: grid;
-  grid-template-rows: 36px auto minmax(0, 1fr) 24px;
+  grid-template-rows: 36px minmax(0, 1fr) 24px;
   min-width: 0;
   min-height: 0;
 }
 
-.commandCenter {
-  display: flex;
+.topHeader {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(260px, 620px) minmax(120px, 1fr);
   gap: 8px;
   align-items: center;
   padding: 0 12px;
-  background: #202020;
+  background: var(--header-bg);
   border-bottom: 1px solid var(--border);
 }
 
-.commandCenter svg {
-  color: var(--muted);
+.headerSpacer {
+  min-width: 0;
 }
 
-.commandCenter input {
-  width: min(620px, 100%);
+.commandTrigger {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
   height: 26px;
   padding: 0 9px;
-  color: var(--text);
-  background: #111;
+  color: var(--muted);
+  text-align: left;
+  background: var(--control-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
+  cursor: pointer;
+}
+
+.commandTrigger:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.commandTrigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandTrigger kbd {
+  color: var(--subtle);
+  font-size: 10px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.paneToggle {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  place-items: center;
+}
+
+.paneToggle:hover,
+.paneToggle[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border);
 }
 
 .body {
@@ -130,6 +180,14 @@
   }
 
   .main {
-    grid-template-rows: 36px auto minmax(0, 1fr) 24px;
+    grid-template-rows: 36px minmax(0, 1fr) 24px;
+  }
+
+  .topHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .headerSpacer {
+    display: none;
   }
 }

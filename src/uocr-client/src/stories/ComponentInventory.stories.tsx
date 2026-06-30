@@ -11,13 +11,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const components = [
-  'IngestToolbar',
+  'CommandPalette',
+  'IngestStartPanel',
   'ExplorerTree',
   'PreviewPane',
   'TextPane',
   'DetailsPane',
   'DiagnosticsPanel',
   'ModelManager',
+  'ModelDetailPanel',
   'SettingsPanel',
   'StartHere',
   'GuidedTour',

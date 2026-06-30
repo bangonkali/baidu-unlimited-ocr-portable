@@ -16,10 +16,11 @@ export function useWorkbenchIngestActions(args: {
       }
     });
   };
-  const startScan = () =>
+  const startScan = (options?: { reprocess?: boolean }) =>
     args.startIngest.mutate({
       model_id: args.model?.model_id,
       profile_id: args.selectedProfile,
+      reprocess: options?.reprocess ?? false,
       root_path: args.rootPath,
     });
   return { pickFolder, startScan };

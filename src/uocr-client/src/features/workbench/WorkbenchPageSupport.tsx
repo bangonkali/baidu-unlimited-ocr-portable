@@ -1,12 +1,22 @@
 import type { useQueryClient } from '@tanstack/react-query';
-import { CircleHelp, Search } from 'lucide-react';
+import { CircleHelp, PanelBottom, PanelLeft, PanelRight, Search } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { queryKeys } from '../../api/hooks';
 import type { DocumentRegionsPayload, ModelsPayload, OcrProfileRecord } from '../../api/types';
 import { IconButton } from '../../components/IconButton';
-import type { useWorkbenchState } from '../../stores/workbenchStore';
-import { followLatestRegion, setSelectedProfile } from '../../stores/workbenchStore';
+import type {
+  ActiveView,
+  ThemeMode,
+  useWorkbenchState,
+  WorkbenchPaneId,
+  WorkbenchPaneState,
+} from '../../stores/workbenchStore';
+import {
+  applyThemePreference,
+  followLatestRegion,
+  setSelectedProfile,
+} from '../../stores/workbenchStore';
 import { StatusBar } from './StatusBar';
 import styles from './WorkbenchPage.module.css';
 
@@ -72,22 +82,76 @@ export function WorkbenchFooter(props: {
   );
 }
 
-export function CommandCenter(props: {
-  searchText: string;
-  onSearchTextChange: (value: string) => void;
+export function WorkbenchHeader(props: {
+  activeView: ActiveView;
+  panesCollapsed: WorkbenchPaneState;
+  theme: ThemeMode;
+  onCommandOpen: () => void;
   onStartGuide: () => void;
+  onTogglePane: (pane: WorkbenchPaneId) => void;
 }) {
+  const showPaneControls = props.activeView === 'workbench';
   return (
-    <div className={styles.commandCenter}>
-      <Search size={15} />
-      <input
-        aria-label="Search documents"
-        onChange={(event) => props.onSearchTextChange(event.target.value)}
-        placeholder="Search documents"
-        value={props.searchText}
-      />
-      <IconButton icon={CircleHelp} label="Start guide" onClick={props.onStartGuide} />
+    <div className={styles.topHeader}>
+      <div className={styles.headerSpacer} />
+      <button className={styles.commandTrigger} onClick={props.onCommandOpen} type="button">
+        <Search size={15} />
+        <span>Search commands, models, routes, or documents</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+      <div className={styles.headerActions}>
+        {showPaneControls ? (
+          <>
+            <PaneToggleButton
+              active={!props.panesCollapsed.explorer}
+              icon={PanelLeft}
+              label="Toggle Explorer"
+              onClick={() => props.onTogglePane('explorer')}
+            />
+            <PaneToggleButton
+              active={!props.panesCollapsed.diagnostics}
+              icon={PanelBottom}
+              label="Toggle Diagnostics"
+              onClick={() => props.onTogglePane('diagnostics')}
+            />
+            <PaneToggleButton
+              active={!props.panesCollapsed.details}
+              icon={PanelRight}
+              label="Toggle Details"
+              onClick={() => props.onTogglePane('details')}
+            />
+          </>
+        ) : null}
+        <IconButton icon={CircleHelp} label="Start guide" onClick={props.onStartGuide} />
+      </div>
     </div>
+  );
+}
+
+export function useThemeSync(theme: ThemeMode) {
+  useEffect(() => {
+    applyThemePreference(theme);
+  }, [theme]);
+}
+
+function PaneToggleButton(props: {
+  active: boolean;
+  icon: typeof PanelLeft;
+  label: string;
+  onClick: () => void;
+}) {
+  const Icon = props.icon;
+  return (
+    <button
+      aria-label={props.label}
+      aria-pressed={props.active}
+      className={styles.paneToggle}
+      onClick={props.onClick}
+      title={props.label}
+      type="button"
+    >
+      <Icon size={16} strokeWidth={1.9} />
+    </button>
   );
 }
 

@@ -4,7 +4,6 @@ import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DocumentSummary, PageTextRecord } from '../../api/types';
-import { setSelection } from '../../stores/workbenchStore';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
 import { fileMarkdown, filePlainText, isPageTextComplete, pageMarkdown } from './textExport';
@@ -14,9 +13,16 @@ interface TextPaneProps {
   document?: DocumentSummary;
   pages: PageTextRecord[];
   selectedRegionId?: string;
+  onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
-export function TextPane({ autoFollowRegions, document, pages, selectedRegionId }: TextPaneProps) {
+export function TextPane({
+  autoFollowRegions,
+  document,
+  onSelectRegion,
+  pages,
+  selectedRegionId,
+}: TextPaneProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState('');
   const fingerprint = useMemo(
@@ -53,7 +59,7 @@ export function TextPane({ autoFollowRegions, document, pages, selectedRegionId 
             complete={isPageTextComplete(page, document)}
             key={page.page_no}
             onCopyMarkdown={() => copy(pageMarkdown(page), `Copied page ${page.page_no}`)}
-            onRegionSelect={(pageNo, regionId) => setSelection({ pageNo, regionId })}
+            onRegionSelect={onSelectRegion}
             page={page}
             selectedRegionId={selectedRegionId}
           />

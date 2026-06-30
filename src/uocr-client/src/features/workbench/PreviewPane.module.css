@@ -3,7 +3,7 @@
   grid-template-rows: 35px 1fr;
   height: 100%;
   min-height: 0;
-  background: #202020;
+  background: var(--card-bg);
 }
 
 .header {
@@ -34,7 +34,7 @@
 }
 
 .followToggle[aria-pressed="true"] {
-  color: #08131c;
+  color: var(--accent-foreground);
   background: var(--accent-2);
   border-color: color-mix(in srgb, var(--accent-2) 70%, #fff);
 }
@@ -66,7 +66,7 @@
   width: min(100%, 760px);
   min-width: 280px;
   overflow: hidden;
-  background: #f7f7f2;
+  background: var(--page-surface);
   border: 1px solid #777;
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
@@ -85,7 +85,7 @@
   position: absolute;
   padding: 0;
   color: #161616;
-  background: rgb(76 194 255 / 12%);
+  background: var(--selection-bg);
   border: 2px solid var(--accent);
   cursor: pointer;
 }
@@ -103,7 +103,7 @@
   padding: 2px 5px;
   overflow: hidden;
   font-size: 11px;
-  color: #111;
+  color: var(--accent-foreground);
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--accent);

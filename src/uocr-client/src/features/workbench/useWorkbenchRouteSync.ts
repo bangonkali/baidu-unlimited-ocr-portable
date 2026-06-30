@@ -42,6 +42,10 @@ export function useRouteSearchSync(args: {
     if (activeView !== 'workbench') {
       return;
     }
+    const routeHasManualFocus =
+      workbenchSearch?.file !== undefined ||
+      workbenchSearch?.page !== undefined ||
+      workbenchSearch?.region !== undefined;
     const routeSelection = {
       fileHash: workbenchSearch?.file,
       pageNo: workbenchSearch?.page ?? workbench.selection.pageNo,
@@ -54,6 +58,9 @@ export function useRouteSearchSync(args: {
         routeSelection.regionId !== workbench.selection.regionId)
     ) {
       setSelection(routeSelection);
+    }
+    if (routeHasManualFocus && workbenchSearch?.follow !== true && workbench.autoFollowRegions) {
+      setAutoFollowRegions(false);
     }
     if (
       workbenchSearch?.follow !== undefined &&
@@ -85,7 +92,7 @@ export function useRouteSearchSync(args: {
     }
     void navigate({
       replace: true,
-      search: (current) => ({ ...current, ...next }),
+      search: () => next,
       to: '/workbench',
     });
   }, [activeView, navigate, searchText, workbench, workbenchSearch]);

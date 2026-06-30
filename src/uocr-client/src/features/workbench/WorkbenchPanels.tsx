@@ -1,3 +1,6 @@
+import type { RefObject } from 'react';
+import { useEffect, useRef } from 'react';
+import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import type {
@@ -9,7 +12,7 @@ import type {
   PageTextRecord,
 } from '../../api/types';
 import type { useWorkbenchState } from '../../stores/workbenchStore';
-import { setAutoFollowRegions } from '../../stores/workbenchStore';
+import { setAutoFollowRegions, setPaneCollapsed } from '../../stores/workbenchStore';
 import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { ExplorerTree } from './ExplorerTree';
@@ -32,12 +35,18 @@ interface WorkbenchPanelsProps {
   selectedDocument?: DocumentSummary;
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
+  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+  onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
 export function WorkbenchPanels(props: WorkbenchPanelsProps) {
+  const explorerRef = useRef<ImperativePanelHandle>(null);
+  const detailsRef = useRef<ImperativePanelHandle>(null);
   const selectedRegion = props.regions.find(
     (region) => region.region_id === props.workbench.selection.regionId,
   );
+  usePanelCollapseSync(explorerRef, props.workbench.panesCollapsed.explorer);
+  usePanelCollapseSync(detailsRef, props.workbench.panesCollapsed.details);
   return (
     <div className={styles.workbenchStack}>
       <StartHere
@@ -48,9 +57,18 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
         rootPath={props.rootPath}
       />
       <PanelGroup direction="horizontal">
-        <Panel defaultSize={19} minSize={14}>
+        <Panel
+          collapsible
+          collapsedSize={0}
+          defaultSize={19}
+          minSize={14}
+          onCollapse={() => setPaneCollapsed('explorer', true)}
+          onExpand={() => setPaneCollapsed('explorer', false)}
+          ref={explorerRef}
+        >
           <ExplorerTree
             documents={props.documents}
+            onSelectDocument={props.onSelectDocument}
             selectedFileHash={props.workbench.selection.fileHash}
           />
         </Panel>
@@ -59,7 +77,15 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
           <DocumentWorkspace {...props} />
         </Panel>
         <ResizeHandle />
-        <Panel defaultSize={23} minSize={17}>
+        <Panel
+          collapsible
+          collapsedSize={0}
+          defaultSize={23}
+          minSize={17}
+          onCollapse={() => setPaneCollapsed('details', true)}
+          onExpand={() => setPaneCollapsed('details', false)}
+          ref={detailsRef}
+        >
           <DetailsPane
             document={props.selectedDocument}
             labelsVisible={props.workbench.labelsVisible}
@@ -74,6 +100,8 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
 }
 
 function DocumentWorkspace(props: WorkbenchPanelsProps) {
+  const diagnosticsRef = useRef<ImperativePanelHandle>(null);
+  usePanelCollapseSync(diagnosticsRef, props.workbench.panesCollapsed.diagnostics);
   return (
     <PanelGroup direction="vertical">
       <Panel defaultSize={68} minSize={40}>
@@ -89,6 +117,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
               selectedPageNo={props.workbench.selection.pageNo}
               selectedRegionId={props.workbench.selection.regionId}
               onAutoFollowChange={setAutoFollowRegions}
+              onSelectRegion={props.onSelectRegion}
             />
           </Panel>
           <ResizeHandle />
@@ -96,6 +125,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
             <TextPane
               autoFollowRegions={props.workbench.autoFollowRegions}
               document={props.selectedDocument}
+              onSelectRegion={props.onSelectRegion}
               pages={props.textPages}
               selectedRegionId={props.workbench.selection.regionId}
             />
@@ -103,11 +133,37 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
         </PanelGroup>
       </Panel>
       <ResizeHandle horizontal />
-      <Panel defaultSize={32} minSize={16}>
+      <Panel
+        collapsible
+        collapsedSize={0}
+        defaultSize={32}
+        minSize={16}
+        onCollapse={() => setPaneCollapsed('diagnostics', true)}
+        onExpand={() => setPaneCollapsed('diagnostics', false)}
+        ref={diagnosticsRef}
+      >
         <DiagnosticsPanel logs={props.logs} runs={props.runs} />
       </Panel>
     </PanelGroup>
   );
+}
+
+function usePanelCollapseSync(
+  panelRef: RefObject<ImperativePanelHandle | null>,
+  collapsed: boolean,
+) {
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) {
+      return;
+    }
+    if (collapsed && !panel.isCollapsed()) {
+      panel.collapse();
+    }
+    if (!collapsed && panel.isCollapsed()) {
+      panel.expand();
+    }
+  }, [collapsed, panelRef]);
 }
 
 function ResizeHandle({ horizontal = false }: { horizontal?: boolean }) {

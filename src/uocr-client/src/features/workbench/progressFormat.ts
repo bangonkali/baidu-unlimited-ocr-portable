@@ -25,7 +25,3 @@ export function runPageLabel(run?: IngestRunRecord) {
   const current = run.current_page ?? Math.min((run.processed_pages ?? 0) + 1, total);
   return total > 0 ? `Page ${current}/${total}` : 'Preparing pages';
 }
-
-export function progressText(progress?: number, fallback = '0%') {
-  return Number.isFinite(progress) ? percentLabel(progress) : fallback;
-}

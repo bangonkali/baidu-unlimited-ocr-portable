@@ -8,7 +8,7 @@ import { modelDownloadedBytes, modelPercent, modelRequiredBytes } from './modelL
 export function ModelCell({ model }: { model: ModelAssetRecord }) {
   return (
     <div className={styles.gridModelCell}>
-      <strong>{model.display_name}</strong>
+      <a href={`/models/${encodeURIComponent(model.model_id)}`}>{model.display_name}</a>
       <span>{model.quantization ?? model.provider_name ?? 'GGUF'}</span>
       <small>
         {model.selected ? 'Selected' : model.recommended ? 'Recommended' : model.quality}

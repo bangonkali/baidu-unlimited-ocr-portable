@@ -3,7 +3,6 @@ import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
 import type { OverlayBox } from '../../api/types';
-import { setSelection } from '../../stores/workbenchStore';
 import styles from './PreviewPane.module.css';
 
 interface ScrollGeometry {
@@ -35,6 +34,7 @@ interface PreviewPaneProps {
   selectedPageNo: number;
   selectedRegionId?: string;
   onAutoFollowChange: (enabled: boolean) => void;
+  onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
 export function PreviewPane({
@@ -48,6 +48,7 @@ export function PreviewPane({
   selectedPageNo,
   selectedRegionId,
   onAutoFollowChange,
+  onSelectRegion,
 }: PreviewPaneProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   return (
@@ -81,6 +82,7 @@ export function PreviewPane({
                 scrollRootRef={canvasRef}
                 selectedPageNo={selectedPageNo}
                 selectedRegionId={selectedRegionId}
+                onSelectRegion={onSelectRegion}
               />
             ))
           : null}
@@ -99,6 +101,7 @@ function PagePreview(props: {
   scrollRootRef: RefObject<HTMLDivElement | null>;
   selectedPageNo: number;
   selectedRegionId?: string;
+  onSelectRegion: (pageNo: number, regionId: string) => void;
 }) {
   const pageRef = useRef<HTMLElement>(null);
   const activeBoxRef = useRef<HTMLButtonElement>(null);
@@ -153,7 +156,7 @@ function PagePreview(props: {
                 className={styles.box}
                 data-active={box.region_id === props.selectedRegionId}
                 key={box.region_id}
-                onClick={() => setSelection({ pageNo: box.page_no, regionId: box.region_id })}
+                onClick={() => props.onSelectRegion(box.page_no, box.region_id)}
                 ref={box.region_id === props.selectedRegionId ? activeBoxRef : undefined}
                 style={{
                   height: `${box.height_percent}%`,

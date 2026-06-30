@@ -57,7 +57,9 @@ function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAs
               </span>
             ) : null}
           </div>
-          <h3>{model.display_name}</h3>
+          <h3>
+            <a href={`/models/${encodeURIComponent(model.model_id)}`}>{model.display_name}</a>
+          </h3>
           <p>{model.quality ?? model.status_message ?? statusText(model.status)}</p>
         </div>
         <ModelActions {...props} />

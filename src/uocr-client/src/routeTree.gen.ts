@@ -15,6 +15,8 @@ import { Route as ModelsRouteImport } from './routes/models'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ModelsDownloadsRouteImport } from './routes/models.downloads'
+import { Route as ModelsModelIdRouteImport } from './routes/models.$modelId'
+import { Route as IngestStartRouteImport } from './routes/ingest.start'
 
 const WorkbenchRoute = WorkbenchRouteImport.update({
   id: '/workbench',
@@ -46,6 +48,16 @@ const ModelsDownloadsRoute = ModelsDownloadsRouteImport.update({
   path: '/downloads',
   getParentRoute: () => ModelsRoute,
 } as any)
+const ModelsModelIdRoute = ModelsModelIdRouteImport.update({
+  id: '/$modelId',
+  path: '/$modelId',
+  getParentRoute: () => ModelsRoute,
+} as any)
+const IngestStartRoute = IngestStartRouteImport.update({
+  id: '/ingest/start',
+  path: '/ingest/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +65,8 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/ingest/start': typeof IngestStartRoute
+  '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +75,8 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/ingest/start': typeof IngestStartRoute
+  '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
 }
 export interface FileRoutesById {
@@ -70,6 +86,8 @@ export interface FileRoutesById {
   '/models': typeof ModelsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/ingest/start': typeof IngestStartRoute
+  '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
 }
 export interface FileRouteTypes {
@@ -80,6 +98,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/workbench'
+    | '/ingest/start'
+    | '/models/$modelId'
     | '/models/downloads'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -88,6 +108,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/workbench'
+    | '/ingest/start'
+    | '/models/$modelId'
     | '/models/downloads'
   id:
     | '__root__'
@@ -96,6 +118,8 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/workbench'
+    | '/ingest/start'
+    | '/models/$modelId'
     | '/models/downloads'
   fileRoutesById: FileRoutesById
 }
@@ -105,6 +129,7 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   WorkbenchRoute: typeof WorkbenchRoute
+  IngestStartRoute: typeof IngestStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -151,14 +176,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ModelsDownloadsRouteImport
       parentRoute: typeof ModelsRoute
     }
+    '/models/$modelId': {
+      id: '/models/$modelId'
+      path: '/$modelId'
+      fullPath: '/models/$modelId'
+      preLoaderRoute: typeof ModelsModelIdRouteImport
+      parentRoute: typeof ModelsRoute
+    }
+    '/ingest/start': {
+      id: '/ingest/start'
+      path: '/ingest/start'
+      fullPath: '/ingest/start'
+      preLoaderRoute: typeof IngestStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface ModelsRouteChildren {
+  ModelsModelIdRoute: typeof ModelsModelIdRoute
   ModelsDownloadsRoute: typeof ModelsDownloadsRoute
 }
 
 const ModelsRouteChildren: ModelsRouteChildren = {
+  ModelsModelIdRoute: ModelsModelIdRoute,
   ModelsDownloadsRoute: ModelsDownloadsRoute,
 }
 
@@ -171,6 +212,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   WorkbenchRoute: WorkbenchRoute,
+  IngestStartRoute: IngestStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

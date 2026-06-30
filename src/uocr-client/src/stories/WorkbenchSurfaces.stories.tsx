@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { DetailsPane } from '../features/workbench/DetailsPane';
 import { DiagnosticsPanel } from '../features/workbench/DiagnosticsPanel';
 import { ExplorerTree } from '../features/workbench/ExplorerTree';
-import { IngestToolbar } from '../features/workbench/IngestToolbar';
+import { IngestStartPanel } from '../features/workbench/IngestStartPanel';
+import { ModelDetailPanel } from '../features/workbench/ModelDetailPanel';
 import { ModelManager } from '../features/workbench/ModelManager';
 import { PreviewPane } from '../features/workbench/PreviewPane';
 import { SettingsPanel } from '../features/workbench/SettingsPanel';
@@ -31,11 +32,12 @@ type Story = StoryObj<typeof meta>;
 
 export const Ingest: Story = {
   render: () => (
-    <div className="storyFrame">
-      <IngestToolbar
+    <div className="storyTall">
+      <IngestStartPanel
         activeRun={fixtureRuns[0]}
-        modelReady
-        onRefresh={() => undefined}
+        model={fixtureModels.models[0]}
+        models={fixtureModels}
+        onModelChange={() => undefined}
         onPickFolder={() => undefined}
         onProfileChange={() => undefined}
         onRootPathChange={() => undefined}
@@ -43,9 +45,12 @@ export const Ingest: Story = {
         onStop={() => undefined}
         profiles={fixtureModels.profiles}
         rootPath="C:\\data\\incoming"
-        runState="idle"
         selectedProfile="experimental-exact-prefill-q4"
-        supportedInputs={['.pdf', '.png', '.jpg', '.webp']}
+        status={{
+          default_profile: 'experimental-exact-prefill-q4',
+          state: 'running',
+          supported_inputs: [],
+        }}
       />
     </div>
   ),
@@ -54,7 +59,11 @@ export const Ingest: Story = {
 export const Explorer: Story = {
   render: () => (
     <div className="storyTall">
-      <ExplorerTree documents={fixtureDocuments} selectedFileHash="hash-invoice-014" />
+      <ExplorerTree
+        documents={fixtureDocuments}
+        onSelectDocument={() => undefined}
+        selectedFileHash="hash-invoice-014"
+      />
     </div>
   ),
 };
@@ -73,10 +82,12 @@ export const Traceability: Story = {
         selectedPageNo={1}
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
+        onSelectRegion={() => undefined}
       />
       <TextPane
         autoFollowRegions
         document={fixtureDocuments[0]}
+        onSelectRegion={() => undefined}
         pages={fixturePages}
         selectedRegionId="reg-total"
       />
@@ -90,6 +101,7 @@ export const LiveText: Story = {
       <TextPane
         autoFollowRegions
         document={fixtureDocuments[1]}
+        onSelectRegion={() => undefined}
         pages={fixturePages}
         selectedRegionId="reg-supplier"
       />
@@ -114,7 +126,7 @@ export const Details: Story = {
 export const Diagnostics: Story = {
   render: () => (
     <div className="storyTall">
-      <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} />
+      <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} search={{ tab: 'logs' }} />
     </div>
   ),
 };
@@ -160,6 +172,19 @@ export const ModelDownloads: Story = {
   ),
 };
 
+export const ModelDetail: Story = {
+  render: () => (
+    <div className="storyTall">
+      <ModelDetailPanel
+        model={fixtureModels.models[0]}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
+      />
+    </div>
+  ),
+};
+
 export const Settings: Story = {
   render: () => (
     <div className="storyTall">
@@ -168,9 +193,11 @@ export const Settings: Story = {
         onModelChange={() => undefined}
         onProfileChange={() => undefined}
         onRuntimeChange={() => undefined}
+        onThemeChange={() => undefined}
         profiles={fixtureModels.profiles}
         selectedProfile="experimental-exact-prefill-q4"
         settings={fixtureSettings}
+        theme="dark"
       />
     </div>
   ),

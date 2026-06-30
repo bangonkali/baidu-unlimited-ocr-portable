@@ -2,7 +2,6 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '../api/queryKeys';
 import type { DocumentsPayload, IngestRunsPayload, LogsPayload, ModelsPayload } from '../api/types';
-import { followLatestRegion } from '../stores/workbenchStore';
 import type { RealtimeEvent } from './realtimeTypes';
 
 function upsertById<T>(items: T[], item: T, getId: (value: T) => string) {
@@ -96,7 +95,6 @@ export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event:
       return;
     case 'document.regions.changed':
       queryClient.setQueryData(queryKeys.documentRegions(event.payload.file_hash), event.payload);
-      followLatestRegion(event.payload.file_hash, event.payload.boxes);
       return;
     case 'document.text.changed':
       queryClient.setQueryData(queryKeys.documentText(event.payload.file_hash), event.payload);

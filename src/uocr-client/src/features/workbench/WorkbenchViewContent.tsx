@@ -10,19 +10,32 @@ import type {
   SettingsPayload,
   StatusPayload,
 } from '../../api/types';
-import type { ModelRouteSearch, SettingsRouteSearch } from '../../routeSearch';
-import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore';
+import type {
+  DiagnosticsRouteSearch,
+  IngestRouteSearch,
+  ModelRouteSearch,
+  SettingsRouteSearch,
+} from '../../routeSearch';
+import type { ActiveView, ThemeMode, useWorkbenchState } from '../../stores/workbenchStore';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { IngestStartPanel } from './IngestStartPanel';
+import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
 import { SettingsPanel } from './SettingsPanel';
 import { WorkbenchPanels } from './WorkbenchPanels';
 
-interface WorkbenchViewContentProps {
+export interface WorkbenchViewContentProps {
   activeView: ActiveView;
+  activeRun?: IngestRunRecord;
+  activeRunId?: string | null;
+  diagnosticsSearch?: DiagnosticsRouteSearch;
   documents: DocumentSummary[];
+  ingestBusy: boolean;
+  ingestSearch?: IngestRouteSearch;
   logs: LogRecord[];
   model?: ModelAssetRecord;
   modelBusy: boolean;
+  modelDetailId?: string;
   modelScope: 'library' | 'downloads';
   modelSearch?: ModelRouteSearch;
   models?: ModelsPayload;
@@ -37,23 +50,42 @@ interface WorkbenchViewContentProps {
   settingsBusy: boolean;
   settingsSearch?: SettingsRouteSearch;
   status?: StatusPayload;
+  theme: ThemeMode;
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
   onCancelModel: (modelId: string) => void;
+  onDiagnosticsSearchChange: (patch: Partial<DiagnosticsRouteSearch>) => void;
   onDownloadModel: (modelId: string, force?: boolean) => void;
   onModelChange: (modelId: string) => void;
   onModelRouteSearchChange: (patch: Partial<ModelRouteSearch>) => void;
   onModelScopeChange: (scope: 'library' | 'downloads') => void;
+  onOpenIngest: () => void;
   onOpenModels: () => void;
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
+  onRootPathChange: (value: string) => void;
   onRuntimeChange: (runtimeId: string) => void;
   onSelectModel: (modelId: string) => void;
-  onStart: () => void;
+  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+  onSelectRegion: (pageNo: number, regionId: string) => void;
+  onStart: (options?: { reprocess?: boolean }) => void;
+  onStop: () => void;
+  onThemeChange: (theme: ThemeMode) => void;
 }
 
 export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
   if (props.activeView === 'models') {
+    if (props.modelDetailId) {
+      return (
+        <ModelDetailPanel
+          busy={props.modelBusy}
+          model={props.models?.models.find((model) => model.model_id === props.modelDetailId)}
+          onCancelModel={props.onCancelModel}
+          onDownloadModel={props.onDownloadModel}
+          onSelectModel={props.onSelectModel}
+        />
+      );
+    }
     return (
       <ModelManager
         busy={props.modelBusy}
@@ -70,7 +102,36 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
     );
   }
   if (props.activeView === 'diagnostics') {
-    return <DiagnosticsPanel logs={props.logs} runs={props.runs} />;
+    return (
+      <DiagnosticsPanel
+        logs={props.logs}
+        runs={props.runs}
+        search={props.diagnosticsSearch}
+        onSearchChange={props.onDiagnosticsSearchChange}
+      />
+    );
+  }
+  if (props.activeView === 'ingest') {
+    return (
+      <IngestStartPanel
+        activeRun={props.activeRun}
+        activeRunId={props.activeRunId}
+        busy={props.ingestBusy}
+        ingestSearch={props.ingestSearch}
+        model={props.model}
+        models={props.models}
+        onModelChange={props.onModelChange}
+        onPickFolder={props.onPickFolder}
+        onProfileChange={props.onProfileChange}
+        onRootPathChange={props.onRootPathChange}
+        onStart={props.onStart}
+        onStop={props.onStop}
+        profiles={props.profiles}
+        rootPath={props.rootPath}
+        selectedProfile={props.selectedProfile}
+        status={props.status}
+      />
+    );
   }
   if (props.activeView === 'settings') {
     return (
@@ -81,9 +142,11 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
         onModelChange={props.onModelChange}
         onProfileChange={props.onProfileChange}
         onRuntimeChange={props.onRuntimeChange}
+        onThemeChange={props.onThemeChange}
         profiles={props.profiles}
         selectedProfile={props.selectedProfile}
         settings={props.settings}
+        theme={props.theme}
       />
     );
   }
@@ -94,7 +157,9 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
       model={props.model}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
-      onStart={props.onStart}
+      onSelectDocument={props.onSelectDocument}
+      onSelectRegion={props.onSelectRegion}
+      onStart={props.onOpenIngest}
       previewPages={props.previewPages}
       regions={props.regions}
       rootPath={props.rootPath}

@@ -1,5 +1,3 @@
-export type WorkbenchView = 'workbench' | 'models' | 'settings' | 'diagnostics';
-
 export interface WorkbenchRouteSearch {
   file?: string;
   follow?: boolean;
@@ -31,25 +29,36 @@ export interface ModelRouteSearch {
   view?: ModelViewMode;
 }
 
+export type SettingsSection = 'appearance' | 'runtime' | 'ocr' | 'storage' | 'models';
+
 export interface SettingsRouteSearch {
-  section?: 'runtime' | 'ocr' | 'storage' | 'models';
+  section?: SettingsSection;
 }
 
 export interface DiagnosticsRouteSearch {
+  component?: string;
+  level?: string;
   q?: string;
   run?: string;
+  status?: string;
   tab?: 'logs' | 'runs';
+}
+
+export interface IngestRouteSearch {
+  model?: string;
+  profile?: string;
+  reprocess?: boolean;
 }
 
 export function validateWorkbenchSearch(search: Record<string, unknown>): WorkbenchRouteSearch {
   return {
-    file: stringValue(search.file),
+    file: stringValue(search.file) ?? stringValue(search.file_hash),
     follow: booleanValue(search.follow),
     labels: booleanValue(search.labels),
     overlays: booleanValue(search.overlays),
-    page: positiveIntegerValue(search.page),
+    page: positiveIntegerValue(search.page) ?? positiveIntegerValue(search.page_no),
     q: stringValue(search.q),
-    region: stringValue(search.region),
+    region: stringValue(search.region) ?? stringValue(search.region_id),
   };
 }
 
@@ -67,7 +76,11 @@ export function validateSettingsSearch(search: Record<string, unknown>): Setting
   const value = stringValue(search.section);
   return {
     section:
-      value === 'runtime' || value === 'ocr' || value === 'storage' || value === 'models'
+      value === 'appearance' ||
+      value === 'runtime' ||
+      value === 'ocr' ||
+      value === 'storage' ||
+      value === 'models'
         ? value
         : undefined,
   };
@@ -76,9 +89,20 @@ export function validateSettingsSearch(search: Record<string, unknown>): Setting
 export function validateDiagnosticsSearch(search: Record<string, unknown>): DiagnosticsRouteSearch {
   const tab = stringValue(search.tab);
   return {
+    component: stringValue(search.component),
+    level: stringValue(search.level),
     q: stringValue(search.q),
     run: stringValue(search.run),
+    status: stringValue(search.status),
     tab: tab === 'logs' || tab === 'runs' ? tab : undefined,
+  };
+}
+
+export function validateIngestSearch(search: Record<string, unknown>): IngestRouteSearch {
+  return {
+    model: stringValue(search.model),
+    profile: stringValue(search.profile),
+    reprocess: booleanValue(search.reprocess),
   };
 }
 

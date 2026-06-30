@@ -71,7 +71,7 @@
   width: 150px;
   height: 6px;
   overflow: hidden;
-  background: #111;
+  background: var(--control-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
@@ -90,7 +90,7 @@
   min-width: 0;
 }
 
-.gridModelCell strong,
+.gridModelCell a,
 .gridModelCell span,
 .gridModelCell small,
 .gridProgressCell span,
@@ -106,8 +106,14 @@
   min-width: 190px;
 }
 
-.gridModelCell strong {
+.gridModelCell a {
   color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.gridModelCell a:hover {
+  text-decoration: underline;
 }
 
 .gridModelCell small,

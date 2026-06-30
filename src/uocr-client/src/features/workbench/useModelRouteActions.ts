@@ -8,11 +8,12 @@ export function useModelRouteActions(
   modelSearch?: ModelRouteSearch,
 ) {
   const updateModelRouteSearch = (patch: Partial<ModelRouteSearch>) => {
+    const nextSearch: ModelRouteSearch = { ...modelSearch, ...patch };
     if (modelScope === 'downloads') {
-      void navigate({ search: (current) => ({ ...current, ...patch }), to: '/models/downloads' });
+      void navigate({ search: nextSearch, to: '/models/downloads' });
       return;
     }
-    void navigate({ search: (current) => ({ ...current, ...patch }), to: '/models' });
+    void navigate({ search: nextSearch, to: '/models' });
   };
   const changeModelScope = (scope: 'library' | 'downloads') => {
     void navigate({

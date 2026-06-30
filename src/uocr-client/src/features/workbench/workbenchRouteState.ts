@@ -3,7 +3,6 @@ import type {
   ModelRouteSearch,
   SettingsRouteSearch,
   WorkbenchRouteSearch,
-  WorkbenchView,
 } from '../../routeSearch';
 import type { WorkbenchState } from '../../stores/workbenchStore';
 
@@ -13,28 +12,13 @@ export type RouteSearchUpdate =
   | Partial<SettingsRouteSearch>
   | Partial<DiagnosticsRouteSearch>;
 
-export function viewPath(
-  view: WorkbenchView,
-): '/workbench' | '/models' | '/settings' | '/diagnostics' {
-  switch (view) {
-    case 'models':
-      return '/models';
-    case 'settings':
-      return '/settings';
-    case 'diagnostics':
-      return '/diagnostics';
-    case 'workbench':
-      return '/workbench';
-  }
-}
-
 export function workbenchSearchFromState(
   state: WorkbenchState,
   searchText: string,
 ): WorkbenchRouteSearch {
   return {
     file: state.selection.fileHash,
-    follow: state.autoFollowRegions ? undefined : false,
+    follow: state.selection.fileHash ? state.autoFollowRegions : undefined,
     labels: state.labelsVisible ? undefined : false,
     overlays: state.overlayVisible ? undefined : false,
     page: state.selection.fileHash ? state.selection.pageNo : undefined,

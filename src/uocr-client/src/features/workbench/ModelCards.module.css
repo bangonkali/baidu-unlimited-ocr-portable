@@ -13,7 +13,7 @@
   gap: 12px;
   min-width: 0;
   padding: 13px;
-  background: #202020;
+  background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
@@ -52,6 +52,15 @@
   margin-top: 7px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.titleBlock a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.titleBlock a:hover {
+  text-decoration: underline;
 }
 
 .titleBlock p,
@@ -125,7 +134,7 @@
 .progress {
   height: 8px;
   overflow: hidden;
-  background: #111;
+  background: var(--control-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
 }

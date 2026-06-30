@@ -1,6 +1,6 @@
 .panel {
   display: grid;
-  grid-template-rows: 35px 33px 1fr;
+  grid-template-rows: 35px 33px auto 1fr;
   min-height: 0;
   height: 100%;
   background: var(--panel);
@@ -49,6 +49,41 @@
   overflow: auto;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filters input,
+.filters select {
+  height: 26px;
+  color: var(--text);
+  font-size: 12px;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.filters input {
+  width: min(320px, 100%);
+  padding: 0 8px;
+}
+
+.filters label {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.filterLabelText {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
 .runRow {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) 92px 124px 88px;
@@ -57,7 +92,7 @@
   min-height: 30px;
   padding: 0 12px;
   font-size: 12px;
-  border-bottom: 1px solid rgb(255 255 255 / 5%);
+  border-bottom: 1px solid var(--subtle-border);
 }
 
 .runRow span {
@@ -73,7 +108,7 @@
 .progressTrack {
   height: 7px;
   overflow: hidden;
-  background: #111;
+  background: var(--control-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
@@ -92,7 +127,7 @@
   min-height: 30px;
   padding: 0 12px;
   font-size: 12px;
-  border-bottom: 1px solid rgb(255 255 255 / 5%);
+  border-bottom: 1px solid var(--subtle-border);
 }
 
 .logRow span,

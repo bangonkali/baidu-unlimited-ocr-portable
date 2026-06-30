@@ -39,7 +39,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
   padding: 14px;
-  background: color-mix(in srgb, var(--panel-2) 72%, #16212a);
+  background: color-mix(in srgb, var(--panel-2) 82%, var(--accent) 8%);
   border-bottom: 1px solid var(--border);
 }
 
@@ -106,14 +106,14 @@
   height: 26px;
   color: var(--text);
   font-size: 12px;
-  background: #1b1b1c;
+  background: var(--control-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
 
 .segmented {
   padding: 2px;
-  background: #1b1b1c;
+  background: var(--control-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
@@ -175,7 +175,7 @@
 
 .downloadButton {
   min-width: 104px;
-  color: #08131c;
+  color: var(--accent-foreground);
   background: var(--accent-2);
   border: 1px solid color-mix(in srgb, var(--accent-2) 70%, #fff);
 }

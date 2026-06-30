@@ -114,8 +114,8 @@
   width: 16px;
   height: 16px;
   padding: 0;
-  color: #111;
-  background: #111;
+  color: var(--accent-foreground);
+  background: var(--control-strong);
   border: 1px solid var(--border-strong);
   border-radius: 3px;
   place-items: center;

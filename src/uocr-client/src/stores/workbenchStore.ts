@@ -8,7 +8,15 @@ interface WorkbenchSelection {
   regionId?: string;
 }
 
-export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics';
+export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics' | 'ingest';
+export type ThemeMode = 'dark' | 'light';
+export type WorkbenchPaneId = 'details' | 'diagnostics' | 'explorer';
+
+export interface WorkbenchPaneState {
+  details: boolean;
+  diagnostics: boolean;
+  explorer: boolean;
+}
 
 export interface WorkbenchState {
   activeView: ActiveView;
@@ -18,19 +26,29 @@ export interface WorkbenchState {
   autoFollowRegions: boolean;
   overlayVisible: boolean;
   labelsVisible: boolean;
+  panesCollapsed: WorkbenchPaneState;
+  theme: ThemeMode;
   tourRun: boolean;
 }
+
+const themeStorageKey = 'uocr.theme';
 
 const initialState: WorkbenchState = {
   activeView: 'workbench',
   autoFollowRegions: true,
   labelsVisible: true,
   overlayVisible: true,
+  panesCollapsed: {
+    details: false,
+    diagnostics: false,
+    explorer: false,
+  },
   selectedProfile: 'experimental-exact-prefill-q4',
   selectedRoot: '',
   selection: {
     pageNo: 1,
   },
+  theme: readThemePreference(),
   tourRun: false,
 };
 
@@ -50,10 +68,6 @@ export function setSelectedRoot(selectedRoot: string) {
 
 export function setSelectedProfile(selectedProfile: string) {
   workbenchStore.setState((state) => ({ ...state, selectedProfile }));
-}
-
-export function setActiveView(activeView: WorkbenchState['activeView']) {
-  workbenchStore.setState((state) => ({ ...state, activeView }));
 }
 
 export function setSelection(selection: Partial<WorkbenchSelection>) {
@@ -92,6 +106,54 @@ export function setLabelsVisible(labelsVisible: boolean) {
   workbenchStore.setState((state) => ({ ...state, labelsVisible }));
 }
 
+export function setPaneCollapsed(pane: WorkbenchPaneId, collapsed: boolean) {
+  workbenchStore.setState((state) => ({
+    ...state,
+    panesCollapsed: { ...state.panesCollapsed, [pane]: collapsed },
+  }));
+}
+
+export function togglePaneCollapsed(pane: WorkbenchPaneId) {
+  workbenchStore.setState((state) => ({
+    ...state,
+    panesCollapsed: {
+      ...state.panesCollapsed,
+      [pane]: !state.panesCollapsed[pane],
+    },
+  }));
+}
+
+export function setTheme(theme: ThemeMode) {
+  persistThemePreference(theme);
+  applyThemePreference(theme);
+  workbenchStore.setState((state) => ({ ...state, theme }));
+}
+
+export function applyThemePreference(theme: ThemeMode) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document.documentElement.dataset.theme = theme;
+}
+
+export function readThemePreference(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+  const stored = window.localStorage.getItem(themeStorageKey);
+  if (stored === 'dark' || stored === 'light') {
+    return stored;
+  }
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 export function setTourRun(tourRun: boolean) {
   workbenchStore.setState((state) => ({ ...state, tourRun }));
+}
+
+function persistThemePreference(theme: ThemeMode) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(themeStorageKey, theme);
 }

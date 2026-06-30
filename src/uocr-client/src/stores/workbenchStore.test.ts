@@ -5,6 +5,7 @@ import {
   getWorkbenchSnapshot,
   setAutoFollowRegions,
   setSelection,
+  setTheme,
 } from './workbenchStore';
 
 describe('workbenchStore auto-follow', () => {
@@ -54,5 +55,14 @@ describe('workbenchStore auto-follow', () => {
 
     expect(getWorkbenchSnapshot().selection.regionId).toBe('reg-latest');
     setAutoFollowRegions(true);
+  });
+});
+
+describe('workbenchStore theme', () => {
+  test('stores the selected theme without requiring browser globals', () => {
+    setTheme('light');
+    expect(getWorkbenchSnapshot().theme).toBe('light');
+    setTheme('dark');
+    expect(getWorkbenchSnapshot().theme).toBe('dark');
   });
 });

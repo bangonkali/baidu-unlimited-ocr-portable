@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   validateDiagnosticsSearch,
+  validateIngestSearch,
   validateModelSearch,
   validateSettingsSearch,
   validateWorkbenchSearch,
@@ -29,6 +30,17 @@ describe('route search validators', () => {
       region: 'r1',
     });
     expect(validateWorkbenchSearch({ page: '-2' }).page).toBeUndefined();
+    expect(
+      validateWorkbenchSearch({
+        file_hash: 'legacy-hash',
+        page_no: '2',
+        region_id: 'legacy-region',
+      }),
+    ).toMatchObject({
+      file: 'legacy-hash',
+      page: 2,
+      region: 'legacy-region',
+    });
   });
 
   test('validates model, settings, and diagnostics route state', () => {
@@ -41,11 +53,28 @@ describe('route search validators', () => {
       status: 'active',
       view: 'grid',
     });
-    expect(validateSettingsSearch({ section: 'runtime' })).toEqual({ section: 'runtime' });
-    expect(validateDiagnosticsSearch({ q: 'cuda', run: 'run-1', tab: 'logs' })).toEqual({
+    expect(validateSettingsSearch({ section: 'appearance' })).toEqual({ section: 'appearance' });
+    expect(
+      validateDiagnosticsSearch({
+        component: 'models',
+        level: 'INFO',
+        q: 'cuda',
+        run: 'run-1',
+        status: 'running',
+        tab: 'logs',
+      }),
+    ).toEqual({
+      component: 'models',
+      level: 'INFO',
       q: 'cuda',
       run: 'run-1',
+      status: 'running',
       tab: 'logs',
+    });
+    expect(validateIngestSearch({ model: 'm1', profile: 'p1', reprocess: 'true' })).toEqual({
+      model: 'm1',
+      profile: 'p1',
+      reprocess: true,
     });
   });
 });

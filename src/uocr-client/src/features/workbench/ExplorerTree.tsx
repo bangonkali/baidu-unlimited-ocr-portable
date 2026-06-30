@@ -4,16 +4,16 @@ import { FileText } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 
 import type { DocumentSummary } from '../../api/types';
-import { setSelection } from '../../stores/workbenchStore';
 import styles from './ExplorerTree.module.css';
 import { clampProgress, documentPageLabel, percentLabel } from './progressFormat';
 
 interface ExplorerTreeProps {
   documents: DocumentSummary[];
   selectedFileHash?: string;
+  onSelectDocument: (fileHash: string, pageNo?: number) => void;
 }
 
-export function ExplorerTree({ documents, selectedFileHash }: ExplorerTreeProps) {
+export function ExplorerTree({ documents, onSelectDocument, selectedFileHash }: ExplorerTreeProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const selectedFiles = useMemo(
     () => new Set(selectedFileHash ? [selectedFileHash] : []),
@@ -53,7 +53,12 @@ export function ExplorerTree({ documents, selectedFileHash }: ExplorerTreeProps)
       <div className={styles.scroll} ref={parentRef}>
         <div className={styles.virtualSpace} style={{ height: virtualizer.getTotalSize() }}>
           {rows.length === 0 ? <div className={styles.empty}>No documents</div> : null}
-          <DocumentRows rows={rows} selectedFiles={selectedFiles} virtualizer={virtualizer} />
+          <DocumentRows
+            rows={rows}
+            selectedFiles={selectedFiles}
+            virtualizer={virtualizer}
+            onSelectDocument={onSelectDocument}
+          />
         </div>
       </div>
     </section>
@@ -64,6 +69,7 @@ function DocumentRows(props: {
   rows: ReturnType<ReturnType<typeof useReactTable<DocumentSummary>>['getRowModel']>['rows'];
   selectedFiles: Set<string>;
   virtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, Element>>;
+  onSelectDocument: (fileHash: string, pageNo?: number) => void;
 }) {
   return props.virtualizer.getVirtualItems().map((virtualRow) => {
     const row = props.rows[virtualRow.index];
@@ -77,18 +83,24 @@ function DocumentRows(props: {
         isActive={props.selectedFiles.has(document.file_hash)}
         key={row.id}
         offset={virtualRow.start}
+        onSelectDocument={props.onSelectDocument}
       />
     );
   });
 }
 
-function DocumentRow(props: { document: DocumentSummary; isActive: boolean; offset: number }) {
+function DocumentRow(props: {
+  document: DocumentSummary;
+  isActive: boolean;
+  offset: number;
+  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+}) {
   const { document } = props;
   return (
     <button
       className={styles.row}
       data-active={props.isActive}
-      onClick={() => setSelection({ fileHash: document.file_hash, pageNo: 1 })}
+      onClick={() => props.onSelectDocument(document.file_hash, 1)}
       style={{ transform: `translateY(${props.offset}px)` }}
       type="button"
     >

@@ -100,7 +100,7 @@
 .markdownBody pre {
   padding: 8px;
   overflow: auto;
-  background: #151515;
+  background: var(--control-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
 }
@@ -129,7 +129,7 @@
   display: inline;
   padding: 1px 3px;
   color: var(--text);
-  background: rgb(76 194 255 / 14%);
+  background: var(--selection-bg);
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
@@ -183,9 +183,9 @@
   min-width: 160px;
   padding: 4px;
   color: var(--text);
-  background: #252526;
+  background: var(--panel);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 36%);
+  box-shadow: var(--shadow-lg);
   z-index: 60;
 }
 
