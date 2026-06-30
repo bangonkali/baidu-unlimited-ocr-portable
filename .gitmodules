@@ -8,3 +8,6 @@
 [submodule "thirdparty/huggingface-hub-cpp"]
 	path = thirdparty/huggingface-hub-cpp
 	url = https://github.com/agonzc34/huggingface-hub-cpp.git
+[submodule "thirdparty/mdx-js"]
+	path = thirdparty/mdx-js
+	url = git@github.com:mdx-js/mdx.git
