@@ -24,6 +24,7 @@ import type {
   ModelDownloadRequest,
   ModelsPayload,
   PreviewImagesPayload,
+  SearchDocumentsParams,
   SettingsPayload,
   StatusPayload
 } from './model';
@@ -438,6 +439,53 @@ export const listDocuments = async (params?: ListDocumentsParams, options?: Requ
 
   const data: listDocumentsResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as listDocumentsResponse
+}
+
+
+
+export type searchDocumentsResponse200 = {
+  data: DocumentsPayload
+  status: 200
+}
+
+export type searchDocumentsResponseSuccess = (searchDocumentsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type searchDocumentsResponse = (searchDocumentsResponseSuccess)
+
+export const getSearchDocumentsUrl = (params?: SearchDocumentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/search?${stringifiedParams}` : `/api/search`
+}
+
+export const searchDocuments = async (params?: SearchDocumentsParams, options?: RequestInit): Promise<searchDocumentsResponse> => {
+
+  const res = await fetch(getSearchDocumentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchDocumentsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as searchDocumentsResponse
 }
 
 

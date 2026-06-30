@@ -31,6 +31,7 @@ export const fixtureBoxes: OverlayBox[] = [
   {
     height_percent: 8,
     label: 'Invoice total',
+    content_markdown: 'Invoice total: 1,240.00',
     left_percent: 18,
     page_no: 1,
     region_id: 'reg-total',
@@ -40,6 +41,7 @@ export const fixtureBoxes: OverlayBox[] = [
   {
     height_percent: 7,
     label: 'Supplier',
+    content_markdown: 'Supplier',
     left_percent: 16,
     page_no: 1,
     region_id: 'reg-supplier',

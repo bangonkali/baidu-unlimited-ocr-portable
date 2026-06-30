@@ -9,6 +9,9 @@
 export interface OverlayBox {
   region_id: string;
   label: string;
+  content_markdown?: string;
+  /** @nullable */
+  content_html?: string | null;
   page_no: number;
   left_percent: number;
   top_percent: number;

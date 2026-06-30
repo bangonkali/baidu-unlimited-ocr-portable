@@ -28,15 +28,18 @@ logs/
 config/
 uploads/
 openapi/uocr.openapi.json
+duckdb.dll
 thirdparty/uocr-runtime/windows-x86_64-cuda13/bin/uocr-ffi.dll
 thirdparty/mupdf/COPYING
 ```
 
 The release also bundles Drogon/Trantor/vcpkg DLLs needed by the C++ server and
-the generated React build under `web/`. Runtime binaries are staged under
-`thirdparty/uocr-runtime/`; GGUF model files are downloaded or validated after
-first launch and are not committed to git. MuPDF is linked into
-`uocr-server.exe`; the portable zip must not contain `mutool.exe`.
+the generated React build under `web/`. DuckDB is bundled as `duckdb.dll` beside
+`uocr-server.exe` and writes the OCR dashboard database to `data/uocr.duckdb`.
+Runtime binaries are staged under `thirdparty/uocr-runtime/`; GGUF model files
+are downloaded or validated after first launch and are not committed to git.
+MuPDF is linked into `uocr-server.exe`; the portable zip must not contain
+`mutool.exe`.
 
 Running `uocr-server.exe` appends launch and listener diagnostics to
 `logs/uocr-server.log`. Model downloads from the C++ workbench currently target

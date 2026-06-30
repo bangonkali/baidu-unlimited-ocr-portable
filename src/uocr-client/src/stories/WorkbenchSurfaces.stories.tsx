@@ -81,6 +81,7 @@ export const Details: Story = {
         document={fixtureDocuments[0]}
         labelsVisible
         overlayVisible
+        selectedRegion={fixtureBoxes[0]}
         selectedRegionId="reg-total"
       />
     </div>

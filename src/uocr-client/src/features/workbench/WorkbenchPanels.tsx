@@ -34,6 +34,9 @@ interface WorkbenchPanelsProps {
 }
 
 export function WorkbenchPanels(props: WorkbenchPanelsProps) {
+  const selectedRegion = props.regions.find(
+    (region) => region.region_id === props.workbench.selection.regionId,
+  );
   return (
     <div className={styles.workbenchStack}>
       <StartHere
@@ -60,6 +63,7 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
             document={props.selectedDocument}
             labelsVisible={props.workbench.labelsVisible}
             overlayVisible={props.workbench.overlayVisible}
+            selectedRegion={selectedRegion}
             selectedRegionId={props.workbench.selection.regionId}
           />
         </Panel>

@@ -18,8 +18,11 @@ void WorkbenchService::Impl::fail_run(const std::string& run_id, const std::stri
         document.status = "failed";
         document.error = message;
       }
+      persist_document(document, run.root_path);
       document_events.push_back(document_summary(document));
     }
+    persist_run(run);
+    persist_diagnostic(run_id, "error", message);
     run_event = run_record(run);
   }
   publish_event("run.changed", run_event);

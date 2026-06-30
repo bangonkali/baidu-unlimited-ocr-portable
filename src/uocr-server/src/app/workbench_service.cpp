@@ -2,6 +2,7 @@
 
 #include "workbench_state.hpp"
 
+#include <exception>
 #include <utility>
 #include <vector>
 
@@ -55,9 +56,11 @@ Json::Value WorkbenchService::start_ingest(const Json::Value& request) {
       document.relative_path = file.relative_path;
       run.file_hashes.push_back(document.file_hash);
       impl_->documents[document.file_hash] = std::move(document);
+      impl_->persist_document(impl_->documents[run.file_hashes.back()], root);
       document_events.push_back(impl_->document_summary(impl_->documents[run.file_hashes.back()]));
     }
     impl_->runs[run_id] = run;
+    impl_->persist_run(impl_->runs[run_id]);
     run_event = impl_->run_record(impl_->runs[run_id]);
   }
   impl_->publish_event("run.changed", run_event);
@@ -104,8 +107,10 @@ Json::Value WorkbenchService::run_command(const std::string& run_id, const std::
       if (document.status == "queued" || document.status == "running" || document.status == "rendering") {
         document.status = "cancelled";
       }
+      impl_->persist_document(document, found->second.root_path);
       document_events.push_back(impl_->document_summary(document));
     }
+    impl_->persist_run(found->second);
     run_event = impl_->run_record(found->second);
   }
   if (impl_->logger) {
@@ -126,10 +131,33 @@ std::string WorkbenchService::run_event_stream(const std::string& run_id) const 
 }
 
 Json::Value WorkbenchService::list_documents(const std::string& query) const {
+  std::vector<std::string> persisted_hits;
+  bool used_persisted_search = false;
+  if (!query.empty() && impl_->repository) {
+    try {
+      persisted_hits = impl_->repository->search_document_hashes(query, 200);
+      used_persisted_search = true;
+    } catch (const std::exception& error) {
+      if (impl_->logger) {
+        impl_->logger->error("database", std::string("DuckDB search failed: ") + error.what());
+      }
+    }
+  }
+
   std::scoped_lock lock(impl_->mutex);
-  const auto needle = lower(query);
   Json::Value payload;
   payload["documents"] = Json::arrayValue;
+  if (used_persisted_search) {
+    for (const auto& hash : persisted_hits) {
+      const auto found = impl_->documents.find(hash);
+      if (found != impl_->documents.end()) {
+        payload["documents"].append(impl_->document_summary(found->second));
+      }
+    }
+    return payload;
+  }
+
+  const auto needle = lower(query);
   for (const auto& [_, document] : impl_->documents) {
     const auto haystack = lower(document.relative_path.generic_string() + " " + document.cleaned_text);
     if (!needle.empty() && haystack.find(needle) == std::string::npos) {

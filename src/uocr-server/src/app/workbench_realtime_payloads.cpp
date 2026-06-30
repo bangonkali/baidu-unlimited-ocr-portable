@@ -39,6 +39,7 @@ Json::Value WorkbenchService::Impl::status_record() const {
   payload["accelerator"] = "cuda";
   payload["inference_engine"] = "Unlimited-OCR FFI";
   payload["log_path"] = (app_root / "logs" / "uocr-server.log").string();
+  payload["database_path"] = (app_root / "data" / "uocr.duckdb").string();
   payload["default_profile"] = default_ocr_profile().key;
   for (const auto* suffix : {".pdf", ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}) {
     payload["supported_inputs"].append(suffix);
@@ -72,6 +73,8 @@ Json::Value WorkbenchService::Impl::document_regions_record(const DocumentState&
       Json::Value item;
       item["region_id"] = box.region_id;
       item["label"] = box.label;
+      item["content_markdown"] = box.content_markdown;
+      item["content_html"] = box.content_html.empty() ? Json::Value(Json::nullValue) : Json::Value(box.content_html);
       item["page_no"] = box.page_no;
       item["left_percent"] = box.left_percent;
       item["top_percent"] = box.top_percent;

@@ -33,6 +33,7 @@ export * from './ocrProfileRecord';
 export * from './overlayBox';
 export * from './pageTextRecord';
 export * from './previewImagesPayload';
+export * from './searchDocumentsParams';
 export * from './settingsPayload';
 export * from './statusPayload';
 export * from './statusPayloadAccelerator';

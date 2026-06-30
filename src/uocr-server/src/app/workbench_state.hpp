@@ -13,6 +13,7 @@
 
 #include "uocr/core/types.hpp"
 #include "uocr/fs/file_scanner.hpp"
+#include "uocr/storage/workbench_repository.hpp"
 
 namespace uocr::server {
 
@@ -114,10 +115,27 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   Json::Value document_text_record(const DocumentState& document) const;
   bool is_image_document(const DocumentState& document) const;
   bool is_pdf_document(const DocumentState& document) const;
+  std::string document_status_for(const DocumentState& document) const;
+  void apply_region_content(PageState& page) const;
+  void refresh_document_aggregate(DocumentState& document) const;
   std::vector<PageState> prepare_pages(const DiscoveredFile& file, const std::string& file_hash) const;
 
+  void load_persisted_snapshot();
   void publish_event(std::string_view type, const Json::Value& payload) const;
   void publish_status_changed() const;
+  void persist_run(const RunState& run) const;
+  void persist_document(const DocumentState& document, std::string_view root_path) const;
+  void persist_page(const std::string& file_hash, const PageState& page) const;
+  void persist_page_ocr(const std::string& file_hash,
+                        const PageState& page,
+                        std::string_view profile_id) const;
+  void persist_work_unit(const std::string& run_id,
+                         const std::string& file_hash,
+                         int page_no,
+                         std::string_view status,
+                         int attempts,
+                         std::string_view error) const;
+  void persist_diagnostic(const std::string& run_id, std::string_view level, std::string_view message) const;
   void start_download(bool force);
   void cancel_download();
   void start_run(const std::string& run_id, std::vector<DiscoveredFile> files, std::string profile_id);
@@ -128,6 +146,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
 
   std::filesystem::path app_root;
   std::shared_ptr<AppLogger> logger;
+  std::shared_ptr<uocr::storage::WorkbenchRepository> repository;
   std::atomic_bool model_cancel_requested{false};
   mutable std::mutex mutex;
   ModelState model;

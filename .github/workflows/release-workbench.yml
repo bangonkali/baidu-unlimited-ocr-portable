@@ -100,6 +100,7 @@ jobs:
             uocr-core-tests `
             uocr-download-tests `
             uocr-render-tests `
+            uocr-storage-tests `
             uocr-realtime-tests
           ctest --test-dir build/windows-workbench-ci -C Release --output-on-failure
 
@@ -113,6 +114,8 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
           $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
           if (-not $exe) { throw "uocr-server.exe not found in archive" }
+          $duckdb = Get-ChildItem -LiteralPath $extract -Recurse -Filter "duckdb.dll" | Select-Object -First 1
+          if (-not $duckdb) { throw "duckdb.dll not found in archive" }
           $mutool = Get-ChildItem -LiteralPath $extract -Recurse -Filter "mutool.exe" | Select-Object -First 1
           if ($mutool) { throw "mutool.exe should not be shipped; MuPDF is embedded in uocr-server.exe" }
           & $exe.FullName --version
@@ -140,6 +143,12 @@ jobs:
               }
             }
             if ($health.ok -ne $true) { throw "health check failed" }
+            $status = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/status" -TimeoutSec 2
+            if (-not $status.database_path) { throw "status API did not expose database_path" }
+            $dbPath = Join-Path $exe.Directory.FullName "data\uocr.duckdb"
+            if (-not (Test-Path $dbPath)) { throw "DuckDB database was not created at $dbPath" }
+            $search = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/search?q=smoke" -TimeoutSec 2
+            if ($null -eq $search.documents) { throw "search API did not return a documents array" }
             $homeResponse = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
             if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
             $logs = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2

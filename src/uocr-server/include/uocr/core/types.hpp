@@ -25,6 +25,8 @@ struct NormalizedBox {
 struct OverlayBox {
   std::string region_id;
   std::string label;
+  std::string content_markdown;
+  std::string content_html;
   int page_no = 1;
   double left_percent = 0.0;
   double top_percent = 0.0;
@@ -48,4 +50,3 @@ struct ParsedOcrPage {
 };
 
 }  // namespace uocr
-

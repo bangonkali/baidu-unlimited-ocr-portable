@@ -62,15 +62,47 @@ uocr-server.exe --version
 The default runtime command binds `127.0.0.1:8765`, serves `/api/*` plus
 `/api/openapi.json`, and falls back to `web/index.html` for the React SPA.
 
+## DuckDB Persistence
+
+The workbench creates and migrates `data/uocr.duckdb` at server startup. The
+Windows release uses the bundled DuckDB C API runtime (`duckdb.dll`) staged
+beside `uocr-server.exe`; DuckDB is not built from source in the release
+workflow.
+
+The persisted OCR dashboard contract is:
+
+- `files` and `file_locations`: file identity, display path, status, page count,
+  size, latest observed root, and error text.
+- `ingest_runs` and `ingest_work_units`: run state, root path, page work status,
+  attempts, cancellation/failure/completion markers, and progress counters.
+- `document_pages` and `document_preview_images`: page status, render metadata,
+  source preview image paths, dimensions, and render DPI.
+- `document_page_ocr`: raw OCR output, cleaned display text, runtime profile,
+  status, attempts, error text, and options metadata.
+- `document_regions`: stable region id, file hash, page number, engine/profile,
+  label, normalized `TOPLEFT_NORMALIZED_0_999` bounding box, and selected-box
+  text content.
+- `document_text_region_links`: cleaned text offsets that connect clickable text
+  spans to bounding boxes.
+- `document_terms`: lowercase token index used by DuckDB-backed search.
+- `ingest_diagnostic_events`: persisted diagnostic messages for run progress and
+  failures.
+
+Startup reload reconstructs the in-memory workbench state from DuckDB so prior
+documents, text, boxes, previews, and recent runs are visible after restarting
+the portable app. `GET /api/documents?q=...` and `GET /api/search?q=...` search
+the persisted `document_terms` table first and then fall back to display-name
+and cleaned-text matching for partial terms.
+
 ## API Contract
 
 `src/uocr-server/openapi/uocr.openapi.json` is the API source of truth. It
 covers the currently implemented workbench surface: health/status, trusted
 folder selection, model download state, model download cancel/events, ingest
-start/stop, run snapshots/events, document lists/details, regions, text spans,
-preview images, recent logs, and settings. Removed or future-only surfaces are
-intentionally omitted from the UI and OpenAPI contract until they work end to
-end.
+start/stop, run snapshots/events, document lists/details, DuckDB-backed search,
+regions with selected-box content, text spans, preview images, recent logs, and
+settings. Removed or future-only surfaces are intentionally omitted from the UI
+and OpenAPI contract until they work end to end.
 
 The React client runs Orval against that file:
 

@@ -11,6 +11,7 @@ option(UOCR_EMBED_MUPDF "Link the MuPDF renderer into uocr-server" ON)
 set(UOCR_VERSION "" CACHE STRING "uocr-server release version, usually the git tag")
 set(UOCR_CLIENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../uocr-client" CACHE PATH "React client directory")
 set(UOCR_MUPDF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/mupdf" CACHE PATH "MuPDF submodule root")
+set(UOCR_DUCKDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/duckdb/windows-amd64" CACHE PATH "Bundled DuckDB Windows SDK root")
 
 find_package(CURL REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -62,6 +63,23 @@ function(uocr_link_mupdf target)
   uocr_link_windows_system_libraries(${target})
 endfunction()
 
+function(uocr_link_duckdb target)
+  if(NOT WIN32)
+    message(FATAL_ERROR "Bundled DuckDB is currently configured for the Windows portable build only.")
+  endif()
+  target_include_directories(${target} PUBLIC "${UOCR_DUCKDB_ROOT}/generated/include")
+  target_link_libraries(${target} PUBLIC "${UOCR_DUCKDB_ROOT}/lib/duckdb.lib")
+endfunction()
+
+function(uocr_copy_duckdb_runtime target)
+  add_custom_command(TARGET ${target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${UOCR_DUCKDB_ROOT}/bin/duckdb.dll"
+      "$<TARGET_FILE_DIR:${target}>/duckdb.dll"
+    VERBATIM
+  )
+endfunction()
+
 add_library(uocr_core STATIC
   src/core/ocr_parser.cpp
   src/core/profiles.cpp
@@ -82,6 +100,23 @@ if(MSVC)
   target_compile_options(uocr_core PRIVATE /W4 /permissive-)
 else()
   target_compile_options(uocr_core PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_library(uocr_storage STATIC
+  src/storage/workbench_repository.cpp
+  src/storage/workbench_repository_ocr_write.cpp
+  src/storage/workbench_repository_read.cpp
+  src/storage/workbench_repository_write.cpp
+)
+
+target_include_directories(uocr_storage PUBLIC include)
+target_link_libraries(uocr_storage PUBLIC uocr_core)
+uocr_link_duckdb(uocr_storage)
+
+if(MSVC)
+  target_compile_options(uocr_storage PRIVATE /W4 /permissive-)
+else()
+  target_compile_options(uocr_storage PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 add_library(uocr_download STATIC
@@ -123,6 +158,11 @@ if(UOCR_BUILD_TESTS)
     uocr_link_mupdf(uocr-render-tests)
     add_test(NAME uocr-render-tests COMMAND uocr-render-tests)
   endif()
+
+  add_executable(uocr-storage-tests tests/storage_tests.cpp)
+  target_link_libraries(uocr-storage-tests PRIVATE uocr_storage)
+  uocr_copy_duckdb_runtime(uocr-storage-tests)
+  add_test(NAME uocr-storage-tests COMMAND uocr-storage-tests)
 endif()
 
 if(UOCR_BUILD_SERVER)
@@ -169,9 +209,11 @@ if(UOCR_BUILD_SERVER)
       src/app/realtime_event_hub.cpp
       src/app/realtime_ws.cpp
       src/app/routes.cpp
+      src/app/workbench_document_state.cpp
       src/app/workbench_ingest.cpp
       src/app/workbench_models.cpp
       src/app/workbench_page_preparation.cpp
+      src/app/workbench_persistence.cpp
       src/app/workbench_realtime_payloads.cpp
       src/app/workbench_run_failures.cpp
       src/app/workbench_service.cpp
@@ -179,9 +221,10 @@ if(UOCR_BUILD_SERVER)
       src/app/workbench_state.cpp
       src/render/mupdf_page_renderer.cpp
     )
-    target_link_libraries(uocr-server PRIVATE uocr_core uocr_download Drogon::Drogon)
+    target_link_libraries(uocr-server PRIVATE uocr_core uocr_download uocr_storage Drogon::Drogon)
     uocr_link_mupdf(uocr-server)
     uocr_link_windows_system_libraries(uocr-server)
+    uocr_copy_duckdb_runtime(uocr-server)
     target_compile_definitions(uocr-server PRIVATE
       UOCR_APP_VERSION="${UOCR_VERSION}"
       UOCR_GIT_SHA="${UOCR_GIT_SHA}"

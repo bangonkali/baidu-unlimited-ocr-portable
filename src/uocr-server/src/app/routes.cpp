@@ -168,6 +168,11 @@ void register_document_routes(const std::shared_ptr<WorkbenchService>& service) 
     callback(json_response(service->list_documents(request->getParameter("q"))));
   });
 
+  app().registerHandler("/api/search", [service](const HttpRequestPtr& request,
+                                                  std::function<void(const HttpResponsePtr&)>&& callback) {
+    callback(json_response(service->list_documents(request->getParameter("q"))));
+  });
+
   app().registerHandler("/api/documents/{1}", [service](const HttpRequestPtr&,
                                                          std::function<void(const HttpResponsePtr&)>&& callback,
                                                          const std::string& file_hash) {

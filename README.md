@@ -40,6 +40,16 @@ It writes the same operational messages to the terminal and to:
 logs\uocr-server.log
 ```
 
+OCR dashboard state is persisted to DuckDB at:
+
+```text
+data\uocr.duckdb
+```
+
+The database stores scanned files, rendered pages, OCR text, page status,
+bounding boxes, text-to-box links, searchable terms, run state, and diagnostics.
+The search box uses that DuckDB state after text has been persisted.
+
 Startup logs include the app root, web root, log path, version, git SHA, and
 listening URL. Ingest logs include model loading, folder scan counts, PDF page
 rendering, and page OCR progress. Model download logs include auth availability

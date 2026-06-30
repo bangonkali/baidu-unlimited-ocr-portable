@@ -24,6 +24,11 @@ rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
 files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
 `uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 
+The app also creates `data\uocr.duckdb` on startup. This DuckDB file stores scan
+runs, files, rendered page metadata, OCR raw/cleaned text, bounding boxes,
+text-to-box span links, searchable terms, and persisted diagnostics. The search
+box and `/api/search?q=...` read from that database after OCR text is saved.
+
 Optional authenticated Hugging Face download:
 
 ```powershell

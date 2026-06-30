@@ -184,9 +184,19 @@ CREATE INDEX IF NOT EXISTS idx_regions_file_page ON document_regions(file_hash, 
 CREATE INDEX IF NOT EXISTS idx_terms_term ON document_terms(term);
 CREATE INDEX IF NOT EXISTS idx_work_units_run_status ON ingest_work_units(run_id, status);
 )SQL"},
+      {2, "ocr_dashboard_persistence_details", R"SQL(
+ALTER TABLE files ADD COLUMN IF NOT EXISTS error TEXT;
+ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS queued_files INTEGER DEFAULT 0;
+ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS processed_pages INTEGER DEFAULT 0;
+ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS total_pages INTEGER DEFAULT 0;
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS content_markdown TEXT;
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS content_html TEXT;
+CREATE INDEX IF NOT EXISTS idx_files_status_updated ON files(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_page_ocr_file_page ON document_page_ocr(file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_page_ocr_text ON document_page_ocr(file_hash, cleaned_text);
+)SQL"},
   };
   return migrations;
 }
 
 }  // namespace uocr
-

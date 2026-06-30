@@ -220,6 +220,33 @@
         }
       }
     },
+    "/api/search": {
+      "get": {
+        "operationId": "searchDocuments",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DuckDB-backed document text search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/documents/{file_hash}": {
       "get": {
         "operationId": "getDocument",
@@ -605,6 +632,9 @@
           "log_path": {
             "type": "string"
           },
+          "database_path": {
+            "type": "string"
+          },
           "realtime_path": {
             "type": "string"
           },
@@ -792,6 +822,13 @@
           },
           "label": {
             "type": "string"
+          },
+          "content_markdown": {
+            "type": "string"
+          },
+          "content_html": {
+            "type": "string",
+            "nullable": true
           },
           "page_no": {
             "type": "integer"

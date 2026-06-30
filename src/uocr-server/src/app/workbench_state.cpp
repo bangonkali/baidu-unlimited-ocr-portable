@@ -104,6 +104,7 @@ WorkbenchService::Impl::Impl(std::filesystem::path root, std::shared_ptr<AppLogg
   model.status_message = auth.available() ? "Hugging Face token detected in environment"
                                           : "No Hugging Face token detected; public downloads will be used";
   model.last_event_at = utc_timestamp();
+  load_persisted_snapshot();
 }
 
 std::filesystem::path WorkbenchService::Impl::model_path() const {

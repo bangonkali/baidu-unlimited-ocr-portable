@@ -13,3 +13,5 @@
 *.tif binary
 *.tiff binary
 *.webp binary
+thirdparty/duckdb/windows-amd64/bin/duckdb.dll filter=lfs diff=lfs merge=lfs -text
+thirdparty/duckdb/windows-amd64/lib/duckdb.lib filter=lfs diff=lfs merge=lfs -text

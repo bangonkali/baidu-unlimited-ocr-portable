@@ -32,36 +32,6 @@ std::string page_label(const DiscoveredFile& file, int page_no, int page_count) 
   return out.str();
 }
 
-void refresh_document_aggregate(WorkbenchService::Impl::DocumentState& document) {
-  document.raw_text.clear();
-  document.cleaned_text.clear();
-  document.boxes.clear();
-  document.spans.clear();
-  for (const auto& page : document.pages) {
-    if (!document.raw_text.empty()) {
-      document.raw_text += "\n\n";
-      document.cleaned_text += "\n\n";
-    }
-    document.raw_text += page.raw_text;
-    document.cleaned_text += page.cleaned_text;
-    document.boxes.insert(document.boxes.end(), page.boxes.begin(), page.boxes.end());
-    document.spans.insert(document.spans.end(), page.spans.begin(), page.spans.end());
-  }
-}
-
-std::string document_status_for(const WorkbenchService::Impl::DocumentState& document) {
-  bool completed = false;
-  bool failed = false;
-  for (const auto& page : document.pages) {
-    completed = completed || page.status == "completed";
-    failed = failed || page.status == "failed";
-  }
-  if (completed && failed) {
-    return "completed_with_errors";
-  }
-  return failed ? "failed" : "completed";
-}
-
 }  // namespace
 
 void WorkbenchService::Impl::start_run(std::string const& run_id,
@@ -82,6 +52,8 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     {
       std::scoped_lock lock(mutex);
       runs[run_id].status = "completed";
+      persist_run(runs[run_id]);
+      persist_diagnostic(run_id, "info", "run finished with no supported files");
       run_event = run_record(runs[run_id]);
     }
     log_info(logger, "ingest", "run " + run_id + " finished: no supported files found");
@@ -107,6 +79,8 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
   {
     std::scoped_lock lock(mutex);
     runs[run_id].status = "running";
+    persist_run(runs[run_id]);
+    persist_diagnostic(run_id, "info", "run started with " + std::to_string(files.size()) + " files");
     run_event = run_record(runs[run_id]);
   }
   publish_event("run.changed", run_event);
@@ -121,9 +95,11 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       std::scoped_lock lock(mutex);
       if (runs[run_id].cancel_requested) {
         runs[run_id].status = "cancelled";
+        persist_run(runs[run_id]);
         run_event = run_record(runs[run_id]);
       } else {
         documents[hash].status = lower(file.absolute_path.extension().string()) == ".pdf" ? "rendering" : "running";
+        persist_document(documents[hash], runs[run_id].root_path);
         document_event = document_summary(documents[hash]);
       }
     }
@@ -144,6 +120,10 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
         document.status = "failed";
         document.error = error.what();
         runs[run_id].processed_pages += 1;
+        persist_document(document, runs[run_id].root_path);
+        persist_run(runs[run_id]);
+        persist_work_unit(run_id, hash, 1, "failed", 1, error.what());
+        persist_diagnostic(run_id, "error", file.relative_path.generic_string() + " failed: " + error.what());
         document_event = document_summary(document);
         run_event = run_record(runs[run_id]);
       }
@@ -163,9 +143,13 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       document.pages = pages;
       document.status = "running";
       run.total_pages += std::max(0, static_cast<int>(pages.size()) - 1);
+      persist_document(document, run.root_path);
+      persist_run(run);
       document_event = document_summary(document);
       run_event = run_record(run);
       for (const auto& page : document.pages) {
+        persist_page(hash, page);
+        persist_work_unit(run_id, hash, page.page_no, page.status, 0, page.error);
         page_events.push_back(document_page_record(document, page));
       }
     }
@@ -192,13 +176,20 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
             if (page_state.status == "queued" || page_state.status == "running") {
               page_state.status = "cancelled";
             }
+            persist_page(hash, page_state);
+            persist_work_unit(run_id, hash, page_state.page_no, page_state.status, 0, page_state.error);
             cancel_page_events.push_back(document_page_record(document, page_state));
           }
+          persist_document(document, run.root_path);
+          persist_run(run);
+          persist_diagnostic(run_id, "warn", "run cancelled");
           run_event = run_record(run);
           document_event = document_summary(document);
           cancelled = true;
         } else {
           documents[hash].pages[index].status = "running";
+          persist_page(hash, documents[hash].pages[index]);
+          persist_work_unit(run_id, hash, documents[hash].pages[index].page_no, "running", 1, "");
           page_event = document_page_record(documents[hash], documents[hash].pages[index]);
         }
       }
@@ -242,10 +233,19 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
           page_state.cleaned_text = parsed.cleaned_text.empty() ? result.text : parsed.cleaned_text;
           page_state.boxes = to_overlay_boxes(parsed, page.page_no);
           page_state.spans = parsed.text_region_spans;
+          apply_region_content(page_state);
           page_state.status = "completed";
         }
         refresh_document_aggregate(document);
         runs[run_id].processed_pages += 1;
+        persist_page_ocr(hash, page_state, profile->key);
+        persist_work_unit(run_id, hash, page_state.page_no, page_state.status, 1, page_state.error);
+        persist_document(document, runs[run_id].root_path);
+        persist_run(runs[run_id]);
+        if (!error.empty()) {
+          persist_diagnostic(run_id, "error",
+                             page_label(file, page.page_no, static_cast<int>(pages.size())) + " failed: " + error);
+        }
         page_event = document_page_record(document, page_state);
         document_event = document_summary(document);
         regions_event = document_regions_record(document);
@@ -269,6 +269,7 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       std::scoped_lock lock(mutex);
       auto& document = documents[hash];
       document.status = document_status_for(document);
+      persist_document(document, runs[run_id].root_path);
       document_event = document_summary(document);
     }
     publish_event("document.changed", document_event);
@@ -280,6 +281,8 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     auto& run = runs[run_id];
     run.status = any_failed ? "completed_with_errors" : "completed";
     final_status = run.status;
+    persist_run(run);
+    persist_diagnostic(run_id, any_failed ? "warn" : "info", "run finished with status " + final_status);
     run_event = run_record(run);
   }
   log_info(logger, "ingest", "run " + run_id + " finished with status " + final_status);

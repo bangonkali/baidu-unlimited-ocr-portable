@@ -20,6 +20,7 @@ export interface StatusPayload {
   accelerator?: string;
   inference_engine?: string;
   log_path?: string;
+  database_path?: string;
   realtime_path?: string;
 }
 
@@ -141,6 +142,8 @@ export interface DocumentRegionsPayload {
 export interface OverlayBox {
   region_id: string;
   label: string;
+  content_markdown?: string;
+  content_html?: string | null;
   page_no: number;
   left_percent: number;
   top_percent: number;

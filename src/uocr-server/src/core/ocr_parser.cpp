@@ -173,6 +173,8 @@ std::vector<OverlayBox> to_overlay_boxes(const ParsedOcrPage& page, int page_no)
     overlays.push_back({
         .region_id = box.region_id,
         .label = box.label,
+        .content_markdown = box.label,
+        .content_html = "",
         .page_no = page_no,
         .left_percent = box.x1 / 999.0 * 100.0,
         .top_percent = box.y1 / 999.0 * 100.0,

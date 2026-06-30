@@ -1,7 +1,7 @@
 import * as Checkbox from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
 
-import type { DocumentSummary } from '../../api/types';
+import type { DocumentSummary, OverlayBox } from '../../api/types';
 import { setLabelsVisible, setOverlayVisible } from '../../stores/workbenchStore';
 import styles from './DetailsPane.module.css';
 
@@ -9,6 +9,7 @@ interface DetailsPaneProps {
   document?: DocumentSummary;
   labelsVisible: boolean;
   overlayVisible: boolean;
+  selectedRegion?: OverlayBox;
   selectedRegionId?: string;
 }
 
@@ -28,12 +29,38 @@ export function DetailsPane(props: DetailsPaneProps) {
         <dt>Region</dt>
         <dd>{props.selectedRegionId ?? 'None'}</dd>
       </dl>
+      <RegionDetails region={props.selectedRegion} />
       <VisibilityControls
         labelsVisible={props.labelsVisible}
         overlayVisible={props.overlayVisible}
       />
       {props.document?.error ? <div className={styles.error}>{props.document.error}</div> : null}
     </aside>
+  );
+}
+
+function RegionDetails({ region }: { region?: OverlayBox }) {
+  if (!region) {
+    return (
+      <div className={styles.regionDetails}>
+        <div className={styles.groupTitle}>Selected Box</div>
+        <div className={styles.empty}>None</div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.regionDetails}>
+      <div className={styles.groupTitle}>Selected Box</div>
+      <dl className={styles.regionMeta}>
+        <dt>Page</dt>
+        <dd>{region.page_no}</dd>
+        <dt>Label</dt>
+        <dd>{region.label}</dd>
+      </dl>
+      <pre className={styles.regionContent}>
+        {region.content_markdown || region.label || region.region_id}
+      </pre>
+    </div>
   );
 }
 
