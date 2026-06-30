@@ -108,6 +108,46 @@ void test_runtime_selection() {
   assert(uocr::choose_runtime_id(variants, "") == "windows-x86_64-cuda13");
   assert(uocr::choose_runtime_id(variants, "windows-x86_64-cpu") == "windows-x86_64-cpu");
   assert(uocr::choose_runtime_id(variants, "windows-x86_64-rocm6") == "windows-x86_64-rocm6");
+#elif defined(__APPLE__)
+  const auto metal = runtime_root / "macos-arm64-metal" / "bin";
+  const auto cpu = runtime_root / "macos-arm64-cpu" / "bin";
+  std::filesystem::create_directories(metal);
+  std::filesystem::create_directories(cpu);
+  std::ofstream(metal / "libuocr-ffi.dylib").put('x');
+  std::ofstream(cpu / "libuocr-ffi.dylib").put('x');
+
+  uocr::RuntimeHardwareProbe probe;
+  probe.metal = true;
+  const auto variants = uocr::runtime_variants_for(root, probe);
+  assert(uocr::choose_runtime_id(variants, "") == "macos-arm64-metal");
+  assert(uocr::choose_runtime_id(variants, "macos-arm64-cpu") == "macos-arm64-cpu");
+#elif defined(__aarch64__) || defined(__arm64__)
+  const auto cpu = runtime_root / "linux-arm64-cpu" / "bin";
+  std::filesystem::create_directories(cpu);
+  std::ofstream(cpu / "libuocr-ffi.so").put('x');
+
+  uocr::RuntimeHardwareProbe probe;
+  const auto variants = uocr::runtime_variants_for(root, probe);
+  assert(variants.size() == 1);
+  assert(uocr::choose_runtime_id(variants, "") == "linux-arm64-cpu");
+  assert(uocr::find_runtime_variant(variants, "linux-arm64-cpu") != nullptr);
+#else
+  const auto cuda = runtime_root / "linux-x86_64-cuda13" / "bin";
+  const auto cpu = runtime_root / "linux-x86_64-cpu" / "bin";
+  std::filesystem::create_directories(cuda);
+  std::filesystem::create_directories(cpu);
+  std::ofstream(cuda / "libuocr-ffi.so").put('x');
+  std::ofstream(cpu / "libuocr-ffi.so").put('x');
+
+  uocr::RuntimeHardwareProbe cpu_probe;
+  const auto cpu_variants = uocr::runtime_variants_for(root, cpu_probe);
+  assert(uocr::choose_runtime_id(cpu_variants, "") == "linux-x86_64-cpu");
+
+  uocr::RuntimeHardwareProbe cuda_probe;
+  cuda_probe.cuda = true;
+  const auto variants = uocr::runtime_variants_for(root, cuda_probe);
+  assert(uocr::choose_runtime_id(variants, "") == "linux-x86_64-cuda13");
+  assert(uocr::choose_runtime_id(variants, "linux-x86_64-cpu") == "linux-x86_64-cpu");
 #endif
   std::filesystem::remove_all(root);
 }

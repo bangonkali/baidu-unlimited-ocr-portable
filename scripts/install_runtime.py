@@ -167,7 +167,12 @@ def probe_accelerator(command: str | None, target: dict[str, Any] | None = None)
     return True, resolved
 
 
-def detect_platform(repo_root: Path, requested_platform: str | None = None) -> DetectedPlatform:
+def detect_platform(
+    repo_root: Path,
+    requested_platform: str | None = None,
+    *,
+    skip_accelerator_probe: bool = False,
+) -> DetectedPlatform:
     platforms = load_platforms(repo_root)
     targets = platforms["targets"]
     os_name = normalize_os()
@@ -195,7 +200,11 @@ def detect_platform(repo_root: Path, requested_platform: str | None = None) -> D
                 supported=False,
                 reason=f"requested {requested_platform}, but detected {os_name}/{arch}",
             )
-        accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
+        if skip_accelerator_probe:
+            accelerator_ok = True
+            accelerator_detail = "accelerator probe skipped for requested platform"
+        else:
+            accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
         return DetectedPlatform(
             platform_id=requested_platform,
             os_name=os_name,
@@ -248,7 +257,7 @@ def detect_platform(repo_root: Path, requested_platform: str | None = None) -> D
     )
 
 
-def request_json(url: str) -> dict[str, Any]:
+def request_json(url: str) -> Any:
     url = validate_github_url(url)
     headers = {
         "Accept": "application/vnd.github+json",
@@ -288,8 +297,50 @@ def github_release(runtime_repo: str, runtime_version: str) -> dict[str, Any]:
         die(f"could not reach GitHub Releases for {repo}: {exc.reason}")
 
 
+def github_releases_page(runtime_repo: str, page: int) -> list[dict[str, Any]]:
+    repo = validate_github_repo(runtime_repo)
+    try:
+        payload = request_json(f"https://api.github.com/repos/{repo}/releases?per_page=30&page={page}")
+    except urllib.error.HTTPError as exc:
+        die(f"could not list GitHub releases in {repo}: HTTP {exc.code}")
+    except urllib.error.URLError as exc:
+        die(f"could not reach GitHub Releases for {repo}: {exc.reason}")
+    if not isinstance(payload, list):
+        die(f"unexpected GitHub releases response for {repo}")
+    return [release for release in payload if isinstance(release, dict)]
+
+
 def assets_by_name(release: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {asset["name"]: asset for asset in release.get("assets", [])}
+
+
+def release_has_platform_asset(repo_root: Path, release: dict[str, Any], platform_id: str) -> bool:
+    platforms = load_platforms(repo_root)
+    target = platforms["targets"].get(platform_id)
+    if not target:
+        return False
+    prefix = f"{platforms['asset_prefix']}-{platform_id}-"
+    suffix = f".{target['archive_ext']}"
+    return any(
+        isinstance(asset.get("name"), str)
+        and asset["name"].startswith(prefix)
+        and asset["name"].endswith(suffix)
+        for asset in release.get("assets", [])
+        if isinstance(asset, dict)
+    )
+
+
+def github_runtime_release(runtime_repo: str, runtime_version: str, repo_root: Path, platform_id: str) -> dict[str, Any]:
+    if runtime_version != "latest":
+        return github_release(runtime_repo, runtime_version)
+    for page in range(1, 11):
+        releases = github_releases_page(runtime_repo, page)
+        if not releases:
+            break
+        for release in releases:
+            if release_has_platform_asset(repo_root, release, platform_id):
+                return release
+    die(f"no release with a runtime asset for {platform_id} was found in {runtime_repo}")
 
 
 def parse_sha256_text(text: str) -> str:
@@ -471,11 +522,15 @@ def install_runtime(args: argparse.Namespace) -> None:
     aggregate_manifest = platforms["aggregate_manifest"]
     runtime_repo = args.runtime_repo or platforms["default_release_repo"]
 
-    detected = detect_platform(repo_root, args.platform)
+    detected = detect_platform(
+        repo_root,
+        args.platform,
+        skip_accelerator_probe=args.skip_accelerator_probe,
+    )
     if not detected.supported or not detected.platform_id:
         die(f"unsupported runtime platform: {detected.reason}")
 
-    release = github_release(runtime_repo, args.runtime_version)
+    release = github_runtime_release(runtime_repo, args.runtime_version, repo_root, detected.platform_id)
     assets = assets_by_name(release)
     entry = release_platform_entry(
         repo_root=repo_root,
@@ -551,7 +606,11 @@ def install_runtime(args: argparse.Namespace) -> None:
 
 def detect_command(args: argparse.Namespace) -> None:
     repo_root = args.repo_root.resolve()
-    detected = detect_platform(repo_root, args.platform)
+    detected = detect_platform(
+        repo_root,
+        args.platform,
+        skip_accelerator_probe=args.skip_accelerator_probe,
+    )
     payload = {
         "platform": detected.platform_id,
         "os": detected.os_name,
@@ -579,12 +638,14 @@ def main() -> None:
     install_parser.add_argument("--runtime-version", default="latest")
     install_parser.add_argument("--platform", default="")
     install_parser.add_argument("--force", action="store_true")
+    install_parser.add_argument("--skip-accelerator-probe", action="store_true")
     install_parser.add_argument("--print-env", choices=["sh", "powershell", "json"], default="")
     install_parser.set_defaults(func=install_runtime)
 
     detect_parser = subparsers.add_parser("detect", help="Detect the exact supported runtime platform.")
     detect_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     detect_parser.add_argument("--platform", default="")
+    detect_parser.add_argument("--skip-accelerator-probe", action="store_true")
     detect_parser.add_argument("--json", action="store_true")
     detect_parser.set_defaults(func=detect_command)
 

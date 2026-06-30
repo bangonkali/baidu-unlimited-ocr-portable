@@ -11,6 +11,7 @@ package_arch="x64"
 output_dir=""
 no_build=0
 no_runtime_download=0
+runtime_build_parallel="${UOCR_RUNTIME_BUILD_PARALLEL:-3}"
 
 usage() {
   cat <<'EOF'
@@ -100,17 +101,66 @@ copy_vcpkg_copyright() {
   cp "$match" "$destination"
 }
 
+find_built_runtime_file() {
+  local build_dir="$1"
+  local name="$2"
+  local match
+  match="$(
+    find "$build_dir" -type f -name "$name" ! -path '*/CMakeFiles/*' 2>/dev/null |
+      sort |
+      tail -n 1
+  )"
+  [[ -n "$match" ]] || die "built runtime file was not found under $build_dir: $name"
+  echo "$match"
+}
+
+install_cpu_runtime_from_source() {
+  local platform="$1"
+  local runtime_dir="$2"
+  local llama_dir="$repo_root/thirdparty/llama.cpp"
+  local build_dir="$llama_dir/build-$platform"
+  [[ -f "$llama_dir/CMakeLists.txt" ]] || die "llama.cpp submodule is missing; cannot build $platform runtime"
+
+  echo "Building Linux CPU runtime for $platform"
+  cmake -B "$build_dir" \
+    -S "$llama_dir" \
+    -DGGML_NATIVE=OFF \
+    -DCMAKE_BUILD_TYPE=Release
+  cmake --build "$build_dir" --config Release --target \
+    llama-mtmd-cli \
+    llama-uocr-parity \
+    llama-server \
+    uocr-ffi \
+    --parallel "$runtime_build_parallel"
+
+  rm -rf "$runtime_dir"
+  mkdir -p "$runtime_dir/bin"
+  for name in llama-uocr-parity llama-mtmd-cli llama-server libuocr-ffi.so; do
+    cp "$(find_built_runtime_file "$build_dir" "$name")" "$runtime_dir/bin/"
+  done
+  find "$build_dir" -type f \( -name '*.so' -o -name '*.so.*' \) ! -path '*/CMakeFiles/*' -exec cp -n {} "$runtime_dir/bin/" \;
+  chmod 755 "$runtime_dir/bin/llama-uocr-parity" "$runtime_dir/bin/llama-mtmd-cli" "$runtime_dir/bin/llama-server"
+}
+
 ensure_runtime_platform() {
   local platform="$1"
   local runtime_dir="$repo_root/thirdparty/uocr-runtime/$platform"
   local runtime_ffi="$runtime_dir/bin/libuocr-ffi.so"
   if [[ ! -f "$runtime_ffi" && "$no_runtime_download" == "0" ]]; then
-    python3 "$repo_root/scripts/install_runtime.py" install \
+    if ! python3 "$repo_root/scripts/install_runtime.py" install \
       --repo-root "$repo_root" \
       --install-dir "$repo_root/thirdparty/uocr-runtime" \
       --runtime-repo "$runtime_repo" \
       --runtime-version "$runtime_version" \
-      --platform "$platform"
+      --platform "$platform" \
+      --skip-accelerator-probe; then
+      if [[ "$platform" == linux-*-cpu ]]; then
+        echo "No downloadable runtime asset found for $platform; building CPU runtime from source."
+        install_cpu_runtime_from_source "$platform" "$runtime_dir"
+      else
+        return 1
+      fi
+    fi
   fi
   [[ -f "$runtime_ffi" ]] || die "runtime FFI library is missing: $runtime_ffi"
   echo "$runtime_dir"

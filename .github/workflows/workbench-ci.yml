@@ -151,6 +151,25 @@ jobs:
         shell: bash
         run: ctest --test-dir "build/cxx-${{ matrix.platform }}" -C Release --output-on-failure
 
+  python:
+    name: Python packaging scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.6"
+
+      - name: Run installer tests
+        shell: bash
+        run: python -m unittest discover -s tests -p "test_*.py"
+
   complexity:
     name: SCC complexity
     runs-on: ubuntu-24.04

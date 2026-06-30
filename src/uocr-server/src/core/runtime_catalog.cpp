@@ -95,6 +95,10 @@ std::vector<RuntimeSpec> runtime_specs() {
       {"macos-arm64-metal", "macOS Apple Silicon Metal", "metal", "metal", "libuocr-ffi.dylib", 300, -2},
       {"macos-arm64-cpu", "macOS Apple Silicon CPU", "cpu", "cpu", "libuocr-ffi.dylib", 100, 0},
   };
+#elif defined(__aarch64__) || defined(__arm64__)
+  return {
+      {"linux-arm64-cpu", "Linux arm64 CPU", "cpu", "cpu", "libuocr-ffi.so", 100, 0},
+  };
 #else
   return {
       {"linux-x86_64-cuda13", "Linux x64 CUDA 13", "cuda", "cuda", "libuocr-ffi.so", 300, -2},
