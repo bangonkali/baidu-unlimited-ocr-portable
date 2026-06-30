@@ -25,10 +25,11 @@ The server is structured around small service boundaries:
 - render: `PageRenderer` with an embedded MuPDF implementation linked into
   `uocr-server.exe`. PDF pages are rendered to cached PNG files at 200 DPI and
   reused for preview and OCR.
-- download: native libcurl/OpenSSL Hugging Face downloads with environment-only
+- download: native libcurl Hugging Face downloads with environment-only
   `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` auth, resumable temp files, SHA256
-  verification when metadata provides it, per-file progress, speed, ETA,
-  cancellation, and typed realtime updates.
+  verification through the same vcpkg `OpenSSL::Crypto` dependency used by the
+  server stack, per-file progress, speed, ETA, cancellation, and typed realtime
+  updates.
 - realtime: a single in-process event hub plus Drogon websocket controller at
   `/api/events`. The websocket sends typed JSON envelopes for model progress,
   run status, document/page changes, parsed regions, cleaned text, status, and
@@ -44,6 +45,12 @@ cmake -S . -B build/uocr-server -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_TESTS=ON
 cmake --build build/uocr-server --config Release --target uocr-core-tests
 ctest --test-dir build/uocr-server -C Release --output-on-failure
 ```
+
+For the Windows portable product build, dependencies come from the vcpkg
+manifest whenever vcpkg provides the package. The current pinned baseline
+resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon keep OpenSSL TLS
+enabled, and SHA verification links `OpenSSL::Crypto` from the same vcpkg
+install.
 
 When Drogon is available through CMake package discovery, enable the executable:
 

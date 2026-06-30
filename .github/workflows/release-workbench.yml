@@ -116,6 +116,26 @@ jobs:
           if (-not $exe) { throw "uocr-server.exe not found in archive" }
           $duckdb = Get-ChildItem -LiteralPath $extract -Recurse -Filter "duckdb.dll" | Select-Object -First 1
           if (-not $duckdb) { throw "duckdb.dll not found in archive" }
+          $rootOpenSsl = @(
+            Get-ChildItem -LiteralPath $exe.Directory.FullName -Filter "libcrypto*.dll" -ErrorAction SilentlyContinue
+            Get-ChildItem -LiteralPath $exe.Directory.FullName -Filter "libssl*.dll" -ErrorAction SilentlyContinue
+          )
+          if (-not ($rootOpenSsl | Where-Object { $_.Name -like "libcrypto*.dll" })) {
+            throw "libcrypto DLL is required in the backend root for shared vcpkg OpenSSL."
+          }
+          if (-not ($rootOpenSsl | Where-Object { $_.Name -like "libssl*.dll" })) {
+            throw "libssl DLL is required in the backend root for Drogon/Trantor TLS."
+          }
+          $dumpbin = Get-Command dumpbin -ErrorAction SilentlyContinue
+          if (-not $dumpbin) { throw "dumpbin is required for OpenSSL dependency validation" }
+          $serverDeps = (& $dumpbin.Source /DEPENDENTS $exe.FullName 2>$null) -join "`n"
+          if ($serverDeps -notmatch "libcrypto") { throw "uocr-server.exe must import libcrypto for SHA verification." }
+          $trantor = Join-Path $exe.Directory.FullName "trantor.dll"
+          if (-not (Test-Path $trantor)) { throw "trantor.dll not found in archive" }
+          $trantorDeps = (& $dumpbin.Source /DEPENDENTS $trantor 2>$null) -join "`n"
+          if ($trantorDeps -notmatch "libssl" -or $trantorDeps -notmatch "libcrypto") {
+            throw "trantor.dll must import vcpkg OpenSSL for TLS support."
+          }
           $mutool = Get-ChildItem -LiteralPath $extract -Recurse -Filter "mutool.exe" | Select-Object -First 1
           if ($mutool) { throw "mutool.exe should not be shipped; MuPDF is embedded in uocr-server.exe" }
           & $exe.FullName --version

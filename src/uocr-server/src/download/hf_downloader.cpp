@@ -53,6 +53,24 @@ HfDownloadProgress verified_progress(const detail::PreparedFile& file,
   return update;
 }
 
+HfDownloadProgress verifying_progress(const detail::PreparedFile& file,
+                                      std::uint64_t completed_before,
+                                      std::uint64_t overall_total) {
+  HfDownloadProgress update;
+  update.phase = "verifying";
+  update.file_id = file.spec.file_id;
+  update.file_name = file.spec.file_name;
+  update.message = file.sha256.empty() ? "Checking file size for " + file.spec.file_name
+                                       : "Verifying SHA256 for " + file.spec.file_name;
+  update.file_downloaded_bytes = detail::existing_size(file.spec.destination);
+  update.file_total_bytes = file.size == 0 ? update.file_downloaded_bytes : file.size;
+  update.overall_downloaded_bytes = completed_before + update.file_downloaded_bytes;
+  update.overall_total_bytes = overall_total;
+  update.file_percent = percent_complete(update.file_downloaded_bytes, update.file_total_bytes);
+  update.overall_percent = percent_complete(update.overall_downloaded_bytes, overall_total);
+  return update;
+}
+
 HfDownloadProgress retry_progress(const detail::PreparedFile& file,
                                   const HfDownloadException& error,
                                   std::uint64_t completed_before,
@@ -106,6 +124,7 @@ void HuggingFaceDownloader::download_files(const std::vector<HfFileSpec>& files,
   for (const auto& file : prepared_files) {
     const auto local_size = detail::existing_size(file.spec.destination);
     if (!options.force && local_size > 0 && (file.size == 0 || local_size == file.size)) {
+      progress(verifying_progress(file, completed_before, overall_total));
       detail::validate_download(file);
       completed_before += file.size == 0 ? local_size : file.size;
       progress(skipped_progress(file, local_size, completed_before, overall_total));

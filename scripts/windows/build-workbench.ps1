@@ -82,7 +82,10 @@ if (-not $NoMupdfBuild) {
 
 Push-Location $RepoRoot
 try {
-    Invoke-NativeChecked "cmake configure" { cmake --preset $Preset "-DUOCR_VERSION=$Version" }
+    Invoke-NativeChecked "cmake configure" {
+        cmake --preset $Preset `
+            "-DUOCR_VERSION=$Version"
+    }
     Invoke-NativeChecked "cmake build" { cmake --build --preset $BuildPreset }
 } finally {
     Pop-Location

@@ -94,6 +94,28 @@ std::vector<uocr::download::HfFileSpec> download_specs(
   return specs;
 }
 
+void finish_download_failure(const std::shared_ptr<WorkbenchService::Impl>& shared, const std::string& message) {
+  Json::Value event;
+  const bool cancelled = shared->model_cancel_requested.load();
+  {
+    std::scoped_lock lock(shared->mutex);
+    shared->model.downloading = false;
+    shared->model.cancel_requested = false;
+    shared->model.status = cancelled ? "cancelled" : "error";
+    shared->model.error = cancelled ? std::string() : message;
+    shared->model.status_message = cancelled ? "Model download cancelled; retry will resume partial files"
+                                             : "Model download failed";
+    shared->model.last_event_at = utc_timestamp();
+    event = shared->model_event();
+  }
+  shared->publish_event("model.changed", event);
+  if (cancelled) {
+    log_info(shared->logger, "models", "model download cancelled");
+  } else {
+    log_error(shared->logger, "models", "model download failed: " + message);
+  }
+}
+
 }  // namespace
 
 void WorkbenchService::Impl::start_download(bool force) {
@@ -175,25 +197,9 @@ void WorkbenchService::Impl::start_download(bool force) {
       shared->publish_event("model.changed", event);
       log_info(shared->logger, "models", "model download completed");
     } catch (const std::exception& error) {
-      Json::Value event;
-      const bool cancelled = shared->model_cancel_requested.load();
-      {
-        std::scoped_lock lock(shared->mutex);
-        shared->model.downloading = false;
-        shared->model.cancel_requested = false;
-        shared->model.status = cancelled ? "cancelled" : "error";
-        shared->model.error = cancelled ? std::string() : error.what();
-        shared->model.status_message = cancelled ? "Model download cancelled; retry will resume partial files"
-                                                 : "Model download failed";
-        shared->model.last_event_at = utc_timestamp();
-        event = shared->model_event();
-      }
-      shared->publish_event("model.changed", event);
-      if (cancelled) {
-        log_info(shared->logger, "models", "model download cancelled");
-      } else {
-        log_error(shared->logger, "models", std::string("model download failed: ") + error.what());
-      }
+      finish_download_failure(shared, error.what());
+    } catch (...) {
+      finish_download_failure(shared, "unknown model download failure");
     }
   }).detach();
 }

@@ -8,6 +8,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 namespace uocr::download {
 namespace {
@@ -27,7 +28,7 @@ std::string sha256_file(const std::filesystem::path& path) {
     throw std::runtime_error("could not initialize SHA256");
   }
 
-  std::array<char, 1024 * 1024> buffer{};
+  std::vector<char> buffer(1024 * 1024);
   while (input.good()) {
     input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
     const auto read = input.gcount();

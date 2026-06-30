@@ -41,6 +41,15 @@ are downloaded or validated after first launch and are not committed to git.
 MuPDF is linked into `uocr-server.exe`; the portable zip must not contain
 `mutool.exe`.
 
+Native C++ dependencies are vcpkg-managed where available. The current pinned
+baseline resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon use that
+OpenSSL for TLS, and `uocr-server.exe` uses the same vcpkg `OpenSSL::Crypto`
+target for SHA256 verification of downloaded model files. The release root
+therefore includes the matching `libssl*.dll` and `libcrypto*.dll` files.
+`package-workbench.ps1` and the release workflow inspect dependencies with
+`dumpbin` and fail if Trantor is not OpenSSL/TLS-enabled or if the server does
+not import `libcrypto` for SHA verification.
+
 Running `uocr-server.exe` appends launch and listener diagnostics to
 `logs/uocr-server.log`. Model downloads from the C++ workbench currently target
 the Unlimited-OCR Q4_K_M model and F16 mmproj files in `models/`. PDF rendering
@@ -172,9 +181,10 @@ entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
 parallelism to reduce hosted-runner memory pressure.
 
 The active workflow is `.github/workflows/release-workbench.yml`. It builds the
-Windows C++/React workbench, downloads the selected Windows CUDA runtime
-archive, packages `uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted
-executable, and uploads the zip plus checksum to the same GitHub Release.
+Windows C++/React workbench through the vcpkg manifest, downloads the selected
+Windows CUDA runtime archive, packages `uocr-workbench-windows-x64-<tag>.zip`,
+smokes the extracted executable, checks the shared OpenSSL dependency path, and
+uploads the zip plus checksum to the same GitHub Release.
 
 Runtime GPU smoke validation should be run on self-hosted GPU runners before
 promoting a release as validated; GitHub-hosted standard runners compile the

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <ctime>
 #include <deque>
+#include <exception>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -88,7 +89,11 @@ void AppLogger::write(std::string_view level, std::string_view component, std::s
   }
   std::cout << line << std::endl;
   if (sink) {
-    sink(record);
+    try {
+      sink(record);
+    } catch (const std::exception&) {
+    } catch (...) {
+    }
   }
 }
 

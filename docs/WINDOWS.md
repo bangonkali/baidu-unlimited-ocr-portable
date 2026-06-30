@@ -24,6 +24,12 @@ rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once those
 files are present. Multi-page PDFs are rendered in-process by MuPDF embedded in
 `uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 
+The backend dependency graph is vcpkg-managed. The current pinned baseline
+resolves Drogon `1.9.13` and OpenSSL `3.6.3`; Trantor/Drogon use that OpenSSL
+for TLS, and `uocr-server.exe` uses the same vcpkg `OpenSSL::Crypto` target for
+model-file SHA verification. The release zip includes the matching
+`libcrypto*.dll` and `libssl*.dll` files beside the executable.
+
 The app also creates `data\uocr.duckdb` on startup. This DuckDB file stores scan
 runs, files, rendered page metadata, OCR raw/cleaned text, bounding boxes,
 text-to-box span links, searchable terms, and persisted diagnostics. The search
@@ -95,14 +101,15 @@ cd ..\..
 
 The supported local workbench build script prepares the React app, builds the
 MuPDF static libraries from `thirdparty\mupdf`, links them into
-`uocr-server.exe`, and copies the React build to `web\`:
+`uocr-server.exe`, resolves Drogon/OpenSSL/curl through vcpkg, and copies the
+React build to `web\`:
 
 ```powershell
 .\scripts\windows\build-workbench.ps1
 ```
 
-When Drogon and Trantor are available through the Windows CMake toolchain, the
-lower-level CMake path is:
+The script expects MSVC, CMake, Bun, and vcpkg. The lower-level CMake path for
+local development is:
 
 ```powershell
 cmake -S . -B build\uocr-server-drogon -DUOCR_BUILD_SERVER=ON

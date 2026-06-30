@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 
 #include <chrono>
+#include <exception>
 #include <fstream>
 
 #include "uocr/download/download_progress.hpp"
@@ -30,6 +31,7 @@ struct ProgressContext {
   std::uint64_t overall_total = 0;
   std::chrono::steady_clock::time_point started_at = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_emit = started_at;
+  std::exception_ptr callback_error;
 };
 
 curl_slist* build_headers(const std::string& token) {
@@ -89,8 +91,33 @@ int progress_callback(void* user_data, curl_off_t, curl_off_t downloaded_now, cu
   if (context->cancel_requested != nullptr && context->cancel_requested->load()) {
     return 1;
   }
-  emit_progress(*context, downloaded_now, false);
+  try {
+    emit_progress(*context, downloaded_now, false);
+  } catch (...) {
+    context->callback_error = std::current_exception();
+    return 1;
+  }
   return 0;
+}
+
+void emit_verifying_progress(const PreparedFile& file,
+                             std::uint64_t completed_before,
+                             std::uint64_t overall_total,
+                             const HfDownloadProgressCallback& progress) {
+  const auto file_size = existing_size(file.spec.destination);
+  HfDownloadProgress update;
+  update.phase = "verifying";
+  update.file_id = file.spec.file_id;
+  update.file_name = file.spec.file_name;
+  update.message = file.sha256.empty() ? "Checking file size for " + file.spec.file_name
+                                       : "Verifying SHA256 for " + file.spec.file_name;
+  update.file_downloaded_bytes = file_size;
+  update.file_total_bytes = file.size == 0 ? file_size : file.size;
+  update.overall_downloaded_bytes = completed_before + file_size;
+  update.overall_total_bytes = overall_total;
+  update.file_percent = percent_complete(file_size, update.file_total_bytes);
+  update.overall_percent = percent_complete(update.overall_downloaded_bytes, overall_total);
+  progress(update);
 }
 
 }  // namespace
@@ -154,6 +181,9 @@ void download_prepared_file(const PreparedFile& file,
   const auto result = curl_easy_perform(curl.handle);
   curl_slist_free_all(request_headers);
   output.close();
+  if (progress_context.callback_error) {
+    std::rethrow_exception(progress_context.callback_error);
+  }
   if (result == CURLE_ABORTED_BY_CALLBACK) {
     throw HfDownloadException("download cancelled", false);
   }
@@ -177,6 +207,7 @@ void download_prepared_file(const PreparedFile& file,
   if (error) {
     throw HfDownloadException("could not finalize " + file.spec.file_name, false);
   }
+  emit_verifying_progress(file, completed_before, overall_total, progress);
   validate_download(file);
 }
 

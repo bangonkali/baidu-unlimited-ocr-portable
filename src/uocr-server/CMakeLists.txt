@@ -14,71 +14,14 @@ set(UOCR_MUPDF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/mupdf" CACHE P
 set(UOCR_DUCKDB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../thirdparty/duckdb/windows-amd64" CACHE PATH "Bundled DuckDB Windows SDK root")
 
 find_package(CURL REQUIRED)
-find_package(OpenSSL REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-function(uocr_link_windows_system_libraries target)
-  if(WIN32)
-    target_link_libraries(${target} PRIVATE
-      user32
-      gdi32
-      winspool
-      comdlg32
-      advapi32
-      shell32
-      ole32
-      oleaut32
-      uuid
-      odbc32
-      odbccp32
-    )
-  endif()
-endfunction()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/UocrDependencies.cmake")
 
-function(uocr_link_mupdf target)
-  if(NOT UOCR_EMBED_MUPDF)
-    return()
-  endif()
-  if(NOT WIN32)
-    message(FATAL_ERROR "Embedded MuPDF is currently configured for the Windows portable build only.")
-  endif()
-  target_include_directories(${target} SYSTEM PRIVATE "${UOCR_MUPDF_ROOT}/include")
-  set(UOCR_MUPDF_LIB_DIR "${UOCR_MUPDF_ROOT}/platform/win32/x64/$<CONFIG>")
-  target_link_libraries(${target} PRIVATE
-    "${UOCR_MUPDF_LIB_DIR}/libmupdf.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libresources.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libthirdparty.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libpkcs7.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libtesseract.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libleptonica.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libharfbuzz.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libextract.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libmubarcode.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libzxing.lib"
-    "${UOCR_MUPDF_LIB_DIR}/libmuthreads.lib"
-  )
-  uocr_link_windows_system_libraries(${target})
-endfunction()
-
-function(uocr_link_duckdb target)
-  if(NOT WIN32)
-    message(FATAL_ERROR "Bundled DuckDB is currently configured for the Windows portable build only.")
-  endif()
-  target_include_directories(${target} PUBLIC "${UOCR_DUCKDB_ROOT}/generated/include")
-  target_link_libraries(${target} PUBLIC "${UOCR_DUCKDB_ROOT}/lib/duckdb.lib")
-endfunction()
-
-function(uocr_copy_duckdb_runtime target)
-  add_custom_command(TARGET ${target} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${UOCR_DUCKDB_ROOT}/bin/duckdb.dll"
-      "$<TARGET_FILE_DIR:${target}>/duckdb.dll"
-    VERBATIM
-  )
-endfunction()
+uocr_configure_openssl()
 
 add_library(uocr_core STATIC
   src/core/ocr_parser.cpp
@@ -129,7 +72,7 @@ add_library(uocr_download STATIC
 )
 
 target_include_directories(uocr_download PUBLIC include)
-target_link_libraries(uocr_download PUBLIC CURL::libcurl OpenSSL::Crypto)
+target_link_libraries(uocr_download PUBLIC CURL::libcurl uocr_openssl_crypto)
 
 if(MSVC)
   target_compile_options(uocr_download PRIVATE /W4 /permissive-)
@@ -166,7 +109,7 @@ if(UOCR_BUILD_TESTS)
 endif()
 
 if(UOCR_BUILD_SERVER)
-  find_package(Drogon CONFIG QUIET)
+  uocr_configure_drogon()
   if(Drogon_FOUND)
     if(NOT UOCR_VERSION)
       execute_process(

@@ -58,7 +58,6 @@ function Get-GitHubRuntimeRelease {
     if ($Tag -ne "latest") {
         return Get-GitHubRelease -Repo $Repo -Tag $Tag
     }
-
     $page = 1
     while ($true) {
         $url = "https://api.github.com/repos/$Repo/releases?per_page=30&page=$page"
@@ -76,7 +75,6 @@ function Get-GitHubRuntimeRelease {
         }
         $page += 1
     }
-
     throw "No release with a Windows runtime zip asset was found on $Repo."
 }
 
@@ -95,6 +93,45 @@ function Copy-DirectoryIfExists {
     if (Test-Path $Source) {
         Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
     }
+}
+
+function Assert-VcpkgOpenSslRuntime {
+    param([System.IO.FileInfo]$Exe)
+    $dumpbin = Get-Command dumpbin -ErrorAction SilentlyContinue
+    if (-not $dumpbin) {
+        Write-Warning "dumpbin was not found; skipping OpenSSL DLL dependency inspection."
+        return
+    }
+    $cryptoDll = Get-ChildItem -LiteralPath $Exe.Directory.FullName -Filter "libcrypto*.dll" |
+        Select-Object -First 1
+    $sslDll = Get-ChildItem -LiteralPath $Exe.Directory.FullName -Filter "libssl*.dll" |
+        Select-Object -First 1
+    if (-not $cryptoDll -or -not $sslDll) {
+        throw "Expected vcpkg OpenSSL runtime DLLs beside uocr-server.exe."
+    }
+    $rootBinaries = @($Exe) + @(Get-ChildItem -LiteralPath $Exe.Directory.FullName -Filter "*.dll")
+    $importsOpenSsl = $false
+    foreach ($binary in $rootBinaries) {
+        $deps = (& $dumpbin.Source /DEPENDENTS $binary.FullName 2>$null) -join "`n"
+        if ($deps -match "libcrypto|libssl") {
+            $importsOpenSsl = $true
+        }
+        if ($binary.Name -eq "trantor.dll" -and $deps -notmatch "libssl" -and $deps -notmatch "libcrypto") {
+            throw "trantor.dll does not import OpenSSL; Drogon TLS support is not enabled."
+        }
+        if ($binary.Name -eq $Exe.Name -and $deps -notmatch "libcrypto") {
+            throw "uocr-server.exe does not import libcrypto; SHA verification is not sharing vcpkg OpenSSL."
+        }
+    }
+    if (-not $importsOpenSsl) {
+        throw "No backend root binary imports OpenSSL; expected shared vcpkg OpenSSL dependency."
+    }
+}
+
+function Copy-ServerRootDlls {
+    param([string]$SourceDir, [string]$DestinationDir)
+    Get-ChildItem -LiteralPath $SourceDir -Filter "*.dll" |
+        Copy-Item -Destination $DestinationDir -Force
 }
 
 function Save-ReleaseAsset {
@@ -191,6 +228,7 @@ if (-not (Test-Path $RuntimeFfi)) {
 
 $Exe = Find-ServerExe
 $ExeDir = $Exe.Directory.FullName
+Assert-VcpkgOpenSslRuntime -Exe $Exe
 $StageRoot = Join-Path $OutputDir "uocr-workbench-windows-x64-$SafeVersion"
 $ZipPath = Join-Path $OutputDir "uocr-workbench-windows-x64-$SafeVersion.zip"
 $ShaPath = "$ZipPath.sha256"
@@ -201,7 +239,7 @@ Remove-Item -LiteralPath $ShaPath -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $StageRoot | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $ExeDir "uocr-server.exe") -Destination $StageRoot -Force
-Get-ChildItem -LiteralPath $ExeDir -Filter "*.dll" | Copy-Item -Destination $StageRoot -Force
+Copy-ServerRootDlls -SourceDir $ExeDir -DestinationDir $StageRoot
 Copy-DirectoryIfExists -Source (Join-Path $ExeDir "web") -Destination (Join-Path $StageRoot "web")
 Copy-DirectoryIfExists -Source (Join-Path $ExeDir "openapi") -Destination (Join-Path $StageRoot "openapi")
 

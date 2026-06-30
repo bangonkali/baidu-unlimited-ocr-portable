@@ -73,8 +73,10 @@ GitHub Actions:
 - `Release workbench` is the only automatic workflow while the Windows portable
   zip is being stabilized.
 - `Release workbench` runs on `v*` tags and manual dispatch. It builds the
-  Windows C++/React app, bundles the Windows runtime, smokes the extracted zip,
-  and uploads the zip plus checksum to the GitHub Release.
+  Windows C++/React app through the vcpkg manifest, bundles the Windows
+  runtime, smokes the extracted zip, verifies Trantor uses vcpkg OpenSSL for
+  TLS and the server uses the same `libcrypto` for SHA verification, and uploads
+  the zip plus checksum to the GitHub Release.
 - `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
   their push/tag triggers after the Windows portable exe release path remains
   stable.

@@ -56,6 +56,12 @@ rendering, and page OCR progress. Model download logs include auth availability
 without printing tokens, metadata checks, current file progress, MiB/s,
 verification, cancellation, and failures.
 
+Backend dependencies come from the vcpkg manifest. The current pinned baseline
+resolves Drogon `1.9.13` and OpenSSL `3.6.3`. Trantor/Drogon use that OpenSSL
+for TLS, and the model downloader links the same `OpenSSL::Crypto` target for
+SHA verification. The portable root therefore includes the matching vcpkg
+`libssl*.dll` and `libcrypto*.dll` files.
+
 The React app also keeps one websocket open at `/api/events`. Backend changes
 for model downloads, scan progress, document status, OCR text, bounding boxes,
 and logs update the UI without opening per-page event streams.
@@ -95,6 +101,11 @@ git submodule update --init --recursive
 .\scripts\windows\build-workbench.ps1
 .\scripts\windows\package-workbench.ps1 -Version v0.0.0-local -NoRuntimeDownload
 ```
+
+The build script compiles MuPDF static libraries, resolves Drogon/OpenSSL/curl
+through vcpkg, and builds the React SPA. The package script validates that
+`trantor.dll` imports OpenSSL for TLS and that `uocr-server.exe` imports the
+same vcpkg `libcrypto` for SHA verification.
 
 The package script writes:
 

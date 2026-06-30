@@ -1,8 +1,10 @@
 #include <cassert>
 #include <chrono>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <thread>
 #include <string>
 
 #include "uocr/download/download_progress.hpp"
@@ -66,11 +68,36 @@ void test_sha256() {
   std::filesystem::remove(path);
 }
 
+void test_sha256_on_worker_thread() {
+  const auto path = std::filesystem::temp_directory_path() / "uocr-sha256-worker-test.txt";
+  std::ofstream output(path, std::ios::binary);
+  output << "abc";
+  output.close();
+
+  std::string hash;
+  std::exception_ptr error;
+  std::thread worker([&hash, &error, &path]() {
+    try {
+      hash = uocr::download::sha256_file(path);
+    } catch (...) {
+      error = std::current_exception();
+    }
+  });
+  worker.join();
+  if (error) {
+    std::rethrow_exception(error);
+  }
+
+  assert(hash == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  std::filesystem::remove(path);
+}
+
 }  // namespace
 
 int main() {
   test_auth_precedence();
   test_progress_math();
   test_sha256();
+  test_sha256_on_worker_thread();
   return 0;
 }

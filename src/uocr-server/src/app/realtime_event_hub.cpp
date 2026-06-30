@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <exception>
 #include <iomanip>
 #include <sstream>
 #include <utility>
@@ -64,7 +65,11 @@ Json::Value RealtimeEventHub::publish(std::string_view type, const Json::Value& 
   }
   const auto message = compact_json(event);
   for (const auto& subscriber : subscribers) {
-    subscriber(message);
+    try {
+      subscriber(message);
+    } catch (const std::exception&) {
+    } catch (...) {
+    }
   }
   return event;
 }

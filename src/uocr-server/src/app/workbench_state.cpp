@@ -178,9 +178,16 @@ Json::Value WorkbenchService::Impl::model_record() const {
   item["model_file"] = std::string(kModelFile);
   item["mmproj_file"] = std::string(kMmprojFile);
   const auto ready = model_ready();
-  item["status"] = model.downloading ? "downloading" : (ready ? "downloaded" : "missing");
-  if (!ready && !model.error.empty()) {
-    item["status"] = "error";
+  if (model.downloading) {
+    item["status"] = "downloading";
+  } else if (ready) {
+    item["status"] = "downloaded";
+  } else if (model.status == "cancelled" || model.status == "error") {
+    item["status"] = model.status;
+  } else {
+    item["status"] = "missing";
+  }
+  if (item["status"].asString() == "error" && !model.error.empty()) {
     item["error"] = model.error;
   }
   item["current_file"] = model.current_file.empty() ? Json::Value(Json::nullValue) : Json::Value(model.current_file);

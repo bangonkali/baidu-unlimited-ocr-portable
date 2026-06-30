@@ -2,6 +2,7 @@
 #include <cassert>
 #include <json/json.h>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "uocr/app/realtime_event_hub.hpp"
@@ -54,10 +55,30 @@ void test_supported_types_include_document_updates() {
   assert(has_logs);
 }
 
+void test_throwing_subscriber_does_not_escape_publish() {
+  auto& hub = uocr::server::RealtimeEventHub::instance();
+  const auto throwing_id = hub.subscribe([](const std::string&) {
+    throw std::runtime_error("simulated disconnected client");
+  });
+  int received = 0;
+  const auto healthy_id = hub.subscribe([&received](const std::string&) {
+    ++received;
+  });
+
+  Json::Value payload;
+  payload["status"] = "downloading";
+  hub.publish("model.changed", payload);
+
+  assert(received == 1);
+  hub.unsubscribe(throwing_id);
+  hub.unsubscribe(healthy_id);
+}
+
 }  // namespace
 
 int main() {
   test_publish_and_unsubscribe();
   test_supported_types_include_document_updates();
+  test_throwing_subscriber_does_not_escape_publish();
   return 0;
 }
