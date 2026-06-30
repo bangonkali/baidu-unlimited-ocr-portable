@@ -84,19 +84,30 @@ void test_runtime_selection() {
   const auto runtime_root = root / "thirdparty" / "uocr-runtime";
 #ifdef _WIN32
   const auto cuda = runtime_root / "windows-x86_64-cuda13" / "bin";
+  const auto rocm = runtime_root / "windows-x86_64-rocm6" / "bin";
   const auto cpu = runtime_root / "windows-x86_64-cpu" / "bin";
   std::filesystem::create_directories(cuda);
+  std::filesystem::create_directories(rocm);
   std::filesystem::create_directories(cpu);
   std::ofstream(cuda / "uocr-ffi.dll").put('x');
+  std::ofstream(rocm / "uocr-ffi.dll").put('x');
   std::ofstream(cpu / "uocr-ffi.dll").put('x');
+
+  uocr::RuntimeHardwareProbe rocm_probe;
+  rocm_probe.rocm = true;
+  const auto rocm_variants = uocr::runtime_variants_for(root, rocm_probe);
+  assert(uocr::choose_runtime_id(rocm_variants, "") == "windows-x86_64-rocm6");
+  const auto* rocm_variant = uocr::find_runtime_variant(rocm_variants, "windows-x86_64-rocm6");
+  assert(rocm_variant != nullptr);
+  assert(rocm_variant->selectable);
+
   uocr::RuntimeHardwareProbe probe;
   probe.cuda = true;
+  probe.rocm = true;
   const auto variants = uocr::runtime_variants_for(root, probe);
   assert(uocr::choose_runtime_id(variants, "") == "windows-x86_64-cuda13");
   assert(uocr::choose_runtime_id(variants, "windows-x86_64-cpu") == "windows-x86_64-cpu");
-  const auto* rocm = uocr::find_runtime_variant(variants, "windows-x86_64-rocm6");
-  assert(rocm != nullptr);
-  assert(!rocm->selectable);
+  assert(uocr::choose_runtime_id(variants, "windows-x86_64-rocm6") == "windows-x86_64-rocm6");
 #endif
   std::filesystem::remove_all(root);
 }
