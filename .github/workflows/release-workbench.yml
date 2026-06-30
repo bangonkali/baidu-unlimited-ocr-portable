@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release tag, for example v0.0.9"
+        description: "Release tag, for example v0.0.31"
         required: true
         type: string
       runtime_version:
@@ -20,249 +20,46 @@ permissions:
   contents: read
 
 jobs:
-  windows-zip:
-    name: Windows zip
-    runs-on: windows-2025
-    timeout-minutes: 90
-    permissions:
-      contents: write
-    env:
-      UOCR_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
-      UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          lfs: true
-          persist-credentials: false
-          submodules: recursive
-
-      - name: Validate release version
-        shell: pwsh
-        run: |
-          if (-not $env:UOCR_VERSION) {
-            throw "Release version was not provided."
-          }
-          Write-Host "Release version $env:UOCR_VERSION"
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14.6"
-
-      - name: Set up MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Ensure vcpkg
-        shell: pwsh
-        run: |
-          if (-not $env:VCPKG_ROOT) {
-            $env:VCPKG_ROOT = "C:\vcpkg"
-          }
-          if (-not (Test-Path $env:VCPKG_ROOT)) {
-            git clone https://github.com/microsoft/vcpkg "$env:VCPKG_ROOT"
-            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          }
-          "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
-          & "$env:VCPKG_ROOT\vcpkg.exe" version
-
-      - name: Test React client
-        working-directory: src/uocr-client
-        shell: pwsh
-        run: |
-          bun install --frozen-lockfile
-          bun run format:check
-          bun run lint
-          bun run test
-          bun run typecheck
-          bun run build-storybook
-
-      - name: Package workbench
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          .\scripts\windows\package-workbench.ps1 `
-            -Preset windows-workbench-ci `
-            -Version $env:UOCR_VERSION `
-            -RuntimeVersion $env:UOCR_RUNTIME_VERSION
-
-      - name: Test C++ server
-        shell: pwsh
-        run: |
-          cmake --build build/windows-workbench-ci --config Release --target `
-            uocr-core-tests `
-            uocr-download-tests `
-            uocr-render-tests `
-            uocr-storage-tests `
-            uocr-dependency-tests `
-            uocr-realtime-tests
-          ctest --test-dir build/windows-workbench-ci -C Release --output-on-failure
-
-      - name: Smoke packaged server
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem dist -Filter "uocr-workbench-windows-x64-$env:UOCR_VERSION.zip" | Select-Object -First 1
-          if (-not $zip) { throw "release zip was not produced" }
-          $extract = Join-Path $env:RUNNER_TEMP "uocr-smoke"
-          Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
-          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $extract -Force
-          $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
-          if (-not $exe) { throw "uocr-server.exe not found in archive" }
-          $duckdb = Get-ChildItem -LiteralPath $extract -Recurse -Filter "duckdb.dll" | Select-Object -First 1
-          if (-not $duckdb) { throw "duckdb.dll not found in archive" }
-          $rootOpenSsl = @(
-            Get-ChildItem -LiteralPath $exe.Directory.FullName -Filter "libcrypto*.dll" -ErrorAction SilentlyContinue
-            Get-ChildItem -LiteralPath $exe.Directory.FullName -Filter "libssl*.dll" -ErrorAction SilentlyContinue
-          )
-          if (-not ($rootOpenSsl | Where-Object { $_.Name -like "libcrypto*.dll" })) {
-            throw "libcrypto DLL is required in the backend root for shared vcpkg OpenSSL."
-          }
-          if (-not ($rootOpenSsl | Where-Object { $_.Name -like "libssl*.dll" })) {
-            throw "libssl DLL is required in the backend root for Drogon/Trantor TLS."
-          }
-          $dumpbin = Get-Command dumpbin -ErrorAction SilentlyContinue
-          if (-not $dumpbin) { throw "dumpbin is required for OpenSSL dependency validation" }
-          $serverDeps = (& $dumpbin.Source /DEPENDENTS $exe.FullName 2>$null) -join "`n"
-          if ($serverDeps -notmatch "libcrypto") { throw "uocr-server.exe must import libcrypto for SHA verification." }
-          $trantor = Join-Path $exe.Directory.FullName "trantor.dll"
-          if (-not (Test-Path $trantor)) { throw "trantor.dll not found in archive" }
-          $trantorDeps = (& $dumpbin.Source /DEPENDENTS $trantor 2>$null) -join "`n"
-          if ($trantorDeps -notmatch "libssl" -or $trantorDeps -notmatch "libcrypto") {
-            throw "trantor.dll must import vcpkg OpenSSL for TLS support."
-          }
-          $mutool = Get-ChildItem -LiteralPath $extract -Recurse -Filter "mutool.exe" | Select-Object -First 1
-          if ($mutool) { throw "mutool.exe should not be shipped; MuPDF is embedded in uocr-server.exe" }
-          & $exe.FullName --version
-          $stdoutPath = Join-Path $env:RUNNER_TEMP "uocr-server.stdout.log"
-          $stderrPath = Join-Path $env:RUNNER_TEMP "uocr-server.stderr.log"
-          $process = Start-Process `
-            -FilePath $exe.FullName `
-            -ArgumentList "--port", "8766", "--no-browser" `
-            -WorkingDirectory $exe.Directory.FullName `
-            -RedirectStandardOutput $stdoutPath `
-            -RedirectStandardError $stderrPath `
-            -PassThru
-          try {
-            $health = $null
-            for ($attempt = 1; $attempt -le 60; $attempt++) {
-              $process.Refresh()
-              if ($process.HasExited) {
-                throw "uocr-server exited early with code $($process.ExitCode)"
-              }
-              try {
-                $health = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/health" -TimeoutSec 2
-                if ($health.ok -eq $true) { break }
-              } catch {
-                Start-Sleep -Milliseconds 500
-              }
-            }
-            if ($health.ok -ne $true) { throw "health check failed" }
-            $status = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/status" -TimeoutSec 2
-            if (-not $status.database_path) { throw "status API did not expose database_path" }
-            $dbPath = Join-Path $exe.Directory.FullName "data\uocr.duckdb"
-            if (-not (Test-Path $dbPath)) { throw "DuckDB database was not created at $dbPath" }
-            $search = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/search?q=smoke" -TimeoutSec 2
-            if ($null -eq $search.documents) { throw "search API did not return a documents array" }
-            $homeResponse = Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing
-            if ($homeResponse.StatusCode -ne 200) { throw "SPA check failed" }
-            $logs = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2
-            if (-not $logs.logs) { throw "recent logs API returned no logs" }
-            $socket = [System.Net.WebSockets.ClientWebSocket]::new()
-            try {
-              $null = $socket.ConnectAsync([Uri]"ws://127.0.0.1:8766/api/events", [Threading.CancellationToken]::None).GetAwaiter().GetResult()
-              $buffer = [byte[]]::new(4096)
-              $result = $socket.ReceiveAsync([ArraySegment[byte]]::new($buffer), [Threading.CancellationToken]::None).GetAwaiter().GetResult()
-              $message = [Text.Encoding]::UTF8.GetString($buffer, 0, $result.Count)
-              if ($message -notmatch '"type":"connection.ready"') {
-                throw "websocket did not return connection.ready: $message"
-              }
-            } finally {
-              if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-                try {
-                  $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, "done", [Threading.CancellationToken]::None).GetAwaiter().GetResult()
-                } catch {
-                  Write-Host "websocket close handshake ended early: $($_.Exception.Message)"
-                }
-              }
-              $socket.Dispose()
-            }
-            $models = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/models" -TimeoutSec 2
-            if (-not $models.models -or -not $models.models[0].files) {
-              throw "models API did not return per-file download state"
-            }
-            if ($models.models[0].auth_available -eq $null) {
-              throw "models API did not expose Hugging Face auth availability"
-            }
-            $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
-            if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
-            $logText = Get-Content -LiteralPath $logPath -Raw
-            if ($logText -notmatch "listening http://127.0.0.1:8766/") { throw "server log did not record the listener URL" }
-          } catch {
-            Write-Host "::group::uocr-server smoke logs"
-            $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
-            foreach ($path in @($logPath, $stdoutPath, $stderrPath)) {
-              if (Test-Path $path) {
-                Write-Host "--- $path"
-                Get-Content -LiteralPath $path -ErrorAction SilentlyContinue
-              }
-            }
-            Write-Host "::endgroup::"
-            throw
-          }
-          finally {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-          }
-
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}
-          path: |
-            dist/uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}.zip
-            dist/uocr-workbench-windows-x64-${{ env.UOCR_VERSION }}.zip.sha256
-          if-no-files-found: error
-
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          $notes = @"
-          Unlimited-OCR Workbench $env:UOCR_VERSION
-
-          Download uocr-workbench-windows-x64-$env:UOCR_VERSION.zip, extract it, and run uocr-server.exe.
-          Apple Silicon Macs can use uocr-workbench-macos-arm64-$env:UOCR_VERSION.zip and run uocr-server.command after the macOS job publishes it.
-          The executable hosts the React app at http://127.0.0.1:8765/ and reports its release with uocr-server --version.
-          Runtime logs are written to logs/uocr-server.log inside the extracted folder.
-
-          Installer:
-          powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
-          "@
-          $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
-          $notes | Set-Content -LiteralPath $notesPath -Encoding utf8
-          gh release view $env:UOCR_VERSION *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $env:UOCR_VERSION --target $env:GITHUB_SHA --title "Unlimited-OCR Workbench $env:UOCR_VERSION" --notes-file $notesPath
-          }
-          gh release upload $env:UOCR_VERSION `
-            "dist/uocr-workbench-windows-x64-$env:UOCR_VERSION.zip" `
-            "dist/uocr-workbench-windows-x64-$env:UOCR_VERSION.zip.sha256" `
-            --clobber
-
-  macos-zip:
-    name: macOS arm64 zip
-    needs: windows-zip
-    runs-on: macos-15
-    timeout-minutes: 90
-    permissions:
-      contents: write
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 zip
+            platform: windows-x64
+            runner: windows-2025
+            preset: windows-workbench-ci
+            archive_stem: uocr-workbench-windows-x64
+            archive_ext: zip
+            runtime_platform: windows-x86_64-cuda13
+            additional_runtime_platforms: windows-x86_64-cpu
+          - name: macOS arm64 zip
+            platform: macos-arm64
+            runner: macos-15
+            preset: macos-arm64-workbench-ci
+            archive_stem: uocr-workbench-macos-arm64
+            archive_ext: zip
+            runtime_platform: macos-arm64-metal
+            additional_runtime_platforms: ""
+          - name: Ubuntu 24.04 x64 tarball
+            platform: linux-x64
+            runner: ubuntu-24.04
+            preset: linux-x64-workbench-ci
+            archive_stem: uocr-workbench-linux-x64
+            archive_ext: tar.gz
+            runtime_platform: linux-x86_64-cuda13
+            additional_runtime_platforms: linux-x86_64-cpu
+          - name: Ubuntu 24.04 arm64 tarball
+            platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            preset: linux-arm64-workbench-ci
+            archive_stem: uocr-workbench-linux-arm64
+            archive_ext: tar.gz
+            runtime_platform: linux-arm64-cpu
+            additional_runtime_platforms: ""
     env:
       UOCR_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
       UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
@@ -291,7 +88,26 @@ jobs:
         with:
           python-version: "3.14.6"
 
-      - name: Ensure vcpkg
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Ensure vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_ROOT) {
+            $env:VCPKG_ROOT = "C:\vcpkg"
+          }
+          if (-not (Test-Path $env:VCPKG_ROOT)) {
+            git clone https://github.com/microsoft/vcpkg "$env:VCPKG_ROOT"
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          }
+          "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+          & "$env:VCPKG_ROOT\vcpkg.exe" version
+
+      - name: Ensure vcpkg on Unix
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           if [[ -z "${VCPKG_ROOT:-}" ]]; then
@@ -304,7 +120,33 @@ jobs:
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
           "$VCPKG_ROOT/vcpkg" version
 
+      - name: Test React client
+        working-directory: src/uocr-client
+        shell: bash
+        run: |
+          bun install --frozen-lockfile
+          bun run format:check
+          bun run lint
+          bun run test
+          bun run typecheck
+          bun run build
+          bun run build-storybook
+
+      - name: Package Windows workbench
+        if: runner.os == 'Windows'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          .\scripts\windows\package-workbench.ps1 `
+            -Preset "${{ matrix.preset }}" `
+            -Version $env:UOCR_VERSION `
+            -RuntimeVersion $env:UOCR_RUNTIME_VERSION `
+            -RuntimePlatform "${{ matrix.runtime_platform }}" `
+            -AdditionalRuntimePlatforms @("${{ matrix.additional_runtime_platforms }}")
+
       - name: Package macOS workbench
+        if: runner.os == 'macOS'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -315,45 +157,107 @@ jobs:
           fi
           bash scripts/mac/package-workbench.sh \
             --version "$UOCR_VERSION" \
-            --runtime-version "$runtime_version"
+            --runtime-version "$runtime_version" \
+            --runtime-platform "${{ matrix.runtime_platform }}" \
+            --preset "${{ matrix.preset }}"
+
+      - name: Package Linux workbench
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          bash scripts/linux/package-workbench.sh \
+            --version "$UOCR_VERSION" \
+            --runtime-version "$UOCR_RUNTIME_VERSION" \
+            --runtime-platform "${{ matrix.runtime_platform }}" \
+            --additional-runtime-platforms "${{ matrix.additional_runtime_platforms }}" \
+            --package-arch "${{ matrix.platform == 'linux-arm64' && 'arm64' || 'x64' }}" \
+            --preset "${{ matrix.preset }}"
 
       - name: Test C++ server
         shell: bash
         run: |
-          cmake --build build/macos-arm64-workbench-ci --target \
+          cmake --build "build/${{ matrix.preset }}" --config Release --target \
             uocr-core-tests \
             uocr-download-tests \
             uocr-render-tests \
             uocr-storage-tests \
             uocr-dependency-tests \
             uocr-realtime-tests
-          ctest --test-dir build/macos-arm64-workbench-ci --output-on-failure
+          ctest --test-dir "build/${{ matrix.preset }}" -C Release --output-on-failure
 
-      - name: Smoke packaged server
+      - name: Smoke packaged server on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "dist\${{ matrix.archive_stem }}-$env:UOCR_VERSION.${{ matrix.archive_ext }}"
+          if (-not (Test-Path $archive)) { throw "release archive was not produced: $archive" }
+          $extract = Join-Path $env:RUNNER_TEMP "uocr-smoke"
+          Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "uocr-server.exe" | Select-Object -First 1
+          if (-not $exe) { throw "uocr-server.exe not found in archive" }
+          if (Get-ChildItem -LiteralPath $extract -Recurse -Filter "mutool.exe" | Select-Object -First 1) {
+            throw "mutool.exe should not be shipped; MuPDF must be linked into uocr-server"
+          }
+          & $exe.FullName --version
+          $stdoutPath = Join-Path $env:RUNNER_TEMP "uocr-server.stdout.log"
+          $stderrPath = Join-Path $env:RUNNER_TEMP "uocr-server.stderr.log"
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--port", "8766", "--no-browser" -WorkingDirectory $exe.Directory.FullName -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+          try {
+            $health = $null
+            for ($attempt = 1; $attempt -le 60; $attempt++) {
+              $process.Refresh()
+              if ($process.HasExited) { throw "uocr-server exited early with code $($process.ExitCode)" }
+              try {
+                $health = Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/health" -TimeoutSec 2
+                if ($health.ok -eq $true) { break }
+              } catch { Start-Sleep -Milliseconds 500 }
+            }
+            if ($health.ok -ne $true) { throw "health check failed" }
+            Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/status" -TimeoutSec 2 | Out-Null
+            Invoke-WebRequest -Uri "http://127.0.0.1:8766/" -UseBasicParsing | Out-Null
+            Invoke-RestMethod -Uri "http://127.0.0.1:8766/api/logs/recent?limit=20" -TimeoutSec 2 | Out-Null
+            $logPath = Join-Path $exe.Directory.FullName "logs\uocr-server.log"
+            if (-not (Test-Path $logPath)) { throw "server log was not created at $logPath" }
+            if ((Get-Content -LiteralPath $logPath -Raw) -notmatch "listening http://127.0.0.1:8766/") {
+              throw "server log did not record the listener URL"
+            }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Smoke packaged server on Unix
+        if: runner.os != 'Windows'
         shell: bash
         run: |
-          zip="dist/uocr-workbench-macos-arm64-$UOCR_VERSION.zip"
-          test -f "$zip"
-          extract="$RUNNER_TEMP/uocr-macos-smoke"
+          archive="dist/${{ matrix.archive_stem }}-$UOCR_VERSION.${{ matrix.archive_ext }}"
+          test -f "$archive"
+          extract="$RUNNER_TEMP/uocr-smoke"
           rm -rf "$extract"
           mkdir -p "$extract"
-          unzip -q "$zip" -d "$extract"
+          case "$archive" in
+            *.zip) unzip -q "$archive" -d "$extract" ;;
+            *.tar.gz) tar -xzf "$archive" -C "$extract" ;;
+            *) echo "unsupported archive: $archive" >&2; exit 1 ;;
+          esac
           exe="$(find "$extract" -name uocr-server -type f | head -n 1)"
           test -n "$exe"
           chmod +x "$exe"
           app_root="$(dirname "$exe")"
-          test -f "$app_root/thirdparty/uocr-runtime/macos-arm64-metal/bin/libuocr-ffi.dylib"
           if find "$app_root" -name mutool -type f | grep -q .; then
             echo "mutool should not be shipped; MuPDF must be linked into uocr-server" >&2
             exit 1
           fi
+          test -d "$app_root/thirdparty/uocr-runtime/${{ matrix.runtime_platform }}"
           "$exe" --version
-          stdout="$RUNNER_TEMP/uocr-macos.stdout.log"
-          stderr="$RUNNER_TEMP/uocr-macos.stderr.log"
-          "$exe" --port 8767 --no-browser >"$stdout" 2>"$stderr" &
+          stdout="$RUNNER_TEMP/uocr.stdout.log"
+          stderr="$RUNNER_TEMP/uocr.stderr.log"
+          (cd "$app_root" && LD_LIBRARY_PATH="$app_root:${LD_LIBRARY_PATH:-}" ./uocr-server --port 8767 --no-browser >"$stdout" 2>"$stderr") &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8767/api/health >/tmp/uocr-health.json; then
               break
             fi
@@ -366,19 +270,36 @@ jobs:
           curl -fsS http://127.0.0.1:8767/ >/tmp/uocr-home.html
           curl -fsS http://127.0.0.1:8767/api/status >/tmp/uocr-status.json
           curl -fsS "http://127.0.0.1:8767/api/logs/recent?limit=20" >/tmp/uocr-logs.json
+          test -f "$app_root/data/uocr.duckdb"
           test -f "$app_root/logs/uocr-server.log"
           grep -q "listening http://127.0.0.1:8767/" "$app_root/logs/uocr-server.log"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: uocr-workbench-macos-arm64-${{ env.UOCR_VERSION }}
+          name: uocr-workbench-${{ matrix.platform }}-${{ env.UOCR_VERSION }}
           path: |
-            dist/uocr-workbench-macos-arm64-${{ env.UOCR_VERSION }}.zip
-            dist/uocr-workbench-macos-arm64-${{ env.UOCR_VERSION }}.zip.sha256
+            dist/${{ matrix.archive_stem }}-${{ env.UOCR_VERSION }}.${{ matrix.archive_ext }}
+            dist/${{ matrix.archive_stem }}-${{ env.UOCR_VERSION }}.${{ matrix.archive_ext }}.sha256
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+  publish:
+    name: Publish GitHub Release
+    needs: package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    env:
+      UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -387,14 +308,21 @@ jobs:
           cat > "$notes" <<EOF
           Unlimited-OCR Workbench $UOCR_VERSION
 
-          Download uocr-workbench-macos-arm64-$UOCR_VERSION.zip, extract it, and run uocr-server.command.
-          The executable hosts the React app at http://127.0.0.1:8765/.
+          Portable local app artifacts:
+          - Windows x64: uocr-workbench-windows-x64-$UOCR_VERSION.zip
+          - macOS arm64: uocr-workbench-macos-arm64-$UOCR_VERSION.zip
+          - Ubuntu 24.04 x64: uocr-workbench-linux-x64-$UOCR_VERSION.tar.gz
+          - Ubuntu 24.04 arm64: uocr-workbench-linux-arm64-$UOCR_VERSION.tar.gz
+
+          Extract the archive, run the bundled launcher, then open http://127.0.0.1:8765/.
           Runtime logs are written to logs/uocr-server.log inside the extracted folder.
           EOF
           if ! gh release view "$UOCR_VERSION" >/dev/null 2>&1; then
             gh release create "$UOCR_VERSION" --target "$GITHUB_SHA" --title "Unlimited-OCR Workbench $UOCR_VERSION" --notes-file "$notes"
           fi
-          gh release upload "$UOCR_VERSION" \
-            "dist/uocr-workbench-macos-arm64-$UOCR_VERSION.zip" \
-            "dist/uocr-workbench-macos-arm64-$UOCR_VERSION.zip.sha256" \
-            --clobber
+          mapfile -t files < <(find dist -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.sha256' \) | sort)
+          if [[ "${#files[@]}" -eq 0 ]]; then
+            echo "No release files found." >&2
+            exit 1
+          fi
+          gh release upload "$UOCR_VERSION" "${files[@]}" --clobber

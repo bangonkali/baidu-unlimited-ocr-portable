@@ -210,6 +210,29 @@ INSERT INTO settings(key, value, updated_at)
 VALUES ('selected_profile_id', '"experimental-exact-prefill-q4"'::JSON, current_timestamp)
 ON CONFLICT(key) DO NOTHING;
 )SQL"},
+      {5, "workbench_ui_and_region_annotations", R"SQL(
+CREATE TABLE IF NOT EXISTS document_region_annotations (
+  region_id TEXT PRIMARY KEY,
+  file_hash TEXT NOT NULL,
+  page_no INTEGER NOT NULL,
+  content_markdown TEXT NOT NULL,
+  content_html TEXT,
+  updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+INSERT INTO document_region_annotations(region_id, file_hash, page_no, content_markdown, content_html, updated_at)
+SELECT region_id, file_hash, page_no, coalesce(content_markdown, label), content_html, current_timestamp
+FROM document_regions
+WHERE content_markdown IS NOT NULL
+ON CONFLICT(region_id) DO NOTHING;
+CREATE INDEX IF NOT EXISTS idx_region_annotations_file_page ON document_region_annotations(file_hash, page_no);
+INSERT INTO settings(key, value, updated_at)
+VALUES (
+  'workbench_ui',
+  '{"theme":"dark","auto_follow_regions":true,"overlay_visible":true,"labels_visible":true,"panes_collapsed":{"explorer":false,"details":true,"diagnostics":true}}'::JSON,
+  current_timestamp
+)
+ON CONFLICT(key) DO NOTHING;
+)SQL"},
   };
   return migrations;
 }

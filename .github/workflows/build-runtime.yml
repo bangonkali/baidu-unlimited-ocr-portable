@@ -34,7 +34,6 @@ permissions:
 
 jobs:
   build:
-    if: ${{ false }}
     name: ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
@@ -50,6 +49,14 @@ jobs:
             runner: ubuntu-24.04
             backend: cuda
             build_parallel: 2
+          - platform: linux-x86_64-cpu
+            runner: ubuntu-24.04
+            backend: cpu
+            build_parallel: 3
+          - platform: linux-arm64-cpu
+            runner: ubuntu-24.04-arm
+            backend: cpu
+            build_parallel: 3
           - platform: windows-x86_64-cuda13
             runner: windows-2025
             backend: cuda
@@ -130,6 +137,14 @@ jobs:
             "-DCMAKE_CUDA_ARCHITECTURES=$env:CUDA_ARCHITECTURES" `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
+
+      - name: Configure CPU build
+        if: matrix.backend == 'cpu'
+        run: |
+          cmake -B thirdparty/llama.cpp/build \
+            -S thirdparty/llama.cpp \
+            -DGGML_NATIVE=OFF \
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build runtime targets
         shell: bash
@@ -229,6 +244,8 @@ jobs:
           Supported platform labels:
           - macos-arm64-metal
           - linux-x86_64-cuda13
+          - linux-x86_64-cpu
+          - linux-arm64-cpu
           - windows-x86_64-cuda13
 
           GGUF model files are downloaded separately by the setup scripts from Hugging Face.

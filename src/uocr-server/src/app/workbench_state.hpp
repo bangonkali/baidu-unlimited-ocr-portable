@@ -108,6 +108,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   bool model_downloading(std::string_view model_id) const;
   bool any_model_downloading() const;
   Json::Value status_record() const;
+  Json::Value workbench_ui_settings() const;
   Json::Value run_record(const RunState& run) const;
   Json::Value document_summary(const DocumentState& document) const;
   Json::Value document_page_record(const DocumentState& document, const PageState& page) const;
@@ -139,6 +140,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   void persist_selected_model() const;
   void persist_selected_runtime() const;
   void persist_selected_profile() const;
+  bool update_workbench_ui_settings(const Json::Value& patch, std::string& error) const;
   bool select_runtime(std::string_view runtime_id);
   void start_download(std::string model_id, bool force);
   void cancel_download(std::string_view model_id);

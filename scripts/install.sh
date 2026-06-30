@@ -35,6 +35,9 @@ if system == "darwin" and machine in {"arm64", "aarch64"}:
 elif system == "linux" and machine in {"x86_64", "amd64"}:
     platform_key = "linux-x64"
     patterns = [".tar.gz", ".zip"]
+elif system == "linux" and machine in {"arm64", "aarch64"}:
+    platform_key = "linux-arm64"
+    patterns = [".tar.gz", ".zip"]
 else:
     raise SystemExit(f"Unsupported platform for prebuilt workbench install: {system}/{machine}")
 
@@ -54,7 +57,7 @@ for candidate in release.get("assets", []):
 if asset is None:
     raise SystemExit(
         f"No {platform_key} workbench asset exists on {release.get('tag_name')}. "
-        "Windows is the first packaged target."
+        "Choose a release that includes this platform."
     )
 
 target = Path(install_dir).expanduser()
@@ -76,7 +79,12 @@ with tempfile.TemporaryDirectory(prefix="uocr-install-") as tmp:
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(source, target)
+    launcher = target / ("uocr-server.command" if system == "darwin" else "uocr-server.sh")
+    if launcher.exists():
+        launcher.chmod(launcher.stat().st_mode | 0o755)
+    else:
+        launcher = target / "uocr-server"
     print(f"Installed Unlimited-OCR Workbench to {target}")
-    print(f"Run: {target / 'uocr-server'}")
+    print(f"Run: {launcher}")
     print("Uninstall: delete that folder")
 PY

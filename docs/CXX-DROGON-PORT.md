@@ -101,15 +101,16 @@ The persisted OCR dashboard contract is:
 - `document_page_ocr`: raw OCR output, cleaned display text, runtime profile,
   status, attempts, error text, and options metadata.
 - `document_regions`: stable region id, file hash, page number, engine/profile,
-  label, normalized `TOPLEFT_NORMALIZED_0_999` bounding box, and selected-box
-  text content.
+  label, and normalized `TOPLEFT_NORMALIZED_0_999` bounding box.
+- `document_region_annotations`: annotation text/content keyed by `region_id`,
+  file hash, and page number, kept separate from bounding box coordinates.
 - `document_text_region_links`: cleaned text offsets that connect clickable text
   spans to bounding boxes.
 - `document_terms`: lowercase token index used by DuckDB-backed search.
 - `ingest_diagnostic_events`: persisted diagnostic messages for run progress and
   failures.
-- `settings`: persisted workbench settings such as `selected_model_id`, stored
-  as JSON values and loaded on startup.
+- `settings`: persisted model/runtime selections and workbench UI preferences
+  such as theme, auto-follow, overlay visibility, and pane collapsed state.
 
 Startup reload reconstructs the in-memory workbench state from DuckDB so prior
 documents, text, boxes, previews, and recent runs are visible after restarting
@@ -192,5 +193,7 @@ profile, source marker span, label, and normalized bounding box.
 
 Cleaned text removes OCR markers while preserving text spans. The
 `document_text_region_links` table maps cleaned text offsets back to
-`document_regions`, allowing text-span selection to focus the overlay and
-overlay selection to focus the corresponding text.
+`document_regions`, while `document_region_annotations` stores the human text
+for each region. The frontend joins these records by `region_id`, allowing
+text-span selection to focus the overlay and overlay selection to focus the
+corresponding text without parsing OCR marker text in the browser.

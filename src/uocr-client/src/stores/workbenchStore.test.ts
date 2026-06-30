@@ -3,9 +3,11 @@ import { describe, expect, test } from 'bun:test';
 import {
   followLatestRegion,
   getWorkbenchSnapshot,
+  hydrateWorkbenchUiSettings,
   setAutoFollowRegions,
   setSelection,
   setTheme,
+  workbenchUiSettingsFromState,
 } from './workbenchStore';
 
 describe('workbenchStore auto-follow', () => {
@@ -64,5 +66,53 @@ describe('workbenchStore theme', () => {
     expect(getWorkbenchSnapshot().theme).toBe('light');
     setTheme('dark');
     expect(getWorkbenchSnapshot().theme).toBe('dark');
+  });
+});
+
+describe('workbenchStore UI settings', () => {
+  test('defaults to explorer open with details and diagnostics collapsed', () => {
+    hydrateWorkbenchUiSettings({
+      auto_follow_regions: true,
+      labels_visible: true,
+      overlay_visible: true,
+      panes_collapsed: {
+        details: true,
+        diagnostics: true,
+        explorer: false,
+      },
+      theme: 'dark',
+    });
+
+    expect(getWorkbenchSnapshot().panesCollapsed).toEqual({
+      details: true,
+      diagnostics: true,
+      explorer: false,
+    });
+  });
+
+  test('hydrates and serializes persisted UI settings', () => {
+    hydrateWorkbenchUiSettings({
+      auto_follow_regions: false,
+      labels_visible: false,
+      overlay_visible: true,
+      panes_collapsed: {
+        details: false,
+        diagnostics: true,
+        explorer: true,
+      },
+      theme: 'light',
+    });
+
+    expect(workbenchUiSettingsFromState(getWorkbenchSnapshot())).toEqual({
+      auto_follow_regions: false,
+      labels_visible: false,
+      overlay_visible: true,
+      panes_collapsed: {
+        details: false,
+        diagnostics: true,
+        explorer: true,
+      },
+      theme: 'light',
+    });
   });
 });

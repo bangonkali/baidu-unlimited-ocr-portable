@@ -12,6 +12,7 @@ describe('DetailsPane', () => {
         labelsVisible
         overlayVisible
         selectedRegion={fixtureBoxes[0]}
+        selectedRegionContent="Invoice total: 1,240.00"
         selectedRegionId="reg-total"
       />,
     );

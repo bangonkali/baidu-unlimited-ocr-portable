@@ -104,9 +104,7 @@ std::vector<std::string> sort_scores(const std::map<std::string, int>& scores, s
   return hashes;
 }
 
-void load_page_ocr(const WorkbenchRepository::Impl& impl,
-                   const std::string& file_hash,
-                   StoredPage& page) {
+void load_page_ocr(const WorkbenchRepository::Impl& impl, const std::string& file_hash, StoredPage& page) {
   auto ocr = impl.statement(
       "SELECT raw_text, cleaned_text, status, coalesce(error, '') FROM document_page_ocr "
       "WHERE file_hash = ? AND page_no = ? ORDER BY created_at DESC LIMIT 1");
@@ -122,13 +120,12 @@ void load_page_ocr(const WorkbenchRepository::Impl& impl,
   page.error = result.text(3, 0);
 }
 
-void load_page_regions(const WorkbenchRepository::Impl& impl,
-                       const std::string& file_hash,
-                       StoredPage& page) {
+void load_page_regions(const WorkbenchRepository::Impl& impl, const std::string& file_hash, StoredPage& page) {
   auto regions = impl.statement(
-      "SELECT region_id, label, page_no, engine_id, profile_id, bbox_kind, x1, y1, x2, y2, "
-      "coalesce(content_markdown, ''), coalesce(content_html, '') "
-      "FROM document_regions WHERE file_hash = ? AND page_no = ? ORDER BY source_span_start, region_id");
+      "SELECT r.region_id, r.label, r.page_no, r.engine_id, r.profile_id, r.bbox_kind, r.x1, r.y1, r.x2, r.y2, "
+      "coalesce(a.content_markdown, r.content_markdown, ''), coalesce(a.content_html, r.content_html, '') "
+      "FROM document_regions r LEFT JOIN document_region_annotations a ON a.region_id = r.region_id "
+      "WHERE r.file_hash = ? AND r.page_no = ? ORDER BY r.source_span_start, r.region_id");
   regions.bind_text(1, file_hash);
   regions.bind_int32(2, page.page_no);
   auto region_rows = regions.query();
@@ -283,6 +280,18 @@ std::string WorkbenchRepository::setting_string(std::string_view key, std::strin
   }
   const auto value = unquote_json_string(result.text(0, 0));
   return value.empty() ? std::string(fallback) : value;
+}
+
+std::string WorkbenchRepository::setting_json(std::string_view key, std::string_view fallback_json) const {
+  std::scoped_lock lock(impl_->mutex);
+  auto statement = impl_->statement("SELECT coalesce(value::VARCHAR, '') FROM settings WHERE key = ?");
+  statement.bind_text(1, key);
+  auto result = statement.query();
+  if (result.rows() == 0) {
+    return std::string(fallback_json);
+  }
+  const auto value = result.text(0, 0);
+  return value.empty() ? std::string(fallback_json) : value;
 }
 
 }  // namespace uocr::storage

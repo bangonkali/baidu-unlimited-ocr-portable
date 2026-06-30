@@ -1,6 +1,6 @@
 import { Store, useStore } from '@tanstack/react-store';
 
-import type { OverlayBox } from '../api/types';
+import type { OverlayBox, WorkbenchUiSettings, WorkbenchUiSettingsPatch } from '../api/types';
 
 interface WorkbenchSelection {
   fileHash?: string;
@@ -39,8 +39,8 @@ const initialState: WorkbenchState = {
   labelsVisible: true,
   overlayVisible: true,
   panesCollapsed: {
-    details: false,
-    diagnostics: false,
+    details: true,
+    diagnostics: true,
     explorer: false,
   },
   selectedProfile: 'experimental-exact-prefill-q4',
@@ -104,6 +104,31 @@ export function setAutoFollowRegions(autoFollowRegions: boolean) {
 
 export function setLabelsVisible(labelsVisible: boolean) {
   workbenchStore.setState((state) => ({ ...state, labelsVisible }));
+}
+
+export function hydrateWorkbenchUiSettings(settings: WorkbenchUiSettings) {
+  applyThemePreference(settings.theme);
+  persistThemePreference(settings.theme);
+  workbenchStore.setState((state) => ({
+    ...state,
+    autoFollowRegions: settings.auto_follow_regions,
+    labelsVisible: settings.labels_visible,
+    overlayVisible: settings.overlay_visible,
+    panesCollapsed: settings.panes_collapsed,
+    theme: settings.theme,
+  }));
+}
+
+export function workbenchUiSettingsFromState(
+  state = workbenchStore.state,
+): WorkbenchUiSettingsPatch {
+  return {
+    auto_follow_regions: state.autoFollowRegions,
+    labels_visible: state.labelsVisible,
+    overlay_visible: state.overlayVisible,
+    panes_collapsed: state.panesCollapsed,
+    theme: state.theme,
+  };
 }
 
 export function setPaneCollapsed(pane: WorkbenchPaneId, collapsed: boolean) {

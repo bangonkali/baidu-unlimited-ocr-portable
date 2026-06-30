@@ -1,8 +1,7 @@
-# Windows CUDA Quick Start
+# Windows Portable Workbench
 
-This guide covers the Windows native path. The C++/React workbench is the
-target product path; the Python Gradio app remains a reference/demo for
-behavior and runtime parity checks.
+This guide covers the Windows portable C++/React workbench. The Python Gradio
+app remains a reference/demo for behavior and runtime parity checks.
 
 ## Release Zip Path
 
@@ -12,7 +11,7 @@ The preferred Windows onboarding path is the GitHub Release zip:
 uocr-workbench-windows-x64-<tag>.zip
 ```
 
-Extract the zip anywhere and run `uocr-server.exe`. The server binds to
+Extract the zip anywhere writable and run `uocr-server.exe`. The server binds to
 `127.0.0.1:8765`, hosts the React workbench from `web/`, and opens the browser
 automatically. The folder is self-contained except for downloaded GGUF model
 files under `models\`.
@@ -20,8 +19,8 @@ files under `models\`.
 Logs are appended to `logs\uocr-server.log` inside the extracted folder and are
 also printed to the terminal running `uocr-server.exe`. The React workbench can
 download any compatible Unlimited-OCR GGUF catalog model into `models\`; images
-and rendered PDF pages are sent through the bundled CUDA `uocr-ffi.dll` once
-the selected model and shared mmproj file are present. Multi-page PDFs are
+and rendered PDF pages use CUDA by default when supported, with a CPU runtime
+fallback also staged in the portable zip. Multi-page PDFs are
 rendered in-process by vcpkg `libmupdf` statically linked into
 `uocr-server.exe`; the portable zip does not ship `mutool.exe`.
 

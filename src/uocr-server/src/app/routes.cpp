@@ -19,11 +19,9 @@ namespace {
 #ifndef UOCR_APP_VERSION
 #define UOCR_APP_VERSION "0.0.0-dev"
 #endif
-
 #ifndef UOCR_GIT_SHA
 #define UOCR_GIT_SHA "unknown"
 #endif
-
 #ifndef UOCR_GIT_TAG
 #define UOCR_GIT_TAG UOCR_APP_VERSION
 #endif
@@ -40,7 +38,6 @@ std::filesystem::path resolve_openapi_path(const std::filesystem::path& app_root
   const auto bundled = app_root / "openapi" / "uocr.openapi.json";
   return std::filesystem::exists(bundled) ? bundled : source_root() / "openapi" / "uocr.openapi.json";
 }
-
 std::string read_text_file(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   std::ostringstream buffer;
@@ -54,7 +51,6 @@ drogon::HttpResponsePtr json_response(const Json::Value& value,
   response->setStatusCode(status);
   return response;
 }
-
 Json::Value request_json_or_empty(const drogon::HttpRequestPtr& request) {
   const auto json = request->getJsonObject();
   return json != nullptr ? *json : Json::Value(Json::objectValue);
@@ -65,7 +61,6 @@ std::string compact_json(const Json::Value& value) {
   builder["indentation"] = "";
   return Json::writeString(builder, value);
 }
-
 std::string sse_frame(std::string_view event_name, const Json::Value& value) {
   return "event: " + std::string(event_name) + "\ndata: " + compact_json(value) + "\n\n";
 }
@@ -76,7 +71,6 @@ void register_run_routes(const std::shared_ptr<WorkbenchService>& service) {
                                                        std::function<void(const HttpResponsePtr&)>&& callback) {
     callback(json_response(service->list_runs()));
   });
-
   app().registerHandler("/api/ingest/runs/{1}", [service](const HttpRequestPtr&,
                                                            std::function<void(const HttpResponsePtr&)>&& callback,
                                                            const std::string& run_id) {

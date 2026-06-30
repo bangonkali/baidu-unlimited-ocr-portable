@@ -1109,6 +1109,9 @@
             "items": {
               "$ref": "#/components/schemas/RuntimeVariantRecord"
             }
+          },
+          "workbench_ui": {
+            "$ref": "#/components/schemas/WorkbenchUiSettings"
           }
         }
       },
@@ -1120,6 +1123,97 @@
           },
           "selected_runtime_id": {
             "type": "string"
+          },
+          "workbench_ui": {
+            "$ref": "#/components/schemas/WorkbenchUiSettingsPatch"
+          }
+        }
+      },
+      "WorkbenchUiSettings": {
+        "type": "object",
+        "required": [
+          "theme",
+          "auto_follow_regions",
+          "overlay_visible",
+          "labels_visible",
+          "panes_collapsed"
+        ],
+        "properties": {
+          "theme": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light"
+            ]
+          },
+          "auto_follow_regions": {
+            "type": "boolean"
+          },
+          "overlay_visible": {
+            "type": "boolean"
+          },
+          "labels_visible": {
+            "type": "boolean"
+          },
+          "panes_collapsed": {
+            "$ref": "#/components/schemas/WorkbenchPaneSettings"
+          }
+        }
+      },
+      "WorkbenchUiSettingsPatch": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light"
+            ]
+          },
+          "auto_follow_regions": {
+            "type": "boolean"
+          },
+          "overlay_visible": {
+            "type": "boolean"
+          },
+          "labels_visible": {
+            "type": "boolean"
+          },
+          "panes_collapsed": {
+            "$ref": "#/components/schemas/WorkbenchPaneSettingsPatch"
+          }
+        }
+      },
+      "WorkbenchPaneSettings": {
+        "type": "object",
+        "required": [
+          "explorer",
+          "details",
+          "diagnostics"
+        ],
+        "properties": {
+          "explorer": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "boolean"
+          },
+          "diagnostics": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkbenchPaneSettingsPatch": {
+        "type": "object",
+        "properties": {
+          "explorer": {
+            "type": "boolean"
+          },
+          "details": {
+            "type": "boolean"
+          },
+          "diagnostics": {
+            "type": "boolean"
           }
         }
       },

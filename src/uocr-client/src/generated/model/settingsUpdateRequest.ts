@@ -5,8 +5,10 @@
  * Local-first API for the C++ Drogon Unlimited-OCR workbench.
  * OpenAPI spec version: 0.1.0
  */
+import type { WorkbenchUiSettingsPatch } from './workbenchUiSettingsPatch';
 
 export interface SettingsUpdateRequest {
   default_profile?: string;
   selected_runtime_id?: string;
+  workbench_ui?: WorkbenchUiSettingsPatch;
 }

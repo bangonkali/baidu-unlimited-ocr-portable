@@ -110,7 +110,7 @@
       "os": "linux",
       "arch": "x86_64",
       "backend": "cpu",
-      "support_status": "planned",
+      "support_status": "supported",
       "runner": "ubuntu-24.04",
       "archive_ext": "tar.gz",
       "cmake_defines": [
@@ -130,6 +130,32 @@
         "*.so.*"
       ],
       "notes": "CPU-only fallback runtime for machines with enough RAM and no supported GPU."
+    },
+    "linux-arm64-cpu": {
+      "label": "Linux arm64 / CPU",
+      "os": "linux",
+      "arch": "arm64",
+      "backend": "cpu",
+      "support_status": "supported",
+      "runner": "ubuntu-24.04-arm",
+      "archive_ext": "tar.gz",
+      "cmake_defines": [
+        "GGML_NATIVE=OFF"
+      ],
+      "executables": [
+        "llama-uocr-parity",
+        "llama-mtmd-cli",
+        "llama-server"
+      ],
+      "primary_binary": "llama-uocr-parity",
+      "required_libraries": [
+        "libuocr-ffi.so"
+      ],
+      "library_globs": [
+        "*.so",
+        "*.so.*"
+      ],
+      "notes": "CPU-only runtime for Ubuntu 24.04 arm64 hosted runners and ARM Linux machines."
     },
     "windows-x86_64-cuda13": {
       "label": "Windows x86_64 / CUDA 13",

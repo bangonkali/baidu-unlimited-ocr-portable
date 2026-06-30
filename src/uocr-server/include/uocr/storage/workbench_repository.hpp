@@ -71,9 +71,11 @@ class WorkbenchRepository {
   const std::filesystem::path& database_path() const;
   WorkbenchSnapshot load_snapshot() const;
   std::vector<std::string> search_document_hashes(std::string_view query, std::size_t limit) const;
+  std::string setting_json(std::string_view key, std::string_view fallback_json) const;
   std::string setting_string(std::string_view key, std::string_view fallback) const;
 
   void upsert_run(const StoredRun& run);
+  void put_setting_json(std::string_view key, std::string_view json);
   void put_setting_string(std::string_view key, std::string_view value);
   void upsert_document(const StoredDocument& document, std::string_view root_path);
   void upsert_page(const std::string& file_hash, const StoredPage& page);

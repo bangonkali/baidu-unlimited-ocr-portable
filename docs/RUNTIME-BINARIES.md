@@ -109,10 +109,10 @@ The exact supported runtime labels are defined in `runtime/platforms.json`:
 | Label | OS / arch | Backend | Archive |
 | --- | --- | --- | --- |
 | `macos-arm64-metal` | macOS arm64 | Metal | `.tar.gz` |
-| `macos-arm64-cpu` | macOS arm64 | CPU | `.tar.gz` |
 | `linux-x86_64-cuda13` | Linux x86_64 | CUDA 13 | `.tar.gz` |
 | `linux-x86_64-rocm6` | Linux x86_64 | ROCm 6 | `.tar.gz` |
 | `linux-x86_64-cpu` | Linux x86_64 | CPU | `.tar.gz` |
+| `linux-arm64-cpu` | Linux arm64 | CPU | `.tar.gz` |
 | `windows-x86_64-cuda13` | Windows x86_64 | CUDA 13 | `.zip` |
 | `windows-x86_64-rocm6` | Windows x86_64 | ROCm 6 | `.zip` |
 | `windows-x86_64-cpu` | Windows x86_64 | CPU | `.zip` |
@@ -124,8 +124,10 @@ downloader refuses to install a CUDA-labeled binary for that machine.
 
 The C++ workbench runtime selector defaults to CUDA, then ROCm or Metal, then
 CPU, but only for runtime directories that are installed and whose hardware
-probe passes. The Windows package stages CUDA plus CPU by default; ROCm becomes
-selectable when a matching runtime is installed and the AMD probe passes.
+probe passes. The Windows package stages CUDA plus CPU by default; Ubuntu x64
+stages CUDA plus CPU when both runtime assets are available; Ubuntu arm64 is
+CPU-first. ROCm becomes selectable when a matching runtime is installed and the
+AMD probe passes.
 
 CUDA 13 release binaries target compute capability 7.5 or newer and explicitly
 include Blackwell RTX 5090 support. NVIDIA's RTX 5090 specs list CUDA
@@ -183,8 +185,13 @@ Runtime release assets use these names:
 ```text
 uocr-workbench-windows-x64-<version>.zip
 uocr-workbench-windows-x64-<version>.zip.sha256
+uocr-workbench-macos-arm64-<version>.zip
+uocr-workbench-linux-x64-<version>.tar.gz
+uocr-workbench-linux-arm64-<version>.tar.gz
 uocr-runtime-macos-arm64-metal-<version>.tar.gz
 uocr-runtime-linux-x86_64-cuda13-<version>.tar.gz
+uocr-runtime-linux-x86_64-cpu-<version>.tar.gz
+uocr-runtime-linux-arm64-cpu-<version>.tar.gz
 uocr-runtime-windows-x86_64-cuda13-<version>.zip
 uocr-runtime-<platform>-<version>.<ext>.sha256
 uocr-runtime-manifest.json
@@ -196,10 +203,9 @@ the matching archive and `.sha256` assets.
 
 ## Building Releases
 
-The workflow `.github/workflows/build-runtime.yml` is intentionally disabled
-while the Windows portable zip is being stabilized. Re-enable it when runtime
-matrix builds are back in scope. When enabled, it builds and packages all three
-runtime labels and uploads archives as workflow artifacts on every manual run.
+The workflow `.github/workflows/build-runtime.yml` builds runtime labels in a
+matrix and uploads archives as workflow artifacts on manual runs. It publishes
+GitHub Release assets when:
 
 It publishes GitHub Release assets when:
 
@@ -220,11 +226,10 @@ archive label tied to CUDA 13 rather than to one CI machine. The `120a-real`
 entry is the RTX 5090 / `sm_120` path. CUDA matrix builds also cap CMake
 parallelism to reduce hosted-runner memory pressure.
 
-The active workflow is `.github/workflows/release-workbench.yml`. It builds the
-Windows C++/React workbench through the vcpkg manifest, stages Windows runtime
-archives, packages `uocr-workbench-windows-x64-<tag>.zip`, smokes the extracted
-executable, checks the shared OpenSSL dependency path, runs the dependency
-version/TLS test, and uploads the zip plus checksum to the same GitHub Release.
+The active app workflow is `.github/workflows/release-workbench.yml`. It builds
+Windows, macOS, Ubuntu x64, and Ubuntu arm64 workbench packages in parallel,
+smokes each extracted archive, then publishes all app artifacts from one final
+fan-in release job.
 
 Runtime GPU smoke validation should be run on self-hosted GPU runners before
 promoting a release as validated; GitHub-hosted standard runners compile the

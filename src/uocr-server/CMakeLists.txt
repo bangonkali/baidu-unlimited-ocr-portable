@@ -177,7 +177,9 @@ if(UOCR_BUILD_SERVER)
       src/app/workbench_run_failures.cpp
       src/app/workbench_service.cpp
       src/app/workbench_service_models.cpp
+      src/app/workbench_settings.cpp
       src/app/workbench_state.cpp
+      src/app/workbench_ui_settings.cpp
       src/render/mupdf_page_renderer.cpp
     )
     target_link_libraries(uocr-server PRIVATE uocr_core uocr_download uocr_storage Drogon::Drogon)

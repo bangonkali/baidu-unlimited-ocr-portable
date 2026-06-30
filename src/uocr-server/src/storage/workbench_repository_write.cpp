@@ -55,13 +55,22 @@ void WorkbenchRepository::upsert_run(const StoredRun& run) {
 }
 
 void WorkbenchRepository::put_setting_string(std::string_view key, std::string_view value) {
+  put_setting_json(key, escape_json_string(value));
+}
+
+void WorkbenchRepository::put_setting_json(std::string_view key, std::string_view json) {
   std::scoped_lock lock(impl_->mutex);
-  const auto quoted_key = quote_sql_string(key);
   impl_->execute("BEGIN TRANSACTION");
   try {
-    impl_->execute("DELETE FROM settings WHERE key = " + quoted_key);
-    impl_->execute("INSERT INTO settings(key, value, updated_at) VALUES (" + quoted_key + ", " +
-                   quote_sql_string(escape_json_string(value)) + "::JSON, current_timestamp)");
+    auto delete_existing = impl_->statement("DELETE FROM settings WHERE key = ?");
+    delete_existing.bind_text(1, key);
+    delete_existing.execute();
+
+    auto insert = impl_->statement(
+        "INSERT INTO settings(key, value, updated_at) VALUES (?, CAST(? AS JSON), current_timestamp)");
+    insert.bind_text(1, key);
+    insert.bind_text(2, json);
+    insert.execute();
     impl_->execute("COMMIT");
   } catch (...) {
     impl_->execute("ROLLBACK");

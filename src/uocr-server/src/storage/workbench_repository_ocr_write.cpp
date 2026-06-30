@@ -134,6 +134,11 @@ void WorkbenchRepository::replace_page_ocr(const std::string& file_hash,
   delete_terms.bind_text(1, file_hash);
   delete_terms.bind_int32(2, page.page_no);
   delete_terms.execute();
+  auto delete_annotations =
+      impl_->statement("DELETE FROM document_region_annotations WHERE file_hash = ? AND page_no = ?");
+  delete_annotations.bind_text(1, file_hash);
+  delete_annotations.bind_int32(2, page.page_no);
+  delete_annotations.execute();
   auto delete_regions = impl_->statement(
       "DELETE FROM document_regions WHERE file_hash = ? AND page_no = ? AND engine_id = ? AND profile_id = ?");
   delete_regions.bind_text(1, file_hash);
@@ -146,8 +151,8 @@ void WorkbenchRepository::replace_page_ocr(const std::string& file_hash,
   for (const auto& box : page.boxes) {
     auto region = impl_->statement(
         "INSERT INTO document_regions(region_id, file_hash, page_no, engine_id, profile_id, label, x1, y1, x2, "
-        "y2, source_span_start, source_span_end, content_markdown, content_html) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        "y2, source_span_start, source_span_end) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     region.bind_text(1, box.region_id);
     region.bind_text(2, file_hash);
     region.bind_int32(3, page.page_no);
@@ -166,9 +171,17 @@ void WorkbenchRepository::replace_page_ocr(const std::string& file_hash,
       region.bind_uint64(11, found->second.start);
       region.bind_uint64(12, found->second.end);
     }
-    region.bind_text(13, region_content(page, box));
-    bind_nullable_text(region, 14, box.content_html);
     region.execute();
+
+    auto annotation = impl_->statement(
+        "INSERT INTO document_region_annotations(region_id, file_hash, page_no, content_markdown, "
+        "content_html, updated_at) VALUES (?, ?, ?, ?, ?, current_timestamp)");
+    annotation.bind_text(1, box.region_id);
+    annotation.bind_text(2, file_hash);
+    annotation.bind_int32(3, page.page_no);
+    annotation.bind_text(4, region_content(page, box));
+    bind_nullable_text(annotation, 5, box.content_html);
+    annotation.execute();
   }
 
   for (const auto& span : page.spans) {

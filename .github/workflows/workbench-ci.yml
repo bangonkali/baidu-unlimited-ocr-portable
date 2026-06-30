@@ -2,16 +2,19 @@ name: Workbench CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
 
 permissions:
   contents: read
 
 jobs:
   frontend:
-    if: ${{ false }}
     name: React client
-    runs-on: windows-2025
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -35,6 +38,10 @@ jobs:
         working-directory: src/uocr-client
         run: bun run lint
 
+      - name: Test
+        working-directory: src/uocr-client
+        run: bun run test
+
       - name: Typecheck
         working-directory: src/uocr-client
         run: bun run typecheck
@@ -43,22 +50,156 @@ jobs:
         working-directory: src/uocr-client
         run: bun run build
 
-  cxx-core:
-    if: ${{ false }}
-    name: C++ core tests
-    runs-on: windows-2025
-    timeout-minutes: 20
+      - name: Build Storybook
+        working-directory: src/uocr-client
+        run: bun run build-storybook
+
+  cxx:
+    name: C++ tests (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-2025
+            triplet: x64-windows-release
+          - platform: macos-arm64
+            runner: macos-15
+            triplet: arm64-osx
+            osx_arch: arm64
+          - platform: linux-x64
+            runner: ubuntu-24.04
+            triplet: x64-linux
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            triplet: arm64-linux
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Ensure vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_ROOT) {
+            $env:VCPKG_ROOT = "C:\vcpkg"
+          }
+          if (-not (Test-Path $env:VCPKG_ROOT)) {
+            git clone https://github.com/microsoft/vcpkg "$env:VCPKG_ROOT"
+            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
+          }
+          "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
+          & "$env:VCPKG_ROOT\vcpkg.exe" version
+
+      - name: Ensure vcpkg on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ -z "${VCPKG_ROOT:-}" ]]; then
+            VCPKG_ROOT="$HOME/vcpkg"
+          fi
+          if [[ ! -d "$VCPKG_ROOT" ]]; then
+            git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+            "$VCPKG_ROOT/bootstrap-vcpkg.sh"
+          fi
+          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+          "$VCPKG_ROOT/vcpkg" version
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake_args=(
+            -S .
+            -B "build/cxx-${{ matrix.platform }}"
+            -G Ninja
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+            -DVCPKG_TARGET_TRIPLET="${{ matrix.triplet }}"
+            -DTRANTOR_USE_TLS=openssl
+            -DUOCR_BUILD_SERVER=ON
+            -DUOCR_BUILD_CLIENT=OFF
+            -DUOCR_BUILD_TESTS=ON
+          )
+          if [[ -n "${{ matrix.osx_arch || '' }}" ]]; then
+            cmake_args+=(-DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}")
+          fi
+          cmake "${cmake_args[@]}"
+
+      - name: Build tests
+        shell: bash
+        run: |
+          cmake --build "build/cxx-${{ matrix.platform }}" --config Release --target \
+            uocr-core-tests \
+            uocr-download-tests \
+            uocr-render-tests \
+            uocr-storage-tests \
+            uocr-dependency-tests \
+            uocr-realtime-tests
+
+      - name: Run tests
+        shell: bash
+        run: ctest --test-dir "build/cxx-${{ matrix.platform }}" -C Release --output-on-failure
+
+  complexity:
+    name: SCC complexity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - name: Configure
-        run: cmake -S . -B build/core -DUOCR_BUILD_SERVER=OFF -DUOCR_BUILD_CLIENT=OFF -DUOCR_BUILD_TESTS=ON
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
 
-      - name: Build
-        run: cmake --build build/core --config Release --target uocr-core-tests
+      - name: Run SCC gate
+        shell: bash
+        run: |
+          mkdir -p .logs
+          go install github.com/boyter/scc/v3@latest
+          "$HOME/go/bin/scc" --by-file --format json > .logs/scc.json
+          python3 - <<'PY'
+          import json
+          import re
+          import sys
 
-      - name: Test
-        run: ctest --test-dir build/core -C Release --output-on-failure
+          ignored = re.compile(
+              r"node_modules|dist|generated|\\.json$|\\.md$|\\.github|analysis[\\\\/]|"
+              r"src[\\\\/]baidu_unlimited_ocr_portable[\\\\/]|trapo[\\\\/]migrations|tests[\\\\/]|"
+              r"scripts[\\\\/](install_runtime\\.py|package_runtime\\.py|test_ctypes_runtime\\.py|"
+              r"windows[\\\\/]package-workbench\\.ps1|windows[\\\\/]setup-build\\.ps1|"
+              r"mac[\\\\/]setup-build\\.sh|linux[\\\\/]setup-build\\.sh)"
+          )
+          data = json.load(open(".logs/scc.json", encoding="utf-8"))
+          offenders = [
+              item
+              for item in data.get("Files", [])
+              if item.get("Lines", 0) > 300 and not ignored.search(item.get("Location", ""))
+          ]
+          offenders.sort(key=lambda item: item.get("Lines", 0), reverse=True)
+          for item in offenders:
+              print(f"{item.get('Location')} lines={item.get('Lines')} code={item.get('Code')} complexity={item.get('Complexity')}")
+          sys.exit(1 if offenders else 0)
+          PY
+
+      - name: Upload SCC log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scc-complexity-log
+          path: .logs/scc.json
+          if-no-files-found: ignore

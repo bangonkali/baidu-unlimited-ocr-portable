@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RuntimeVariantRecord } from './runtimeVariantRecord';
+import type { WorkbenchUiSettings } from './workbenchUiSettings';
 
 export interface SettingsPayload {
   pdf_dpi: number;
@@ -18,4 +19,5 @@ export interface SettingsPayload {
   selected_accelerator?: string;
   selected_model_id?: string;
   runtime_variants?: RuntimeVariantRecord[];
+  workbench_ui?: WorkbenchUiSettings;
 }

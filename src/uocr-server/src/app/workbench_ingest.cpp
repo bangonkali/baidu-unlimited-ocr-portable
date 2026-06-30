@@ -75,7 +75,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
     log_error(logger, "ingest", "run " + run_id + " failed because uocr-ffi is missing");
     return;
   }
-
   log_info(logger, "models", "loading Unlimited-OCR runtime=" + runtime.runtime_id +
                                 " accelerator=" + runtime.accelerator + " model=" + model_id +
                                 " file=" + std::string(model_entry->model_file));
@@ -94,7 +93,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
   publish_event("run.changed", run_event);
   publish_status_changed();
   log_info(logger, "ingest", "run " + run_id + " started with " + std::to_string(files.size()) + " files");
-
   for (const auto& file : files) {
     const auto hash = stable_hash(file);
     Json::Value document_event;
@@ -117,7 +115,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       return;
     }
     publish_event("document.changed", document_event);
-
     std::vector<PageState> pages;
     try {
       pages = prepare_pages(file, hash);
@@ -142,7 +139,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       publish_status_changed();
       continue;
     }
-
     std::vector<Json::Value> page_events;
     {
       std::scoped_lock lock(mutex);
@@ -167,7 +163,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       publish_event("document.page.changed", page_event);
     }
     publish_status_changed();
-
     for (std::size_t index = 0; index < pages.size(); ++index) {
       const auto& page = pages[index];
       Json::Value page_event;
@@ -212,7 +207,6 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       }
       publish_event("document.page.changed", page_event);
       log_info(logger, "ocr", "processing " + page_label(file, page.page_no, static_cast<int>(pages.size())));
-
       OcrResult result;
       std::string error;
       try {

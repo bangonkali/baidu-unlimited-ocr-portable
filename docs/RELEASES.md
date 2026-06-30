@@ -1,113 +1,85 @@
 # Workbench Releases
 
-The release goal is a small set of portable zips that can be downloaded from
-GitHub, extracted anywhere writable, and launched directly. Windows remains the
-primary package; Apple Silicon macOS is built after the Windows package passes.
+The release goal is portable archives that can be extracted anywhere writable
+and launched directly. The executable hosts both the Drogon API and the React
+app.
 
-## Windows User Flow
+## Artifacts
 
-Download:
+| Platform | Artifact |
+| --- | --- |
+| Windows x64 | `uocr-workbench-windows-x64-<tag>.zip` |
+| macOS arm64 | `uocr-workbench-macos-arm64-<tag>.zip` |
+| Ubuntu 24.04 x64 | `uocr-workbench-linux-x64-<tag>.tar.gz` |
+| Ubuntu 24.04 arm64 | `uocr-workbench-linux-arm64-<tag>.tar.gz` |
+
+Each artifact has a matching `.sha256` file.
+
+## User Flow
+
+Extract the archive, run the launcher, then open:
 
 ```text
-https://github.com/bangonkali/baidu-unlimited-ocr-portable/releases
+http://127.0.0.1:8765/
 ```
 
-Asset:
+Launchers:
 
 ```text
-uocr-workbench-windows-x64-<tag>.zip
+Windows: uocr-server.exe
+macOS:   uocr-server.command
+Linux:   ./uocr-server.sh
 ```
 
-Extract it and run:
-
-```powershell
-.\uocr-server.exe
-```
-
-The app starts on `127.0.0.1:8765` and hosts the React workbench itself. The
-same binary reports its release metadata:
-
-```powershell
-.\uocr-server.exe --version
-```
-
-Runtime logs are written beside the executable:
+Runtime logs and database state are inside the extracted folder:
 
 ```text
 logs/uocr-server.log
+data/uocr.duckdb
 ```
 
-The zip bundles the native `uocr-ffi` runtime. GGUF model files are not bundled;
-use the workbench **Models** panel to choose a catalog model, download it, and
-mark it **In Use**. API automation can call `GET /api/models`, then
-`POST /api/models/{model_id}/download`, then
-`POST /api/models/{model_id}/select`. The initial default model id is
-`unlimited-ocr-q4-k-m`; the default OCR profile is
-`experimental-exact-prefill-q4`.
+GGUF model files are downloaded after first launch through the Models page.
+The package bundles native runtime binaries, not model weights.
 
-## macOS Apple Silicon User Flow
+## GitHub Actions
 
-Asset:
+`Release workbench` runs on `v*` tags and manual dispatch. Platform jobs run in
+parallel by default:
 
-```text
-uocr-workbench-macos-arm64-<tag>.zip
-```
+- Windows x64 on `windows-2025`
+- macOS arm64 on `macos-15`
+- Ubuntu 24.04 x64 on `ubuntu-24.04`
+- Ubuntu 24.04 arm64 on `ubuntu-24.04-arm`
 
-Extract it and run:
+The workflow uses `strategy.fail-fast: false`. Each platform job checks the
+frontend, builds the C++ server/tests through vcpkg, packages the portable
+archive, smokes the extracted app, verifies `logs/uocr-server.log` and
+`data/uocr.duckdb`, and uploads workflow artifacts. A final fan-in `publish`
+job downloads all artifacts and uploads them to one GitHub Release.
 
-```sh
-./uocr-server.command
-```
-
-The app uses the same local URL, log path, DuckDB database layout, model
-download flow, and in-process vcpkg MuPDF renderer as the Windows package. The
-zip bundles the `macos-arm64-metal` native runtime and downloads GGUF model
-files after first launch.
-
-## Installer Commands
-
-Windows:
-
-```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.ps1 | iex"
-```
-
-macOS/Linux installer entry point:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/bangonkali/baidu-unlimited-ocr-portable/main/scripts/install.sh | bash
-```
-
-Windows is the first packaged target. The shell installer is present so macOS
-and Linux can use the same `~/.uocr` install convention when platform packages
-are added.
-
-Uninstall is intentionally simple: delete `~/.uocr`.
+`Workbench CI` runs frontend quality gates, C++ tests across the same OS family,
+and SCC complexity checks. `Build runtime binaries` publishes native FFI runtime
+archives, including Linux CPU fallbacks and Linux arm64 CPU.
 
 ## Maintainer Flow
 
-Local package:
+Tag releases by incrementing the patch version:
 
-```powershell
-.\scripts\windows\package-workbench.ps1 -Version v0.0.9
+```sh
+git tag v0.0.31
+git push origin main v0.0.31
 ```
 
-GitHub Actions:
+Manual release dispatch should use the same tag-style version string, for
+example `v0.0.31`.
 
-- `Release workbench` is the only automatic workflow while the portable zip
-  path is being stabilized.
-- `Release workbench` runs on `v*` tags and manual dispatch. It builds the
-  Windows C++/React app through the vcpkg manifest, bundles the Windows
-  runtime, smokes the extracted zip, verifies Drogon `1.9.13`, verifies Trantor
-  uses the same vcpkg OpenSSL `3.6.3` for TLS, verifies the server uses that
-  same `libcrypto` for SHA verification, runs `uocr-dependency-tests`, and
-  uploads the zip plus checksum to the GitHub Release.
-- After the Windows job succeeds, the same workflow builds the macOS arm64
-  C++/React app through vcpkg, bundles the `macos-arm64-metal` runtime, runs
-  the C++ test targets, smokes the extracted zip on `macos-15`, and uploads the
-  macOS zip plus checksum to the same GitHub Release.
-- `Workbench CI` and `Build runtime binaries` are manual-only for now. Re-enable
-  their push/tag triggers after the portable app release path remains stable.
+Local package commands:
 
-For app releases, increment the patch tag and push it, for example `v0.0.15`,
-`v0.0.16`, and so on.
+```powershell
+.\scripts\windows\package-workbench.ps1 -Version v0.0.0-local
+```
+
+```sh
+bash scripts/mac/package-workbench.sh --version v0.0.0-local
+bash scripts/linux/package-workbench.sh --version v0.0.0-local
+```

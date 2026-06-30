@@ -45,6 +45,36 @@
         "UOCR_BUILD_CLIENT": "ON",
         "UOCR_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "linux-x64-workbench-ci",
+      "displayName": "Linux x64 Workbench CI",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-x64-workbench-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "TRANTOR_USE_TLS": "openssl",
+        "UOCR_BUILD_SERVER": "ON",
+        "UOCR_BUILD_CLIENT": "ON",
+        "UOCR_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "linux-arm64-workbench-ci",
+      "displayName": "Linux arm64 Workbench CI",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-arm64-workbench-ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux",
+        "TRANTOR_USE_TLS": "openssl",
+        "UOCR_BUILD_SERVER": "ON",
+        "UOCR_BUILD_CLIENT": "ON",
+        "UOCR_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -71,6 +101,22 @@
       "targets": [
         "uocr-server"
       ]
+    },
+    {
+      "name": "linux-x64-workbench-ci-release",
+      "configurePreset": "linux-x64-workbench-ci",
+      "configuration": "Release",
+      "targets": [
+        "uocr-server"
+      ]
+    },
+    {
+      "name": "linux-arm64-workbench-ci-release",
+      "configurePreset": "linux-arm64-workbench-ci",
+      "configuration": "Release",
+      "targets": [
+        "uocr-server"
+      ]
     }
   ],
   "testPresets": [
@@ -93,6 +139,22 @@
     {
       "name": "macos-arm64-workbench-ci-release",
       "configurePreset": "macos-arm64-workbench-ci",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-x64-workbench-ci-release",
+      "configurePreset": "linux-x64-workbench-ci",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-arm64-workbench-ci-release",
+      "configurePreset": "linux-arm64-workbench-ci",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

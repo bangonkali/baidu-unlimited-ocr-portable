@@ -44,6 +44,7 @@ import {
   profileOptions,
   selectedModel,
   useAutoFollowLatestRegion,
+  usePersistedWorkbenchUiSettings,
   usePersistentProfile,
   useThemeSync,
 } from './WorkbenchPageSupport';
@@ -77,6 +78,12 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const selectedDocument = selectedDocumentFrom(data.documents.data?.documents, workbench);
 
   useThemeSync(workbench.theme);
+  usePersistedWorkbenchUiSettings({
+    isSettingsReady: data.settings.isSuccess,
+    onSave: (workbenchUi) => data.updateSettings.mutate({ workbench_ui: workbenchUi }),
+    settings: data.settings.data,
+    workbench,
+  });
   useRouteSearchText(
     activeView,
     props.diagnosticsSearch,

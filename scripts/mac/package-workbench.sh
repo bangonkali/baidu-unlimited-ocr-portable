@@ -18,6 +18,7 @@ Options:
   --version VERSION              Release version, for example v0.0.28.
   --runtime-version VERSION      Runtime release tag. Default: v0.0.7.
   --runtime-repo OWNER/REPO      Runtime release repo.
+  --runtime-platform PLATFORM    Runtime label. Default: macos-arm64-metal.
   --output-dir PATH              Output directory. Default: dist.
   --preset NAME                  CMake preset. Default: macos-arm64-workbench-ci.
   --no-build                     Skip CMake build and use existing uocr-server.
@@ -40,6 +41,7 @@ while (($# > 0)); do
     --version) version="$2"; shift 2 ;;
     --runtime-version) runtime_version="$2"; shift 2 ;;
     --runtime-repo) runtime_repo="$2"; shift 2 ;;
+    --runtime-platform) runtime_platform="$2"; shift 2 ;;
     --output-dir) output_dir="$2"; shift 2 ;;
     --preset) preset="$2"; shift 2 ;;
     --no-build) no_build=1; shift ;;

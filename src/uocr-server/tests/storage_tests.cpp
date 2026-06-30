@@ -1,5 +1,6 @@
 #include <cassert>
 #include <filesystem>
+#include <string>
 
 #include "uocr/storage/workbench_repository.hpp"
 
@@ -17,7 +18,7 @@ uocr::storage::StoredDocument sample_document() {
   page.boxes.push_back({
       .region_id = "reg_total",
       .label = "Invoice total",
-      .content_markdown = "Invoice total",
+      .content_markdown = "",
       .content_html = "",
       .page_no = 1,
       .left_percent = 1.0,
@@ -52,6 +53,9 @@ void persist_document(uocr::storage::WorkbenchRepository& repository) {
   run.file_hashes.push_back("file_abc");
   repository.upsert_run(run);
   repository.put_setting_string("selected_model_id", "unlimited-ocr-q5-k-m");
+  repository.put_setting_json(
+      "workbench_ui",
+      R"({"theme":"light","auto_follow_regions":false,"overlay_visible":true,"labels_visible":false,"panes_collapsed":{"explorer":false,"details":true,"diagnostics":true}})");
 
   auto document = sample_document();
   repository.upsert_document(document, run.root_path);
@@ -84,6 +88,9 @@ int main() {
     assert(snapshot.runs.front().model_id == "unlimited-ocr-q5-k-m");
     assert(snapshot.runs.front().profile_id == "experimental-exact-prefill-q4");
     assert(reopened.setting_string("selected_model_id", "") == "unlimited-ocr-q5-k-m");
+    const auto ui_settings = reopened.setting_json("workbench_ui", "{}");
+    assert(ui_settings.find("\"theme\"") != std::string::npos);
+    assert(ui_settings.find("\"light\"") != std::string::npos);
     const auto& document = snapshot.documents.front();
     assert(document.file_hash == "file_abc");
     assert(document.pages.size() == 1);

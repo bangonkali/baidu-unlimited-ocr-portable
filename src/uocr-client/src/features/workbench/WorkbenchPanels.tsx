@@ -45,6 +45,9 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
   const selectedRegion = props.regions.find(
     (region) => region.region_id === props.workbench.selection.regionId,
   );
+  const selectedRegionContent = selectedRegion
+    ? regionContentFor(props.textPages, selectedRegion.region_id)
+    : undefined;
   usePanelCollapseSync(explorerRef, props.workbench.panesCollapsed.explorer);
   usePanelCollapseSync(detailsRef, props.workbench.panesCollapsed.details);
   return (
@@ -91,12 +94,23 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
             labelsVisible={props.workbench.labelsVisible}
             overlayVisible={props.workbench.overlayVisible}
             selectedRegion={selectedRegion}
+            selectedRegionContent={selectedRegionContent}
             selectedRegionId={props.workbench.selection.regionId}
           />
         </Panel>
       </PanelGroup>
     </div>
   );
+}
+
+function regionContentFor(pages: PageTextRecord[], regionId: string) {
+  for (const page of pages) {
+    const span = page.spans.find((item) => item.region_id === regionId);
+    if (span && span.start <= span.end && span.end <= page.text.length) {
+      return page.text.slice(span.start, span.end);
+    }
+  }
+  return undefined;
 }
 
 function DocumentWorkspace(props: WorkbenchPanelsProps) {
