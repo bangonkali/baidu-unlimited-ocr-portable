@@ -45,17 +45,18 @@ export function profileOptions(profiles: OcrProfileRecord[] | undefined, selecte
 export function useAutoFollowLatestRegion(
   workbench: ReturnType<typeof useWorkbenchState>,
   regions?: DocumentRegionsPayload,
+  enabled = workbench.autoFollowRegions,
 ) {
   const latestRegion = regions?.boxes.at(-1);
   useEffect(() => {
-    if (!workbench.autoFollowRegions || !regions || !latestRegion) {
+    if (!enabled || !regions || !latestRegion) {
       return;
     }
     if (workbench.selection.regionId === latestRegion.region_id) {
       return;
     }
     followLatestRegion(regions.file_hash, regions.boxes);
-  }, [latestRegion, regions, workbench.autoFollowRegions, workbench.selection.regionId]);
+  }, [enabled, latestRegion, regions, workbench.selection.regionId]);
 }
 
 export function WorkbenchFooter(props: {

@@ -1,15 +1,13 @@
-import type { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 import type { DiagnosticsRouteSearch, WorkbenchRouteSearch } from '../../routeSearch';
-import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore';
+import type { ActiveView, useWorkbenchState, WorkbenchState } from '../../stores/workbenchStore';
 import {
   setAutoFollowRegions,
   setLabelsVisible,
   setOverlayVisible,
   setSelection,
 } from '../../stores/workbenchStore';
-import { sameWorkbenchSearch, workbenchSearchFromState } from './workbenchRouteState';
 
 export function useRouteSearchText(
   activeView: ActiveView,
@@ -32,20 +30,15 @@ export function useRouteSearchText(
 
 export function useRouteSearchSync(args: {
   activeView: ActiveView;
-  navigate: ReturnType<typeof useNavigate>;
-  searchText: string;
   workbench: ReturnType<typeof useWorkbenchState>;
   workbenchSearch?: WorkbenchRouteSearch;
 }) {
-  const { activeView, navigate, searchText, workbench, workbenchSearch } = args;
+  const { activeView, workbench, workbenchSearch } = args;
   useEffect(() => {
     if (activeView !== 'workbench') {
       return;
     }
-    const routeHasManualFocus =
-      workbenchSearch?.file !== undefined ||
-      workbenchSearch?.page !== undefined ||
-      workbenchSearch?.region !== undefined;
+    const desiredAutoFollow = routeAutoFollowValue(activeView, workbenchSearch);
     const routeSelection = {
       fileHash: workbenchSearch?.file,
       pageNo: workbenchSearch?.page ?? workbench.selection.pageNo,
@@ -59,14 +52,8 @@ export function useRouteSearchSync(args: {
     ) {
       setSelection(routeSelection);
     }
-    if (routeHasManualFocus && workbenchSearch?.follow !== true && workbench.autoFollowRegions) {
-      setAutoFollowRegions(false);
-    }
-    if (
-      workbenchSearch?.follow !== undefined &&
-      workbenchSearch.follow !== workbench.autoFollowRegions
-    ) {
-      setAutoFollowRegions(workbenchSearch.follow);
+    if (desiredAutoFollow !== undefined && desiredAutoFollow !== workbench.autoFollowRegions) {
+      setAutoFollowRegions(desiredAutoFollow);
     }
     if (
       workbenchSearch?.labels !== undefined &&
@@ -81,19 +68,33 @@ export function useRouteSearchSync(args: {
       setOverlayVisible(workbenchSearch.overlays);
     }
   }, [activeView, workbench, workbenchSearch]);
+}
 
-  useEffect(() => {
-    if (activeView !== 'workbench') {
-      return;
-    }
-    const next = workbenchSearchFromState(workbench, searchText);
-    if (sameWorkbenchSearch(workbenchSearch, next)) {
-      return;
-    }
-    void navigate({
-      replace: true,
-      search: () => next,
-      to: '/workbench',
-    });
-  }, [activeView, navigate, searchText, workbench, workbenchSearch]);
+export function autoFollowEnabledForRoute(
+  activeView: ActiveView,
+  workbench: Pick<WorkbenchState, 'autoFollowRegions'>,
+  workbenchSearch?: WorkbenchRouteSearch,
+) {
+  return routeAutoFollowValue(activeView, workbenchSearch) ?? workbench.autoFollowRegions;
+}
+
+function routeAutoFollowValue(
+  activeView: ActiveView,
+  workbenchSearch?: WorkbenchRouteSearch,
+): boolean | undefined {
+  if (activeView !== 'workbench') {
+    return undefined;
+  }
+  if (workbenchSearch?.follow !== undefined) {
+    return workbenchSearch.follow;
+  }
+  return routeHasManualFocus(workbenchSearch) ? false : undefined;
+}
+
+function routeHasManualFocus(workbenchSearch?: WorkbenchRouteSearch) {
+  return (
+    workbenchSearch?.file !== undefined ||
+    workbenchSearch?.page !== undefined ||
+    workbenchSearch?.region !== undefined
+  );
 }

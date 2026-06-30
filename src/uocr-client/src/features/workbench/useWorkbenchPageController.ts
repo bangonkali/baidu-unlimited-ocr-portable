@@ -34,7 +34,11 @@ import { useWorkbenchState } from '../../stores/workbenchStore';
 import { useModelRouteActions } from './useModelRouteActions';
 import { useWorkbenchCommands } from './useWorkbenchCommands';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
-import { useRouteSearchSync, useRouteSearchText } from './useWorkbenchRouteSync';
+import {
+  autoFollowEnabledForRoute,
+  useRouteSearchSync,
+  useRouteSearchText,
+} from './useWorkbenchRouteSync';
 import { useWorkbenchSelectionActions } from './useWorkbenchSelectionActions';
 import {
   profileOptions,
@@ -80,11 +84,13 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     searchText,
     setSearchText,
   );
-  useAutoFollowLatestRegion(workbench, data.regions.data);
+  useAutoFollowLatestRegion(
+    workbench,
+    data.regions.data,
+    autoFollowEnabledForRoute(activeView, workbench, props.workbenchSearch),
+  );
   useRouteSearchSync({
     activeView,
-    navigate,
-    searchText,
     workbench,
     workbenchSearch: props.workbenchSearch,
   });
