@@ -121,24 +121,27 @@ install_cpu_runtime_from_source() {
   local build_dir="$llama_dir/build-$platform"
   [[ -f "$llama_dir/CMakeLists.txt" ]] || die "llama.cpp submodule is missing; cannot build $platform runtime"
 
-  echo "Building Linux CPU runtime for $platform"
+  echo "Building Linux CPU runtime for $platform" >&2
   cmake -B "$build_dir" \
     -S "$llama_dir" \
     -DGGML_NATIVE=OFF \
-    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_BUILD_TYPE=Release >&2
   cmake --build "$build_dir" --config Release --target \
     llama-mtmd-cli \
     llama-uocr-parity \
     llama-server \
     uocr-ffi \
-    --parallel "$runtime_build_parallel"
+    --parallel "$runtime_build_parallel" >&2
 
   rm -rf "$runtime_dir"
   mkdir -p "$runtime_dir/bin"
   for name in llama-uocr-parity llama-mtmd-cli llama-server libuocr-ffi.so; do
     cp "$(find_built_runtime_file "$build_dir" "$name")" "$runtime_dir/bin/"
   done
-  find "$build_dir" -type f \( -name '*.so' -o -name '*.so.*' \) ! -path '*/CMakeFiles/*' -exec cp -n {} "$runtime_dir/bin/" \;
+  while IFS= read -r shared_library; do
+    [[ "$(basename "$shared_library")" == "libuocr-ffi.so" ]] && continue
+    cp "$shared_library" "$runtime_dir/bin/"
+  done < <(find "$build_dir" -type f \( -name '*.so' -o -name '*.so.*' \) ! -path '*/CMakeFiles/*')
   chmod 755 "$runtime_dir/bin/llama-uocr-parity" "$runtime_dir/bin/llama-mtmd-cli" "$runtime_dir/bin/llama-server"
 }
 
@@ -153,9 +156,9 @@ ensure_runtime_platform() {
       --runtime-repo "$runtime_repo" \
       --runtime-version "$runtime_version" \
       --platform "$platform" \
-      --skip-accelerator-probe; then
+      --skip-accelerator-probe >&2; then
       if [[ "$platform" == linux-*-cpu ]]; then
-        echo "No downloadable runtime asset found for $platform; building CPU runtime from source."
+        echo "No downloadable runtime asset found for $platform; building CPU runtime from source." >&2
         install_cpu_runtime_from_source "$platform" "$runtime_dir"
       else
         return 1
