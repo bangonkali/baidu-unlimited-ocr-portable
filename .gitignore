@@ -20,5 +20,7 @@ __pycache__/
 /src/trapo-client/dist/
 /src/trapo-client/storybook-static/
 /src/trapo-client/node_modules/
+/data/*.duckdb
+/data/*.duckdb.wal
 *.tsbuildinfo
 .logs/
