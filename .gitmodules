@@ -14,3 +14,15 @@
 [submodule "thirdparty/pdfium"]
 	path = thirdparty/pdfium
 	url = https://pdfium.googlesource.com/pdfium
+[submodule "thirdparty/PDFium-rs"]
+	path = thirdparty/PDFium-rs
+	url = git@github.com:newinnovations/PDFium-rs.git
+[submodule "thirdparty/pdfium-binaries"]
+	path = thirdparty/pdfium-binaries
+	url = git@github.com:bblanchon/pdfium-binaries.git
+[submodule "thirdparty/axum"]
+	path = thirdparty/axum
+	url = git@github.com:tokio-rs/axum.git
+[submodule "thirdparty/utoipa"]
+	path = thirdparty/utoipa
+	url = git@github.com:juhaku/utoipa.git
