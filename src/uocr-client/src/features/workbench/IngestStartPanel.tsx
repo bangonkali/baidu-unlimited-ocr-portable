@@ -20,6 +20,7 @@ interface IngestStartPanelProps {
   activeRun?: IngestRunRecord;
   activeRunId?: string | null;
   busy?: boolean;
+  folderDialogError?: string;
   ingestSearch?: IngestRouteSearch;
   model?: ModelAssetRecord;
   models?: ModelsPayload;
@@ -72,6 +73,11 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
                 Choose Folder
               </button>
             </div>
+            {props.folderDialogError ? (
+              <p className={styles.error} role="alert">
+                {props.folderDialogError}
+              </p>
+            ) : null}
             <label className={styles.field}>
               <span>Folder path</span>
               <input

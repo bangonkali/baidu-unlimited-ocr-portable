@@ -34,8 +34,10 @@ export interface WorkbenchContentActions {
   cancelModelDownload: MutationLike<string>;
   changeModelScope: (scope: 'library' | 'downloads') => void;
   changeProfile: (profileId: string) => void;
+  clearFolderDialogError: () => void;
   commandController: ReturnType<typeof useWorkbenchCommands>;
   downloadModel: MutationLike<ModelDownloadInput>;
+  folderDialogError?: string;
   ingestBusy: boolean;
   modelBusy: boolean;
   pickFolder: () => void;
@@ -88,6 +90,7 @@ export function buildContentProps(args: {
     activeRunId: args.activeRunId,
     activeView: args.route.activeView,
     diagnosticsSearch: args.route.diagnosticsSearch,
+    folderDialogError: args.actions.folderDialogError,
     ingestBusy: args.actions.ingestBusy,
     ingestSearch: args.route.ingestSearch,
     modelBusy: args.actions.modelBusy,
@@ -104,7 +107,10 @@ export function buildContentProps(args: {
     onOpenModels: () => args.actions.commandController.navigateView('models'),
     onPickFolder: args.actions.pickFolder,
     onProfileChange: args.actions.changeProfile,
-    onRootPathChange: setSelectedRoot,
+    onRootPathChange: (value) => {
+      args.actions.clearFolderDialogError();
+      setSelectedRoot(value);
+    },
     onRuntimeChange: args.actions.updateRuntime,
     onSelectDocument: args.actions.selectDocument,
     onSelectModel: (modelId) => args.actions.selectModel.mutate(modelId),

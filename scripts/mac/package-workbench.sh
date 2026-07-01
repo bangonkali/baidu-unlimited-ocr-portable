@@ -67,6 +67,39 @@ find_vcpkg_copyright() {
   find "$repo_root/build" -path "*/vcpkg_installed/*/share/$package/copyright" -type f 2>/dev/null | sort | tail -n 1
 }
 
+has_rpath() {
+  local binary="$1"
+  local rpath="$2"
+  otool -l "$binary" 2>/dev/null | awk '
+    $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+    in_rpath && $1 == "path" { print $2; in_rpath = 0 }
+  ' | grep -Fxq "$rpath"
+}
+
+add_rpath_if_missing() {
+  local binary="$1"
+  local rpath="$2"
+  if ! has_rpath "$binary" "$rpath"; then
+    install_name_tool -add_rpath "$rpath" "$binary"
+  fi
+}
+
+fix_macos_runtime_rpaths() {
+  local runtime_root="$1"
+  local bin_dir="$runtime_root/bin"
+  [[ -d "$bin_dir" ]] || return 0
+  while IFS= read -r binary; do
+    if ! file "$binary" | grep -q "Mach-O"; then
+      continue
+    fi
+    add_rpath_if_missing "$binary" "@loader_path"
+    if [[ -x "$binary" && "$(basename "$binary")" != *.dylib ]]; then
+      add_rpath_if_missing "$binary" "@executable_path"
+    fi
+    codesign --force --sign - "$binary" >/dev/null 2>&1 || true
+  done < <(find "$bin_dir" -maxdepth 1 -type f \( -name '*.dylib' -o -perm -111 \) | sort)
+}
+
 if ((no_build == 0)); then
   (cd "$repo_root/src/uocr-client" && bun install --frozen-lockfile)
   cmake --preset "$preset" -DUOCR_VERSION="$version"
@@ -103,6 +136,7 @@ find "$exe_dir" -maxdepth 1 -name '*.dylib' -type f -exec cp {} "$stage_root" \;
 
 mkdir -p "$stage_root/thirdparty/uocr-runtime" "$stage_root/thirdparty/libmupdf"
 cp -R "$runtime_dir" "$stage_root/thirdparty/uocr-runtime/$runtime_platform"
+fix_macos_runtime_rpaths "$stage_root/thirdparty/uocr-runtime/$runtime_platform"
 mupdf_copyright="$(find_vcpkg_copyright libmupdf)"
 [[ -n "$mupdf_copyright" ]] || die "vcpkg copyright file was not found for libmupdf"
 cp "$mupdf_copyright" "$stage_root/thirdparty/libmupdf/copyright"

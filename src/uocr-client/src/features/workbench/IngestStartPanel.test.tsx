@@ -48,4 +48,25 @@ describe('IngestStartPanel', () => {
     expect(html).toContain('Stop Active Run');
     expect(html).toContain('disabled=""');
   });
+
+  test('renders folder picker fallback errors', () => {
+    const html = renderToString(
+      <IngestStartPanel
+        folderDialogError="macOS folder picker failed. Paste a folder path manually."
+        model={fixtureModels.models[0]}
+        models={fixtureModels}
+        onModelChange={() => undefined}
+        onPickFolder={() => undefined}
+        onProfileChange={() => undefined}
+        onRootPathChange={() => undefined}
+        onStart={() => undefined}
+        onStop={() => undefined}
+        profiles={fixtureModels.profiles}
+        rootPath=""
+        selectedProfile="experimental-exact-prefill-q4"
+      />,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Paste a folder path manually.');
+  });
 });

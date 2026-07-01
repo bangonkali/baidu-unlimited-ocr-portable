@@ -1,5 +1,7 @@
 #include "folder_dialog.hpp"
 
+#include <array>
+#include <cstdio>
 #include <future>
 #include <string>
 #include <thread>
@@ -9,6 +11,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <shobjidl.h>
 #include <windows.h>
+#endif
+
+#ifdef __APPLE__
+#include <sys/wait.h>
 #endif
 
 namespace uocr::server {
@@ -83,6 +89,51 @@ Json::Value show_windows_folder_dialog() {
 }
 #endif
 
+#ifdef __APPLE__
+std::string trim_trailing_line_endings(std::string value) {
+  while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
+    value.pop_back();
+  }
+  return value;
+}
+
+bool user_cancelled_apple_dialog(const std::string& output) {
+  return output.find("User canceled") != std::string::npos ||
+         output.find("(-128)") != std::string::npos;
+}
+
+Json::Value show_macos_folder_dialog() {
+  constexpr const char* command =
+      "/usr/bin/osascript "
+      "-e 'set selectedFolder to choose folder with prompt \"Choose a folder to scan with Unlimited OCR\"' "
+      "-e 'POSIX path of selectedFolder' 2>&1";
+  FILE* pipe = popen(command, "r");
+  if (pipe == nullptr) {
+    return dialog_payload(true, "", "could not start macOS folder picker");
+  }
+
+  std::string output;
+  std::array<char, 256> buffer{};
+  while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
+    output += buffer.data();
+  }
+
+  const int status = pclose(pipe);
+  output = trim_trailing_line_endings(output);
+  if (status == -1) {
+    return dialog_payload(true, "", "macOS folder picker failed");
+  }
+  if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+    return output.empty() ? dialog_payload(true, "", "folder picker returned an empty path")
+                          : dialog_payload(false, output);
+  }
+  if (user_cancelled_apple_dialog(output)) {
+    return dialog_payload(true, "");
+  }
+  return dialog_payload(true, "", output.empty() ? "macOS folder picker failed" : output);
+}
+#endif
+
 }  // namespace
 
 Json::Value open_folder_dialog() {
@@ -91,8 +142,10 @@ Json::Value open_folder_dialog() {
   auto result = task.get_future();
   std::thread(std::move(task)).detach();
   return result.get();
+#elif defined(__APPLE__)
+  return show_macos_folder_dialog();
 #else
-  return dialog_payload(true, "", "native folder picker is only implemented on Windows");
+  return dialog_payload(true, "", "native folder picker is only implemented on Windows and macOS");
 #endif
 }
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -121,6 +122,16 @@ std::int32_t on_ffi_event(const UocrFfiEvent* event, void* user_data) {
   return 0;
 }
 
+std::string dynamic_library_error() {
+#ifdef _WIN32
+  const auto code = GetLastError();
+  return code == 0 ? std::string{} : " (GetLastError=" + std::to_string(code) + ")";
+#else
+  const char* message = dlerror();
+  return message == nullptr ? std::string{} : ": " + std::string(message);
+#endif
+}
+
 }  // namespace
 
 struct UnlimitedOcrFfiEngine::Impl {
@@ -179,7 +190,8 @@ struct UnlimitedOcrFfiEngine::Impl {
     library = dlopen(paths.ffi_library.string().c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
     if (library == nullptr) {
-      throw std::runtime_error("failed to load uocr-ffi library: " + paths.ffi_library.string());
+      throw std::runtime_error("failed to load uocr-ffi library: " + paths.ffi_library.string() +
+                               dynamic_library_error());
     }
 
     auto abi_version = symbol<AbiVersionFn>("uocr_ffi_abi_version");
