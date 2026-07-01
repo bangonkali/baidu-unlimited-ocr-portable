@@ -102,6 +102,17 @@ fn support_detail(probe: &HardwareProbe, accelerator: &str) -> String {
 
 fn runtime_specs() -> Vec<RuntimeSpec> {
     if cfg!(windows) {
+        if cfg!(target_arch = "aarch64") {
+            return vec![RuntimeSpec {
+                platform: "windows-arm64-cpu",
+                label: "Windows arm64 CPU",
+                accelerator: "cpu",
+                backend: "cpu",
+                library_name: "uocr-ffi.dll",
+                priority: 100,
+                n_gpu_layers: 0,
+            }];
+        }
         vec![
             RuntimeSpec {
                 platform: "windows-x86_64-cuda13",
@@ -192,5 +203,33 @@ fn runtime_specs() -> Vec<RuntimeSpec> {
                 n_gpu_layers: 0,
             },
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    fn windows_arm64_uses_native_cpu_runtime() {
+        let specs = runtime_specs();
+
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].platform, "windows-arm64-cpu");
+        assert_eq!(specs[0].library_name, "uocr-ffi.dll");
+    }
+
+    #[test]
+    #[cfg(all(windows, not(target_arch = "aarch64")))]
+    fn windows_x64_keeps_cuda_and_cpu_runtimes() {
+        let platforms: Vec<_> = runtime_specs()
+            .into_iter()
+            .map(|spec| spec.platform)
+            .collect();
+
+        assert!(platforms.contains(&"windows-x86_64-cuda13"));
+        assert!(platforms.contains(&"windows-x86_64-cpu"));
+        assert!(!platforms.contains(&"windows-arm64-cpu"));
     }
 }

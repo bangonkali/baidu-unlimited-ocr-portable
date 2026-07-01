@@ -239,7 +239,7 @@
       "os": "windows",
       "arch": "x86_64",
       "backend": "cpu",
-      "support_status": "planned",
+      "support_status": "supported",
       "runner": "windows-2025",
       "archive_ext": "zip",
       "cmake_defines": [
@@ -258,6 +258,31 @@
         "*.dll"
       ],
       "notes": "CPU-only fallback runtime for Windows machines with enough system RAM and no supported GPU."
+    },
+    "windows-arm64-cpu": {
+      "label": "Windows arm64 / CPU",
+      "os": "windows",
+      "arch": "arm64",
+      "backend": "cpu",
+      "support_status": "supported",
+      "runner": "windows-11-arm",
+      "archive_ext": "zip",
+      "cmake_defines": [
+        "GGML_NATIVE=OFF"
+      ],
+      "executables": [
+        "llama-uocr-parity.exe",
+        "llama-mtmd-cli.exe",
+        "llama-server.exe"
+      ],
+      "primary_binary": "llama-uocr-parity.exe",
+      "required_libraries": [
+        "uocr-ffi.dll"
+      ],
+      "library_globs": [
+        "*.dll"
+      ],
+      "notes": "CPU-only runtime for Windows on Arm machines."
     }
   }
 }

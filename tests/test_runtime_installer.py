@@ -58,6 +58,25 @@ class RuntimeInstallerTests(unittest.TestCase):
         self.assertFalse(install_runtime.release_has_platform_asset(REPO_ROOT, app_release, "linux-arm64-cpu"))
         self.assertTrue(install_runtime.release_has_platform_asset(REPO_ROOT, runtime_release, "linux-arm64-cpu"))
 
+    def test_windows_arm64_runtime_can_be_requested(self) -> None:
+        original_normalize_os = install_runtime.normalize_os
+        original_machine = install_runtime.platform.machine
+        try:
+            install_runtime.normalize_os = lambda: "windows"
+            install_runtime.platform.machine = lambda: "ARM64"
+            detected = install_runtime.detect_platform(
+                REPO_ROOT,
+                "windows-arm64-cpu",
+                skip_accelerator_probe=True,
+            )
+
+            self.assertTrue(detected.supported)
+            self.assertEqual(detected.platform_id, "windows-arm64-cpu")
+            self.assertEqual(detected.arch, "arm64")
+        finally:
+            install_runtime.normalize_os = original_normalize_os
+            install_runtime.platform.machine = original_machine
+
 
 if __name__ == "__main__":
     unittest.main()

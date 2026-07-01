@@ -304,6 +304,13 @@ jobs:
             archive_ext: zip
             runtime_platform: windows-x86_64-cuda13
             additional_runtime_platforms: windows-x86_64-cpu
+          - name: Windows arm64 zip
+            platform: windows-arm64
+            runner: windows-11-arm
+            archive_stem: trapo-workbench-windows-arm64
+            archive_ext: zip
+            runtime_platform: windows-arm64-cpu
+            additional_runtime_platforms: ""
           - name: macOS arm64 zip
             platform: macos-arm64
             runner: macos-15
@@ -318,6 +325,13 @@ jobs:
             archive_ext: tar.gz
             runtime_platform: linux-x86_64-cuda13
             additional_runtime_platforms: linux-x86_64-cpu
+          - name: Ubuntu 24.04 arm64 tarball
+            platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            archive_stem: trapo-workbench-linux-arm64
+            archive_ext: tar.gz
+            runtime_platform: linux-arm64-cpu
+            additional_runtime_platforms: ""
     env:
       DUCKDB_DOWNLOAD_LIB: "1"
       TRAPO_PDFIUM_RELEASE: ${{ inputs.pdfium_release || 'chromium/7920' }}
@@ -503,8 +517,10 @@ jobs:
 
           Trapo Rust/Axum portable app artifacts:
           - Windows x64: trapo-workbench-windows-x64-$UOCR_VERSION.zip
+          - Windows arm64: trapo-workbench-windows-arm64-$UOCR_VERSION.zip
           - macOS arm64: trapo-workbench-macos-arm64-$UOCR_VERSION.zip
           - Ubuntu 24.04 x64: trapo-workbench-linux-x64-$UOCR_VERSION.tar.gz
+          - Ubuntu 24.04 arm64: trapo-workbench-linux-arm64-$UOCR_VERSION.tar.gz
 
           Extract the archive, run the bundled launcher, then open http://127.0.0.1:8765/.
           Legacy logs are written to logs/uocr-server.log; Trapo logs are written to logs/trapo-server.log.

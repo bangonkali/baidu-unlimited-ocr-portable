@@ -64,6 +64,8 @@ jobs:
         include:
           - platform: windows-x64
             runner: windows-2025
+          - platform: windows-arm64
+            runner: windows-11-arm
           - platform: macos-arm64
             runner: macos-15
           - platform: linux-x64

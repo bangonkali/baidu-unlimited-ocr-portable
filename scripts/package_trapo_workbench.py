@@ -25,6 +25,7 @@ PDFIUM_VERSION = "151.0.7920.0"
 
 PLATFORMS = {
     "windows-x64": dict(archive_ext="zip", server="trapo-server.exe", duckdb="duckdb.dll", pdfium_asset="pdfium-win-x64.tgz", pdfium_lib="pdfium.dll", pdfium_dir=("thirdparty", "pdfium", "bin")),
+    "windows-arm64": dict(archive_ext="zip", server="trapo-server.exe", duckdb="duckdb.dll", pdfium_asset="pdfium-win-arm64.tgz", pdfium_lib="pdfium.dll", pdfium_dir=("thirdparty", "pdfium", "bin")),
     "macos-arm64": dict(archive_ext="zip", server="trapo-server", duckdb="libduckdb.dylib", pdfium_asset="pdfium-mac-arm64.tgz", pdfium_lib="libpdfium.dylib", pdfium_dir=("thirdparty", "pdfium", "lib")),
     "linux-x64": dict(archive_ext="tar.gz", server="trapo-server", duckdb="libduckdb.so", pdfium_asset="pdfium-linux-x64.tgz", pdfium_lib="libpdfium.so", pdfium_dir=("thirdparty", "pdfium", "lib")),
     "linux-arm64": dict(archive_ext="tar.gz", server="trapo-server", duckdb="libduckdb.so", pdfium_asset="pdfium-linux-arm64.tgz", pdfium_lib="libpdfium.so", pdfium_dir=("thirdparty", "pdfium", "lib")),
@@ -183,7 +184,6 @@ def make_launcher(stage_root: Path, platform_id: str) -> None:
     )
     launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-
 def create_archive(stage_root: Path, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     if archive_path.suffix == ".zip":
@@ -193,7 +193,6 @@ def create_archive(stage_root: Path, archive_path: Path) -> None:
         return
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(stage_root, arcname=stage_root.name)
-
 
 def write_readme(stage_root: Path, args: argparse.Namespace, runtimes: list[str]) -> None:
     (stage_root / "README.txt").write_text(
@@ -210,7 +209,6 @@ Uninstall: delete this folder.
 """,
         encoding="utf-8",
     )
-
 
 def package(args: argparse.Namespace) -> None:
     if args.platform not in PLATFORMS:
@@ -280,7 +278,6 @@ def package(args: argparse.Namespace) -> None:
     sha_path.write_text(f"{sha256_file(archive)}  {archive.name}\n", encoding="ascii")
     print(f"Packaged {archive}")
     print(f"Checksum {sha_path}")
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Package Trapo Workbench release artifacts.")
