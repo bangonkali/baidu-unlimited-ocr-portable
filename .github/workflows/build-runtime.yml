@@ -155,8 +155,19 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
         shell: bash
 
+      - name: Configure CPU build on Windows ARM64
+        if: matrix.backend == 'cpu' && matrix.platform == 'windows-arm64-cpu'
+        run: |
+          cmake -B thirdparty/llama.cpp/build `
+            -S thirdparty/llama.cpp `
+            -A ARM64 `
+            -T ClangCL `
+            -DGGML_NATIVE=OFF `
+            -DCMAKE_BUILD_TYPE=Release
+        shell: pwsh
+
       - name: Configure CPU build on Windows
-        if: matrix.backend == 'cpu' && runner.os == 'Windows'
+        if: matrix.backend == 'cpu' && runner.os == 'Windows' && matrix.platform != 'windows-arm64-cpu'
         run: |
           cmake -B thirdparty/llama.cpp/build `
             -S thirdparty/llama.cpp `
