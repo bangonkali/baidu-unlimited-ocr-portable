@@ -69,11 +69,13 @@ jobs:
             runner: windows-11-arm
             backend: cpu
             build_parallel: 3
+            build_targets: llama-mtmd-cli llama-uocr-parity uocr-ffi
 
     env:
       CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
       CUDA_ARCHITECTURES: ${{ inputs.cuda_architectures || '75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real' }}
       BUILD_PARALLEL: ${{ matrix.backend == 'cuda' && (inputs.cuda_build_parallel || '2') || matrix.build_parallel }}
+      RUNTIME_BUILD_TARGETS: ${{ matrix.build_targets || 'llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi' }}
 
     steps:
       - name: Check out repository
@@ -115,6 +117,7 @@ jobs:
             echo "CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"
           fi
           echo "BUILD_PARALLEL=${BUILD_PARALLEL}"
+          echo "RUNTIME_BUILD_TARGETS=${RUNTIME_BUILD_TARGETS}"
 
       - name: Configure Metal build
         if: matrix.backend == 'metal'
@@ -178,7 +181,8 @@ jobs:
       - name: Build runtime targets
         shell: bash
         run: |
-          cmake --build thirdparty/llama.cpp/build --config Release --target llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi --parallel "${BUILD_PARALLEL:-2}"
+          read -r -a targets <<< "$RUNTIME_BUILD_TARGETS"
+          cmake --build thirdparty/llama.cpp/build --config Release --target "${targets[@]}" --parallel "${BUILD_PARALLEL:-2}"
 
       - name: Validate FFI ABI
         run: |

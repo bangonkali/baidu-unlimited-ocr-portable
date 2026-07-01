@@ -221,8 +221,7 @@
       ],
       "executables": [
         "llama-uocr-parity.exe",
-        "llama-mtmd-cli.exe",
-        "llama-server.exe"
+        "llama-mtmd-cli.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -282,7 +281,7 @@
       "library_globs": [
         "*.dll"
       ],
-      "notes": "CPU-only runtime for Windows on Arm machines."
+      "notes": "CPU-only runtime for Windows on Arm machines. The package intentionally omits llama-server because upstream llama.cpp web UI asset generation currently fails on hosted Windows ARM64; Trapo uses uocr-ffi directly."
     }
   }
 }
