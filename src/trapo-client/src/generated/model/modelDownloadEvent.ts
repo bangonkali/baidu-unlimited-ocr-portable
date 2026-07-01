@@ -5,8 +5,9 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.1
  */
-import type { DocumentSummary } from './documentSummary';
+import type { ModelAssetRecord } from './modelAssetRecord';
 
-export interface DocumentsPayload {
-  documents: DocumentSummary[];
-}
+export type ModelDownloadEvent = ModelAssetRecord & {
+  message: string;
+  phase: string;
+};

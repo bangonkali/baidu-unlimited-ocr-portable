@@ -100,10 +100,15 @@ impl AppState {
         })
     }
 
-    pub async fn model_download_event(&self, model_id: &str) -> Result<ModelAssetRecord> {
+    pub async fn model_download_event(&self, model_id: &str) -> Result<ModelDownloadEvent> {
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
         let state = self.inner.state.lock().await;
-        Ok(model_record(&self.inner.config.model_dir, &state, entry))
+        let record = model_record(&self.inner.config.model_dir, &state, entry);
+        Ok(ModelDownloadEvent {
+            phase: record.status.clone(),
+            message: record.status_message.clone().unwrap_or_default(),
+            model: record,
+        })
     }
 }

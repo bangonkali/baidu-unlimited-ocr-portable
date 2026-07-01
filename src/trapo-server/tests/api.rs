@@ -3,7 +3,8 @@ use axum::{
     http::{Request, StatusCode},
 };
 use tower::ServiceExt;
-use trapo_server::{AppState, ServerConfig, build_router};
+use trapo_server::{AppState, ServerConfig, build_router, openapi::ApiDoc};
+use utoipa::OpenApi;
 
 #[tokio::test]
 async fn health_and_openapi_are_served() -> anyhow::Result<()> {
@@ -46,6 +47,123 @@ async fn invalid_profile_update_is_rejected() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
+    let state = test_state().await?;
+    let app = build_router(state.clone());
+    let scan_root = state.config().app_root.join("scan-root");
+    std::fs::create_dir_all(&scan_root)?;
+    let request = serde_json::json!({ "root_path": scan_root.to_string_lossy().to_string() });
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/ingest/start")
+                .header("content-type", "application/json")
+                .body(Body::from(request.to_string()))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let run: serde_json::Value = serde_json::from_slice(&body)?;
+    let run_id = run["run_id"].as_str().unwrap_or_default();
+    assert!(!run_id.is_empty());
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/ingest/runs/{run_id}/stop"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/models/unlimited-ocr-q4-k-m/select")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/models/unlimited-ocr-q4-k-m/cancel")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    Ok(())
+}
+
+#[test]
+fn openapi_keeps_legacy_parity_paths() -> anyhow::Result<()> {
+    let value = serde_json::to_value(ApiDoc::openapi())?;
+    let legacy: serde_json::Value =
+        serde_json::from_str(include_str!("../../uocr-server/openapi/uocr.openapi.json"))?;
+    let paths = value["paths"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("OpenAPI paths were not an object"))?;
+    let legacy_paths = legacy["paths"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("legacy OpenAPI paths were not an object"))?;
+    for path in [
+        "/api/search",
+        "/api/ingest/runs/{run_id}/events",
+        "/api/models/{model_id}/events",
+        "/api/documents/{file_hash}/preview-images/{variant}/{page_no}",
+    ] {
+        assert!(paths.contains_key(path), "missing OpenAPI path {path}");
+    }
+    for (path, legacy_path) in legacy_paths {
+        let Some(trapo_path) = paths.get(path) else {
+            anyhow::bail!("missing legacy OpenAPI path {path}");
+        };
+        let Some(legacy_methods) = legacy_path.as_object() else {
+            continue;
+        };
+        for (method, legacy_operation) in legacy_methods {
+            let Some(trapo_operation) = trapo_path.get(method) else {
+                anyhow::bail!("missing legacy OpenAPI operation {method} {path}");
+            };
+            if let Some(legacy_statuses) = legacy_operation["responses"].as_object() {
+                for status in legacy_statuses.keys() {
+                    if trapo_operation["responses"].get(status).is_none() {
+                        anyhow::bail!("missing legacy OpenAPI status {status} for {method} {path}");
+                    }
+                }
+            }
+        }
+    }
+    assert!(value["components"]["schemas"]["ModelDownloadEvent"].is_object());
+    assert_eq!(
+        value["paths"]["/api/ingest/start"]["post"]["responses"]["202"]["content"]["application/json"]
+            ["schema"]["$ref"],
+        "#/components/schemas/IngestRunRecord"
+    );
+    assert_eq!(
+        value["paths"]["/api/documents/{file_hash}/preview-images/{variant}/{page_no}"]["get"]["responses"]
+            ["200"]["content"]["image/png"]["schema"]["format"],
+        "binary"
+    );
+    assert!(
+        value["paths"]["/api/models/{model_id}/select"]["post"]["responses"]["202"].is_object()
+    );
+    assert!(
+        value["paths"]["/api/models/{model_id}/cancel"]["post"]["responses"]["202"].is_object()
+    );
+    Ok(())
+}
+
 async fn test_state() -> anyhow::Result<AppState> {
     let temp = tempfile::tempdir()?;
     let root = temp.keep();
@@ -57,7 +175,7 @@ async fn test_state() -> anyhow::Result<AppState> {
         client_dist,
         data_dir: root.join("data"),
         cache_dir: root.join("cache"),
-        log_dir: root.join(".logs"),
+        log_dir: root.join("logs"),
         model_dir: root.join("models"),
         database_path: root.join("data").join("trapo.duckdb"),
         pdfium_library_dir: None,

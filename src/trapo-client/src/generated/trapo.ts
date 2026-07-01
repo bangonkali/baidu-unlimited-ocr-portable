@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Trapo Server API
  * Rust Axum API for Trapo OCR workbench.
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.1.1
  */
 import type {
   DocumentDetail,
@@ -26,6 +26,7 @@ import type {
   OcrMetricsTreePayload,
   PreviewImagesPayload,
   RecentMetricsDocParams,
+  SearchDocumentsDocParams,
   SettingsPayload,
   SettingsUpdateRequest,
   StatusPayload
@@ -161,6 +162,61 @@ export const previewImagesDoc = async (fileHash: string, options?: RequestInit):
 
   const data: previewImagesDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as previewImagesDocResponse
+}
+
+
+
+export type previewImageDocResponse200ImagePng = {
+  data: Blob
+  status: 200
+}
+
+export type previewImageDocResponse200ImageJpeg = {
+  data: Blob
+  status: 200
+}
+
+export type previewImageDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type previewImageDocResponseSuccess = (previewImageDocResponse200ImagePng | previewImageDocResponse200ImageJpeg) & {
+  headers: Headers;
+};
+export type previewImageDocResponseError = (previewImageDocResponse404) & {
+  headers: Headers;
+};
+
+export type previewImageDocResponse = (previewImageDocResponseSuccess | previewImageDocResponseError)
+
+export const getPreviewImageDocUrl = (fileHash: string,
+    variant: string,
+    pageNo: number,) => {
+
+
+
+
+  return `/api/documents/${fileHash}/preview-images/${variant}/${pageNo}`
+}
+
+export const previewImageDoc = async (fileHash: string,
+    variant: string,
+    pageNo: number, options?: RequestInit): Promise<previewImageDocResponse> => {
+
+  const res = await fetch(getPreviewImageDocUrl(fileHash,variant,pageNo),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: previewImageDocResponse['data'] = body as previewImageDocResponse['data']
+  return { data, status: res.status, headers: res.headers } as previewImageDocResponse
 }
 
 
@@ -419,6 +475,53 @@ export const getRunDoc = async (runId: string, options?: RequestInit): Promise<g
 
 
 
+export type runEventsDocResponse200 = {
+  data: string
+  status: 200
+}
+
+export type runEventsDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type runEventsDocResponseSuccess = (runEventsDocResponse200) & {
+  headers: Headers;
+};
+export type runEventsDocResponseError = (runEventsDocResponse404) & {
+  headers: Headers;
+};
+
+export type runEventsDocResponse = (runEventsDocResponseSuccess | runEventsDocResponseError)
+
+export const getRunEventsDocUrl = (runId: string,) => {
+
+
+
+
+  return `/api/ingest/runs/${runId}/events`
+}
+
+export const runEventsDoc = async (runId: string, options?: RequestInit): Promise<runEventsDocResponse> => {
+
+  const res = await fetch(getRunEventsDocUrl(runId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: runEventsDocResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  return { data, status: res.status, headers: res.headers } as runEventsDocResponse
+}
+
+
+
 export type runMetricsDocResponse200 = {
   data: OcrMetricsTreePayload
   status: 200
@@ -459,9 +562,9 @@ export const runMetricsDoc = async (runId: string, options?: RequestInit): Promi
 
 
 
-export type stopRunDocResponse200 = {
+export type stopRunDocResponse202 = {
   data: IngestRunRecord
-  status: 200
+  status: 202
 }
 
 export type stopRunDocResponse404 = {
@@ -469,7 +572,7 @@ export type stopRunDocResponse404 = {
   status: 404
 }
 
-export type stopRunDocResponseSuccess = (stopRunDocResponse200) & {
+export type stopRunDocResponseSuccess = (stopRunDocResponse202) & {
   headers: Headers;
 };
 export type stopRunDocResponseError = (stopRunDocResponse404) & {
@@ -506,9 +609,9 @@ export const stopRunDoc = async (runId: string, options?: RequestInit): Promise<
 
 
 
-export type startIngestDocResponse200 = {
+export type startIngestDocResponse202 = {
   data: IngestRunRecord
-  status: 200
+  status: 202
 }
 
 export type startIngestDocResponse400 = {
@@ -516,7 +619,7 @@ export type startIngestDocResponse400 = {
   status: 400
 }
 
-export type startIngestDocResponseSuccess = (startIngestDocResponse200) & {
+export type startIngestDocResponseSuccess = (startIngestDocResponse202) & {
   headers: Headers;
 };
 export type startIngestDocResponseError = (startIngestDocResponse400) & {
@@ -640,9 +743,9 @@ export const modelsDoc = async ( options?: RequestInit): Promise<modelsDocRespon
 
 
 
-export type cancelModelDocResponse200 = {
+export type cancelModelDocResponse202 = {
   data: ModelDownloadRecord
-  status: 200
+  status: 202
 }
 
 export type cancelModelDocResponse400 = {
@@ -650,7 +753,7 @@ export type cancelModelDocResponse400 = {
   status: 400
 }
 
-export type cancelModelDocResponseSuccess = (cancelModelDocResponse200) & {
+export type cancelModelDocResponseSuccess = (cancelModelDocResponse202) & {
   headers: Headers;
 };
 export type cancelModelDocResponseError = (cancelModelDocResponse400) & {
@@ -735,9 +838,56 @@ export const downloadModelDoc = async (modelId: string,
 
 
 
-export type selectModelDocResponse200 = {
-  data: ModelSelectRecord
+export type modelEventsDocResponse200 = {
+  data: string
   status: 200
+}
+
+export type modelEventsDocResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type modelEventsDocResponseSuccess = (modelEventsDocResponse200) & {
+  headers: Headers;
+};
+export type modelEventsDocResponseError = (modelEventsDocResponse400) & {
+  headers: Headers;
+};
+
+export type modelEventsDocResponse = (modelEventsDocResponseSuccess | modelEventsDocResponseError)
+
+export const getModelEventsDocUrl = (modelId: string,) => {
+
+
+
+
+  return `/api/models/${modelId}/events`
+}
+
+export const modelEventsDoc = async (modelId: string, options?: RequestInit): Promise<modelEventsDocResponse> => {
+
+  const res = await fetch(getModelEventsDocUrl(modelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+  const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: modelEventsDocResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  return { data, status: res.status, headers: res.headers } as modelEventsDocResponse
+}
+
+
+
+export type selectModelDocResponse202 = {
+  data: ModelSelectRecord
+  status: 202
 }
 
 export type selectModelDocResponse400 = {
@@ -745,7 +895,7 @@ export type selectModelDocResponse400 = {
   status: 400
 }
 
-export type selectModelDocResponseSuccess = (selectModelDocResponse200) & {
+export type selectModelDocResponseSuccess = (selectModelDocResponse202) & {
   headers: Headers;
 };
 export type selectModelDocResponseError = (selectModelDocResponse400) & {
@@ -818,6 +968,53 @@ export const openapiDoc = async ( options?: RequestInit): Promise<openapiDocResp
 
   const data: openapiDocResponse['data'] = body ? JSON.parse(body) : undefined
   return { data, status: res.status, headers: res.headers } as openapiDocResponse
+}
+
+
+
+export type searchDocumentsDocResponse200 = {
+  data: DocumentsPayload
+  status: 200
+}
+
+export type searchDocumentsDocResponseSuccess = (searchDocumentsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type searchDocumentsDocResponse = (searchDocumentsDocResponseSuccess)
+
+export const getSearchDocumentsDocUrl = (params?: SearchDocumentsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/search?${stringifiedParams}` : `/api/search`
+}
+
+export const searchDocumentsDoc = async (params?: SearchDocumentsDocParams, options?: RequestInit): Promise<searchDocumentsDocResponse> => {
+
+  const res = await fetch(getSearchDocumentsDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchDocumentsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as searchDocumentsDocResponse
 }
 
 

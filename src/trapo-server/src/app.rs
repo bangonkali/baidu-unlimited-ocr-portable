@@ -26,9 +26,9 @@ use crate::{
     },
     storage::{OcrPageMetrics, Repository, StoredDocument, StoredPage, StoredRun},
     types::{
-        HealthPayload, ModelAssetRecord, ModelDownloadFileRecord, ModelDownloadRecord,
-        ModelDownloadRequest, ModelSelectRecord, ModelsPayload, SettingsPayload,
-        SettingsUpdateRequest, StatusPayload, WorkbenchUiSettings,
+        HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
+        ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
+        SettingsPayload, SettingsUpdateRequest, StatusPayload, WorkbenchUiSettings,
     },
     workbench_types::{
         DocumentDetail, DocumentRegionsPayload, DocumentSummary, DocumentTextPayload,

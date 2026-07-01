@@ -2,6 +2,7 @@ pub mod app;
 pub mod catalog;
 pub mod config;
 pub mod error;
+pub mod folder_dialog;
 pub mod logger;
 pub mod ocr;
 pub mod openapi;

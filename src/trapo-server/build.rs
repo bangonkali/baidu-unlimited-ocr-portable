@@ -3,10 +3,16 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=DUCKDB_DOWNLOAD_LIB");
+    println!("cargo:rerun-if-env-changed=TRAPO_GIT_TAG");
+    println!("cargo:rerun-if-env-changed=TRAPO_GIT_SHA");
+    println!("cargo:rerun-if-env-changed=GITHUB_REF_NAME");
+    println!("cargo:rerun-if-env-changed=GITHUB_SHA");
+    emit_version_env();
     let Some(runtime_lib) = duckdb_runtime_library() else {
         return Ok(());
     };
@@ -30,6 +36,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         destination.display()
     );
     Ok(())
+}
+
+fn emit_version_env() {
+    let git_tag = env::var("TRAPO_GIT_TAG")
+        .ok()
+        .or_else(|| env::var("GITHUB_REF_NAME").ok())
+        .or_else(|| git_output(["describe", "--tags", "--dirty", "--always"]));
+    let git_sha = env::var("TRAPO_GIT_SHA")
+        .ok()
+        .or_else(|| env::var("GITHUB_SHA").ok())
+        .or_else(|| git_output(["rev-parse", "--short=12", "HEAD"]));
+
+    if let Some(value) = git_tag {
+        println!("cargo:rustc-env=TRAPO_GIT_TAG={value}");
+    }
+    if let Some(value) = git_sha {
+        println!("cargo:rustc-env=TRAPO_GIT_SHA={value}");
+    }
+}
+
+fn git_output<const N: usize>(args: [&str; N]) -> Option<String> {
+    let output = Command::new("git").args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let value = String::from_utf8(output.stdout).ok()?;
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
 }
 
 fn duckdb_runtime_library() -> Option<&'static str> {

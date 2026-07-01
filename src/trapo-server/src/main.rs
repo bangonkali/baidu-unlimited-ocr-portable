@@ -60,7 +60,7 @@ async fn main() -> ExitCode {
 
 fn print_help() {
     println!(
-        "trapo-server\n\nOptions:\n  --port <PORT>       Listen port (default 8890)\n  --no-browser        Do not open a browser window\n  --version           Print version"
+        "trapo-server\n\nOptions:\n  --port <PORT>       Listen port (default 8765)\n  --no-browser        Do not open a browser window\n  --version           Print version"
     );
 }
 

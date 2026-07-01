@@ -103,20 +103,7 @@ impl AppState {
     }
 
     pub async fn folder_dialog(&self) -> FolderDialogResponse {
-        match rfd::FileDialog::new().pick_folder() {
-            Some(path) => FolderDialogResponse {
-                cancelled: false,
-                selected_path: path.to_string_lossy().to_string(),
-                manual_path_supported: true,
-                error: None,
-            },
-            None => FolderDialogResponse {
-                cancelled: true,
-                selected_path: String::new(),
-                manual_path_supported: true,
-                error: None,
-            },
-        }
+        crate::folder_dialog::open_folder_dialog().await
     }
 
     pub async fn settings(&self) -> SettingsPayload {

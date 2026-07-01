@@ -55,9 +55,21 @@ jobs:
         run: bun run build-storybook
 
   rust:
-    name: Trapo Rust server
-    runs-on: ubuntu-24.04
+    name: Trapo Rust server (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-2025
+          - platform: macos-arm64
+            runner: macos-15
+          - platform: linux-x64
+            runner: ubuntu-24.04
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
     env:
       DUCKDB_DOWNLOAD_LIB: "1"
     steps:
@@ -70,6 +82,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Check formatting
+        if: matrix.platform == 'linux-x64'
         run: cargo fmt --all -- --check
 
       - name: Clippy
@@ -79,6 +92,7 @@ jobs:
         run: cargo test -p trapo-server
 
       - name: Verify OpenAPI export
+        if: matrix.platform == 'linux-x64'
         shell: bash
         run: |
           cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
@@ -199,7 +213,9 @@ jobs:
 
       - name: Run installer tests
         shell: bash
-        run: python -m unittest discover -s tests -p "test_*.py"
+        run: |
+          python -m py_compile scripts/package_trapo_workbench.py
+          python -m unittest discover -s tests -p "test_*.py"
 
   complexity:
     name: SCC complexity

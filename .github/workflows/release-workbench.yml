@@ -12,6 +12,11 @@ on:
         required: false
         default: latest
         type: string
+      pdfium_release:
+        description: "bblanchon/pdfium-binaries release tag to bundle"
+        required: false
+        default: chromium/7920
+        type: string
   push:
     tags:
       - "v*"
@@ -284,9 +289,190 @@ jobs:
             dist/${{ matrix.archive_stem }}-${{ env.UOCR_VERSION }}.${{ matrix.archive_ext }}.sha256
           if-no-files-found: error
 
+  package_trapo:
+    name: Trapo ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 zip
+            platform: windows-x64
+            runner: windows-2025
+            archive_stem: trapo-workbench-windows-x64
+            archive_ext: zip
+            runtime_platform: windows-x86_64-cuda13
+            additional_runtime_platforms: windows-x86_64-cpu
+          - name: macOS arm64 zip
+            platform: macos-arm64
+            runner: macos-15
+            archive_stem: trapo-workbench-macos-arm64
+            archive_ext: zip
+            runtime_platform: macos-arm64-metal
+            additional_runtime_platforms: ""
+          - name: Ubuntu 24.04 x64 tarball
+            platform: linux-x64
+            runner: ubuntu-24.04
+            archive_stem: trapo-workbench-linux-x64
+            archive_ext: tar.gz
+            runtime_platform: linux-x86_64-cuda13
+            additional_runtime_platforms: linux-x86_64-cpu
+          - name: Ubuntu 24.04 arm64 tarball
+            platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            archive_stem: trapo-workbench-linux-arm64
+            archive_ext: tar.gz
+            runtime_platform: linux-arm64-cpu
+            additional_runtime_platforms: ""
+    env:
+      DUCKDB_DOWNLOAD_LIB: "1"
+      TRAPO_PDFIUM_RELEASE: ${{ inputs.pdfium_release || 'chromium/7920' }}
+      TRAPO_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
+      TRAPO_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          lfs: true
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Validate release version
+        shell: bash
+        run: |
+          test -n "$TRAPO_VERSION"
+          echo "Release version $TRAPO_VERSION"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.6"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Export Trapo OpenAPI
+        run: cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
+
+      - name: Package Trapo workbench
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRAPO_GIT_TAG: ${{ env.TRAPO_VERSION }}
+          TRAPO_GIT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          python scripts/package_trapo_workbench.py \
+            --version "$TRAPO_VERSION" \
+            --platform "${{ matrix.platform }}" \
+            --runtime-version "$TRAPO_RUNTIME_VERSION" \
+            --runtime-platform "${{ matrix.runtime_platform }}" \
+            --additional-runtime-platforms "${{ matrix.additional_runtime_platforms }}" \
+            --pdfium-release "$TRAPO_PDFIUM_RELEASE"
+
+      - name: Smoke packaged Trapo server on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "dist\${{ matrix.archive_stem }}-$env:TRAPO_VERSION.${{ matrix.archive_ext }}"
+          if (-not (Test-Path $archive)) { throw "release archive was not produced: $archive" }
+          $extract = Join-Path $env:RUNNER_TEMP "trapo-smoke"
+          Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $exe = Get-ChildItem -LiteralPath $extract -Recurse -Filter "trapo-server.exe" | Select-Object -First 1
+          if (-not $exe) { throw "trapo-server.exe not found in archive" }
+          $pdfium = Join-Path $exe.Directory.FullName "thirdparty\pdfium\bin\pdfium.dll"
+          if (-not (Test-Path $pdfium)) { throw "bundled PDFium was not found at $pdfium" }
+          & $exe.FullName --version
+          $stdoutPath = Join-Path $env:RUNNER_TEMP "trapo-server.stdout.log"
+          $stderrPath = Join-Path $env:RUNNER_TEMP "trapo-server.stderr.log"
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList "--port", "8770", "--no-browser" -WorkingDirectory $exe.Directory.FullName -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru
+          try {
+            $health = $null
+            for ($attempt = 1; $attempt -le 60; $attempt++) {
+              $process.Refresh()
+              if ($process.HasExited) { throw "trapo-server exited early with code $($process.ExitCode)" }
+              try {
+                $health = Invoke-RestMethod -Uri "http://127.0.0.1:8770/api/health" -TimeoutSec 2
+                if ($health.ok -eq $true) { break }
+              } catch { Start-Sleep -Milliseconds 500 }
+            }
+            if ($health.ok -ne $true) { throw "health check failed" }
+            Invoke-RestMethod -Uri "http://127.0.0.1:8770/api/status" -TimeoutSec 2 | Out-Null
+            Invoke-RestMethod -Uri "http://127.0.0.1:8770/api/openapi.json" -TimeoutSec 2 | Out-Null
+            Invoke-WebRequest -Uri "http://127.0.0.1:8770/" -UseBasicParsing | Out-Null
+            if (-not (Test-Path (Join-Path $exe.Directory.FullName "data\trapo.duckdb"))) { throw "trapo.duckdb was not created" }
+            if (-not (Test-Path (Join-Path $exe.Directory.FullName "logs\trapo-server.log"))) { throw "server log was not created" }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Smoke packaged Trapo server on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          archive="dist/${{ matrix.archive_stem }}-$TRAPO_VERSION.${{ matrix.archive_ext }}"
+          test -f "$archive"
+          extract="$RUNNER_TEMP/trapo-smoke"
+          rm -rf "$extract"
+          mkdir -p "$extract"
+          case "$archive" in
+            *.zip) unzip -q "$archive" -d "$extract" ;;
+            *.tar.gz) tar -xzf "$archive" -C "$extract" ;;
+            *) echo "unsupported archive: $archive" >&2; exit 1 ;;
+          esac
+          exe="$(find "$extract" -name trapo-server -type f | head -n 1)"
+          test -n "$exe"
+          chmod +x "$exe"
+          app_root="$(dirname "$exe")"
+          test -f "$app_root/thirdparty/pdfium/lib/${{ runner.os == 'macOS' && 'libpdfium.dylib' || 'libpdfium.so' }}"
+          test -d "$app_root/thirdparty/uocr-runtime/${{ matrix.runtime_platform }}"
+          "$exe" --version
+          stdout="$RUNNER_TEMP/trapo.stdout.log"
+          stderr="$RUNNER_TEMP/trapo.stderr.log"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            (cd "$app_root" && DYLD_LIBRARY_PATH="$app_root:$app_root/thirdparty/pdfium/lib:${DYLD_LIBRARY_PATH:-}" ./trapo-server --port 8771 --no-browser >"$stdout" 2>"$stderr") &
+          else
+            (cd "$app_root" && LD_LIBRARY_PATH="$app_root:$app_root/thirdparty/pdfium/lib:${LD_LIBRARY_PATH:-}" ./trapo-server --port 8771 --no-browser >"$stdout" 2>"$stderr") &
+          fi
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8771/api/health >/tmp/trapo-health.json; then
+              break
+            fi
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat "$stdout" "$stderr" || true
+              exit 1
+            fi
+            sleep 0.5
+          done
+          curl -fsS http://127.0.0.1:8771/ >/tmp/trapo-home.html
+          curl -fsS http://127.0.0.1:8771/api/status >/tmp/trapo-status.json
+          curl -fsS http://127.0.0.1:8771/api/openapi.json >/tmp/trapo-openapi.json
+          test -f "$app_root/data/trapo.duckdb"
+          test -f "$app_root/logs/trapo-server.log"
+
+      - name: Upload Trapo workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trapo-workbench-${{ matrix.platform }}-${{ env.TRAPO_VERSION }}
+          path: |
+            dist/${{ matrix.archive_stem }}-${{ env.TRAPO_VERSION }}.${{ matrix.archive_ext }}
+            dist/${{ matrix.archive_stem }}-${{ env.TRAPO_VERSION }}.${{ matrix.archive_ext }}.sha256
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub Release
-    needs: package
+    needs:
+      - package
+      - package_trapo
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
@@ -315,14 +501,20 @@ jobs:
           cat > "$notes" <<EOF
           Unlimited-OCR Workbench $UOCR_VERSION
 
-          Portable local app artifacts:
+          Legacy Drogon/C++ portable app artifacts:
           - Windows x64: uocr-workbench-windows-x64-$UOCR_VERSION.zip
           - macOS arm64: uocr-workbench-macos-arm64-$UOCR_VERSION.zip
           - Ubuntu 24.04 x64: uocr-workbench-linux-x64-$UOCR_VERSION.tar.gz
           - Ubuntu 24.04 arm64: uocr-workbench-linux-arm64-$UOCR_VERSION.tar.gz
 
+          Trapo Rust/Axum portable app artifacts:
+          - Windows x64: trapo-workbench-windows-x64-$UOCR_VERSION.zip
+          - macOS arm64: trapo-workbench-macos-arm64-$UOCR_VERSION.zip
+          - Ubuntu 24.04 x64: trapo-workbench-linux-x64-$UOCR_VERSION.tar.gz
+          - Ubuntu 24.04 arm64: trapo-workbench-linux-arm64-$UOCR_VERSION.tar.gz
+
           Extract the archive, run the bundled launcher, then open http://127.0.0.1:8765/.
-          Runtime logs are written to logs/uocr-server.log inside the extracted folder.
+          Legacy logs are written to logs/uocr-server.log; Trapo logs are written to logs/trapo-server.log.
           EOF
           if ! gh release view "$UOCR_VERSION" >/dev/null 2>&1; then
             gh release create "$UOCR_VERSION" --target "$GITHUB_SHA" --title "Unlimited-OCR Workbench $UOCR_VERSION" --notes-file "$notes"

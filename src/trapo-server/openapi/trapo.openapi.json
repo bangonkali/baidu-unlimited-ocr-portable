@@ -7,7 +7,7 @@
       "name": "AGPL-3.0-or-later",
       "identifier": "AGPL-3.0-or-later"
     },
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "paths": {
     "/api/documents": {
@@ -103,6 +103,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PreviewImagesPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{file_hash}/preview-images/{variant}/{page_no}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "preview_image_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preview image bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
                 }
               }
             }
@@ -282,6 +347,46 @@
         }
       }
     },
+    "/api/ingest/runs/{run_id}/events": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "run_events_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent run snapshots",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/runs/{run_id}/metrics": {
       "get": {
         "tags": [
@@ -329,8 +434,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "",
+          "202": {
+            "description": "Stop requested",
             "content": {
               "application/json": {
                 "schema": {
@@ -369,8 +474,8 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "",
+          "202": {
+            "description": "Ingest run queued",
             "content": {
               "application/json": {
                 "schema": {
@@ -461,8 +566,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "",
+          "202": {
+            "description": "Download cancellation requested",
             "content": {
               "application/json": {
                 "schema": {
@@ -534,6 +639,46 @@
         }
       }
     },
+    "/api/models/{model_id}/events": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "operationId": "model_events_doc",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent model download progress events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/models/{model_id}/select": {
       "post": {
         "tags": [
@@ -551,8 +696,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "",
+          "202": {
+            "description": "Model selected for subsequent ingest runs",
             "content": {
               "application/json": {
                 "schema": {
@@ -583,6 +728,36 @@
         "responses": {
           "200": {
             "description": "OpenAPI JSON"
+          }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "search_documents_doc",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DuckDB-backed document text search",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsPayload"
+                }
+              }
+            }
           }
         }
       }
@@ -1276,6 +1451,28 @@
             "minimum": 0
           }
         }
+      },
+      "ModelDownloadEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ModelAssetRecord"
+          },
+          {
+            "type": "object",
+            "required": [
+              "phase",
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string"
+              }
+            }
+          }
+        ]
       },
       "ModelDownloadFileRecord": {
         "type": "object",

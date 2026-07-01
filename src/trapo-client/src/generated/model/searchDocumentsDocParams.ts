@@ -5,8 +5,7 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.1
  */
-import type { DocumentSummary } from './documentSummary';
 
-export interface DocumentsPayload {
-  documents: DocumentSummary[];
-}
+export type SearchDocumentsDocParams = {
+q?: string;
+};

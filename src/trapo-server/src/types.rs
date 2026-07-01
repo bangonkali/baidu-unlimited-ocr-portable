@@ -96,6 +96,15 @@ pub struct ModelAssetRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ModelDownloadEvent {
+    #[serde(flatten)]
+    #[schema(value_type = ModelAssetRecord)]
+    pub model: ModelAssetRecord,
+    pub phase: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ModelDownloadFileRecord {
     pub file_id: String,
     pub file_name: String,

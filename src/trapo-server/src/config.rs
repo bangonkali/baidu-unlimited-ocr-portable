@@ -3,6 +3,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const DEFAULT_PORT: u16 = 8765;
+
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     pub app_root: PathBuf,
@@ -30,7 +32,7 @@ impl ServerConfig {
         let mut port = env::var("TRAPO_PORT")
             .ok()
             .and_then(|value| value.parse().ok())
-            .unwrap_or(8890);
+            .unwrap_or(DEFAULT_PORT);
         let mut open_browser = env::var("TRAPO_NO_BROWSER").is_err();
 
         let mut iter = args.into_iter().skip(1);
@@ -53,11 +55,17 @@ impl ServerConfig {
 
         let data_dir = app_root.join("data");
         let cache_dir = app_root.join("cache");
-        let log_dir = app_root.join(".logs");
+        let log_dir = env::var_os("TRAPO_LOG_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| app_root.join("logs"));
         let model_dir = app_root.join("models");
         let database_path = data_dir.join("trapo.duckdb");
-        let client_dist = app_root.join("src").join("trapo-client").join("dist");
-        let pdfium_library_dir = env::var_os("TRAPO_PDFIUM_DIR").map(PathBuf::from);
+        let client_dist = env::var_os("TRAPO_CLIENT_DIST")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| resolve_client_dist(&app_root));
+        let pdfium_library_dir = env::var_os("TRAPO_PDFIUM_DIR")
+            .map(PathBuf::from)
+            .or_else(|| resolve_pdfium_dir(&app_root));
 
         Self {
             app_root,
@@ -89,11 +97,60 @@ impl ServerConfig {
 }
 
 fn default_app_root() -> PathBuf {
+    if let Some(exe_dir) = executable_app_root() {
+        return exe_dir;
+    }
+    source_app_root()
+}
+
+fn executable_app_root() -> Option<PathBuf> {
+    let exe_dir = env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))?;
+    (!is_cargo_target_dir(&exe_dir)).then_some(exe_dir)
+}
+
+fn source_app_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
         .map(Path::to_path_buf)
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+fn is_cargo_target_dir(path: &Path) -> bool {
+    path.ancestors()
+        .any(|ancestor| ancestor.file_name().is_some_and(|name| name == "target"))
+}
+
+fn resolve_client_dist(app_root: &Path) -> PathBuf {
+    let packaged = app_root.join("web");
+    if packaged.join("index.html").is_file() {
+        return packaged;
+    }
+    app_root.join("src").join("trapo-client").join("dist")
+}
+
+fn resolve_pdfium_dir(app_root: &Path) -> Option<PathBuf> {
+    let candidates = [
+        app_root.join("thirdparty").join("pdfium").join("bin"),
+        app_root.join("thirdparty").join("pdfium").join("lib"),
+        app_root.join("thirdparty").join("pdfium"),
+        app_root.to_path_buf(),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| path.join(pdfium_library_name()).is_file())
+}
+
+fn pdfium_library_name() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "pdfium.dll"
+    } else if cfg!(target_os = "macos") {
+        "libpdfium.dylib"
+    } else {
+        "libpdfium.so"
+    }
 }
 
 fn migrate_legacy_database(app_root: &Path, database_path: &Path) -> std::io::Result<()> {
@@ -105,4 +162,26 @@ fn migrate_legacy_database(app_root: &Path, database_path: &Path) -> std::io::Re
         std::fs::copy(legacy, database_path)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_packaged_web_before_source_dist() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let web = temp.path().join("web");
+        std::fs::create_dir_all(&web)?;
+        std::fs::write(web.join("index.html"), "")?;
+        assert_eq!(resolve_client_dist(temp.path()), web);
+        Ok(())
+    }
+
+    #[test]
+    fn detects_cargo_target_directories() {
+        let target = Path::new("repo").join("target").join("debug");
+        assert!(is_cargo_target_dir(&target));
+        assert!(!is_cargo_target_dir(Path::new("package")));
+    }
 }

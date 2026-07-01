@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Trapo Server API
  * Rust Axum API for Trapo OCR workbench.
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.1.1
  */
 
 export * from './documentDetail';
@@ -22,6 +22,7 @@ export * from './logRecord';
 export * from './logsDocParams';
 export * from './logsPayload';
 export * from './modelAssetRecord';
+export * from './modelDownloadEvent';
 export * from './modelDownloadFileRecord';
 export * from './modelDownloadRecord';
 export * from './modelDownloadRequest';
@@ -35,6 +36,7 @@ export * from './pageTextRecord';
 export * from './previewImagesPayload';
 export * from './recentMetricsDocParams';
 export * from './runtimeVariantRecord';
+export * from './searchDocumentsDocParams';
 export * from './settingsPayload';
 export * from './settingsUpdateRequest';
 export * from './statusPayload';

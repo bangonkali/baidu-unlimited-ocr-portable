@@ -96,8 +96,11 @@ async fn folder_dialog(
 async fn start_ingest(
     State(state): State<AppState>,
     Json(request): Json<IngestStartRequest>,
-) -> Result<Json<crate::workbench_types::IngestRunRecord>> {
-    Ok(Json(state.start_ingest(request).await?))
+) -> Result<(StatusCode, Json<crate::workbench_types::IngestRunRecord>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.start_ingest(request).await?),
+    ))
 }
 
 async fn list_runs(
@@ -116,8 +119,8 @@ async fn get_run(
 async fn stop_run(
     State(state): State<AppState>,
     Path(run_id): Path<String>,
-) -> Result<Json<crate::workbench_types::IngestRunRecord>> {
-    Ok(Json(state.stop_run(&run_id).await?))
+) -> Result<(StatusCode, Json<crate::workbench_types::IngestRunRecord>)> {
+    Ok((StatusCode::ACCEPTED, Json(state.stop_run(&run_id).await?)))
 }
 
 async fn run_events(State(state): State<AppState>, Path(run_id): Path<String>) -> Result<Response> {
@@ -136,7 +139,7 @@ async fn recent_metrics(
 ) -> Result<Json<crate::workbench_types::OcrMetricsTreePayload>> {
     Ok(Json(
         state
-            .run_metrics(None, query.limit.unwrap_or(5000) as u32)
+            .run_metrics(None, query.limit.unwrap_or(50) as u32)
             .await?,
     ))
 }
@@ -227,15 +230,21 @@ async fn download_model(
 async fn select_model(
     State(state): State<AppState>,
     Path(model_id): Path<String>,
-) -> Result<Json<crate::types::ModelSelectRecord>> {
-    Ok(Json(state.select_model(&model_id).await?))
+) -> Result<(StatusCode, Json<crate::types::ModelSelectRecord>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.select_model(&model_id).await?),
+    ))
 }
 
 async fn cancel_model(
     State(state): State<AppState>,
     Path(model_id): Path<String>,
-) -> Result<Json<crate::types::ModelDownloadRecord>> {
-    Ok(Json(state.cancel_model_download(&model_id).await?))
+) -> Result<(StatusCode, Json<crate::types::ModelDownloadRecord>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.cancel_model_download(&model_id).await?),
+    ))
 }
 
 async fn model_events(
