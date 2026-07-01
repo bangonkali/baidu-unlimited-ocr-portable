@@ -1,0 +1,174 @@
+.panel {
+  display: grid;
+  grid-template-rows: 35px 33px auto 1fr;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.header,
+.tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.header {
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tabs {
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.tab {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+}
+
+.tab:hover {
+  background: var(--panel-3);
+}
+
+.tab[data-active="true"] {
+  color: var(--accent);
+  background: var(--panel-3);
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filters input,
+.filters select {
+  height: 26px;
+  color: var(--text);
+  font-size: 12px;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.filters input {
+  width: min(320px, 100%);
+  padding: 0 8px;
+}
+
+.filters label {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.filterLabelText {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.runRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 92px 124px 88px;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.runRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runRow small {
+  color: var(--subtle);
+}
+
+.progressTrack {
+  height: 7px;
+  overflow: hidden;
+  background: var(--control-strong);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  background: var(--accent-2);
+}
+
+.logRow {
+  display: grid;
+  grid-template-columns: 16px 150px 52px 84px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.logRow span,
+.logRow p,
+.logRow em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logRow p {
+  margin: 0;
+}
+
+.logRow em {
+  color: var(--subtle);
+  font-style: normal;
+}
+
+.logRow strong[data-level="ERROR"] {
+  color: var(--danger);
+}
+
+.logRow strong[data-level="WARN"] {
+  color: var(--warning);
+}
+
+.ok {
+  color: var(--accent-2);
+}
+
+.bad {
+  color: var(--danger);
+}
+
+.pending {
+  color: var(--warning);
+}
+
+.empty {
+  padding: 12px;
+  color: var(--muted);
+}
