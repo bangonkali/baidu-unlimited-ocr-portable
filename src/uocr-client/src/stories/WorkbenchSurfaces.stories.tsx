@@ -126,7 +126,12 @@ export const Details: Story = {
 export const Diagnostics: Story = {
   render: () => (
     <div className="storyTall">
-      <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} search={{ tab: 'logs' }} />
+      <DiagnosticsPanel
+        logs={fixtureLogs}
+        metrics={{ nodes: [] }}
+        runs={fixtureRuns}
+        search={{ tab: 'logs' }}
+      />
     </div>
   ),
 };

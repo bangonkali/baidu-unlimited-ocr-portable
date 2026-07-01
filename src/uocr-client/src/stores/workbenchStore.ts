@@ -94,6 +94,21 @@ export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
   }));
 }
 
+export function followLatestPage(fileHash: string, pageNo: number) {
+  if (!workbenchStore.state.autoFollowRegions) {
+    return;
+  }
+  workbenchStore.setState((state) => ({
+    ...state,
+    activeView: 'workbench',
+    selection: {
+      ...state.selection,
+      fileHash,
+      pageNo,
+    },
+  }));
+}
+
 export function setOverlayVisible(overlayVisible: boolean) {
   workbenchStore.setState((state) => ({ ...state, overlayVisible }));
 }

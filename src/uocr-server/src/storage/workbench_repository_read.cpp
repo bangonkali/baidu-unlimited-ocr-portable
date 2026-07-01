@@ -55,37 +55,6 @@ std::string lower_copy(std::string_view text) {
   return value;
 }
 
-std::string unquote_json_string(std::string_view text) {
-  if (text.size() < 2 || text.front() != '"' || text.back() != '"') {
-    return std::string(text);
-  }
-  std::string value;
-  value.reserve(text.size() - 2);
-  for (std::size_t index = 1; index + 1 < text.size(); ++index) {
-    const char ch = text[index];
-    if (ch != '\\' || index + 2 >= text.size()) {
-      value.push_back(ch);
-      continue;
-    }
-    const char escaped = text[++index];
-    switch (escaped) {
-      case 'n':
-        value.push_back('\n');
-        break;
-      case 'r':
-        value.push_back('\r');
-        break;
-      case 't':
-        value.push_back('\t');
-        break;
-      default:
-        value.push_back(escaped);
-        break;
-    }
-  }
-  return value;
-}
-
 std::vector<std::string> sort_scores(const std::map<std::string, int>& scores, std::size_t limit) {
   std::vector<std::pair<std::string, int>> ordered(scores.begin(), scores.end());
   std::sort(ordered.begin(), ordered.end(), [](const auto& left, const auto& right) {
@@ -268,30 +237,6 @@ std::vector<std::string> WorkbenchRepository::search_document_hashes(std::string
     hashes.push_back(result.text(0, row));
   }
   return hashes;
-}
-
-std::string WorkbenchRepository::setting_string(std::string_view key, std::string_view fallback) const {
-  std::scoped_lock lock(impl_->mutex);
-  auto statement = impl_->statement("SELECT coalesce(value::VARCHAR, '') FROM settings WHERE key = ?");
-  statement.bind_text(1, key);
-  auto result = statement.query();
-  if (result.rows() == 0) {
-    return std::string(fallback);
-  }
-  const auto value = unquote_json_string(result.text(0, 0));
-  return value.empty() ? std::string(fallback) : value;
-}
-
-std::string WorkbenchRepository::setting_json(std::string_view key, std::string_view fallback_json) const {
-  std::scoped_lock lock(impl_->mutex);
-  auto statement = impl_->statement("SELECT coalesce(value::VARCHAR, '') FROM settings WHERE key = ?");
-  statement.bind_text(1, key);
-  auto result = statement.query();
-  if (result.rows() == 0) {
-    return std::string(fallback_json);
-  }
-  const auto value = result.text(0, 0);
-  return value.empty() ? std::string(fallback_json) : value;
 }
 
 }  // namespace uocr::storage

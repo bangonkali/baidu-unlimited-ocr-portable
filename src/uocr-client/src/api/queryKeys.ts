@@ -5,6 +5,7 @@ export const queryKeys = {
   documentText: (fileHash?: string) => ['document-text', fileHash] as const,
   logs: ['logs'] as const,
   models: ['models'] as const,
+  ocrMetrics: ['ocr-metrics'] as const,
   runs: ['runs'] as const,
   settings: ['settings'] as const,
   status: ['status'] as const,

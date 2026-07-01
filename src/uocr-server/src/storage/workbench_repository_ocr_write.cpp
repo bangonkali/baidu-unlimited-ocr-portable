@@ -251,4 +251,46 @@ void WorkbenchRepository::append_diagnostic_event(const std::string& run_id,
   statement.execute();
 }
 
+void WorkbenchRepository::upsert_page_metrics(const OcrPageMetrics& metrics) {
+  std::scoped_lock lock(impl_->mutex);
+  auto statement = impl_->statement(
+      "INSERT INTO ocr_page_metrics(run_id, file_hash, page_no, engine_id, profile_id, model_id, "
+      "runtime_id, runtime_platform, accelerator, status, error, token_count, chunk_count, "
+      "first_token_latency_ms, generation_duration_ms, elapsed_ms, min_tps, max_tps, avg_tps, "
+      "started_at, first_token_at, completed_at, updated_at) "
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp) "
+      "ON CONFLICT(run_id, file_hash, page_no) DO UPDATE SET "
+      "engine_id=excluded.engine_id, profile_id=excluded.profile_id, model_id=excluded.model_id, "
+      "runtime_id=excluded.runtime_id, runtime_platform=excluded.runtime_platform, accelerator=excluded.accelerator, "
+      "status=excluded.status, error=excluded.error, token_count=excluded.token_count, "
+      "chunk_count=excluded.chunk_count, first_token_latency_ms=excluded.first_token_latency_ms, "
+      "generation_duration_ms=excluded.generation_duration_ms, elapsed_ms=excluded.elapsed_ms, "
+      "min_tps=excluded.min_tps, max_tps=excluded.max_tps, avg_tps=excluded.avg_tps, "
+      "started_at=excluded.started_at, first_token_at=excluded.first_token_at, completed_at=excluded.completed_at, "
+      "updated_at=now()");
+  statement.bind_text(1, metrics.run_id);
+  statement.bind_text(2, metrics.file_hash);
+  statement.bind_int32(3, metrics.page_no);
+  statement.bind_text(4, metrics.engine_id);
+  statement.bind_text(5, metrics.profile_id);
+  statement.bind_text(6, metrics.model_id);
+  bind_nullable_text(statement, 7, metrics.runtime_id);
+  bind_nullable_text(statement, 8, metrics.runtime_platform);
+  bind_nullable_text(statement, 9, metrics.accelerator);
+  statement.bind_text(10, metrics.status);
+  bind_nullable_text(statement, 11, metrics.error);
+  statement.bind_uint64(12, metrics.token_count);
+  statement.bind_uint64(13, metrics.chunk_count);
+  statement.bind_uint64(14, metrics.first_token_latency_ms);
+  statement.bind_uint64(15, metrics.generation_duration_ms);
+  statement.bind_uint64(16, metrics.elapsed_ms);
+  statement.bind_double(17, metrics.min_tps);
+  statement.bind_double(18, metrics.max_tps);
+  statement.bind_double(19, metrics.avg_tps);
+  statement.bind_text(20, metrics.started_at);
+  bind_nullable_text(statement, 21, metrics.first_token_at);
+  bind_nullable_text(statement, 22, metrics.completed_at);
+  statement.execute();
+}
+
 }  // namespace uocr::storage

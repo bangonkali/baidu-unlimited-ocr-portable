@@ -94,6 +94,34 @@ Json::Value WorkbenchService::get_run(const std::string& run_id) const {
   return found == impl_->runs.end() ? error_json("run not found") : impl_->run_record(found->second);
 }
 
+Json::Value WorkbenchService::run_metrics(const std::string& run_id) const {
+  std::vector<storage::OcrPageMetrics> rows;
+  if (impl_->repository) {
+    try {
+      rows = impl_->repository->list_page_metrics(run_id, 100000);
+    } catch (const std::exception& error) {
+      if (impl_->logger) {
+        impl_->logger->error("database", std::string("DuckDB metrics query failed: ") + error.what());
+      }
+    }
+  }
+  return impl_->metrics_tree_record(rows);
+}
+
+Json::Value WorkbenchService::recent_metrics(std::size_t limit) const {
+  std::vector<storage::OcrPageMetrics> rows;
+  if (impl_->repository) {
+    try {
+      rows = impl_->repository->list_page_metrics("", limit == 0 ? 5000 : limit * 200);
+    } catch (const std::exception& error) {
+      if (impl_->logger) {
+        impl_->logger->error("database", std::string("DuckDB metrics query failed: ") + error.what());
+      }
+    }
+  }
+  return impl_->metrics_tree_record(rows);
+}
+
 Json::Value WorkbenchService::run_command(const std::string& run_id, const std::string& command) {
   Json::Value run_event;
   std::vector<Json::Value> document_events;

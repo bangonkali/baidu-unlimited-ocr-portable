@@ -1,37 +1,17 @@
 #include "workbench_state.hpp"
 
 #include <algorithm>
-#include <sstream>
 #include <string>
+#include <vector>
 
+#include "workbench_ingest_helpers.hpp"
+#include "workbench_page_stream.hpp"
 #include "uocr/app/app_logger.hpp"
 #include "uocr/core/ocr_parser.hpp"
 #include "uocr/core/profiles.hpp"
 #include "uocr/ocr/unlimited_ocr_ffi_engine.hpp"
 
 namespace uocr::server {
-namespace {
-
-void log_info(const std::shared_ptr<AppLogger>& logger, std::string_view component, const std::string& message) {
-  if (logger) {
-    logger->info(component, message);
-  }
-}
-
-void log_error(const std::shared_ptr<AppLogger>& logger, std::string_view component, const std::string& message) {
-  if (logger) {
-    logger->error(component, message);
-  }
-}
-
-std::string page_label(const DiscoveredFile& file, int page_no, int page_count) {
-  std::ostringstream out;
-  out << file.relative_path.generic_string() << " page " << page_no << "/" << page_count;
-  return out.str();
-}
-
-}  // namespace
-
 void WorkbenchService::Impl::process_run(const std::string& run_id,
                                          const std::vector<DiscoveredFile>& files,
                                          const std::string& profile_id,
@@ -207,17 +187,23 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       }
       publish_event("document.page.changed", page_event);
       log_info(logger, "ocr", "processing " + page_label(file, page.page_no, static_cast<int>(pages.size())));
+      PageStreamPublisher stream(*this, run_id, hash, index, page.page_no, profile->key, model_id, runtime);
+      stream.start();
       OcrResult result;
       std::string error;
       try {
         result = engine.recognize_image({page.image_path, "document parsing.", profile->default_max_tokens},
-                                        [](const OcrEvent&) {});
+                                        [&stream](const OcrEvent& event) {
+                                          stream.on_event(event);
+                                        });
         if (!result.ok) {
           error = result.error.empty() ? "OCR failed" : result.error;
         }
       } catch (const std::exception& exception) {
         error = exception.what();
       }
+      const auto page_status = error.empty() ? std::string_view("completed") : std::string_view("failed");
+      const auto page_metrics = stream.finish_metrics(page_status, error);
 
       Json::Value regions_event;
       Json::Value text_event;
@@ -245,6 +231,7 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
         refresh_document_aggregate(document);
         runs[run_id].processed_pages += 1;
         persist_page_ocr(hash, page_state, profile->key);
+        persist_page_metrics(page_metrics);
         persist_work_unit(run_id, hash, page_state.page_no, page_state.status, 1, page_state.error);
         persist_document(document, runs[run_id].root_path);
         persist_run(runs[run_id]);
@@ -268,6 +255,7 @@ void WorkbenchService::Impl::process_run(const std::string& run_id,
       publish_event("document.regions.changed", regions_event);
       publish_event("document.text.changed", text_event);
       publish_event("run.changed", run_event);
+      stream.publish_terminal(page_status, error);
       publish_status_changed();
     }
 

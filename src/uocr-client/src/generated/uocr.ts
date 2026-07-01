@@ -15,6 +15,7 @@ import type {
   FolderDialogResponse,
   GetOpenapi200,
   GetRecentLogsParams,
+  GetRecentOcrMetricsParams,
   HealthPayload,
   IngestRunRecord,
   IngestRunsPayload,
@@ -25,6 +26,7 @@ import type {
   ModelDownloadRequest,
   ModelSelectRecord,
   ModelsPayload,
+  OcrMetricsTreePayload,
   PreviewImagesPayload,
   SearchDocumentsParams,
   SettingsPayload,
@@ -279,6 +281,53 @@ export const listIngestRuns = async ( options?: RequestInit): Promise<listIngest
 
 
 
+export type getRecentOcrMetricsResponse200 = {
+  data: OcrMetricsTreePayload
+  status: 200
+}
+
+export type getRecentOcrMetricsResponseSuccess = (getRecentOcrMetricsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getRecentOcrMetricsResponse = (getRecentOcrMetricsResponseSuccess)
+
+export const getGetRecentOcrMetricsUrl = (params?: GetRecentOcrMetricsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ingest/metrics/recent?${stringifiedParams}` : `/api/ingest/metrics/recent`
+}
+
+export const getRecentOcrMetrics = async (params?: GetRecentOcrMetricsParams, options?: RequestInit): Promise<getRecentOcrMetricsResponse> => {
+
+  const res = await fetch(getGetRecentOcrMetricsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getRecentOcrMetricsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getRecentOcrMetricsResponse
+}
+
+
+
 export type getIngestRunResponse200 = {
   data: IngestRunRecord
   status: 200
@@ -315,6 +364,46 @@ export const getIngestRun = async (runId: string, options?: RequestInit): Promis
 
   const data: getIngestRunResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getIngestRunResponse
+}
+
+
+
+export type getIngestRunMetricsResponse200 = {
+  data: OcrMetricsTreePayload
+  status: 200
+}
+
+export type getIngestRunMetricsResponseSuccess = (getIngestRunMetricsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getIngestRunMetricsResponse = (getIngestRunMetricsResponseSuccess)
+
+export const getGetIngestRunMetricsUrl = (runId: string,) => {
+
+
+
+
+  return `/api/ingest/runs/${runId}/metrics`
+}
+
+export const getIngestRunMetrics = async (runId: string, options?: RequestInit): Promise<getIngestRunMetricsResponse> => {
+
+  const res = await fetch(getGetIngestRunMetricsUrl(runId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getIngestRunMetricsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getIngestRunMetricsResponse
 }
 
 

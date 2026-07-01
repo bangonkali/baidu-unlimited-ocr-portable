@@ -3,9 +3,12 @@
 #include <cstdint>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -116,9 +119,19 @@ std::int32_t on_ffi_event(const UocrFfiEvent* event, void* user_data) {
   std::string text(static_cast<const char*>(event->text_utf8), static_cast<std::size_t>(event->text_len));
   state->result->text += text;
   if (state->sink != nullptr) {
-    (*state->sink)(OcrEvent{OcrEvent::Kind::Token, text, {}});
+    (*state->sink)(OcrEvent{.kind = OcrEvent::Kind::Token, .text = text, .index = event->index});
   }
   return 0;
+}
+
+std::string dynamic_library_error() {
+#ifdef _WIN32
+  const auto code = GetLastError();
+  return code == 0 ? std::string{} : " (GetLastError=" + std::to_string(code) + ")";
+#else
+  const char* message = dlerror();
+  return message == nullptr ? std::string{} : ": " + std::string(message);
+#endif
 }
 
 }  // namespace
@@ -179,7 +192,8 @@ struct UnlimitedOcrFfiEngine::Impl {
     library = dlopen(paths.ffi_library.string().c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
     if (library == nullptr) {
-      throw std::runtime_error("failed to load uocr-ffi library: " + paths.ffi_library.string());
+      throw std::runtime_error("failed to load uocr-ffi library: " + paths.ffi_library.string() +
+                               dynamic_library_error());
     }
 
     auto abi_version = symbol<AbiVersionFn>("uocr_ffi_abi_version");
@@ -270,13 +284,13 @@ OcrResult UnlimitedOcrFfiEngine::recognize_image(const OcrRequest& request,
     if (!result.ok) {
       const char* message = impl_->last_error != nullptr ? impl_->last_error(impl_->session) : nullptr;
       result.error = message != nullptr ? message : "uocr-ffi returned an error";
-      event_sink(OcrEvent{OcrEvent::Kind::Error, {}, result.error});
+      event_sink(OcrEvent{.kind = OcrEvent::Kind::Error, .message = result.error});
     } else {
-      event_sink(OcrEvent{OcrEvent::Kind::Done, result.text, {}});
+      event_sink(OcrEvent{.kind = OcrEvent::Kind::Done, .text = result.text});
     }
   } catch (const std::exception& error) {
     result.error = error.what();
-    event_sink(OcrEvent{OcrEvent::Kind::Error, {}, result.error});
+    event_sink(OcrEvent{.kind = OcrEvent::Kind::Error, .message = result.error});
   }
   return result;
 }

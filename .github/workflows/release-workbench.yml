@@ -179,6 +179,7 @@ jobs:
         shell: bash
         run: |
           cmake --build "build/${{ matrix.preset }}" --config Release --target \
+            uocr-platform-tests \
             uocr-core-tests \
             uocr-download-tests \
             uocr-render-tests \

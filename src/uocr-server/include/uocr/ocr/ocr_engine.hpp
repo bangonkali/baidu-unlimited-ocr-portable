@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <functional>
+#include <cstdint>
 #include <string>
 
 #include "uocr/core/profiles.hpp"
@@ -19,6 +20,7 @@ struct OcrEvent {
   Kind kind = Kind::Token;
   std::string text;
   std::string message;
+  std::uint64_t index = 0;
 };
 
 struct OcrResult {
@@ -38,4 +40,3 @@ class OcrEngine {
 };
 
 }  // namespace uocr
-

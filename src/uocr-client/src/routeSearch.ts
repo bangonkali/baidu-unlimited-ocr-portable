@@ -41,7 +41,7 @@ export interface DiagnosticsRouteSearch {
   q?: string;
   run?: string;
   status?: string;
-  tab?: 'logs' | 'runs';
+  tab?: 'logs' | 'metrics' | 'runs';
 }
 
 export interface IngestRouteSearch {
@@ -94,7 +94,7 @@ export function validateDiagnosticsSearch(search: Record<string, unknown>): Diag
     q: stringValue(search.q),
     run: stringValue(search.run),
     status: stringValue(search.status),
-    tab: tab === 'logs' || tab === 'runs' ? tab : undefined,
+    tab: tab === 'logs' || tab === 'metrics' || tab === 'runs' ? tab : undefined,
   };
 }
 

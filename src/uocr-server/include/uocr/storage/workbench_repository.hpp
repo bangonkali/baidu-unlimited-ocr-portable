@@ -52,6 +52,32 @@ struct StoredRun {
   std::vector<std::string> file_hashes;
 };
 
+struct OcrPageMetrics {
+  std::string run_id;
+  std::string file_hash;
+  std::string relative_path;
+  int page_no = 1;
+  std::string engine_id = "unlimited-ocr";
+  std::string profile_id = "experimental-exact-prefill-q4";
+  std::string model_id = "unlimited-ocr-q4-k-m";
+  std::string runtime_id;
+  std::string runtime_platform;
+  std::string accelerator;
+  std::string status = "completed";
+  std::string error;
+  std::uint64_t token_count = 0;
+  std::uint64_t chunk_count = 0;
+  std::uint64_t first_token_latency_ms = 0;
+  std::uint64_t generation_duration_ms = 0;
+  std::uint64_t elapsed_ms = 0;
+  double min_tps = 0.0;
+  double max_tps = 0.0;
+  double avg_tps = 0.0;
+  std::string started_at;
+  std::string first_token_at;
+  std::string completed_at;
+};
+
 struct WorkbenchSnapshot {
   std::vector<StoredRun> runs;
   std::vector<StoredDocument> documents;
@@ -71,6 +97,7 @@ class WorkbenchRepository {
   const std::filesystem::path& database_path() const;
   WorkbenchSnapshot load_snapshot() const;
   std::vector<std::string> search_document_hashes(std::string_view query, std::size_t limit) const;
+  std::vector<OcrPageMetrics> list_page_metrics(std::string_view run_id, std::size_t limit) const;
   std::string setting_json(std::string_view key, std::string_view fallback_json) const;
   std::string setting_string(std::string_view key, std::string_view fallback) const;
 
@@ -92,6 +119,7 @@ class WorkbenchRepository {
   void append_diagnostic_event(const std::string& run_id,
                                std::string_view level,
                                std::string_view message);
+  void upsert_page_metrics(const OcrPageMetrics& metrics);
 
  private:
   std::unique_ptr<Impl> impl_;

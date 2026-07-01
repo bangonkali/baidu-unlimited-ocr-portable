@@ -15,6 +15,7 @@ import type {
   ModelDownloadRequest,
   ModelSelectRecord,
   ModelsPayload,
+  OcrMetricsTreePayload,
   PreviewImagesPayload,
   SettingsPayload,
   SettingsUpdateRequest,
@@ -163,6 +164,15 @@ export function useIngestRuns() {
     placeholderData: { runs: [] },
     queryFn: ({ signal }) => getJson<IngestRunsPayload>('/api/ingest/runs', signal),
     queryKey: queryKeys.runs,
+  });
+}
+
+export function useOcrMetrics(limit = 50) {
+  return useQuery({
+    placeholderData: { nodes: [] },
+    queryFn: ({ signal }) =>
+      getJson<OcrMetricsTreePayload>(buildApiUrl('/api/ingest/metrics/recent', { limit }), signal),
+    queryKey: [...queryKeys.ocrMetrics, limit],
   });
 }
 

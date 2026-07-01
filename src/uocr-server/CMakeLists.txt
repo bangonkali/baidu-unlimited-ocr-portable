@@ -35,6 +35,11 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/UocrDependencies.cmake")
 
 uocr_configure_openssl()
 
+add_library(uocr_platform INTERFACE)
+if(WIN32)
+  target_compile_definitions(uocr_platform INTERFACE NOMINMAX WIN32_LEAN_AND_MEAN)
+endif()
+
 add_library(uocr_core STATIC
   src/core/model_catalog.cpp
   src/core/ocr_parser.cpp
@@ -48,6 +53,7 @@ add_library(uocr_core STATIC
 )
 
 target_include_directories(uocr_core PUBLIC include)
+target_link_libraries(uocr_core PUBLIC uocr_platform)
 
 if(CMAKE_DL_LIBS)
   target_link_libraries(uocr_core PUBLIC ${CMAKE_DL_LIBS})
@@ -61,6 +67,7 @@ endif()
 
 add_library(uocr_storage STATIC
   src/storage/workbench_repository.cpp
+  src/storage/workbench_repository_metrics_read.cpp
   src/storage/workbench_repository_ocr_write.cpp
   src/storage/workbench_repository_read.cpp
   src/storage/workbench_repository_write.cpp
@@ -86,7 +93,7 @@ add_library(uocr_download STATIC
 )
 
 target_include_directories(uocr_download PUBLIC include)
-target_link_libraries(uocr_download PUBLIC CURL::libcurl uocr_openssl_crypto)
+target_link_libraries(uocr_download PUBLIC CURL::libcurl uocr_openssl_crypto uocr_platform)
 
 if(MSVC)
   target_compile_options(uocr_download PRIVATE /W4 /permissive-)
@@ -95,6 +102,10 @@ else()
 endif()
 
 if(UOCR_BUILD_TESTS)
+  add_executable(uocr-platform-tests tests/platform_tests.cpp)
+  target_link_libraries(uocr-platform-tests PRIVATE uocr_platform)
+  add_test(NAME uocr-platform-tests COMMAND uocr-platform-tests)
+
   add_executable(uocr-core-tests tests/core_tests.cpp)
   target_link_libraries(uocr-core-tests PRIVATE uocr_core)
   add_test(NAME uocr-core-tests COMMAND uocr-core-tests)
@@ -163,14 +174,19 @@ if(UOCR_BUILD_SERVER)
       src/app/app_logger.cpp
       src/app/folder_dialog.cpp
       src/app/main.cpp
+      src/app/model_routes.cpp
       src/app/realtime_event_hub.cpp
       src/app/realtime_ws.cpp
       src/app/routes.cpp
       src/app/workbench_document_state.cpp
       src/app/workbench_ingest.cpp
+      src/app/workbench_ingest_helpers.cpp
       src/app/workbench_ingest_start.cpp
+      src/app/workbench_metrics.cpp
       src/app/workbench_model_records.cpp
       src/app/workbench_models.cpp
+      src/app/workbench_page_stream.cpp
+      src/app/workbench_page_stream_payloads.cpp
       src/app/workbench_page_preparation.cpp
       src/app/workbench_persistence.cpp
       src/app/workbench_realtime_payloads.cpp

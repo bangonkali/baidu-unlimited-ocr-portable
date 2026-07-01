@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { fixtureLogs, fixtureRuns } from '../../stories/fixtures/workbenchFixtures';
-import { filterLogs, filterRuns } from './DiagnosticsPanel';
+import { filterLogs, filterRuns } from './diagnosticsFilterLogic';
 
 describe('diagnostics filters', () => {
   test('filters logs by query, level, and component', () => {

@@ -54,6 +54,11 @@
   font-size: 12px;
 }
 
+.group .error {
+  color: var(--danger, #ff6b6b);
+  overflow-wrap: anywhere;
+}
+
 .field {
   display: grid;
   gap: 5px;
