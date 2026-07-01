@@ -169,6 +169,7 @@ if(UOCR_BUILD_SERVER)
       src/app/workbench_document_state.cpp
       src/app/workbench_ingest.cpp
       src/app/workbench_ingest_start.cpp
+      src/app/workbench_metrics.cpp
       src/app/workbench_model_records.cpp
       src/app/workbench_models.cpp
       src/app/workbench_page_preparation.cpp

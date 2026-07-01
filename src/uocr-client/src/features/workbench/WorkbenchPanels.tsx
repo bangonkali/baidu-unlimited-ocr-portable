@@ -8,6 +8,7 @@ import type {
   IngestRunRecord,
   LogRecord,
   ModelAssetRecord,
+  OcrMetricsTreePayload,
   OverlayBox,
   PageTextRecord,
 } from '../../api/types';
@@ -25,6 +26,7 @@ interface WorkbenchPanelsProps {
   documents: DocumentSummary[];
   logs: LogRecord[];
   model?: ModelAssetRecord;
+  ocrMetrics: OcrMetricsTreePayload;
   onOpenModels: () => void;
   onPickFolder: () => void;
   onStart: () => void;
@@ -156,7 +158,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
         onExpand={() => setPaneCollapsed('diagnostics', false)}
         ref={diagnosticsRef}
       >
-        <DiagnosticsPanel logs={props.logs} runs={props.runs} />
+        <DiagnosticsPanel logs={props.logs} metrics={props.ocrMetrics} runs={props.runs} />
       </Panel>
     </PanelGroup>
   );

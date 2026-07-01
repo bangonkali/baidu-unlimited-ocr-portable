@@ -5,7 +5,10 @@ import type {
   IngestRunRecord,
   LogRecord,
   ModelAssetRecord,
+  OcrPageMetricRecord,
+  OverlayBox,
   StatusPayload,
+  TextRegionSpan,
 } from '../api/types';
 
 export type RealtimeEventType =
@@ -17,6 +20,16 @@ export type RealtimeEventType =
   | 'document.page.changed'
   | 'document.regions.changed'
   | 'document.text.changed'
+  | 'ocr.page.stream.started'
+  | 'ocr.page.raw.delta'
+  | 'ocr.page.text.patch'
+  | 'ocr.page.region.upsert'
+  | 'ocr.page.region.remove'
+  | 'ocr.page.span.upsert'
+  | 'ocr.page.span.remove'
+  | 'ocr.page.metrics.changed'
+  | 'ocr.page.stream.completed'
+  | 'ocr.page.stream.failed'
   | 'log.appended';
 
 export interface ConnectionReadyPayload {
@@ -38,6 +51,56 @@ export interface DocumentPageEventPayload {
   region_count?: number;
 }
 
+export interface OcrPageStreamContext {
+  run_id: string;
+  file_hash: string;
+  page_no: number;
+  engine_id?: string;
+  profile_id?: string;
+  model_id?: string;
+  runtime_id?: string;
+  runtime_platform?: string;
+  accelerator?: string;
+}
+
+export interface OcrPageStreamStartedPayload extends OcrPageStreamContext {
+  started_at?: string;
+}
+
+export interface OcrPageRawDeltaPayload extends OcrPageStreamContext {
+  token_index: number;
+  delta: string;
+  raw_start: number;
+  raw_end: number;
+  elapsed_ms: number;
+  avg_tps: number;
+}
+
+export interface OcrPageTextPatchPayload extends OcrPageStreamContext {
+  op: 'append' | 'replace';
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface OcrPageRegionUpsertPayload extends OcrPageStreamContext {
+  region: OverlayBox;
+}
+
+export interface OcrPageRegionRemovePayload extends OcrPageStreamContext {
+  region_id: string;
+}
+
+export interface OcrPageSpanUpsertPayload extends OcrPageStreamContext {
+  span: TextRegionSpan;
+}
+
+export interface OcrPageSpanRemovePayload extends OcrPageStreamContext {
+  region_id: string;
+}
+
+export type OcrPageMetricsPayload = OcrPageMetricRecord;
+
 export interface RealtimeEnvelope<TType extends RealtimeEventType, TPayload> {
   version: 1;
   sequence: number;
@@ -55,6 +118,16 @@ export type RealtimeEvent =
   | RealtimeEnvelope<'document.page.changed', DocumentPageEventPayload>
   | RealtimeEnvelope<'document.regions.changed', DocumentRegionsPayload>
   | RealtimeEnvelope<'document.text.changed', DocumentTextPayload>
+  | RealtimeEnvelope<'ocr.page.stream.started', OcrPageStreamStartedPayload>
+  | RealtimeEnvelope<'ocr.page.raw.delta', OcrPageRawDeltaPayload>
+  | RealtimeEnvelope<'ocr.page.text.patch', OcrPageTextPatchPayload>
+  | RealtimeEnvelope<'ocr.page.region.upsert', OcrPageRegionUpsertPayload>
+  | RealtimeEnvelope<'ocr.page.region.remove', OcrPageRegionRemovePayload>
+  | RealtimeEnvelope<'ocr.page.span.upsert', OcrPageSpanUpsertPayload>
+  | RealtimeEnvelope<'ocr.page.span.remove', OcrPageSpanRemovePayload>
+  | RealtimeEnvelope<'ocr.page.metrics.changed', OcrPageMetricsPayload>
+  | RealtimeEnvelope<'ocr.page.stream.completed', OcrPageMetricsPayload>
+  | RealtimeEnvelope<'ocr.page.stream.failed', OcrPageMetricsPayload>
   | RealtimeEnvelope<'log.appended', LogRecord>;
 
 const realtimeEventTypes = new Set<RealtimeEventType>([
@@ -66,6 +139,16 @@ const realtimeEventTypes = new Set<RealtimeEventType>([
   'document.page.changed',
   'document.regions.changed',
   'document.text.changed',
+  'ocr.page.stream.started',
+  'ocr.page.raw.delta',
+  'ocr.page.text.patch',
+  'ocr.page.region.upsert',
+  'ocr.page.region.remove',
+  'ocr.page.span.upsert',
+  'ocr.page.span.remove',
+  'ocr.page.metrics.changed',
+  'ocr.page.stream.completed',
+  'ocr.page.stream.failed',
   'log.appended',
 ]);
 

@@ -4,6 +4,7 @@ import type {
   LogRecord,
   ModelAssetRecord,
   ModelsPayload,
+  OcrMetricsTreePayload,
   OcrProfileRecord,
   OverlayBox,
   PageTextRecord,
@@ -56,6 +57,7 @@ export interface WorkbenchViewData {
   logs: LogRecord[];
   model?: ModelAssetRecord;
   models?: ModelsPayload;
+  ocrMetrics: OcrMetricsTreePayload;
   previewPages: number[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];

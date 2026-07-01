@@ -4,6 +4,7 @@ import type {
   LogRecord,
   ModelAssetRecord,
   ModelsPayload,
+  OcrMetricsTreePayload,
   OcrProfileRecord,
   OverlayBox,
   PageTextRecord,
@@ -40,6 +41,7 @@ export interface WorkbenchViewContentProps {
   modelScope: 'library' | 'downloads';
   modelSearch?: ModelRouteSearch;
   models?: ModelsPayload;
+  ocrMetrics: OcrMetricsTreePayload;
   previewPages: number[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
@@ -106,6 +108,7 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
     return (
       <DiagnosticsPanel
         logs={props.logs}
+        metrics={props.ocrMetrics}
         runs={props.runs}
         search={props.diagnosticsSearch}
         onSearchChange={props.onDiagnosticsSearchChange}
@@ -157,6 +160,7 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
       documents={props.documents}
       logs={props.logs}
       model={props.model}
+      ocrMetrics={props.ocrMetrics}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
       onSelectDocument={props.onSelectDocument}

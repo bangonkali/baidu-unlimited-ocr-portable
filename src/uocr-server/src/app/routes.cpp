@@ -2,6 +2,7 @@
 
 #include <drogon/drogon.h>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -67,6 +68,20 @@ std::string sse_frame(std::string_view event_name, const Json::Value& value) {
 
 void register_run_routes(const std::shared_ptr<WorkbenchService>& service) {
   using namespace drogon;
+  app().registerHandler("/api/ingest/metrics/recent", [service](const HttpRequestPtr& request,
+                                                                 std::function<void(const HttpResponsePtr&)>&& callback) {
+    std::size_t limit = 50;
+    const auto raw_limit = request->getParameter("limit");
+    if (!raw_limit.empty()) {
+      try {
+        limit = static_cast<std::size_t>(std::max(1, std::stoi(raw_limit)));
+      } catch (const std::exception&) {
+        limit = 50;
+      }
+    }
+    callback(json_response(service->recent_metrics(limit)));
+  });
+
   app().registerHandler("/api/ingest/runs", [service](const HttpRequestPtr&,
                                                        std::function<void(const HttpResponsePtr&)>&& callback) {
     callback(json_response(service->list_runs()));
@@ -75,6 +90,12 @@ void register_run_routes(const std::shared_ptr<WorkbenchService>& service) {
                                                            std::function<void(const HttpResponsePtr&)>&& callback,
                                                            const std::string& run_id) {
     callback(json_response(service->get_run(run_id)));
+  });
+
+  app().registerHandler("/api/ingest/runs/{1}/metrics", [service](const HttpRequestPtr&,
+                                                                   std::function<void(const HttpResponsePtr&)>&& callback,
+                                                                   const std::string& run_id) {
+    callback(json_response(service->run_metrics(run_id)));
   });
 
   app().registerHandler("/api/ingest/runs/{1}/stop",

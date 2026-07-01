@@ -233,6 +233,36 @@ VALUES (
 )
 ON CONFLICT(key) DO NOTHING;
 )SQL"},
+      {6, "ocr_page_metrics", R"SQL(
+CREATE TABLE IF NOT EXISTS ocr_page_metrics (
+  run_id TEXT NOT NULL,
+  file_hash TEXT NOT NULL,
+  page_no INTEGER NOT NULL,
+  engine_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  runtime_id TEXT,
+  runtime_platform TEXT,
+  accelerator TEXT,
+  status TEXT NOT NULL,
+  error TEXT,
+  token_count UBIGINT NOT NULL DEFAULT 0,
+  chunk_count UBIGINT NOT NULL DEFAULT 0,
+  first_token_latency_ms UBIGINT NOT NULL DEFAULT 0,
+  generation_duration_ms UBIGINT NOT NULL DEFAULT 0,
+  elapsed_ms UBIGINT NOT NULL DEFAULT 0,
+  min_tps DOUBLE NOT NULL DEFAULT 0,
+  max_tps DOUBLE NOT NULL DEFAULT 0,
+  avg_tps DOUBLE NOT NULL DEFAULT 0,
+  started_at TEXT NOT NULL,
+  first_token_at TEXT,
+  completed_at TEXT,
+  updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+  PRIMARY KEY (run_id, file_hash, page_no)
+);
+CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_run ON ocr_page_metrics(run_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_model_runtime ON ocr_page_metrics(model_id, runtime_id);
+)SQL"},
   };
   return migrations;
 }

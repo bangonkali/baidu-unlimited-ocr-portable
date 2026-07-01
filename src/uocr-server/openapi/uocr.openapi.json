@@ -127,6 +127,34 @@
         }
       }
     },
+    "/api/ingest/metrics/recent": {
+      "get": {
+        "operationId": "getRecentOcrMetrics",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent OCR performance metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrMetricsTreePayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/runs/{run_id}": {
       "get": {
         "operationId": "getIngestRun",
@@ -142,6 +170,28 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/IngestRunRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs/{run_id}/metrics": {
+      "get": {
+        "operationId": "getIngestRunMetrics",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RunId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OCR performance metrics for one ingest run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrMetricsTreePayload"
                 }
               }
             }
@@ -839,6 +889,125 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/IngestRunRecord"
+            }
+          }
+        }
+      },
+      "OcrMetricsTreeNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "run_id",
+          "status",
+          "token_count",
+          "chunk_count",
+          "page_count",
+          "first_token_latency_ms",
+          "generation_duration_ms",
+          "elapsed_ms",
+          "min_tps",
+          "max_tps",
+          "avg_tps"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "file",
+              "page"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "file_hash": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": "string"
+          },
+          "runtime_platform": {
+            "type": "string"
+          },
+          "accelerator": {
+            "type": "string"
+          },
+          "token_count": {
+            "type": "integer"
+          },
+          "chunk_count": {
+            "type": "integer"
+          },
+          "page_count": {
+            "type": "integer"
+          },
+          "first_token_latency_ms": {
+            "type": "integer"
+          },
+          "generation_duration_ms": {
+            "type": "integer"
+          },
+          "elapsed_ms": {
+            "type": "integer"
+          },
+          "min_tps": {
+            "type": "number",
+            "format": "double"
+          },
+          "max_tps": {
+            "type": "number",
+            "format": "double"
+          },
+          "avg_tps": {
+            "type": "number",
+            "format": "double"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrMetricsTreeNode"
+            }
+          }
+        }
+      },
+      "OcrMetricsTreePayload": {
+        "type": "object",
+        "required": [
+          "nodes"
+        ],
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrMetricsTreeNode"
             }
           }
         }

@@ -114,6 +114,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
   Json::Value document_page_record(const DocumentState& document, const PageState& page) const;
   Json::Value document_regions_record(const DocumentState& document) const;
   Json::Value document_text_record(const DocumentState& document) const;
+  Json::Value metrics_tree_record(const std::vector<storage::OcrPageMetrics>& rows) const;
   bool is_image_document(const DocumentState& document) const;
   bool is_pdf_document(const DocumentState& document) const;
   std::string document_status_for(const DocumentState& document) const;
@@ -137,6 +138,7 @@ struct WorkbenchService::Impl : public std::enable_shared_from_this<WorkbenchSer
                          int attempts,
                          std::string_view error) const;
   void persist_diagnostic(const std::string& run_id, std::string_view level, std::string_view message) const;
+  void persist_page_metrics(const storage::OcrPageMetrics& metrics) const;
   void persist_selected_model() const;
   void persist_selected_runtime() const;
   void persist_selected_profile() const;

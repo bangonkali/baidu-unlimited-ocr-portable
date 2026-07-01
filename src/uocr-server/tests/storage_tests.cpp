@@ -65,6 +65,30 @@ void persist_document(uocr::storage::WorkbenchRepository& repository) {
                               "unlimited-ocr",
                               "experimental-exact-prefill-q4");
   repository.upsert_work_unit(run.run_id, document.file_hash, 1, "completed", 1, "");
+  repository.upsert_page_metrics({
+      .run_id = run.run_id,
+      .file_hash = document.file_hash,
+      .relative_path = document.relative_path.generic_string(),
+      .page_no = 1,
+      .engine_id = "unlimited-ocr",
+      .profile_id = "experimental-exact-prefill-q4",
+      .model_id = "unlimited-ocr-q5-k-m",
+      .runtime_id = "macos-arm64-metal",
+      .runtime_platform = "macos-arm64-metal",
+      .accelerator = "metal",
+      .status = "completed",
+      .token_count = 42,
+      .chunk_count = 42,
+      .first_token_latency_ms = 120,
+      .generation_duration_ms = 2000,
+      .elapsed_ms = 2120,
+      .min_tps = 18.0,
+      .max_tps = 24.0,
+      .avg_tps = 21.0,
+      .started_at = "2026-07-01T00:00:00Z",
+      .first_token_at = "2026-07-01T00:00:00Z",
+      .completed_at = "2026-07-01T00:00:02Z",
+  });
 }
 
 }  // namespace
@@ -102,6 +126,13 @@ int main() {
     const auto results = reopened.search_document_hashes("invoice", 10);
     assert(results.size() == 1);
     assert(results.front() == "file_abc");
+
+    const auto metrics = reopened.list_page_metrics("run_storage_test", 10);
+    assert(metrics.size() == 1);
+    assert(metrics.front().file_hash == "file_abc");
+    assert(metrics.front().relative_path == "invoice.pdf");
+    assert(metrics.front().token_count == 42);
+    assert(metrics.front().avg_tps == 21.0);
   }
   std::filesystem::remove_all(root);
   return 0;

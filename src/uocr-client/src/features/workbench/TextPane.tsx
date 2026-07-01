@@ -149,7 +149,7 @@ function useTextAutoScroll(
   bodyRef: RefObject<HTMLDivElement | null>,
   autoFollowRegions: boolean,
   selectedRegionId: string | undefined,
-  _fingerprint: string,
+  fingerprint: string,
 ) {
   useEffect(() => {
     if (!autoFollowRegions) {
@@ -159,13 +159,16 @@ function useTextAutoScroll(
     if (!root) {
       return;
     }
+    if (!fingerprint && !selectedRegionId) {
+      return;
+    }
     const selected = selectedRegionId ? findTraceElement(root, selectedRegionId) : null;
     if (selected) {
       selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       return;
     }
     root.scrollTo({ behavior: 'smooth', top: root.scrollHeight });
-  }, [autoFollowRegions, bodyRef, selectedRegionId]);
+  }, [autoFollowRegions, bodyRef, fingerprint, selectedRegionId]);
 }
 
 function findTraceElement(root: HTMLElement, regionId: string) {

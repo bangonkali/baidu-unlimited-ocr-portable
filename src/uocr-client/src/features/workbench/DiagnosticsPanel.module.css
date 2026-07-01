@@ -156,6 +156,44 @@
   color: var(--warning);
 }
 
+.metricName {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.metricName span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kindBadge {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  color: var(--subtle);
+  font-size: 10px;
+  text-transform: uppercase;
+  background: var(--panel-3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.body strong[data-status="completed"] {
+  color: var(--accent-2);
+}
+
+.body strong[data-status="failed"],
+.body strong[data-status="cancelled"] {
+  color: var(--danger);
+}
+
+.body strong[data-status="running"],
+.body strong[data-status="queued"] {
+  color: var(--warning);
+}
+
 .ok {
   color: var(--accent-2);
 }

@@ -28,6 +28,8 @@ class WorkbenchService {
   Json::Value start_ingest(const Json::Value& request);
   Json::Value list_runs() const;
   Json::Value get_run(const std::string& run_id) const;
+  Json::Value run_metrics(const std::string& run_id) const;
+  Json::Value recent_metrics(std::size_t limit) const;
   Json::Value run_command(const std::string& run_id, const std::string& command);
   std::string run_event_stream(const std::string& run_id) const;
 

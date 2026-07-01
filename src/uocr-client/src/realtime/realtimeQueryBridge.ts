@@ -1,7 +1,25 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '../api/queryKeys';
-import type { DocumentsPayload, IngestRunsPayload, LogsPayload, ModelsPayload } from '../api/types';
+import type {
+  DocumentRegionsPayload,
+  DocumentsPayload,
+  DocumentTextPayload,
+  IngestRunsPayload,
+  LogsPayload,
+  ModelsPayload,
+  OcrMetricsTreePayload,
+} from '../api/types';
+import { followLatestPage } from '../stores/workbenchStore';
+import {
+  applyMetricPatch,
+  applyRegionRemove,
+  applyRegionUpsert,
+  applySpanRemove,
+  applySpanUpsert,
+  applyTextPatch,
+  ensureTextPage,
+} from './ocrStreamReducer';
 import type { RealtimeEvent } from './realtimeTypes';
 
 function upsertById<T>(items: T[], item: T, getId: (value: T) => string) {
@@ -74,6 +92,20 @@ function applyLogEvent(
   });
 }
 
+function applyMetricEvent(
+  queryClient: QueryClient,
+  event: Extract<
+    RealtimeEvent,
+    {
+      type: 'ocr.page.metrics.changed' | 'ocr.page.stream.completed' | 'ocr.page.stream.failed';
+    }
+  >,
+) {
+  queryClient.setQueriesData<OcrMetricsTreePayload>({ queryKey: queryKeys.ocrMetrics }, (current) =>
+    applyMetricPatch(current, event.payload),
+  );
+}
+
 export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event: RealtimeEvent) {
   switch (event.type) {
     case 'connection.ready':
@@ -98,6 +130,55 @@ export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event:
       return;
     case 'document.text.changed':
       queryClient.setQueryData(queryKeys.documentText(event.payload.file_hash), event.payload);
+      return;
+    case 'ocr.page.stream.started':
+      queryClient.setQueryData<DocumentTextPayload>(
+        queryKeys.documentText(event.payload.file_hash),
+        (current) => ensureTextPage(current, event.payload),
+      );
+      followLatestPage(event.payload.file_hash, event.payload.page_no);
+      return;
+    case 'ocr.page.raw.delta':
+      followLatestPage(event.payload.file_hash, event.payload.page_no);
+      return;
+    case 'ocr.page.text.patch':
+      queryClient.setQueryData<DocumentTextPayload>(
+        queryKeys.documentText(event.payload.file_hash),
+        (current) => applyTextPatch(current, event.payload),
+      );
+      followLatestPage(event.payload.file_hash, event.payload.page_no);
+      return;
+    case 'ocr.page.region.upsert':
+      queryClient.setQueryData<DocumentRegionsPayload>(
+        queryKeys.documentRegions(event.payload.file_hash),
+        (current) => applyRegionUpsert(current, event.payload),
+      );
+      return;
+    case 'ocr.page.region.remove':
+      queryClient.setQueryData<DocumentRegionsPayload>(
+        queryKeys.documentRegions(event.payload.file_hash),
+        (current) => applyRegionRemove(current, event.payload),
+      );
+      return;
+    case 'ocr.page.span.upsert':
+      queryClient.setQueryData<DocumentTextPayload>(
+        queryKeys.documentText(event.payload.file_hash),
+        (current) => applySpanUpsert(current, event.payload),
+      );
+      return;
+    case 'ocr.page.span.remove':
+      queryClient.setQueryData<DocumentTextPayload>(
+        queryKeys.documentText(event.payload.file_hash),
+        (current) => applySpanRemove(current, event.payload),
+      );
+      return;
+    case 'ocr.page.metrics.changed':
+      applyMetricEvent(queryClient, event);
+      return;
+    case 'ocr.page.stream.completed':
+    case 'ocr.page.stream.failed':
+      applyMetricEvent(queryClient, event);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.ocrMetrics });
       return;
     case 'log.appended':
       applyLogEvent(queryClient, event);

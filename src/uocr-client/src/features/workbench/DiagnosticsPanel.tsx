@@ -1,21 +1,37 @@
 import { CircleAlert, CircleCheck, FileText, LoaderCircle } from 'lucide-react';
 
-import type { IngestRunRecord, LogRecord } from '../../api/types';
+import type {
+  IngestRunRecord,
+  LogRecord,
+  OcrMetricsTreeNode,
+  OcrMetricsTreePayload,
+} from '../../api/types';
+import type { TreeDataGridColumn } from '../../components/TreeDataGrid';
+import { TreeDataGrid } from '../../components/TreeDataGrid';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import styles from './DiagnosticsPanel.module.css';
 import { clampProgress, percentLabel, runPageLabel } from './progressFormat';
 
 interface DiagnosticsPanelProps {
   logs: LogRecord[];
+  metrics: OcrMetricsTreePayload;
   runs: IngestRunRecord[];
   search?: DiagnosticsRouteSearch;
   onSearchChange?: (patch: Partial<DiagnosticsRouteSearch>) => void;
 }
 
-export function DiagnosticsPanel({ logs, onSearchChange, runs, search }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({
+  logs,
+  metrics,
+  onSearchChange,
+  runs,
+  search,
+}: DiagnosticsPanelProps) {
   const tab = search?.tab ?? 'runs';
   const filteredLogs = filterLogs(logs, search);
+  const filteredMetrics = filterMetricNodes(metrics.nodes, search);
   const filteredRuns = filterRuns(runs, search);
+  const metricRows = flattenMetricNodes(metrics.nodes);
   return (
     <section className={styles.panel} aria-label="Diagnostics" data-tour="diagnostics">
       <div className={styles.header}>Diagnostics</div>
@@ -30,6 +46,14 @@ export function DiagnosticsPanel({ logs, onSearchChange, runs, search }: Diagnos
         </button>
         <button
           className={styles.tab}
+          data-active={tab === 'metrics'}
+          onClick={() => onSearchChange?.({ tab: 'metrics' })}
+          type="button"
+        >
+          Metrics
+        </button>
+        <button
+          className={styles.tab}
           data-active={tab === 'logs'}
           onClick={() => onSearchChange?.({ tab: 'logs' })}
           type="button"
@@ -39,13 +63,16 @@ export function DiagnosticsPanel({ logs, onSearchChange, runs, search }: Diagnos
       </div>
       <DiagnosticsFilters
         logs={logs}
+        metrics={metricRows}
         runs={runs}
         search={search}
         tab={tab}
         onSearchChange={onSearchChange}
       />
       <div className={styles.body}>
-        {tab === 'runs' ? <RunList runs={filteredRuns} /> : <LogList logs={filteredLogs} />}
+        {tab === 'runs' ? <RunList runs={filteredRuns} /> : null}
+        {tab === 'metrics' ? <MetricsTree nodes={filteredMetrics} /> : null}
+        {tab === 'logs' ? <LogList logs={filteredLogs} /> : null}
       </div>
     </section>
   );
@@ -89,15 +116,17 @@ export function filterRuns(runs: IngestRunRecord[], search: DiagnosticsRouteSear
 
 function DiagnosticsFilters({
   logs,
+  metrics,
   onSearchChange,
   runs,
   search,
   tab,
 }: {
   logs: LogRecord[];
+  metrics: OcrMetricsTreeNode[];
   runs: IngestRunRecord[];
   search?: DiagnosticsRouteSearch;
-  tab: 'logs' | 'runs';
+  tab: 'logs' | 'metrics' | 'runs';
   onSearchChange?: (patch: Partial<DiagnosticsRouteSearch>) => void;
 }) {
   return (
@@ -123,6 +152,21 @@ function DiagnosticsFilters({
             value={search?.component}
           />
         </>
+      ) : tab === 'metrics' ? (
+        <>
+          <FilterSelect
+            label="Status"
+            onChange={(status) => onSearchChange?.({ status })}
+            options={uniqueValues(metrics.map((item) => item.status))}
+            value={search?.status}
+          />
+          <FilterSelect
+            label="Run"
+            onChange={(run) => onSearchChange?.({ run })}
+            options={uniqueValues(metrics.map((item) => item.run_id))}
+            value={search?.run}
+          />
+        </>
       ) : (
         <>
           <FilterSelect
@@ -140,6 +184,85 @@ function DiagnosticsFilters({
         </>
       )}
     </div>
+  );
+}
+
+const metricColumns: Array<TreeDataGridColumn<OcrMetricsTreeNode>> = [
+  {
+    header: 'Name',
+    id: 'name',
+    render: (node) => (
+      <span className={styles.metricName}>
+        <span className={styles.kindBadge}>{node.kind}</span>
+        <span>{node.label}</span>
+      </span>
+    ),
+    width: 'minmax(240px, 1.6fr)',
+  },
+  {
+    header: 'Status',
+    id: 'status',
+    render: (node) => <strong data-status={node.status}>{node.status}</strong>,
+    width: '112px',
+  },
+  {
+    header: 'Model',
+    id: 'model',
+    render: (node) => node.model_id ?? '',
+    width: 'minmax(150px, 1fr)',
+  },
+  {
+    header: 'Runtime',
+    id: 'runtime',
+    render: (node) => node.runtime_platform || node.runtime_id || '',
+    width: 'minmax(150px, 1fr)',
+  },
+  {
+    align: 'right',
+    header: 'Tokens',
+    id: 'tokens',
+    render: (node) => integerLabel(node.token_count),
+    width: '84px',
+  },
+  {
+    align: 'right',
+    header: 'Avg tok/s',
+    id: 'avg',
+    render: (node) => tpsLabel(node.avg_tps),
+    width: '88px',
+  },
+  {
+    align: 'right',
+    header: 'Min',
+    id: 'min',
+    render: (node) => tpsLabel(node.min_tps),
+    width: '70px',
+  },
+  {
+    align: 'right',
+    header: 'Max',
+    id: 'max',
+    render: (node) => tpsLabel(node.max_tps),
+    width: '70px',
+  },
+  {
+    align: 'right',
+    header: 'Duration',
+    id: 'duration',
+    render: (node) => durationLabel(node.generation_duration_ms),
+    width: '82px',
+  },
+];
+
+function MetricsTree({ nodes }: { nodes: OcrMetricsTreeNode[] }) {
+  return (
+    <TreeDataGrid
+      ariaLabel="OCR metrics"
+      columns={metricColumns}
+      defaultExpandedDepth={2}
+      emptyLabel="No OCR metrics"
+      nodes={nodes}
+    />
   );
 }
 
@@ -233,4 +356,67 @@ function normalized(value: string | undefined) {
 
 function uniqueValues(values: string[]) {
   return [...new Set(values.filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
+function filterMetricNodes(
+  nodes: OcrMetricsTreeNode[],
+  search: DiagnosticsRouteSearch | undefined,
+): OcrMetricsTreeNode[] {
+  const query = normalized(search?.q);
+  return nodes
+    .map((node) => filterMetricNode(node, search, query))
+    .filter((node): node is OcrMetricsTreeNode => Boolean(node));
+}
+
+function filterMetricNode(
+  node: OcrMetricsTreeNode,
+  search: DiagnosticsRouteSearch | undefined,
+  query: string,
+): OcrMetricsTreeNode | null {
+  const children = node.children
+    ?.map((child) => filterMetricNode(child, search, query))
+    .filter((child): child is OcrMetricsTreeNode => Boolean(child));
+  const matchesRun = !search?.run || node.run_id === search.run;
+  const matchesStatus = !search?.status || node.status === search.status;
+  const haystack =
+    `${node.label} ${node.run_id} ${node.file_hash ?? ''} ${node.model_id ?? ''} ${node.runtime_id ?? ''} ${
+      node.runtime_platform ?? ''
+    } ${node.accelerator ?? ''}`.toLowerCase();
+  const matchesQuery = !query || haystack.includes(query);
+  if ((matchesRun && matchesStatus && matchesQuery) || (children?.length ?? 0) > 0) {
+    return { ...node, children };
+  }
+  return null;
+}
+
+function flattenMetricNodes(nodes: OcrMetricsTreeNode[]): OcrMetricsTreeNode[] {
+  const flat: OcrMetricsTreeNode[] = [];
+  const visit = (items: OcrMetricsTreeNode[]) => {
+    for (const node of items) {
+      flat.push(node);
+      if (node.children?.length) {
+        visit(node.children);
+      }
+    }
+  };
+  visit(nodes);
+  return flat;
+}
+
+function integerLabel(value: number | undefined) {
+  return Math.round(value ?? 0).toLocaleString();
+}
+
+function tpsLabel(value: number | undefined) {
+  return value && value > 0 ? value.toFixed(1) : '';
+}
+
+function durationLabel(ms: number | undefined) {
+  if (!ms) {
+    return '';
+  }
+  if (ms < 1000) {
+    return `${ms} ms`;
+  }
+  return `${(ms / 1000).toFixed(1)} s`;
 }

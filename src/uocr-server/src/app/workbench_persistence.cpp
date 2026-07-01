@@ -273,4 +273,17 @@ void WorkbenchService::Impl::persist_diagnostic(const std::string& run_id,
   }
 }
 
+void WorkbenchService::Impl::persist_page_metrics(const storage::OcrPageMetrics& metrics) const {
+  if (!repository) {
+    return;
+  }
+  try {
+    repository->upsert_page_metrics(metrics);
+  } catch (const std::exception& error) {
+    if (logger) {
+      logger->error("database", std::string("failed to persist OCR page metrics: ") + error.what());
+    }
+  }
+}
+
 }  // namespace uocr::server
