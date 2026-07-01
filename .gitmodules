@@ -11,3 +11,6 @@
 [submodule "thirdparty/mdx-js"]
 	path = thirdparty/mdx-js
 	url = git@github.com:mdx-js/mdx.git
+[submodule "thirdparty/pdfium"]
+	path = thirdparty/pdfium
+	url = https://pdfium.googlesource.com/pdfium
