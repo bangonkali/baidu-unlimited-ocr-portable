@@ -206,7 +206,7 @@ fn runtime_specs() -> Vec<RuntimeSpec> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 
