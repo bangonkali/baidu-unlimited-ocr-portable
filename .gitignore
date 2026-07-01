@@ -12,9 +12,13 @@ __pycache__/
 /safetensors_probe
 /.skylos/
 /build/
+/target/
 /dist/
 /src/uocr-client/dist/
 /src/uocr-client/storybook-static/
 /src/uocr-client/node_modules/
+/src/trapo-client/dist/
+/src/trapo-client/storybook-static/
+/src/trapo-client/node_modules/
 *.tsbuildinfo
 .logs/

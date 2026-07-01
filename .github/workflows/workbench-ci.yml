@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   frontend:
-    name: React client
+    name: Trapo React client
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -27,32 +27,62 @@ jobs:
           bun-version: 1.3.14
 
       - name: Install dependencies
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun install --frozen-lockfile
 
       - name: Check formatting
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run format:check
 
       - name: Lint
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run lint
 
       - name: Test
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run test
 
       - name: Typecheck
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run typecheck
 
       - name: Build
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run build
 
       - name: Build Storybook
-        working-directory: src/uocr-client
+        working-directory: src/trapo-client
         run: bun run build-storybook
+
+  rust:
+    name: Trapo Rust server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DUCKDB_DOWNLOAD_LIB: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy -p trapo-server --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test -p trapo-server
+
+      - name: Verify OpenAPI export
+        shell: bash
+        run: |
+          cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
+          git diff --exit-code -- src/trapo-server/openapi/trapo.openapi.json
 
   cxx:
     name: C++ tests (${{ matrix.platform }})

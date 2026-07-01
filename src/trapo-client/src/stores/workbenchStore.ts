@@ -31,7 +31,7 @@ export interface WorkbenchState {
   tourRun: boolean;
 }
 
-const themeStorageKey = 'uocr.theme';
+const themeStorageKey = 'trapo.theme';
 
 const initialState: WorkbenchState = {
   activeView: 'workbench',

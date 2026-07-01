@@ -1,12 +1,12 @@
 import { defineConfig } from 'orval';
 
 export default defineConfig({
-  uocr: {
+  trapo: {
     input: {
-      target: '../uocr-server/openapi/uocr.openapi.json',
+      target: '../trapo-server/openapi/trapo.openapi.json',
     },
     output: {
-      target: './src/generated/uocr.ts',
+      target: './src/generated/trapo.ts',
       schemas: './src/generated/model',
       client: 'fetch',
       clean: true,

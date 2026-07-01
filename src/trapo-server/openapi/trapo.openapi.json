@@ -1,0 +1,2025 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Trapo Server API",
+    "description": "Rust Axum API for Trapo OCR workbench.",
+    "license": {
+      "name": "AGPL-3.0-or-later",
+      "identifier": "AGPL-3.0-or-later"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/documents": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "list_documents_doc",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{file_hash}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "get_document_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{file_hash}/preview-images": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "preview_images_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewImagesPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{file_hash}/regions": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "document_regions_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentRegionsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{file_hash}/text": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "document_text_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentTextPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "health_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/metrics/recent": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "recent_metrics_doc",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrMetricsTreePayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "list_runs_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "get_run_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs/{run_id}/metrics": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "run_metrics_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrMetricsTreePayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs/{run_id}/stop": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "stop_run_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunRecord"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/start": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "start_ingest_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestRunRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/recent": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "logs_doc",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "operationId": "models_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{model_id}/cancel": {
+      "post": {
+        "tags": [
+          "models"
+        ],
+        "operationId": "cancel_model_doc",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDownloadRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{model_id}/download": {
+      "post": {
+        "tags": [
+          "models"
+        ],
+        "operationId": "download_model_doc",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelDownloadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDownloadRecord"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/models/{model_id}/select": {
+      "post": {
+        "tags": [
+          "models"
+        ],
+        "operationId": "select_model_doc",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSelectRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "openapi_doc",
+        "responses": {
+          "200": {
+            "description": "OpenAPI JSON"
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "settings_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsPayload"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "operationId": "update_settings_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsPayload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "status_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/folder-dialog": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "folder_dialog_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderDialogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DocumentDetail": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "display_name",
+          "relative_path",
+          "absolute_path",
+          "status",
+          "page_count",
+          "processed_pages",
+          "total_pages",
+          "progress_percent",
+          "regions"
+        ],
+        "properties": {
+          "absolute_path": {
+            "type": "string"
+          },
+          "current_page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_hash": {
+            "type": "string"
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "processed_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "progress_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "regions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "DocumentRegionsPayload": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "boxes"
+        ],
+        "properties": {
+          "boxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverlayBox"
+            }
+          },
+          "file_hash": {
+            "type": "string"
+          }
+        }
+      },
+      "DocumentSummary": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "display_name",
+          "relative_path",
+          "status",
+          "page_count",
+          "processed_pages",
+          "total_pages",
+          "progress_percent",
+          "regions"
+        ],
+        "properties": {
+          "current_page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_hash": {
+            "type": "string"
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "processed_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "progress_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "regions": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "relative_path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "DocumentTextPayload": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "pages"
+        ],
+        "properties": {
+          "file_hash": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PageTextRecord"
+            }
+          }
+        }
+      },
+      "DocumentsPayload": {
+        "type": "object",
+        "required": [
+          "documents"
+        ],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentSummary"
+            }
+          }
+        }
+      },
+      "ErrorPayload": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "FolderDialogResponse": {
+        "type": "object",
+        "required": [
+          "cancelled",
+          "selected_path",
+          "manual_path_supported"
+        ],
+        "properties": {
+          "cancelled": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manual_path_supported": {
+            "type": "boolean"
+          },
+          "selected_path": {
+            "type": "string"
+          }
+        }
+      },
+      "HealthPayload": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "type": "string"
+          }
+        }
+      },
+      "IngestRunRecord": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "root_path",
+          "status",
+          "queued_files",
+          "processed_pages",
+          "total_pages",
+          "progress_percent",
+          "profile_id",
+          "engine_id",
+          "model_id",
+          "runtime_id"
+        ],
+        "properties": {
+          "current_page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "engine_id": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "processed_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "progress_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "queued_files": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "root_path": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "IngestRunsPayload": {
+        "type": "object",
+        "required": [
+          "runs"
+        ],
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestRunRecord"
+            }
+          }
+        }
+      },
+      "IngestStartRequest": {
+        "type": "object",
+        "required": [
+          "root_path"
+        ],
+        "properties": {
+          "engine_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reprocess": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "root_path": {
+            "type": "string"
+          }
+        }
+      },
+      "LogRecord": {
+        "type": "object",
+        "required": [
+          "timestamp",
+          "level",
+          "component",
+          "message"
+        ],
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        }
+      },
+      "LogsPayload": {
+        "type": "object",
+        "required": [
+          "log_path",
+          "logs"
+        ],
+        "properties": {
+          "log_path": {
+            "type": "string"
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogRecord"
+            }
+          }
+        }
+      },
+      "ModelAssetRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "display_name",
+          "status",
+          "repo_id",
+          "revision",
+          "model_file",
+          "mmproj_file",
+          "downloaded_bytes",
+          "overall_downloaded_bytes",
+          "overall_percent",
+          "bytes_per_second",
+          "auth_available",
+          "files",
+          "quantization",
+          "bits",
+          "quality",
+          "hardware_tier",
+          "notes",
+          "recommended",
+          "selected",
+          "provider_name",
+          "downloaded_file_count",
+          "total_file_count"
+        ],
+        "properties": {
+          "auth_available": {
+            "type": "boolean"
+          },
+          "auth_source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bits": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "bytes_per_second": {
+            "type": "number",
+            "format": "double"
+          },
+          "current_file": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "downloaded_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "downloaded_file_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eta_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelDownloadFileRecord"
+            }
+          },
+          "hardware_tier": {
+            "type": "string"
+          },
+          "last_event_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "local_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mmproj_file": {
+            "type": "string"
+          },
+          "model_file": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "overall_downloaded_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "overall_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "overall_total_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "provider_name": {
+            "type": "string"
+          },
+          "quality": {
+            "type": "string"
+          },
+          "quantization": {
+            "type": "string"
+          },
+          "recommended": {
+            "type": "boolean"
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string"
+          },
+          "status_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_file_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total_required_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ModelDownloadFileRecord": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "file_name",
+          "status",
+          "downloaded_bytes",
+          "percent",
+          "bytes_per_second"
+        ],
+        "properties": {
+          "bytes_per_second": {
+            "type": "number",
+            "format": "double"
+          },
+          "downloaded_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eta_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "file_id": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "local_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ModelDownloadRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "status"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelDownloadRequest": {
+        "type": "object",
+        "properties": {
+          "force": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "ModelSelectRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "status"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ModelsPayload": {
+        "type": "object",
+        "required": [
+          "models",
+          "profiles",
+          "selected_model_id",
+          "provider_repo",
+          "provider_label",
+          "shared_mmproj_file"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelAssetRecord"
+            }
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrProfileRecord"
+            }
+          },
+          "provider_label": {
+            "type": "string"
+          },
+          "provider_repo": {
+            "type": "string"
+          },
+          "selected_model_id": {
+            "type": "string"
+          },
+          "shared_mmproj_file": {
+            "type": "string"
+          }
+        }
+      },
+      "OcrMetricsTreeNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "status",
+          "token_count",
+          "avg_tps",
+          "elapsed_ms",
+          "children"
+        ],
+        "properties": {
+          "avg_tps": {
+            "type": "number",
+            "format": "double"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrMetricsTreeNode"
+            }
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "token_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "OcrMetricsTreePayload": {
+        "type": "object",
+        "required": [
+          "roots"
+        ],
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrMetricsTreeNode"
+            }
+          }
+        }
+      },
+      "OcrProfileRecord": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "engine_name",
+          "description",
+          "default_max_tokens",
+          "ngram_size",
+          "ngram_window",
+          "pdf_ngram_window",
+          "force_prompt_eos",
+          "no_image_end"
+        ],
+        "properties": {
+          "default_max_tokens": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "description": {
+            "type": "string"
+          },
+          "engine_name": {
+            "type": "string"
+          },
+          "force_prompt_eos": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "ngram_size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "ngram_window": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "no_image_end": {
+            "type": "boolean"
+          },
+          "pdf_ngram_window": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "OverlayBox": {
+        "type": "object",
+        "required": [
+          "region_id",
+          "label",
+          "content_markdown",
+          "page_no",
+          "left_percent",
+          "top_percent",
+          "width_percent",
+          "height_percent",
+          "hidden"
+        ],
+        "properties": {
+          "content_html": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content_markdown": {
+            "type": "string"
+          },
+          "height_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "left_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "page_no": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "region_id": {
+            "type": "string"
+          },
+          "top_percent": {
+            "type": "number",
+            "format": "double"
+          },
+          "width_percent": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "PageTextRecord": {
+        "type": "object",
+        "required": [
+          "page_no",
+          "text",
+          "spans"
+        ],
+        "properties": {
+          "page_no": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TextRegionSpan"
+            }
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "PreviewImagesPayload": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "variants",
+          "pages"
+        ],
+        "properties": {
+          "file_hash": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RuntimeVariantRecord": {
+        "type": "object",
+        "required": [
+          "runtime_id",
+          "label",
+          "platform",
+          "accelerator",
+          "backend",
+          "ffi_library",
+          "installed",
+          "hardware_supported",
+          "selectable",
+          "selected",
+          "support_detail"
+        ],
+        "properties": {
+          "accelerator": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "ffi_library": {
+            "type": "string"
+          },
+          "hardware_supported": {
+            "type": "boolean"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": "string"
+          },
+          "selectable": {
+            "type": "boolean"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "support_detail": {
+            "type": "string"
+          }
+        }
+      },
+      "SettingsPayload": {
+        "type": "object",
+        "required": [
+          "pdf_dpi",
+          "ocr_concurrency",
+          "default_profile",
+          "retry_profile",
+          "cache_path",
+          "database_path",
+          "selected_runtime_id",
+          "selected_accelerator",
+          "selected_model_id",
+          "runtime_variants",
+          "workbench_ui"
+        ],
+        "properties": {
+          "cache_path": {
+            "type": "string"
+          },
+          "database_path": {
+            "type": "string"
+          },
+          "default_profile": {
+            "type": "string"
+          },
+          "ocr_concurrency": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "pdf_dpi": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "retry_profile": {
+            "type": "string"
+          },
+          "runtime_variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeVariantRecord"
+            }
+          },
+          "selected_accelerator": {
+            "type": "string"
+          },
+          "selected_model_id": {
+            "type": "string"
+          },
+          "selected_runtime_id": {
+            "type": "string"
+          },
+          "workbench_ui": {
+            "$ref": "#/components/schemas/WorkbenchUiSettings"
+          }
+        }
+      },
+      "SettingsUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "default_profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "selected_runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workbench_ui": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkbenchUiSettingsPatch"
+              }
+            ]
+          }
+        }
+      },
+      "StatusPayload": {
+        "type": "object",
+        "required": [
+          "state",
+          "host",
+          "default_profile",
+          "version",
+          "git_tag",
+          "git_sha",
+          "supported_inputs",
+          "runtime_selectable",
+          "runtime_variants",
+          "inference_engine",
+          "log_path",
+          "database_path",
+          "realtime_path",
+          "selected_model_id"
+        ],
+        "properties": {
+          "accelerator": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "database_path": {
+            "type": "string"
+          },
+          "default_profile": {
+            "type": "string"
+          },
+          "git_sha": {
+            "type": "string"
+          },
+          "git_tag": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "inference_engine": {
+            "type": "string"
+          },
+          "log_path": {
+            "type": "string"
+          },
+          "realtime_path": {
+            "type": "string"
+          },
+          "runtime_platform": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_selectable": {
+            "type": "boolean"
+          },
+          "runtime_variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeVariantRecord"
+            }
+          },
+          "selected_model_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "supported_inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "TextRegionSpan": {
+        "type": "object",
+        "required": [
+          "region_id",
+          "page_no",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "page_no": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "region_id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "WorkbenchPaneSettings": {
+        "type": "object",
+        "required": [
+          "details",
+          "diagnostics",
+          "explorer"
+        ],
+        "properties": {
+          "details": {
+            "type": "boolean"
+          },
+          "diagnostics": {
+            "type": "boolean"
+          },
+          "explorer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkbenchPaneSettingsPatch": {
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "diagnostics": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "explorer": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "WorkbenchUiSettings": {
+        "type": "object",
+        "required": [
+          "auto_follow_regions",
+          "labels_visible",
+          "overlay_visible",
+          "panes_collapsed",
+          "theme"
+        ],
+        "properties": {
+          "auto_follow_regions": {
+            "type": "boolean"
+          },
+          "labels_visible": {
+            "type": "boolean"
+          },
+          "overlay_visible": {
+            "type": "boolean"
+          },
+          "panes_collapsed": {
+            "$ref": "#/components/schemas/WorkbenchPaneSettings"
+          },
+          "theme": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkbenchUiSettingsPatch": {
+        "type": "object",
+        "properties": {
+          "auto_follow_regions": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "labels_visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "overlay_visible": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "panes_collapsed": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkbenchPaneSettingsPatch"
+              }
+            ]
+          },
+          "theme": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "system"
+    },
+    {
+      "name": "ingest"
+    },
+    {
+      "name": "documents"
+    },
+    {
+      "name": "settings"
+    },
+    {
+      "name": "models"
+    },
+    {
+      "name": "logs"
+    }
+  ]
+}

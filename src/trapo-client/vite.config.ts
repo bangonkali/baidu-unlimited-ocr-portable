@@ -2,7 +2,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-const apiProxyTarget = process.env.UOCR_DEV_API_PROXY;
+const apiProxyTarget = process.env.TRAPO_DEV_API_PROXY;
 
 export default defineConfig({
   build: {

@@ -90,9 +90,9 @@ export const fixtureLogs: LogRecord[] = [
     timestamp: '2026-06-29T04:10:00Z',
   },
   {
-    component: 'pdf',
+    component: 'pdfium',
     level: 'INFO',
-    message: 'rendering dataset/Sample 0001.pdf at 200 DPI with MuPDF',
+    message: 'rendering dataset/Sample 0001.pdf at 200 DPI with PDFium',
     timestamp: '2026-06-29T04:10:12Z',
   },
 ];
@@ -248,8 +248,8 @@ export const fixtureDownloadingModels: ModelsPayload = {
 };
 
 export const fixtureSettings: SettingsPayload = {
-  cache_path: 'C:\\uocr\\cache',
-  database_path: 'C:\\uocr\\data\\uocr.duckdb',
+  cache_path: 'C:\\trapo\\cache',
+  database_path: 'C:\\trapo\\data\\trapo.duckdb',
   default_profile: 'experimental-exact-prefill-q4',
   ocr_concurrency: 1,
   pdf_dpi: 200,

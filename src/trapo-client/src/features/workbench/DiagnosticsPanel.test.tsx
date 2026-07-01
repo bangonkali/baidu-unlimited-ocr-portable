@@ -5,8 +5,8 @@ import { filterLogs, filterRuns } from './DiagnosticsPanel';
 
 describe('diagnostics filters', () => {
   test('filters logs by query, level, and component', () => {
-    expect(filterLogs(fixtureLogs, { component: 'pdf', level: 'INFO' })).toHaveLength(1);
-    expect(filterLogs(fixtureLogs, { q: 'mupdf' })[0]?.component).toBe('pdf');
+    expect(filterLogs(fixtureLogs, { component: 'pdfium', level: 'INFO' })).toHaveLength(1);
+    expect(filterLogs(fixtureLogs, { q: 'pdfium' })[0]?.component).toBe('pdfium');
     expect(filterLogs(fixtureLogs, { level: 'ERROR' })).toHaveLength(0);
   });
 

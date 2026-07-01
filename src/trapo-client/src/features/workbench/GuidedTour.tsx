@@ -14,7 +14,7 @@ const steps: Step[] = [
     target: '[data-tour="folder"]',
   },
   {
-    content: 'Start Scan queues supported files and processes PDF pages through bundled MuPDF.',
+    content: 'Start Scan queues supported files and processes PDF pages through bundled PDFium.',
     target: '[data-tour="start"]',
   },
   {

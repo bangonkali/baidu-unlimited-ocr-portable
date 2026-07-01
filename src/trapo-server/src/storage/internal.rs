@@ -1,0 +1,88 @@
+impl Repository {
+    fn connect(&self) -> Result<Connection> {
+        Ok(Connection::open(self.database_path.as_path())?)
+    }
+
+    fn migrate(&self) -> Result<()> {
+        let conn = self.connect()?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS schema_migrations (
+              id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+            );",
+        )?;
+        for migration in migrations::MIGRATIONS {
+            let applied: Option<i32> = conn
+                .query_row(
+                    "SELECT id FROM schema_migrations WHERE id = ?",
+                    params![migration.id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if applied.is_some() {
+                continue;
+            }
+            conn.execute_batch(migration.sql)?;
+            conn.execute(
+                "INSERT INTO schema_migrations(id, name) VALUES (?, ?)",
+                params![migration.id, migration.name],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn replace_regions(
+        &self,
+        conn: &Connection,
+        page: &StoredPage,
+        engine_id: &str,
+        profile_id: &str,
+    ) -> Result<()> {
+        conn.execute(
+            "DELETE FROM document_text_region_links WHERE file_hash = ? AND page_no = ?",
+            params![page.file_hash, i64::from(page.page_no)],
+        )?;
+        conn.execute(
+            "DELETE FROM document_region_annotations WHERE file_hash = ? AND page_no = ?",
+            params![page.file_hash, i64::from(page.page_no)],
+        )?;
+        conn.execute(
+            "DELETE FROM document_regions WHERE file_hash = ? AND page_no = ? AND engine_id = ? AND profile_id = ?",
+            params![page.file_hash, i64::from(page.page_no), engine_id, profile_id],
+        )?;
+        for box_record in &page.boxes {
+            conn.execute(
+                "INSERT INTO document_regions(region_id, file_hash, page_no, engine_id, profile_id, label,
+                  x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)",
+                params![
+                    box_record.region_id,
+                    page.file_hash,
+                    i64::from(page.page_no),
+                    engine_id,
+                    profile_id,
+                    box_record.label,
+                    box_record.left_percent / 100.0 * 999.0,
+                    box_record.top_percent / 100.0 * 999.0,
+                    (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
+                    (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
+                    box_record.content_markdown,
+                    box_record.content_html
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO document_region_annotations(region_id, file_hash, page_no, content_markdown, content_html)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(region_id) DO UPDATE SET content_markdown = excluded.content_markdown,
+                  content_html = excluded.content_html, updated_at = now()",
+                params![
+                    box_record.region_id,
+                    page.file_hash,
+                    i64::from(page.page_no),
+                    box_record.content_markdown,
+                    box_record.content_html
+                ],
+            )?;
+        }
+        Ok(())
+    }
+}
