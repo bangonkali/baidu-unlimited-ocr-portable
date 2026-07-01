@@ -1,32 +1,56 @@
 name: Release workbench
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Release tag, for example v0.0.31"
-        required: true
-        type: string
-      runtime_version:
-        description: "Runtime release tag to bundle, or latest"
-        required: false
-        default: latest
-        type: string
-      pdfium_release:
-        description: "bblanchon/pdfium-binaries release tag to bundle"
-        required: false
-        default: chromium/7920
-        type: string
   push:
     tags:
-      - "v*"
+      - "v[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: read
 
 jobs:
+  validate_tag:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        name: Validate semver tag
+        shell: bash
+        run: |
+          version="$GITHUB_REF_NAME"
+          if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$ ]]; then
+            echo "Release tags must match vX.Y.Z or vX.Y.Z-suffix; got '$version'." >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version $version"
+
+  workbench_ci:
+    name: Workbench CI
+    needs: validate_tag
+    uses: ./.github/workflows/workbench-ci.yml
+    permissions:
+      contents: read
+
+  runtime:
+    name: Build runtime binaries
+    needs: validate_tag
+    uses: ./.github/workflows/build-runtime.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      publish: true
+      version: ${{ needs.validate_tag.outputs.version }}
+
   package:
     name: ${{ matrix.name }}
+    needs:
+      - validate_tag
+      - workbench_ci
+      - runtime
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     strategy:
@@ -66,8 +90,8 @@ jobs:
             runtime_platform: linux-arm64-cpu
             additional_runtime_platforms: ""
     env:
-      UOCR_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
-      UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      UOCR_RUNTIME_VERSION: ${{ needs.validate_tag.outputs.version }}
+      UOCR_VERSION: ${{ needs.validate_tag.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -291,6 +315,10 @@ jobs:
 
   package_trapo:
     name: Trapo ${{ matrix.name }}
+    needs:
+      - validate_tag
+      - workbench_ci
+      - runtime
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 120
     strategy:
@@ -334,9 +362,9 @@ jobs:
             additional_runtime_platforms: ""
     env:
       DUCKDB_DOWNLOAD_LIB: "1"
-      TRAPO_PDFIUM_RELEASE: ${{ inputs.pdfium_release || 'chromium/7920' }}
-      TRAPO_RUNTIME_VERSION: ${{ inputs.runtime_version || 'latest' }}
-      TRAPO_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      TRAPO_PDFIUM_RELEASE: chromium/7920
+      TRAPO_RUNTIME_VERSION: ${{ needs.validate_tag.outputs.version }}
+      TRAPO_VERSION: ${{ needs.validate_tag.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -480,15 +508,15 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs:
+      - validate_tag
       - package
       - package_trapo
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     env:
-      UOCR_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+      UOCR_VERSION: ${{ needs.validate_tag.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -523,11 +551,15 @@ jobs:
           - Ubuntu 24.04 x64: trapo-workbench-linux-x64-$UOCR_VERSION.tar.gz
           - Ubuntu 24.04 arm64: trapo-workbench-linux-arm64-$UOCR_VERSION.tar.gz
 
+          Native runtime artifacts are also attached as uocr-runtime-* assets and are built before packaging.
+
           Extract the archive, run the bundled launcher, then open http://127.0.0.1:8765/.
           Legacy logs are written to logs/uocr-server.log; Trapo logs are written to logs/trapo-server.log.
           EOF
           if ! gh release view "$UOCR_VERSION" >/dev/null 2>&1; then
             gh release create "$UOCR_VERSION" --target "$GITHUB_SHA" --title "Unlimited-OCR Workbench $UOCR_VERSION" --notes-file "$notes"
+          else
+            gh release edit "$UOCR_VERSION" --title "Unlimited-OCR Workbench $UOCR_VERSION" --notes-file "$notes"
           fi
           mapfile -t files < <(find dist -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.sha256' \) | sort)
           if [[ "${#files[@]}" -eq 0 ]]; then

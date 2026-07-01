@@ -1,7 +1,7 @@
 name: Build runtime binaries
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       publish:
         description: "Publish artifacts to a GitHub Release"
@@ -9,7 +9,7 @@ on:
         default: false
         type: boolean
       version:
-        description: "Release tag/version for manual publishing, for example v0.1.0-runtime. Required when publish=true outside tag builds."
+        description: "Release tag/version to use when publishing outside a direct tag context."
         required: false
         default: ""
         type: string
@@ -252,7 +252,7 @@ jobs:
             tag="${{ inputs.version }}"
           fi
           if [[ -z "$tag" ]]; then
-            echo "workflow_dispatch publish=true requires the version input." >&2
+            echo "Publishing runtime assets requires a tag ref or the version input." >&2
             exit 1
           fi
           echo "UOCR_RELEASE_TAG=${tag//\//-}" >> "$GITHUB_ENV"
