@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Trapo Server API
  * Rust Axum API for Trapo OCR workbench.
- * OpenAPI spec version: 0.1.3
+ * OpenAPI spec version: 0.1.4
  */
 import type { PageTextRecord } from './pageTextRecord';
 
