@@ -6,7 +6,7 @@ use crate::{error::ErrorPayload, types::*, workbench_types::*};
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "Trapo Server API", version = "0.1.2", description = "Rust Axum API for Trapo OCR workbench."),
+    info(title = "Trapo Server API", version = "0.1.3", description = "Rust Axum API for Trapo OCR workbench."),
     paths(
         health_doc,
         status_doc,

@@ -33,7 +33,6 @@ PLATFORMS = {
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
 
-
 def safe_version(value: str) -> str:
     return value.strip().replace("/", "-").replace("\\", "-") or "dev"
 
@@ -41,13 +40,11 @@ def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None
     print("+ " + " ".join(command), flush=True)
     subprocess.run(command, cwd=cwd, env=env, check=True)
 
-
 def git_output(args: list[str]) -> str:
     try:
         return subprocess.check_output(["git", *args], cwd=REPO_ROOT, text=True).strip()
     except Exception:
         return ""
-
 
 def csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
@@ -59,13 +56,11 @@ def github_headers() -> dict[str, str]:
         headers["Authorization"] = f"Bearer {token}"
     return headers
 
-
 def download(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers=github_headers())
     with urllib.request.urlopen(request, timeout=300) as response, destination.open("wb") as fh:
         shutil.copyfileobj(response, fh)
-
 
 def pdfium_url(release: str, asset: str) -> str:
     if release == "latest":
@@ -164,6 +159,11 @@ def copy_tree(source: Path, destination: Path) -> None:
         shutil.rmtree(destination)
     shutil.copytree(source, destination)
 
+def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
+    binary = stage_root / "trapo-server"
+    if platform_id.startswith("macos-") and "@executable_path" not in subprocess.check_output(["otool", "-l", str(binary)], text=True):
+        run(["install_name_tool", "-add_rpath", "@executable_path", str(binary)], cwd=stage_root)
+
 def make_launcher(stage_root: Path, platform_id: str) -> None:
     if platform_id.startswith("windows-"):
         (stage_root / "trapo-server.cmd").write_text(
@@ -237,6 +237,7 @@ def package(args: argparse.Namespace) -> None:
         shutil.copy2(source, stage_root / file_name)
     if not args.platform.startswith("windows-"):
         (stage_root / config["server"]).chmod(0o755)
+    fix_macos_server_rpath(stage_root, args.platform)
 
     web_dist = REPO_ROOT / "src" / "trapo-client" / "dist"
     if not (web_dist / "index.html").exists():
@@ -294,7 +295,6 @@ def main() -> None:
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--no-runtime-download", action="store_true")
     package(parser.parse_args())
-
 
 if __name__ == "__main__":
     main()
