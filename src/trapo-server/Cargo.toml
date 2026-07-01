@@ -1,6 +1,6 @@
 [package]
 name = "trapo-server"
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -27,7 +27,7 @@ mime_guess = "2"
 pdfium = "0.10.4"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream", "webpki-roots"] }
-rfd = "0.17"
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"

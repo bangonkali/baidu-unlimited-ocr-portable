@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=GITHUB_REF_NAME");
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
     emit_version_env();
+    emit_platform_link_args();
     let Some(runtime_lib) = duckdb_runtime_library() else {
         return Ok(());
     };
@@ -36,6 +37,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         destination.display()
     );
     Ok(())
+}
+
+fn emit_platform_link_args() {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rustc-link-arg-bin=trapo-server=-Wl,-rpath,@executable_path");
+    }
 }
 
 fn emit_version_env() {

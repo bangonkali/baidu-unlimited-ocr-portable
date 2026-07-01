@@ -18,7 +18,6 @@ from urllib.parse import quote
 
 from package_runtime import REPO_ROOT, sha256_file
 
-
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
 DEFAULT_PDFIUM_RELEASE = "chromium/7920"
@@ -31,14 +30,12 @@ PLATFORMS = {
     "linux-arm64": dict(archive_ext="tar.gz", server="trapo-server", duckdb="libduckdb.so", pdfium_asset="pdfium-linux-arm64.tgz", pdfium_lib="libpdfium.so", pdfium_dir=("thirdparty", "pdfium", "lib")),
 }
 
-
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
 
 
 def safe_version(value: str) -> str:
     return value.strip().replace("/", "-").replace("\\", "-") or "dev"
-
 
 def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(command), flush=True)
@@ -54,7 +51,6 @@ def git_output(args: list[str]) -> str:
 
 def csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
-
 
 def github_headers() -> dict[str, str]:
     headers = {"User-Agent": USER_AGENT}
@@ -76,7 +72,6 @@ def pdfium_url(release: str, asset: str) -> str:
         return f"https://github.com/{PDFIUM_REPO}/releases/latest/download/{asset}"
     return f"https://github.com/{PDFIUM_REPO}/releases/download/{quote(release, safe='')}/{asset}"
 
-
 def safe_extract_tar(archive: Path, destination: Path) -> None:
     root = destination.resolve()
     with tarfile.open(archive, "r:*") as tar:
@@ -85,7 +80,6 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
             if root not in (target, *target.parents):
                 die(f"refusing to extract archive member outside destination: {member.name}")
         tar.extractall(destination)
-
 
 def install_pdfium(platform_id: str, stage_root: Path, release: str) -> dict[str, str]:
     config = PLATFORMS[platform_id]
@@ -113,7 +107,6 @@ def install_pdfium(platform_id: str, stage_root: Path, release: str) -> dict[str
             "library": str(Path(*config["pdfium_dir"]) / library.name),
         }
 
-
 def runtime_ffi_name(platform_id: str) -> str:
     if platform_id.startswith("windows-"):
         return "uocr-ffi.dll"
@@ -121,33 +114,39 @@ def runtime_ffi_name(platform_id: str) -> str:
         return "libuocr-ffi.dylib"
     return "libuocr-ffi.so"
 
-
-def ensure_runtime(platform_id: str, args: argparse.Namespace) -> Path:
+def ensure_runtime(platform_id: str, args: argparse.Namespace, *, optional: bool = False) -> Path | None:
     runtime_dir = REPO_ROOT / "thirdparty" / "uocr-runtime" / platform_id
     ffi = runtime_dir / "bin" / runtime_ffi_name(platform_id)
     if not ffi.exists() and not args.no_runtime_download:
-        run(
-            [
-                sys.executable,
-                str(REPO_ROOT / "scripts" / "install_runtime.py"),
-                "install",
-                "--repo-root",
-                str(REPO_ROOT),
-                "--install-dir",
-                str(REPO_ROOT / "thirdparty" / "uocr-runtime"),
-                "--runtime-repo",
-                args.runtime_repo,
-                "--runtime-version",
-                args.runtime_version,
-                "--platform",
-                platform_id,
-                "--skip-accelerator-probe",
-            ]
-        )
+        command = [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "install_runtime.py"),
+            "install",
+            "--repo-root",
+            str(REPO_ROOT),
+            "--install-dir",
+            str(REPO_ROOT / "thirdparty" / "uocr-runtime"),
+            "--runtime-repo",
+            args.runtime_repo,
+            "--runtime-version",
+            args.runtime_version,
+            "--platform",
+            platform_id,
+            "--skip-accelerator-probe",
+        ]
+        try:
+            run(command)
+        except subprocess.CalledProcessError:
+            if optional:
+                print(f"warning: optional runtime {platform_id} was not available", file=sys.stderr)
+                return None
+            raise
     if not ffi.exists():
+        if optional:
+            print(f"warning: optional runtime FFI library is missing: {ffi}", file=sys.stderr)
+            return None
         die(f"runtime FFI library is missing: {ffi}")
     return runtime_dir
-
 
 def build_outputs(args: argparse.Namespace) -> None:
     if args.no_build:
@@ -160,12 +159,10 @@ def build_outputs(args: argparse.Namespace) -> None:
     run(["bun", "run", "build"], cwd=REPO_ROOT / "src" / "trapo-client")
     run(["cargo", "build", "-p", "trapo-server", "--release"], env=env)
 
-
 def copy_tree(source: Path, destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination)
-
 
 def make_launcher(stage_root: Path, platform_id: str) -> None:
     if platform_id.startswith("windows-"):
@@ -249,24 +246,29 @@ def package(args: argparse.Namespace) -> None:
     openapi_dir.mkdir()
     shutil.copy2(REPO_ROOT / "src" / "trapo-server" / "openapi" / "trapo.openapi.json", openapi_dir)
 
-    runtime_platforms = [args.runtime_platform, *csv(args.additional_runtime_platforms)]
+    runtime_platforms = list(dict.fromkeys([args.runtime_platform, *csv(args.additional_runtime_platforms)]))
+    copied_runtimes: list[str] = []
     runtime_stage = stage_root / "thirdparty" / "uocr-runtime"
     runtime_stage.mkdir(parents=True)
-    for platform_id in dict.fromkeys(runtime_platforms):
-        copy_tree(ensure_runtime(platform_id, args), runtime_stage / platform_id)
+    for index, platform_id in enumerate(runtime_platforms):
+        runtime_dir = ensure_runtime(platform_id, args, optional=index > 0)
+        if runtime_dir is None:
+            continue
+        copy_tree(runtime_dir, runtime_stage / platform_id)
+        copied_runtimes.append(platform_id)
 
     pdfium = install_pdfium(args.platform, stage_root, args.pdfium_release)
     for directory in ("models", "data", "cache", "logs", "config", "uploads"):
         (stage_root / directory).mkdir()
     make_launcher(stage_root, args.platform)
-    write_readme(stage_root, args, list(dict.fromkeys(runtime_platforms)))
+    write_readme(stage_root, args, copied_runtimes)
     manifest = {
         "schema_version": 1,
         "name": "trapo-workbench",
         "version": args.version,
         "platform": args.platform,
         "runtime_platform": args.runtime_platform,
-        "runtime_platforms": list(dict.fromkeys(runtime_platforms)),
+        "runtime_platforms": copied_runtimes,
         "runtime_version": args.runtime_version,
         "pdf_renderer": "pdfium-rs",
         "pdfium": pdfium,

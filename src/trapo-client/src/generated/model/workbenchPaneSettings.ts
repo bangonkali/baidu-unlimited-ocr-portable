@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Trapo Server API
  * Rust Axum API for Trapo OCR workbench.
- * OpenAPI spec version: 0.1.1
+ * OpenAPI spec version: 0.1.2
  */
 
 export interface WorkbenchPaneSettings {

@@ -185,6 +185,7 @@ function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContentActions
   const ingestActions = useWorkbenchIngestActions({
     folderDialog: args.data.folderDialog,
     model: args.model,
+    navigate: args.navigate,
     rootPath: args.workbench.selectedRoot,
     selectedProfile: args.workbench.selectedProfile,
     startIngest: args.data.startIngest,
