@@ -40,8 +40,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn emit_platform_link_args() {
-    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
-        println!("cargo:rustc-link-arg-bin=trapo-server=-Wl,-rpath,@executable_path");
+    match env::var("CARGO_CFG_TARGET_OS").as_deref() {
+        Ok("macos") => {
+            println!("cargo:rustc-link-arg-bin=trapo-server=-Wl,-rpath,@executable_path");
+        }
+        Ok("linux") => {
+            println!("cargo:rustc-link-arg-bin=trapo-server=-Wl,-rpath,$ORIGIN");
+        }
+        _ => {}
     }
 }
 

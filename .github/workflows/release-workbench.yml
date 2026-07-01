@@ -425,6 +425,7 @@ jobs:
           chmod +x "$exe"
           app_root="$(dirname "$exe")"
           test -f "$app_root/thirdparty/pdfium/lib/${{ runner.os == 'macOS' && 'libpdfium.dylib' || 'libpdfium.so' }}"
+          test -f "$app_root/${{ runner.os == 'macOS' && 'libduckdb.dylib' || 'libduckdb.so' }}"
           test -d "$app_root/thirdparty/uocr-runtime/${{ matrix.runtime_platform }}"
           "$exe" --version
           stdout="$RUNNER_TEMP/trapo.stdout.log"
