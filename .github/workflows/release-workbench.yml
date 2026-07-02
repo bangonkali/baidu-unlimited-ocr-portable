@@ -231,7 +231,7 @@ jobs:
           test -f "$app_root/logs/trapo-server.log"
 
       - name: Upload Trapo workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: trapo-workbench-${{ matrix.platform }}-${{ env.TRAPO_VERSION }}
           path: |
@@ -258,7 +258,7 @@ jobs:
           persist-credentials: false
 
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist
 
