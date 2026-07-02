@@ -31,7 +31,6 @@ on:
 
 permissions:
   contents: read
-
 jobs:
   build:
     name: ${{ matrix.platform }}
@@ -70,13 +69,11 @@ jobs:
             backend: cpu
             build_parallel: 3
             build_targets: llama-mtmd-cli llama-uocr-parity uocr-ffi
-
     env:
       CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
       CUDA_ARCHITECTURES: ${{ inputs.cuda_architectures || '75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real' }}
       BUILD_PARALLEL: ${{ matrix.backend == 'cuda' && (inputs.cuda_build_parallel || '2') || matrix.build_parallel }}
       RUNTIME_BUILD_TARGETS: ${{ matrix.build_targets || 'llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi' }}
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -84,22 +81,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.14.6"
-
       - name: Install CMake with Blackwell CUDA architecture support
         run: |
           python -m pip install --upgrade "cmake>=4.2.1,<5"
         shell: bash
-
       - name: Set runtime version
         run: |
           python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "${{ inputs.version }}"
         shell: bash
-
       - name: Install CUDA toolkit
         if: matrix.backend == 'cuda'
         uses: Jimver/cuda-toolkit@v0.2.35
@@ -126,6 +119,8 @@ jobs:
             -S thirdparty/llama.cpp \
             -DGGML_METAL=ON \
             -DGGML_NATIVE=OFF \
+            -DLLAMA_OPENSSL=OFF \
+            -DCMAKE_BUILD_RPATH="@loader_path" \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Configure CUDA build on Linux
@@ -135,6 +130,7 @@ jobs:
             -S thirdparty/llama.cpp \
             -DGGML_CUDA=ON \
             -DGGML_NATIVE=OFF \
+            -DLLAMA_OPENSSL=OFF \
             "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}" \
             -DCMAKE_BUILD_TYPE=Release
 
@@ -145,6 +141,7 @@ jobs:
             -S thirdparty/llama.cpp `
             -DGGML_CUDA=ON `
             -DGGML_NATIVE=OFF `
+            -DLLAMA_OPENSSL=OFF `
             "-DCMAKE_CUDA_ARCHITECTURES=$env:CUDA_ARCHITECTURES" `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
@@ -155,6 +152,7 @@ jobs:
           cmake -B thirdparty/llama.cpp/build \
             -S thirdparty/llama.cpp \
             -DGGML_NATIVE=OFF \
+            -DLLAMA_OPENSSL=OFF \
             -DCMAKE_BUILD_TYPE=Release
         shell: bash
 
@@ -166,6 +164,7 @@ jobs:
             -A ARM64 `
             -T ClangCL `
             -DGGML_NATIVE=OFF `
+            -DLLAMA_OPENSSL=OFF `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
 
@@ -175,6 +174,7 @@ jobs:
           cmake -B thirdparty/llama.cpp/build `
             -S thirdparty/llama.cpp `
             -DGGML_NATIVE=OFF `
+            -DLLAMA_OPENSSL=OFF `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
 

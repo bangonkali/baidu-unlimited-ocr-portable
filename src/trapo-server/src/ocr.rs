@@ -146,6 +146,7 @@ struct CallbackState<'a> {
 
 pub struct UnlimitedOcrFfiEngine {
     library: Library,
+    dependency_libraries: Vec<Library>,
     session: *mut c_void,
     destroy: unsafe extern "C" fn(*mut c_void),
     run_image: unsafe extern "C" fn(*mut c_void, *const UocrFfiRequest) -> i32,
@@ -153,6 +154,7 @@ pub struct UnlimitedOcrFfiEngine {
 }
 
 include!("ocr/parser.rs");
+include!("ocr/ffi_loader.rs");
 include!("ocr/ffi_engine.rs");
 include!("ocr/parser_helpers.rs");
 include!("ocr/ffi_helpers.rs");

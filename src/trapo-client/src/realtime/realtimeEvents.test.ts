@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { QueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '../api/queryKeys';
-import type { DocumentTextPayload, LogsPayload, ModelsPayload } from '../api/types';
+import type {
+  DocumentRegionsPayload,
+  DocumentTextPayload,
+  LogsPayload,
+  ModelsPayload,
+} from '../api/types';
 import { applyRealtimeEventToQueryClient } from './realtimeQueryBridge';
 import type { RealtimeEvent } from './realtimeTypes';
 import { parseRealtimeEvent } from './realtimeTypes';
@@ -178,6 +183,52 @@ describe('realtime OCR stream events', () => {
     expect(client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc'))).toEqual({
       file_hash: 'abc',
       pages: [{ page_no: 1, spans: [], text: 'Invoice' }],
+    });
+  });
+
+  test('applies live OCR region upserts to document region cache', () => {
+    const client = new QueryClient();
+
+    applyRealtimeEventToQueryClient(client, {
+      occurred_at: '2026-06-30T00:00:08Z',
+      payload: {
+        file_hash: 'abc',
+        page_no: 1,
+        region: {
+          content_html: null,
+          content_markdown: 'Total',
+          height_percent: 10,
+          hidden: false,
+          label: 'Total',
+          left_percent: 1,
+          page_no: 1,
+          region_id: 'r-live',
+          top_percent: 2,
+          width_percent: 20,
+        },
+        run_id: 'run-a',
+      },
+      sequence: 15,
+      type: 'ocr.page.region.upsert',
+      version: 1,
+    });
+
+    expect(client.getQueryData<DocumentRegionsPayload>(queryKeys.documentRegions('abc'))).toEqual({
+      boxes: [
+        {
+          content_html: null,
+          content_markdown: 'Total',
+          height_percent: 10,
+          hidden: false,
+          label: 'Total',
+          left_percent: 1,
+          page_no: 1,
+          region_id: 'r-live',
+          top_percent: 2,
+          width_percent: 20,
+        },
+      ],
+      file_hash: 'abc',
     });
   });
 });

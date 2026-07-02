@@ -201,10 +201,12 @@ jobs:
           test -f "$app_root/thirdparty/pdfium/lib/${{ runner.os == 'macOS' && 'libpdfium.dylib' || 'libpdfium.so' }}"
           test -f "$app_root/${{ runner.os == 'macOS' && 'libduckdb.dylib' || 'libduckdb.so' }}"
           test -d "$app_root/thirdparty/uocr-runtime/${{ matrix.runtime_platform }}"
+          runtime_bin="$app_root/thirdparty/uocr-runtime/${{ matrix.runtime_platform }}/bin"
           stdout="$RUNNER_TEMP/trapo.stdout.log"
           stderr="$RUNNER_TEMP/trapo.stderr.log"
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            export DYLD_LIBRARY_PATH="$app_root:$app_root/thirdparty/pdfium/lib:${DYLD_LIBRARY_PATH:-}"
+            export DYLD_LIBRARY_PATH="$app_root:$app_root/thirdparty/pdfium/lib:$runtime_bin:${DYLD_LIBRARY_PATH:-}"
+            (cd "$app_root" && ./trapo-server --check-ocr-runtime "$runtime_bin/libuocr-ffi.dylib")
           else
             export LD_LIBRARY_PATH="$app_root:$app_root/thirdparty/pdfium/lib:${LD_LIBRARY_PATH:-}"
           fi

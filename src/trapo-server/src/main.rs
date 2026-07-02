@@ -1,14 +1,15 @@
-use std::{env, net::SocketAddr, process::ExitCode, time::Duration};
+use std::{env, net::SocketAddr, path::Path, process::ExitCode, time::Duration};
 
 use trapo_server::{AppState, ServerConfig, build_router};
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    if env::args().any(|arg| arg == "--help" || arg == "-h") {
+    let args: Vec<String> = env::args().collect();
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
         print_help();
         return ExitCode::SUCCESS;
     }
-    if env::args().any(|arg| arg == "--version" || arg == "-V") {
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         println!(
             "trapo-server {} git_tag={} git_sha={}",
             env!("CARGO_PKG_VERSION"),
@@ -17,8 +18,15 @@ async fn main() -> ExitCode {
         );
         return ExitCode::SUCCESS;
     }
+    if let Some(index) = args.iter().position(|arg| arg == "--check-ocr-runtime") {
+        let Some(path) = args.get(index + 1) else {
+            eprintln!("--check-ocr-runtime requires a path to uocr-ffi");
+            return ExitCode::from(2);
+        };
+        return check_ocr_runtime(path);
+    }
 
-    let config = ServerConfig::from_env_and_args(env::args());
+    let config = ServerConfig::from_env_and_args(args);
     let addr: SocketAddr = match format!("{}:{}", config.host, config.port).parse() {
         Ok(addr) => addr,
         Err(error) => {
@@ -60,8 +68,21 @@ async fn main() -> ExitCode {
 
 fn print_help() {
     println!(
-        "trapo-server\n\nOptions:\n  --port <PORT>       Listen port (default 8765)\n  --no-browser        Do not open a browser window\n  --version           Print version"
+        "trapo-server\n\nOptions:\n  --port <PORT>                 Listen port (default 8765)\n  --no-browser                  Do not open a browser window\n  --check-ocr-runtime <PATH>    Validate a uocr-ffi runtime library\n  --version                     Print version"
     );
+}
+
+fn check_ocr_runtime(path: &str) -> ExitCode {
+    match trapo_server::ocr::validate_ffi_library(Path::new(path)) {
+        Ok(()) => {
+            println!("uocr-ffi runtime loaded: {path}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::from(2)
+        }
+    }
 }
 
 async fn open_browser_later(url: String) {

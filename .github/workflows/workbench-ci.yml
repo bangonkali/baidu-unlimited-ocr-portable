@@ -115,6 +115,7 @@ jobs:
         shell: bash
         run: |
           python -m py_compile scripts/package_runtime.py scripts/install_runtime.py scripts/test_ctypes_runtime.py scripts/package_trapo_workbench.py
+          python -m py_compile scripts/package_runtime_macos.py
           python -m unittest discover -s tests -p "test_*.py"
 
   complexity:

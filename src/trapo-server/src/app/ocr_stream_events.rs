@@ -13,21 +13,26 @@ struct OcrStreamContext {
 
 struct OcrStreamTelemetry {
     started: Instant,
+    raw_text: String,
     raw_end: usize,
     token_count: u64,
+    emitted_region_ids: std::collections::HashSet<String>,
 }
 
 impl OcrStreamTelemetry {
     fn new() -> Self {
         Self {
             started: Instant::now(),
+            raw_text: String::new(),
             raw_end: 0,
             token_count: 0,
+            emitted_region_ids: std::collections::HashSet::new(),
         }
     }
 
     fn record(&mut self, text: &str, index: u64) -> OcrTokenTelemetry {
         let raw_start = self.raw_end;
+        self.raw_text.push_str(text);
         self.raw_end = self.raw_end.saturating_add(text.len());
         self.token_count = self.token_count.max(index.saturating_add(1));
         let elapsed_ms = self.started.elapsed().as_millis() as u64;
@@ -70,6 +75,37 @@ fn publish_token_events(
     text_patch["end"] = json!(token.raw_start);
     text_patch["text"] = json!(text);
     hub.publish("ocr.page.text.patch", text_patch);
+
+    publish_region_events(hub, context, telemetry);
+}
+
+fn publish_region_events(
+    hub: &RealtimeHub,
+    context: &OcrStreamContext,
+    telemetry: &mut OcrStreamTelemetry,
+) {
+    let mut parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
+    crate::ocr::apply_region_content(&mut parsed);
+    for region in parsed.boxes {
+        if !telemetry
+            .emitted_region_ids
+            .insert(region.region_id.clone())
+        {
+            continue;
+        }
+        let mut payload = stream_context_payload(context);
+        payload["region"] = json!(region);
+        hub.publish("ocr.page.region.upsert", payload);
+    }
+}
+
+fn stream_parse_context(context: &OcrStreamContext) -> crate::ocr::ParseContext {
+    crate::ocr::ParseContext {
+        file_hash: context.file_hash.clone(),
+        page_no: context.page_no,
+        engine_id: context.engine_id.clone(),
+        profile_id: context.profile_id.clone(),
+    }
 }
 
 fn stream_context_payload(context: &OcrStreamContext) -> serde_json::Value {
@@ -132,6 +168,45 @@ mod ocr_stream_events_tests {
         assert_eq!(patch.payload["start"], 0);
         assert_eq!(patch.payload["end"], 0);
         assert_eq!(patch.payload["text"], "Invoice");
+        Ok(())
+    }
+
+    #[test]
+    fn region_event_is_emitted_when_box_marker_completes() -> anyhow::Result<()> {
+        let hub = RealtimeHub::new();
+        let mut receiver = hub.subscribe();
+        let mut telemetry = OcrStreamTelemetry::new();
+        let context = stream_context();
+
+        publish_token_events(
+            &hub,
+            &context,
+            &mut telemetry,
+            "A <|ref|>Total<|/ref|>",
+            0,
+        );
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        assert!(receiver.try_recv().is_err());
+
+        publish_token_events(
+            &hub,
+            &context,
+            &mut telemetry,
+            "<|det|>[[0,0,999,100]]<|/det|>",
+            1,
+        );
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        let region = receiver.try_recv()?;
+        assert_eq!(region.event_type, "ocr.page.region.upsert");
+        assert_eq!(region.payload["region"]["label"], "Total");
+        assert_eq!(region.payload["region"]["page_no"], 1);
+
+        publish_token_events(&hub, &context, &mut telemetry, " tail", 2);
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
+        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        assert!(receiver.try_recv().is_err());
         Ok(())
     }
 

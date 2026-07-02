@@ -14,6 +14,8 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from package_runtime_macos import prepare_macos_runtime_files
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS_PATH = REPO_ROOT / "runtime" / "platforms.json"
@@ -270,6 +272,11 @@ def package_runtime(args: argparse.Namespace) -> None:
     runtime_files = collect_runtime_files(build_dir, target)
     if not runtime_files:
         die("no runtime files were collected")
+    if target.get("os") == "macos":
+        try:
+            prepare_macos_runtime_files(runtime_files, target)
+        except RuntimeError as error:
+            die(str(error))
 
     archive_ext = target["archive_ext"]
     archive_name = (

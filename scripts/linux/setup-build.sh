@@ -546,7 +546,13 @@ fi
 
 if [[ "$runtime_source_actual" == "build" && "$skip_build" == "0" ]]; then
     write_step "Configuring llama.cpp CUDA build"
-    configure_args=(-B "$build_dir" -S "$llama_dir" -DGGML_CUDA=ON "-DCMAKE_BUILD_TYPE=$config")
+    configure_args=(
+        -B "$build_dir"
+        -S "$llama_dir"
+        -DGGML_CUDA=ON
+        -DLLAMA_OPENSSL=OFF
+        "-DCMAKE_BUILD_TYPE=$config"
+    )
     if [[ -n "$generator" ]]; then
         configure_args=(-G "$generator" "${configure_args[@]}")
     fi

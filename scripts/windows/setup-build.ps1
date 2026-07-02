@@ -760,6 +760,7 @@ if ($RuntimeSourceActual -eq "build" -and -not $SkipBuild) {
         "-B", $BuildDir,
         "-S", $LlamaDir,
         "-DGGML_CUDA=ON",
+        "-DLLAMA_OPENSSL=OFF",
         "-DCMAKE_BUILD_TYPE=$Config"
     )
     if ($Generator) {

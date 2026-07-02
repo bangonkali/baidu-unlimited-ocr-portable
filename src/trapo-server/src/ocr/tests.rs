@@ -33,4 +33,22 @@ mod tests {
         assert_eq!(parsed.boxes[0].left_percent, 100.0 / 999.0 * 100.0);
         assert_eq!(parsed.boxes[0].width_percent, 800.0 / 999.0 * 100.0);
     }
+
+    #[test]
+    fn macos_preload_rank_orders_runtime_dependencies() {
+        let mut names = [
+            "libllama-common.0.dylib",
+            "libmtmd.0.dylib",
+            "libggml-metal.0.dylib",
+            "libggml-base.0.dylib",
+            "libllama.0.dylib",
+            "libggml.0.dylib",
+        ];
+
+        names.sort_by_key(|name| (macos_dylib_preload_rank(name), *name));
+
+        assert_eq!(names[0], "libggml-base.0.dylib");
+        assert_eq!(names[1], "libggml.0.dylib");
+        assert_eq!(names[5], "libllama-common.0.dylib");
+    }
 }
