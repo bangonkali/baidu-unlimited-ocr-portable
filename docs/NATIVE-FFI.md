@@ -1,15 +1,22 @@
 # Native FFI ABI
 
-The portable workbench loads the native OCR runtime through the `uocr-ffi` ABI.
-The Rust adapter lives under `src/trapo-server/src/ocr` and loads the platform
-library from `thirdparty/uocr-runtime/<platform>/bin`.
+Trapo loads local OCR runtimes through the `uocr-ffi` ABI. The ABI name is kept
+stable so runtime archives can evolve independently from the Trapo Rust server
+and React workbench.
 
-Required ABI symbols are validated by:
+The Rust adapter lives in:
+
+```text
+src/trapo-server/src/ocr
+```
+
+At startup and during release smoke tests, Trapo validates the ABI version and
+required symbols before creating an OCR session. Runtime package CI also checks
+the exported ABI with:
 
 ```text
 scripts/test_ctypes_runtime.py --abi-only
 ```
 
-The runtime package workflow runs that ABI validation before publishing
-`uocr-runtime-*` assets. Trapo release packaging then embeds the selected runtime
-platforms into each portable app archive.
+macOS packages additionally validate that runtime dylibs use portable loader
+paths and do not depend on Homebrew-only absolute library paths.

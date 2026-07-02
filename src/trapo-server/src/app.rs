@@ -141,6 +141,7 @@ include!("app/download_runtime.rs");
 include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
+include!("app/region_snippets.rs");
 include!("app/page_pipeline.rs");
 include!("app/download_helpers.rs");
 include!("app/logging.rs");

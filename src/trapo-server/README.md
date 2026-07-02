@@ -1,23 +1,42 @@
 # trapo-server
 
-Rust Axum migration target for the OCR workbench API previously served by `uocr-server`.
+`trapo-server` is the Rust/Axum backend for Trapo, a local-first RAG Ingest
+Workbench for PDFs, images, and supported document formats. It serves the React
+app from `src/trapo-client/dist`, exposes the JSON API, persists ingest state in
+DuckDB, renders PDFs through PDFium, and streams live OCR text and bounding boxes
+to the client.
 
-## Local development
+Run locally:
 
-```powershell
-$env:DUCKDB_LIB_DIR="$PWD\thirdparty\duckdb\windows-amd64\lib"
-$env:PATH="$PWD\thirdparty\duckdb\windows-amd64\bin;$env:PATH"
+```sh
 cargo run -p trapo-server -- --port 8890 --no-browser
 ```
 
-The server writes `data/trapo.duckdb`, serves `src/trapo-client/dist`, exposes `/api/openapi.json`, and hosts Scalar at `/scalar`.
+Useful endpoints:
 
-## Native dependencies
+```text
+/api/status
+/api/openapi.json
+/api/documents/{file_hash}/text
+/api/documents/{file_hash}/regions
+/api/documents/{file_hash}/regions/{region_id}/snippet
+/scalar
+```
 
-- DuckDB is linked through `duckdb-rs`. Local Windows builds should use the checked-in `thirdparty/duckdb/windows-amd64` snapshot. CI uses `DUCKDB_DOWNLOAD_LIB=1`.
-- PDF rendering uses `PDFium-rs` over PDFium. Set `TRAPO_PDFIUM_DIR` when the PDFium shared library is not discoverable by the default loader.
-- OCR inference still calls the native `uocr-ffi` runtime from `thirdparty/uocr-runtime`; the public Trapo service name is separate from that native ABI name.
+Text region spans are zero-width anchors. Region content is scoped from one
+anchor to the next, and image-like regions can expose cropped local PNG snippets
+through the snippet endpoint.
 
-## License note
+The server writes:
 
-`PDFium-rs` is GPL-3.0 licensed. Trapo server distributions that include or link PDFium/PDFium-rs must preserve the corresponding GPL obligations and notices.
+```text
+data/trapo.duckdb
+logs/trapo-server.log
+```
+
+OCR inference loads the native `uocr-ffi` runtime from
+`thirdparty/uocr-runtime/<platform>/bin`. That ABI name is internal; the public
+application and release artifacts are Trapo.
+
+`PDFium-rs` is GPL-3.0 licensed. Trapo server distributions that include or link
+PDFium/PDFium-rs must preserve the corresponding GPL obligations and notices.

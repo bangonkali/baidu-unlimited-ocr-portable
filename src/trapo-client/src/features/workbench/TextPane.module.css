@@ -125,19 +125,44 @@
   border: 1px solid var(--border);
 }
 
-.span {
+.anchorBundle {
   display: inline;
-  padding: 1px 3px;
-  color: var(--text);
-  background: var(--selection-bg);
+}
+
+.regionAnchor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  margin: 0 2px;
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  vertical-align: baseline;
+  background: var(--control-bg);
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: 2px;
   cursor: pointer;
 }
 
-.span:hover,
-.span[data-active="true"] {
+.regionAnchor:hover,
+.regionAnchor[data-active="true"] {
+  color: var(--text);
+  background: var(--selection-bg);
   border-color: var(--accent);
+}
+
+.regionSnippet {
+  display: block;
+  max-width: min(100%, 420px);
+  max-height: 260px;
+  margin: 6px 0 10px;
+  object-fit: contain;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }
 
 .headerIcon,

@@ -23,6 +23,7 @@ use crate::{error::ErrorPayload, types::*, workbench_types::*};
         search_documents_doc,
         get_document_doc,
         document_regions_doc,
+        region_snippet_doc,
         document_text_doc,
         preview_images_doc,
         preview_image_doc,
@@ -88,24 +89,31 @@ struct BinaryImageResponse;
 
 impl Modify for BinaryImageResponse {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let Some(path) = openapi
-            .paths
-            .paths
-            .get_mut("/api/documents/{file_hash}/preview-images/{variant}/{page_no}")
-        else {
-            return;
-        };
-        let Some(operation) = path.get.as_mut() else {
-            return;
-        };
-        let Some(utoipa::openapi::RefOr::T(response)) =
-            operation.responses.responses.get_mut("200")
-        else {
-            return;
-        };
-        for content_type in ["image/png", "image/jpeg"] {
-            if let Some(content) = response.content.get_mut(content_type) {
-                content.schema = Some(binary_schema());
+        for (path_key, content_types) in [
+            (
+                "/api/documents/{file_hash}/preview-images/{variant}/{page_no}",
+                &["image/png", "image/jpeg"][..],
+            ),
+            (
+                "/api/documents/{file_hash}/regions/{region_id}/snippet",
+                &["image/png"][..],
+            ),
+        ] {
+            let Some(path) = openapi.paths.paths.get_mut(path_key) else {
+                continue;
+            };
+            let Some(operation) = path.get.as_mut() else {
+                continue;
+            };
+            let Some(utoipa::openapi::RefOr::T(response)) =
+                operation.responses.responses.get_mut("200")
+            else {
+                continue;
+            };
+            for content_type in content_types {
+                if let Some(content) = response.content.get_mut(*content_type) {
+                    content.schema = Some(binary_schema());
+                }
             }
         }
     }
@@ -165,6 +173,9 @@ fn get_document_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/regions", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentRegionsPayload)))]
 fn document_regions_doc() {}
+
+#[utoipa::path(get, path = "/api/documents/{file_hash}/regions/{region_id}/snippet", tag = "documents", params(("file_hash" = String, Path), ("region_id" = String, Path)), responses((status = 200, description = "Region image snippet bytes", content((String = "image/png"))), (status = 404, body = ErrorPayload)))]
+fn region_snippet_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/text", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentTextPayload)))]
 fn document_text_doc() {}

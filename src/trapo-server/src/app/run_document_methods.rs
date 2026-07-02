@@ -110,17 +110,7 @@ impl AppState {
         let pages = state
             .documents
             .get(file_hash)
-            .map(|document| {
-                document
-                    .pages
-                    .iter()
-                    .map(|page| PageTextRecord {
-                        page_no: page.page_no,
-                        text: page.cleaned_text.clone(),
-                        spans: page.spans.clone(),
-                    })
-                    .collect()
-            })
+            .map(started_page_text_records)
             .unwrap_or_default();
         DocumentTextPayload {
             file_hash: file_hash.to_string(),

@@ -150,6 +150,11 @@ fn document_summary(document: &DocumentState) -> DocumentSummary {
         .iter()
         .filter(|page| page.status == "completed")
         .count() as u32;
+    let current_page = document
+        .pages
+        .iter()
+        .find(|page| page.status == "running")
+        .map(|page| page.page_no);
     DocumentSummary {
         file_hash: document.file_hash.clone(),
         display_name: document.display_name.clone(),
@@ -158,7 +163,7 @@ fn document_summary(document: &DocumentState) -> DocumentSummary {
         page_count: document.page_count,
         processed_pages,
         total_pages: document.page_count,
-        current_page: None,
+        current_page,
         progress_percent: percent(processed_pages, document.page_count),
         regions: document
             .pages
@@ -166,6 +171,23 @@ fn document_summary(document: &DocumentState) -> DocumentSummary {
             .map(|page| page.boxes.len() as u32)
             .sum(),
         error: document.error.clone(),
+    }
+}
+
+fn started_page_text_records(document: &DocumentState) -> Vec<PageTextRecord> {
+    document
+        .pages
+        .iter()
+        .filter(|page| page.status != "queued")
+        .map(page_text_record)
+        .collect()
+}
+
+fn page_text_record(page: &PageState) -> PageTextRecord {
+    PageTextRecord {
+        page_no: page.page_no,
+        text: page.cleaned_text.clone(),
+        spans: page.spans.clone(),
     }
 }
 

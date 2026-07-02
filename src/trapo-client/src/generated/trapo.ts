@@ -261,6 +261,54 @@ export const documentRegionsDoc = async (fileHash: string, options?: RequestInit
 
 
 
+export type regionSnippetDocResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type regionSnippetDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type regionSnippetDocResponseSuccess = (regionSnippetDocResponse200) & {
+  headers: Headers;
+};
+export type regionSnippetDocResponseError = (regionSnippetDocResponse404) & {
+  headers: Headers;
+};
+
+export type regionSnippetDocResponse = (regionSnippetDocResponseSuccess | regionSnippetDocResponseError)
+
+export const getRegionSnippetDocUrl = (fileHash: string,
+    regionId: string,) => {
+
+
+
+
+  return `/api/documents/${fileHash}/regions/${regionId}/snippet`
+}
+
+export const regionSnippetDoc = async (fileHash: string,
+    regionId: string, options?: RequestInit): Promise<regionSnippetDocResponse> => {
+
+  const res = await fetch(getRegionSnippetDocUrl(fileHash,regionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: regionSnippetDocResponse['data'] = body as regionSnippetDocResponse['data']
+  return { data, status: res.status, headers: res.headers } as regionSnippetDocResponse
+}
+
+
+
 export type documentTextDocResponse200 = {
   data: DocumentTextPayload
   status: 200

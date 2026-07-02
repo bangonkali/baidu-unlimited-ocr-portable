@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
     emit_version_env();
     emit_platform_link_args();
+    emit_windows_duckdb_link_search()?;
     let Some(runtime_lib) = duckdb_runtime_library() else {
         return Ok(());
     };
@@ -49,6 +50,42 @@ fn emit_platform_link_args() {
         }
         _ => {}
     }
+}
+
+fn emit_windows_duckdb_link_search() -> Result<(), Box<dyn Error>> {
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return Ok(());
+    }
+    for root in duckdb_link_roots()? {
+        if let Some(library) = find_under(&root, "duckdb.lib")?
+            && let Some(parent) = library.parent()
+        {
+            println!("cargo:rustc-link-search=native={}", parent.display());
+            return Ok(());
+        }
+    }
+    Ok(())
+}
+
+fn duckdb_link_roots() -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+    let profile_dir = profile_dir(&out_dir);
+    let target_dir = profile_dir
+        .as_deref()
+        .and_then(Path::parent)
+        .map(Path::to_path_buf);
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let repo_root = manifest_dir
+        .parent()
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or(manifest_dir);
+    let mut roots = Vec::new();
+    if let Some(target_dir) = target_dir {
+        roots.push(target_dir.join("duckdb-download"));
+    }
+    roots.push(repo_root.join("thirdparty/duckdb/windows-amd64/lib"));
+    Ok(roots)
 }
 
 fn emit_version_env() {

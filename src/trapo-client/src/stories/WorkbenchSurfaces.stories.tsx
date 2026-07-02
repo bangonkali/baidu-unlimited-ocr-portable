@@ -89,6 +89,7 @@ export const Traceability: Story = {
         document={fixtureDocuments[0]}
         onSelectRegion={() => undefined}
         pages={fixturePages}
+        regions={fixtureBoxes}
         selectedRegionId="reg-total"
       />
     </div>
@@ -103,6 +104,7 @@ export const LiveText: Story = {
         document={fixtureDocuments[1]}
         onSelectRegion={() => undefined}
         pages={fixturePages}
+        regions={fixtureBoxes}
         selectedRegionId="reg-supplier"
       />
     </div>

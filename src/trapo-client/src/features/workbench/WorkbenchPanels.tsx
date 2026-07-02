@@ -19,6 +19,7 @@ import { ExplorerTree } from './ExplorerTree';
 import { PreviewPane } from './PreviewPane';
 import { StartHere } from './StartHere';
 import { TextPane } from './TextPane';
+import { scopedRegionText } from './traceRegionAnchors';
 import styles from './WorkbenchPage.module.css';
 
 interface WorkbenchPanelsProps {
@@ -46,7 +47,7 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
     (region) => region.region_id === props.workbench.selection.regionId,
   );
   const selectedRegionContent = selectedRegion
-    ? regionContentFor(props.textPages, selectedRegion.region_id)
+    ? scopedRegionText(props.textPages, selectedRegion.region_id)
     : undefined;
   usePanelCollapseSync(explorerRef, props.workbench.panesCollapsed.explorer);
   usePanelCollapseSync(detailsRef, props.workbench.panesCollapsed.details);
@@ -103,16 +104,6 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
   );
 }
 
-function regionContentFor(pages: PageTextRecord[], regionId: string) {
-  for (const page of pages) {
-    const span = page.spans.find((item) => item.region_id === regionId);
-    if (span && span.start <= span.end && span.end <= page.text.length) {
-      return page.text.slice(span.start, span.end);
-    }
-  }
-  return undefined;
-}
-
 function DocumentWorkspace(props: WorkbenchPanelsProps) {
   const diagnosticsRef = useRef<ImperativePanelHandle>(null);
   usePanelCollapseSync(diagnosticsRef, props.workbench.panesCollapsed.diagnostics);
@@ -141,6 +132,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
               document={props.selectedDocument}
               onSelectRegion={props.onSelectRegion}
               pages={props.textPages}
+              regions={props.regions}
               selectedRegionId={props.workbench.selection.regionId}
             />
           </Panel>

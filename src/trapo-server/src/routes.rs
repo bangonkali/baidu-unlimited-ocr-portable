@@ -46,6 +46,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/search", get(list_documents))
         .route("/api/documents/{file_hash}", get(get_document))
         .route("/api/documents/{file_hash}/regions", get(document_regions))
+        .route(
+            "/api/documents/{file_hash}/regions/{region_id}/snippet",
+            get(region_snippet),
+        )
         .route("/api/documents/{file_hash}/text", get(document_text))
         .route(
             "/api/documents/{file_hash}/preview-images",
@@ -170,6 +174,20 @@ async fn document_regions(
     Path(file_hash): Path<String>,
 ) -> Json<crate::workbench_types::DocumentRegionsPayload> {
     Json(state.document_regions(&file_hash).await)
+}
+
+async fn region_snippet(
+    State(state): State<AppState>,
+    Path((file_hash, region_id)): Path<(String, String)>,
+) -> Result<Response> {
+    let Some(path) = state
+        .region_snippet_path_for_request(&file_hash, &region_id)
+        .await
+    else {
+        return Err(AppError::NotFound("region snippet not found".to_string()));
+    };
+    let bytes = tokio::fs::read(&path).await?;
+    Ok(([(header::CONTENT_TYPE, "image/png")], bytes).into_response())
 }
 
 async fn document_text(

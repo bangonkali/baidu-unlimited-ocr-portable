@@ -88,7 +88,7 @@ resolve_portable_root() {
     fi
 
     if ! candidate="$(cd "$candidate" 2>/dev/null && pwd)"; then
-        die "Portable repo root not found. Run from a cloned baidu-unlimited-ocr-portable repo or pass --repo-root."
+        die "Trapo repo root not found. Run from a cloned Trapo repo or pass --repo-root."
     fi
     if [[ ! -f "$candidate/pyproject.toml" ]]; then
         die "Portable repo root not found: $candidate. Missing pyproject.toml."
@@ -612,5 +612,5 @@ printf 'Wrote %s\n' "$env_file"
 
 write_step "Next commands"
 printf 'source %q\n' "$env_file"
-printf 'uv run --project %q baidu-uocr-client --help\n' "$repo_root"
+printf 'cargo run --manifest-path %q --bin trapo-server -- --help\n' "$repo_root/Cargo.toml"
 printf '%s\n' "Trapo releases are packaged through scripts/package_trapo_workbench.py."

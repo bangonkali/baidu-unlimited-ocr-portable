@@ -3,7 +3,7 @@ import { ChevronDown, Copy } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { DocumentSummary, PageTextRecord } from '../../api/types';
+import type { DocumentSummary, OverlayBox, PageTextRecord } from '../../api/types';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
 import { fileMarkdown, filePlainText, isPageTextComplete, pageMarkdown } from './textExport';
@@ -12,6 +12,7 @@ interface TextPaneProps {
   autoFollowRegions: boolean;
   document?: DocumentSummary;
   pages: PageTextRecord[];
+  regions: OverlayBox[];
   selectedRegionId?: string;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
@@ -21,6 +22,7 @@ export function TextPane({
   document,
   onSelectRegion,
   pages,
+  regions,
   selectedRegionId,
 }: TextPaneProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function TextPane({
             onCopyMarkdown={() => copy(pageMarkdown(page), `Copied page ${page.page_no}`)}
             onRegionSelect={onSelectRegion}
             page={page}
+            regions={regions}
             selectedRegionId={selectedRegionId}
           />
         ))}
@@ -105,12 +108,14 @@ function PageText({
   onCopyMarkdown,
   onRegionSelect,
   page,
+  regions,
   selectedRegionId,
 }: {
   complete: boolean;
   onCopyMarkdown: () => void;
   onRegionSelect: (pageNo: number, regionId: string) => void;
   page: PageTextRecord;
+  regions: OverlayBox[];
   selectedRegionId?: string;
 }) {
   return (
@@ -131,12 +136,14 @@ function PageText({
         <TraceableMarkdown
           onRegionSelect={onRegionSelect}
           page={page}
+          regions={regions}
           selectedRegionId={selectedRegionId}
         />
       ) : (
         <PlainTraceText
           onRegionSelect={onRegionSelect}
           page={page}
+          regions={regions}
           selectedRegionId={selectedRegionId}
         />
       )}

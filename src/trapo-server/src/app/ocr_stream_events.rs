@@ -69,11 +69,25 @@ fn publish_token_events(
     raw_delta["avg_tps"] = json!(token.avg_tps);
     hub.publish("ocr.page.raw.delta", raw_delta);
 
+    let parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
+    let cleaned_text = if parsed.cleaned_text.is_empty() {
+        telemetry.raw_text.clone()
+    } else {
+        parsed.cleaned_text
+    };
+    let has_marker_cleanup = cleaned_text != telemetry.raw_text;
     let mut text_patch = stream_context_payload(context);
-    text_patch["op"] = json!("append");
-    text_patch["start"] = json!(token.raw_start);
-    text_patch["end"] = json!(token.raw_start);
-    text_patch["text"] = json!(text);
+    if has_marker_cleanup {
+        text_patch["op"] = json!("replace");
+        text_patch["start"] = json!(0);
+        text_patch["end"] = json!(token.raw_end);
+        text_patch["text"] = json!(cleaned_text);
+    } else {
+        text_patch["op"] = json!("append");
+        text_patch["start"] = json!(token.raw_start);
+        text_patch["end"] = json!(token.raw_start);
+        text_patch["text"] = json!(text);
+    }
     hub.publish("ocr.page.text.patch", text_patch);
 
     publish_region_events(hub, context, telemetry);
@@ -86,12 +100,22 @@ fn publish_region_events(
 ) {
     let mut parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
     crate::ocr::apply_region_content(&mut parsed);
+    let spans_by_region = parsed
+        .spans
+        .iter()
+        .map(|span| (span.region_id.clone(), span.clone()))
+        .collect::<std::collections::HashMap<_, _>>();
     for region in parsed.boxes {
         if !telemetry
             .emitted_region_ids
             .insert(region.region_id.clone())
         {
             continue;
+        }
+        if let Some(span) = spans_by_region.get(&region.region_id) {
+            let mut payload = stream_context_payload(context);
+            payload["span"] = json!(span);
+            hub.publish("ocr.page.span.upsert", payload);
         }
         let mut payload = stream_context_payload(context);
         payload["region"] = json!(region);
@@ -186,7 +210,10 @@ mod ocr_stream_events_tests {
             0,
         );
         assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        let patch = receiver.try_recv()?;
+        assert_eq!(patch.event_type, "ocr.page.text.patch");
+        assert_eq!(patch.payload["op"], "replace");
+        assert_eq!(patch.payload["text"], "A Total");
         assert!(receiver.try_recv().is_err());
 
         publish_token_events(
@@ -198,6 +225,10 @@ mod ocr_stream_events_tests {
         );
         assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
         assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        let span = receiver.try_recv()?;
+        assert_eq!(span.event_type, "ocr.page.span.upsert");
+        assert_eq!(span.payload["span"]["start"], 2);
+        assert_eq!(span.payload["span"]["end"], 2);
         let region = receiver.try_recv()?;
         assert_eq!(region.event_type, "ocr.page.region.upsert");
         assert_eq!(region.payload["region"]["label"], "Total");

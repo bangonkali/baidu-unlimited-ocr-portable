@@ -58,7 +58,7 @@ function Resolve-PortableRoot {
 
     $full = [System.IO.Path]::GetFullPath($candidate)
     if (-not (Test-Path (Join-Path $full "pyproject.toml"))) {
-        throw "Portable repo root not found: $full. Run this script from a cloned baidu-unlimited-ocr-portable repo or pass -RepoRoot."
+        throw "Trapo repo root not found: $full. Run this script from a cloned Trapo repo or pass -RepoRoot."
     }
     return $full
 }
@@ -836,5 +836,5 @@ Write-Host "Wrote $envFile"
 
 Write-Step "Next commands"
 Write-Host ". '$envFile'"
-Write-Host "uv run --project '$RepoRoot' baidu-uocr-client --help"
+Write-Host "cargo run --manifest-path '$RepoRoot\Cargo.toml' --bin trapo-server -- --help"
 Write-Host "Trapo releases are packaged through scripts/package_trapo_workbench.py."

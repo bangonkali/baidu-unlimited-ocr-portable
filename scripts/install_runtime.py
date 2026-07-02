@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
 
 
-USER_AGENT = "baidu-unlimited-ocr-portable-runtime-installer"
+USER_AGENT = "trapo-workbench-runtime-installer"
 GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 GITHUB_DOWNLOAD_HOSTS = {
     "api.github.com",

@@ -13,14 +13,13 @@ pub fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPag
         }
         let clean_start = parsed.cleaned_text.len() as u64;
         parsed.cleaned_text.push_str(&segment.label);
-        let clean_end = parsed.cleaned_text.len() as u64;
         for box_points in &segment.boxes {
             let region_id = region_id_for(context, segment, box_points);
             parsed.spans.push(TextRegionSpan {
                 region_id: region_id.clone(),
                 page_no: context.page_no,
                 start: clean_start,
-                end: clean_end,
+                end: clean_start,
             });
             parsed.boxes.push(OverlayBox {
                 region_id,
@@ -46,6 +45,7 @@ pub fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPag
 }
 
 pub fn apply_region_content(parsed: &mut ParsedOcrPage) {
+    let scope_boundaries = sorted_unique_span_starts(&parsed.spans);
     for item in &mut parsed.boxes {
         if let Some(span) = parsed
             .spans
@@ -53,10 +53,25 @@ pub fn apply_region_content(parsed: &mut ParsedOcrPage) {
             .find(|span| span.region_id == item.region_id)
         {
             let start = span.start as usize;
-            let end = span.end as usize;
+            let end = next_scope_end(span.start, &scope_boundaries, parsed.cleaned_text.len());
             if start <= end && end <= parsed.cleaned_text.len() {
-                item.content_markdown = parsed.cleaned_text[start..end].to_string();
+                item.content_markdown = parsed.cleaned_text[start..end].trim().to_string();
             }
         }
     }
+}
+
+fn sorted_unique_span_starts(spans: &[TextRegionSpan]) -> Vec<u64> {
+    let mut starts = spans.iter().map(|span| span.start).collect::<Vec<_>>();
+    starts.sort_unstable();
+    starts.dedup();
+    starts
+}
+
+fn next_scope_end(current_start: u64, boundaries: &[u64], text_len: usize) -> usize {
+    boundaries
+        .iter()
+        .copied()
+        .find(|start| *start > current_start)
+        .map_or(text_len, |start| start as usize)
 }

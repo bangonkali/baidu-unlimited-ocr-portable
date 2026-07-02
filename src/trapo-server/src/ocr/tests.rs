@@ -16,7 +16,28 @@ mod tests {
         apply_region_content(&mut parsed);
         assert_eq!(parsed.cleaned_text, "A Title B");
         assert_eq!(parsed.boxes.len(), 1);
-        assert_eq!(parsed.boxes[0].content_markdown, "Title");
+        assert_eq!(parsed.spans[0].start, 2);
+        assert_eq!(parsed.spans[0].end, 2);
+        assert_eq!(parsed.boxes[0].content_markdown, "Title B");
+    }
+
+    #[test]
+    fn region_content_uses_text_until_next_marker() {
+        let mut parsed = parse_ocr_markers(
+            "<|ref|>First<|/ref|><|det|>[[0,0,100,100]]<|/det|> body \
+             <|ref|>Second<|/ref|><|det|>[[100,0,200,100]]<|/det|> tail",
+            &ParseContext {
+                file_hash: "hash".to_string(),
+                page_no: 1,
+                engine_id: "engine".to_string(),
+                profile_id: "profile".to_string(),
+            },
+        );
+        apply_region_content(&mut parsed);
+
+        assert_eq!(parsed.cleaned_text, "First body Second tail");
+        assert_eq!(parsed.boxes[0].content_markdown, "First body");
+        assert_eq!(parsed.boxes[1].content_markdown, "Second tail");
     }
 
     #[test]

@@ -106,43 +106,24 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
 }
 
 #[test]
-fn openapi_keeps_legacy_parity_paths() -> anyhow::Result<()> {
+fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
     let value = serde_json::to_value(ApiDoc::openapi())?;
-    let legacy: serde_json::Value =
-        serde_json::from_str(include_str!("../../uocr-server/openapi/uocr.openapi.json"))?;
     let paths = value["paths"]
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("OpenAPI paths were not an object"))?;
-    let legacy_paths = legacy["paths"]
-        .as_object()
-        .ok_or_else(|| anyhow::anyhow!("legacy OpenAPI paths were not an object"))?;
     for path in [
+        "/api/health",
+        "/api/status",
         "/api/search",
+        "/api/ingest/start",
         "/api/ingest/runs/{run_id}/events",
         "/api/models/{model_id}/events",
+        "/api/documents/{file_hash}/text",
+        "/api/documents/{file_hash}/regions",
+        "/api/documents/{file_hash}/regions/{region_id}/snippet",
         "/api/documents/{file_hash}/preview-images/{variant}/{page_no}",
     ] {
         assert!(paths.contains_key(path), "missing OpenAPI path {path}");
-    }
-    for (path, legacy_path) in legacy_paths {
-        let Some(trapo_path) = paths.get(path) else {
-            anyhow::bail!("missing legacy OpenAPI path {path}");
-        };
-        let Some(legacy_methods) = legacy_path.as_object() else {
-            continue;
-        };
-        for (method, legacy_operation) in legacy_methods {
-            let Some(trapo_operation) = trapo_path.get(method) else {
-                anyhow::bail!("missing legacy OpenAPI operation {method} {path}");
-            };
-            if let Some(legacy_statuses) = legacy_operation["responses"].as_object() {
-                for status in legacy_statuses.keys() {
-                    if trapo_operation["responses"].get(status).is_none() {
-                        anyhow::bail!("missing legacy OpenAPI status {status} for {method} {path}");
-                    }
-                }
-            }
-        }
     }
     assert!(value["components"]["schemas"]["ModelDownloadEvent"].is_object());
     assert_eq!(
@@ -151,7 +132,17 @@ fn openapi_keeps_legacy_parity_paths() -> anyhow::Result<()> {
         "#/components/schemas/IngestRunRecord"
     );
     assert_eq!(
+        value["paths"]["/api/documents/{file_hash}/text"]["get"]["responses"]["200"]["content"]["application/json"]
+            ["schema"]["$ref"],
+        "#/components/schemas/DocumentTextPayload"
+    );
+    assert_eq!(
         value["paths"]["/api/documents/{file_hash}/preview-images/{variant}/{page_no}"]["get"]["responses"]
+            ["200"]["content"]["image/png"]["schema"]["format"],
+        "binary"
+    );
+    assert_eq!(
+        value["paths"]["/api/documents/{file_hash}/regions/{region_id}/snippet"]["get"]["responses"]
             ["200"]["content"]["image/png"]["schema"]["format"],
         "binary"
     );

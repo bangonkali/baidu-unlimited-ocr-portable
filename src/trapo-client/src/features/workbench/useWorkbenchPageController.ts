@@ -31,6 +31,7 @@ import type {
 } from '../../routeSearch';
 import type { ActiveView } from '../../stores/workbenchStore';
 import { useWorkbenchState } from '../../stores/workbenchStore';
+import { visibleTextPages } from './textPreviewPages';
 import { useModelRouteActions } from './useModelRouteActions';
 import { useWorkbenchCommands } from './useWorkbenchCommands';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
@@ -250,7 +251,7 @@ function viewData(
     selectedDocument,
     settings: data.settings.data,
     status: data.status.data,
-    textPages: data.text.data?.pages ?? [],
+    textPages: visibleTextPages(data.text.data?.pages ?? [], selectedDocument),
   };
 }
 

@@ -1,8 +1,9 @@
-# Workbench Releases
+# Trapo Releases
 
-The release goal is portable archives that can be extracted anywhere writable
-and launched directly. The executable hosts both the Trapo Rust/Axum API and
-the React app.
+Trapo releases are portable archives that can be extracted anywhere writable and
+launched directly. Each archive contains the Rust/Axum server, the compiled
+React workbench, PDFium, DuckDB, and the native OCR runtime files for that
+platform.
 
 ## Artifacts
 
@@ -40,12 +41,10 @@ data/trapo.duckdb
 ```
 
 GGUF model files are downloaded after first launch through the Models page.
-The package bundles native runtime binaries, not model weights.
 
 ## GitHub Actions
 
-`Release workbench` runs on `v*` tags. Platform jobs run in parallel by
-default:
+`Release workbench` runs on `v*` tags. Platform jobs run in parallel:
 
 - Windows x64 on `windows-2025`
 - Windows arm64 on `windows-11-arm`
@@ -53,24 +52,26 @@ default:
 - Ubuntu 24.04 x64 on `ubuntu-24.04`
 - Ubuntu 24.04 arm64 on `ubuntu-24.04-arm`
 
-The workflow uses `strategy.fail-fast: false`. Each platform job checks the
-Trapo frontend, builds the Rust server, packages the portable archive, smokes
-the extracted app, verifies `logs/trapo-server.log` and `data/trapo.duckdb`,
-and uploads workflow artifacts. A final fan-in `publish` job downloads all
-artifacts and uploads them to one GitHub Release.
+Each package job builds the React client, builds the Rust server, packages the
+portable archive, smokes the extracted app, verifies `logs/trapo-server.log` and
+`data/trapo.duckdb`, and uploads workflow artifacts. A final publish job uploads
+all artifacts to one GitHub Release.
 
-`Workbench CI` runs Trapo frontend quality gates, Rust tests across the same OS
-family, Python release-tool tests, and SCC complexity checks. `Build runtime
-binaries` publishes native FFI runtime archives, including Linux CPU fallbacks
-and Linux arm64 CPU.
+`Workbench CI` runs React quality gates, Rust tests across supported OS
+families, Python release-tool tests, and SCC complexity checks. `Build runtime
+binaries` publishes native FFI runtime archives used by Trapo releases.
 
 ## Maintainer Flow
 
 Tag releases by incrementing the patch version:
 
 ```sh
-git tag v0.0.31
-git push origin feat/trapo-rust v0.0.31
+git tag v0.1.14
+git push origin feat/trapo-rust v0.1.14
 ```
 
-Local Trapo packages are produced by `scripts/package_trapo_workbench.py`.
+Local Trapo packages are produced by:
+
+```text
+scripts/package_trapo_workbench.py
+```

@@ -1,13 +1,13 @@
-# macOS Trapo Workbench
+# macOS Trapo
 
-Download:
+Download the Apple Silicon release asset:
 
 ```text
 trapo-workbench-macos-arm64-<tag>.zip
 ```
 
-Extract the archive, clear quarantine if macOS blocks the unsigned executable,
-and run the launcher:
+Extract it into a writable folder. If macOS quarantine blocks launch, clear the
+quarantine flag on the extracted folder:
 
 ```sh
 xattr -dr com.apple.quarantine ./trapo-workbench-macos-arm64-<tag>
@@ -15,10 +15,12 @@ cd ./trapo-workbench-macos-arm64-<tag>
 ./trapo-server.sh
 ```
 
-Open `http://127.0.0.1:8765/`.
+Then open:
 
-The portable app writes `logs/trapo-server.log` and `data/trapo.duckdb` inside
-the extracted folder. The macOS package includes PDFium, DuckDB, and the Apple
-Silicon native OCR runtime when it is present in the release.
+```text
+http://127.0.0.1:8765/
+```
 
-Local Trapo packaging is handled by `scripts/package_trapo_workbench.py`.
+The archive bundles the React workbench, Rust server, PDFium, DuckDB, and the
+Metal OCR runtime. Trapo validates the native OCR dylib before release
+publication so the app does not depend on Homebrew-only runtime paths.

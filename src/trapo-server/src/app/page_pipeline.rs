@@ -1,6 +1,8 @@
 impl AppState {
     async fn process_page(&self, page_work: PageWork<'_>, ocr: &OcrRunContext<'_>) -> Result<()> {
         let started = Instant::now();
+        self.mark_page_started(page_work.file_hash, page_work.page_no)
+            .await?;
         let raw_text = self
             .run_ocr_or_fallback(
                 page_work.image_path,
@@ -18,6 +20,11 @@ impl AppState {
             },
         );
         crate::ocr::apply_region_content(&mut parsed);
+        self.write_image_region_snippets(
+            page_work.file_hash,
+            page_work.image_path,
+            &mut parsed.boxes,
+        )?;
         let (page_record, regions_payload, text_payload) = {
             let mut state = self.inner.state.lock().await;
             let document = state
@@ -61,15 +68,7 @@ impl AppState {
             };
             let text = DocumentTextPayload {
                 file_hash: page_work.file_hash.to_string(),
-                pages: document
-                    .pages
-                    .iter()
-                    .map(|page| PageTextRecord {
-                        page_no: page.page_no,
-                        text: page.cleaned_text.clone(),
-                        spans: page.spans.clone(),
-                    })
-                    .collect(),
+                pages: started_page_text_records(document),
             };
             let page_record = json!({
                 "file_hash": page_work.file_hash,
@@ -101,6 +100,38 @@ impl AppState {
             avg_tps: 0.0,
             elapsed_ms: started.elapsed().as_millis() as u64,
         })?;
+        Ok(())
+    }
+
+    async fn mark_page_started(&self, file_hash: &str, page_no: u32) -> Result<()> {
+        let (page_record, document_event) = {
+            let mut state = self.inner.state.lock().await;
+            let document = state
+                .documents
+                .get_mut(file_hash)
+                .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
+            let page = document
+                .pages
+                .iter_mut()
+                .find(|item| item.page_no == page_no)
+                .ok_or_else(|| AppError::NotFound("page not found".to_string()))?;
+            page.status = "running".to_string();
+            self.inner
+                .repository
+                .upsert_page(&stored_page(file_hash, page))?;
+            let page_record = json!({
+                "file_hash": file_hash,
+                "page_no": page_no,
+                "status": "running",
+                "width_px": page.width_px,
+                "height_px": page.height_px,
+            });
+            (page_record, document_summary(document))
+        };
+        self.inner.hub.publish("document.page.changed", page_record);
+        self.inner
+            .hub
+            .publish("document.changed", serde_json::to_value(document_event)?);
         Ok(())
     }
 

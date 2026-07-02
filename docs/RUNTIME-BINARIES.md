@@ -1,15 +1,24 @@
 # Runtime Binaries
 
-Trapo packages consume native OCR runtime archives from
-`thirdparty/uocr-runtime/<platform>`. The runtime asset names intentionally keep
-the `uocr-runtime-*` prefix because they contain the stable `uocr-ffi` ABI that
-both legacy and Trapo code can load.
+Trapo packages consume native OCR runtime archives from:
+
+```text
+thirdparty/uocr-runtime/<platform>
+```
+
+The runtime asset names still use the `uocr-runtime-*` prefix because the
+underlying native ABI is named `uocr-ffi`. That ABI is an internal runtime
+boundary; the product, server, client, and release artifacts are Trapo.
 
 The `Build runtime binaries` workflow creates and publishes runtime archives for
-the supported platforms, then `Release workbench` downloads those assets before
-running `scripts/package_trapo_workbench.py`.
+the supported platforms. `Release workbench` downloads those assets before
+running:
 
-Relevant release tooling:
+```text
+scripts/package_trapo_workbench.py
+```
+
+Relevant runtime tooling:
 
 ```text
 scripts/package_runtime.py
@@ -27,5 +36,3 @@ trapo-workbench-macos-arm64-<version>.zip
 trapo-workbench-linux-x64-<version>.tar.gz
 trapo-workbench-linux-arm64-<version>.tar.gz
 ```
-
-Each archive has a matching `.sha256` file.

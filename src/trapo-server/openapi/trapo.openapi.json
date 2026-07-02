@@ -205,6 +205,55 @@
         }
       }
     },
+    "/api/documents/{file_hash}/regions/{region_id}/snippet": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "operationId": "region_snippet_doc",
+        "parameters": [
+          {
+            "name": "file_hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Region image snippet bytes",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/documents/{file_hash}/text": {
       "get": {
         "tags": [
