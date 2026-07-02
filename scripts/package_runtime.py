@@ -7,7 +7,6 @@ import glob
 import hashlib
 import json
 import os
-import shutil
 import stat
 import tarfile
 import tempfile
@@ -53,7 +52,10 @@ def find_one(build_dir: Path, names: list[str]) -> Path:
             build_dir / "Release" / name,
         ]
         candidates.extend(path for path in direct_candidates if path.exists())
-        candidates.extend(Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True))
+        candidates.extend(
+            Path(match)
+            for match in glob.glob(str(build_dir / "**" / name), recursive=True)
+        )
     seen: set[Path] = set()
     unique: list[Path] = []
     for candidate in candidates:
@@ -62,7 +64,9 @@ def find_one(build_dir: Path, names: list[str]) -> Path:
             seen.add(resolved)
             unique.append(candidate)
     if not unique:
-        die(f"could not find required runtime file under {build_dir}: {', '.join(names)}")
+        die(
+            f"could not find required runtime file under {build_dir}: {', '.join(names)}"
+        )
     return unique[0]
 
 
@@ -84,7 +88,10 @@ def dependency_search_dirs(build_dir: Path) -> list[Path]:
     ]
     if os.name == "nt":
         for directory in path_dirs():
-            if directory.name.lower() in {"bin", "cmd"} and directory.parent.name.lower() == "git":
+            if (
+                directory.name.lower() in {"bin", "cmd"}
+                and directory.parent.name.lower() == "git"
+            ):
                 dirs.append(directory.parent / "mingw64" / "bin")
 
     unique: list[Path] = []
@@ -98,7 +105,9 @@ def dependency_search_dirs(build_dir: Path) -> list[Path]:
 
 
 def find_dependency(build_dir: Path, name: str) -> Path:
-    candidates = [Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)]
+    candidates = [
+        Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)
+    ]
     for directory in dependency_search_dirs(build_dir):
         candidates.append(directory / name)
     for candidate in candidates:
@@ -147,7 +156,11 @@ def executable_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, 
 
 def library_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
     by_name = {path.name: f"bin/{path.name}" for path in files}
-    return {library: by_name[library] for library in target.get("required_libraries", []) if library in by_name}
+    return {
+        library: by_name[library]
+        for library in target.get("required_libraries", [])
+        if library in by_name
+    }
 
 
 def dependency_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
@@ -192,7 +205,10 @@ def make_package_manifest(
         "schema_version": 1,
         "platform": platform_id,
         "version": version,
-        "created_at": dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "created_at": dt.datetime.now(dt.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "archive_name": archive_name,
         "archive_sha256": archive_sha256,
         "archive_size": archive_size,
@@ -256,7 +272,9 @@ def package_runtime(args: argparse.Namespace) -> None:
         die("no runtime files were collected")
 
     archive_ext = target["archive_ext"]
-    archive_name = f"{platforms['asset_prefix']}-{args.platform}-{version}.{archive_ext}"
+    archive_name = (
+        f"{platforms['asset_prefix']}-{args.platform}-{version}.{archive_ext}"
+    )
     archive_path = output_dir / archive_name
     root_name = f"uocr-runtime-{args.platform}-{version}"
 
@@ -274,7 +292,10 @@ def package_runtime(args: argparse.Namespace) -> None:
         tmp_path = Path(tmp)
         manifest_path = tmp_path / "manifest.json"
         readme_path = tmp_path / "README.txt"
-        manifest_path.write_text(json.dumps(initial_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        manifest_path.write_text(
+            json.dumps(initial_manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         readme_path.write_text(
             "\n".join(
                 [
@@ -290,7 +311,9 @@ def package_runtime(args: argparse.Namespace) -> None:
         )
 
         if archive_ext == "zip":
-            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+            with zipfile.ZipFile(
+                archive_path, "w", compression=zipfile.ZIP_DEFLATED
+            ) as zipf:
                 for source in runtime_files:
                     add_zip_member(zipf, source, f"{root_name}/bin/{source.name}")
                 zipf.write(manifest_path, f"{root_name}/manifest.json")
@@ -318,16 +341,31 @@ def package_runtime(args: argparse.Namespace) -> None:
         archive_size=archive_size,
     )
     sidecar_path = output_dir / f"{archive_name}.runtime.json"
-    sidecar_path.write_text(json.dumps(final_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    sidecar_path.write_text(
+        json.dumps(final_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     sha_path = output_dir / f"{archive_name}.sha256"
     sha_path.write_text(f"{archive_hash}  {archive_name}\n", encoding="utf-8")
 
     # Keep local package outputs executable even if a filesystem lost mode bits.
     for file_path in runtime_files:
-        if file_path.name in target["executables"] and not file_path.name.endswith(".exe"):
-            file_path.chmod(file_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        if file_path.name in target["executables"] and not file_path.name.endswith(
+            ".exe"
+        ):
+            file_path.chmod(
+                file_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
 
-    print(json.dumps({"archive": str(archive_path), "sha256": archive_hash, "manifest": str(sidecar_path)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "archive": str(archive_path),
+                "sha256": archive_hash,
+                "manifest": str(sidecar_path),
+            },
+            indent=2,
+        )
+    )
 
 
 def merge_manifests(args: argparse.Namespace) -> None:
@@ -342,7 +380,10 @@ def merge_manifests(args: argparse.Namespace) -> None:
 
     merged: dict[str, Any] = {
         "schema_version": 1,
-        "created_at": dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "created_at": dt.datetime.now(dt.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "asset_prefix": platforms["asset_prefix"],
         "platforms": {},
     }
@@ -361,7 +402,9 @@ def merge_manifests(args: argparse.Namespace) -> None:
         }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output_path.write_text(
+        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(output_path)
 
 
@@ -382,24 +425,36 @@ def write_version_env(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Package Unlimited-OCR native runtime binaries.")
+    parser = argparse.ArgumentParser(
+        description="Package Unlimited-OCR native runtime binaries."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    package_parser = subparsers.add_parser("package", help="Create a platform runtime archive.")
+    package_parser = subparsers.add_parser(
+        "package", help="Create a platform runtime archive."
+    )
     package_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     package_parser.add_argument("--platform", required=True)
-    package_parser.add_argument("--build-dir", type=Path, default=REPO_ROOT / "thirdparty" / "llama.cpp" / "build")
+    package_parser.add_argument(
+        "--build-dir",
+        type=Path,
+        default=REPO_ROOT / "thirdparty" / "llama.cpp" / "build",
+    )
     package_parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "dist")
     package_parser.add_argument("--version", required=True)
     package_parser.set_defaults(func=package_runtime)
 
-    merge_parser = subparsers.add_parser("merge", help="Merge per-platform manifests into a release manifest.")
+    merge_parser = subparsers.add_parser(
+        "merge", help="Merge per-platform manifests into a release manifest."
+    )
     merge_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     merge_parser.add_argument("--input-dir", type=Path, required=True)
     merge_parser.add_argument("--output", type=Path, required=True)
     merge_parser.set_defaults(func=merge_manifests)
 
-    version_parser = subparsers.add_parser("write-version-env", help="Write UOCR_RUNTIME_VERSION to a GitHub env file.")
+    version_parser = subparsers.add_parser(
+        "write-version-env", help="Write UOCR_RUNTIME_VERSION to a GitHub env file."
+    )
     version_parser.add_argument("--github-env", type=Path, required=True)
     version_parser.add_argument("--ref-type", default="")
     version_parser.add_argument("--ref-name", default="")

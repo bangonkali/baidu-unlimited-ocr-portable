@@ -31,10 +31,13 @@ impl AppState {
             self.log_warn("ocr", format!("using fallback OCR text: {reason}"))
                 .await;
         }
+        let (runtime_platform, accelerator) = self.runtime_stream_metadata(&runtime_id).await;
         let ocr_context = OcrRunContext {
             profile_id: &profile_id,
             model_id: &model_id,
             runtime_id: &runtime_id,
+            runtime_platform: &runtime_platform,
+            accelerator: &accelerator,
             worker: &ocr_worker,
         };
         for file in files {

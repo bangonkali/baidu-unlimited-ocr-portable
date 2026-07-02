@@ -54,7 +54,9 @@ def eprint(message: str) -> None:
 def validate_github_repo(value: str) -> str:
     repo = value.strip("/")
     if not GITHUB_REPO_RE.fullmatch(repo):
-        die(f"--runtime-repo must be OWNER/REPO with GitHub-safe characters, got: {value}")
+        die(
+            f"--runtime-repo must be OWNER/REPO with GitHub-safe characters, got: {value}"
+        )
     return repo
 
 
@@ -132,7 +134,9 @@ def query_nvidia_compute_caps(command_path: str) -> tuple[list[tuple[str, str]],
     return gpus, ""
 
 
-def probe_accelerator(command: str | None, target: dict[str, Any] | None = None) -> tuple[bool, str]:
+def probe_accelerator(
+    command: str | None, target: dict[str, Any] | None = None
+) -> tuple[bool, str]:
     if not command:
         return True, "no accelerator probe required"
     resolved = shutil.which(command)
@@ -157,7 +161,10 @@ def probe_accelerator(command: str | None, target: dict[str, Any] | None = None)
                 return True, f"{resolved}; supported GPU: {supported[0]}"
             if not parseable:
                 found = ", ".join(f"{name} ({cap})" for name, cap in gpus)
-                return True, f"{resolved}; compute capability query returned no parseable values: {found}"
+                return (
+                    True,
+                    f"{resolved}; compute capability query returned no parseable values: {found}",
+                )
             found = ", ".join(f"{name} ({cap})" for name, cap in gpus)
             return False, (
                 f"CUDA target requires compute capability >= {minimum_compute_capability}; "
@@ -204,7 +211,9 @@ def detect_platform(
             accelerator_ok = True
             accelerator_detail = "accelerator probe skipped for requested platform"
         else:
-            accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
+            accelerator_ok, accelerator_detail = probe_accelerator(
+                target.get("accelerator_probe"), target
+            )
         return DetectedPlatform(
             platform_id=requested_platform,
             os_name=os_name,
@@ -233,7 +242,9 @@ def detect_platform(
 
     failures: list[str] = []
     for platform_id, target in candidates:
-        accelerator_ok, accelerator_detail = probe_accelerator(target.get("accelerator_probe"), target)
+        accelerator_ok, accelerator_detail = probe_accelerator(
+            target.get("accelerator_probe"), target
+        )
         if accelerator_ok:
             return DetectedPlatform(
                 platform_id=platform_id,
@@ -279,7 +290,10 @@ def download_url(url: str, output_path: Path) -> None:
     if token and "github.com" in url:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=300) as response, output_path.open("wb") as fh:
+    with (
+        urllib.request.urlopen(req, timeout=300) as response,
+        output_path.open("wb") as fh,
+    ):
         shutil.copyfileobj(response, fh)
 
 
@@ -292,7 +306,9 @@ def github_release(runtime_repo: str, runtime_version: str) -> dict[str, Any]:
     try:
         return request_json(url)
     except urllib.error.HTTPError as exc:
-        die(f"could not find GitHub release {runtime_version!r} in {repo}: HTTP {exc.code}")
+        die(
+            f"could not find GitHub release {runtime_version!r} in {repo}: HTTP {exc.code}"
+        )
     except urllib.error.URLError as exc:
         die(f"could not reach GitHub Releases for {repo}: {exc.reason}")
 
@@ -300,7 +316,9 @@ def github_release(runtime_repo: str, runtime_version: str) -> dict[str, Any]:
 def github_releases_page(runtime_repo: str, page: int) -> list[dict[str, Any]]:
     repo = validate_github_repo(runtime_repo)
     try:
-        payload = request_json(f"https://api.github.com/repos/{repo}/releases?per_page=30&page={page}")
+        payload = request_json(
+            f"https://api.github.com/repos/{repo}/releases?per_page=30&page={page}"
+        )
     except urllib.error.HTTPError as exc:
         die(f"could not list GitHub releases in {repo}: HTTP {exc.code}")
     except urllib.error.URLError as exc:
@@ -314,7 +332,9 @@ def assets_by_name(release: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {asset["name"]: asset for asset in release.get("assets", [])}
 
 
-def release_has_platform_asset(repo_root: Path, release: dict[str, Any], platform_id: str) -> bool:
+def release_has_platform_asset(
+    repo_root: Path, release: dict[str, Any], platform_id: str
+) -> bool:
     platforms = load_platforms(repo_root)
     target = platforms["targets"].get(platform_id)
     if not target:
@@ -330,7 +350,9 @@ def release_has_platform_asset(repo_root: Path, release: dict[str, Any], platfor
     )
 
 
-def github_runtime_release(runtime_repo: str, runtime_version: str, repo_root: Path, platform_id: str) -> dict[str, Any]:
+def github_runtime_release(
+    runtime_repo: str, runtime_version: str, repo_root: Path, platform_id: str
+) -> dict[str, Any]:
     if runtime_version != "latest":
         return github_release(runtime_repo, runtime_version)
     for page in range(1, 11):
@@ -340,7 +362,9 @@ def github_runtime_release(runtime_repo: str, runtime_version: str, repo_root: P
         for release in releases:
             if release_has_platform_asset(repo_root, release, platform_id):
                 return release
-    die(f"no release with a runtime asset for {platform_id} was found in {runtime_repo}")
+    die(
+        f"no release with a runtime asset for {platform_id} was found in {runtime_repo}"
+    )
 
 
 def parse_sha256_text(text: str) -> str:
@@ -363,7 +387,9 @@ def release_platform_entry(
 ) -> dict[str, Any]:
     manifest_asset = assets.get(aggregate_manifest_name)
     if manifest_asset:
-        with tempfile.NamedTemporaryFile(prefix="uocr-release-manifest-", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(
+            prefix="uocr-release-manifest-", delete=False
+        ) as tmp:
             tmp_path = Path(tmp.name)
         try:
             download_url(manifest_asset["browser_download_url"], tmp_path)
@@ -377,7 +403,9 @@ def release_platform_entry(
     tag = release.get("tag_name") or release.get("name") or "unknown"
     platforms = load_platforms(repo_root)
     target = platforms["targets"][platform_id]
-    archive_name = f"{platforms['asset_prefix']}-{platform_id}-{tag}.{target['archive_ext']}"
+    archive_name = (
+        f"{platforms['asset_prefix']}-{platform_id}-{tag}.{target['archive_ext']}"
+    )
     sha_name = f"{archive_name}.sha256"
     archive_asset = assets.get(archive_name)
     sha_asset = assets.get(sha_name)
@@ -427,7 +455,9 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
             try:
                 target.relative_to(destination_resolved)
             except ValueError:
-                die(f"refusing to extract archive member outside destination: {member.name}")
+                die(
+                    f"refusing to extract archive member outside destination: {member.name}"
+                )
         tar.extractall(destination)
 
 
@@ -445,7 +475,9 @@ def safe_extract_zip(archive: Path, destination: Path) -> None:
 
 def extract_archive(archive: Path, destination: Path) -> Path:
     destination.mkdir(parents=True, exist_ok=True)
-    before = {item.name for item in destination.iterdir()} if destination.exists() else set()
+    before = (
+        {item.name for item in destination.iterdir()} if destination.exists() else set()
+    )
     if archive.name.endswith(".zip"):
         safe_extract_zip(archive, destination)
     else:
@@ -476,8 +508,14 @@ def installed_paths(root: Path, entry: dict[str, Any]) -> dict[str, str]:
         if ffi_lib.exists():
             paths["UOCR_FFI_LIB"] = str(ffi_lib)
     if "UOCR_FFI_LIB" not in paths:
-        ffi_names = ["uocr-ffi.dll", "libuocr-ffi.dll"] if os.name == "nt" else (
-            ["libuocr-ffi.dylib"] if sys.platform == "darwin" else ["libuocr-ffi.so"]
+        ffi_names = (
+            ["uocr-ffi.dll", "libuocr-ffi.dll"]
+            if os.name == "nt"
+            else (
+                ["libuocr-ffi.dylib"]
+                if sys.platform == "darwin"
+                else ["libuocr-ffi.so"]
+            )
         )
         for ffi_name in ffi_names:
             ffi_lib = bin_dir / ffi_name
@@ -530,7 +568,9 @@ def install_runtime(args: argparse.Namespace) -> None:
     if not detected.supported or not detected.platform_id:
         die(f"unsupported runtime platform: {detected.reason}")
 
-    release = github_runtime_release(runtime_repo, args.runtime_version, repo_root, detected.platform_id)
+    release = github_runtime_release(
+        runtime_repo, args.runtime_version, repo_root, detected.platform_id
+    )
     assets = assets_by_name(release)
     entry = release_platform_entry(
         repo_root=repo_root,
@@ -553,7 +593,11 @@ def install_runtime(args: argparse.Namespace) -> None:
             if manifest.get("archive_sha256") == entry.get("archive_sha256"):
                 env = installed_paths(install_dir, manifest)
                 ffi_env = env.get("UOCR_FFI_LIB")
-                if Path(env["UOCR_LLAMA_BIN"]).exists() and ffi_env and Path(ffi_env).exists():
+                if (
+                    Path(env["UOCR_LLAMA_BIN"]).exists()
+                    and ffi_env
+                    and Path(ffi_env).exists()
+                ):
                     eprint(f"Using cached runtime: {install_dir}")
                     if args.print_env:
                         emit_env(env, args.print_env)
@@ -573,7 +617,9 @@ def install_runtime(args: argparse.Namespace) -> None:
     expected_hash = entry.get("archive_sha256")
     if expected_hash and actual_hash.lower() != str(expected_hash).lower():
         archive_path.unlink(missing_ok=True)
-        die(f"checksum mismatch for {archive_name}: expected {expected_hash}, got {actual_hash}")
+        die(
+            f"checksum mismatch for {archive_name}: expected {expected_hash}, got {actual_hash}"
+        )
 
     if install_dir.exists():
         shutil.rmtree(install_dir)
@@ -584,14 +630,20 @@ def install_runtime(args: argparse.Namespace) -> None:
     entry["archive_sha256"] = actual_hash
     entry["installed_from_release"] = release.get("tag_name") or args.runtime_version
     entry["installed_from_repo"] = runtime_repo
-    installed_manifest.write_text(json.dumps(entry, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    installed_manifest.write_text(
+        json.dumps(entry, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
     env = installed_paths(install_dir, entry)
     primary = Path(env["UOCR_LLAMA_BIN"])
     if not primary.exists():
         die(f"installed runtime is missing primary binary: {primary}")
     if os.name != "nt":
-        for exe_key in ("UOCR_LLAMA_BIN", "UOCR_LLAMA_MTMD_BIN", "UOCR_LLAMA_SERVER_BIN"):
+        for exe_key in (
+            "UOCR_LLAMA_BIN",
+            "UOCR_LLAMA_MTMD_BIN",
+            "UOCR_LLAMA_SERVER_BIN",
+        ):
             exe = env.get(exe_key)
             if exe and Path(exe).exists():
                 mode = Path(exe).stat().st_mode
@@ -624,25 +676,37 @@ def detect_command(args: argparse.Namespace) -> None:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         status = "supported" if detected.supported else "unsupported"
-        print(f"{status}: {detected.platform_id or detected.os_name + '-' + detected.arch} ({detected.reason})")
+        print(
+            f"{status}: {detected.platform_id or detected.os_name + '-' + detected.arch} ({detected.reason})"
+        )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Install Unlimited-OCR prebuilt native runtimes.")
+    parser = argparse.ArgumentParser(
+        description="Install Unlimited-OCR prebuilt native runtimes."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    install_parser = subparsers.add_parser("install", help="Download and install a GitHub Release runtime.")
+    install_parser = subparsers.add_parser(
+        "install", help="Download and install a GitHub Release runtime."
+    )
     install_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
-    install_parser.add_argument("--install-dir", type=Path, default=REPO_ROOT / "thirdparty" / "uocr-runtime")
+    install_parser.add_argument(
+        "--install-dir", type=Path, default=REPO_ROOT / "thirdparty" / "uocr-runtime"
+    )
     install_parser.add_argument("--runtime-repo", default="")
     install_parser.add_argument("--runtime-version", default="latest")
     install_parser.add_argument("--platform", default="")
     install_parser.add_argument("--force", action="store_true")
     install_parser.add_argument("--skip-accelerator-probe", action="store_true")
-    install_parser.add_argument("--print-env", choices=["sh", "powershell", "json"], default="")
+    install_parser.add_argument(
+        "--print-env", choices=["sh", "powershell", "json"], default=""
+    )
     install_parser.set_defaults(func=install_runtime)
 
-    detect_parser = subparsers.add_parser("detect", help="Detect the exact supported runtime platform.")
+    detect_parser = subparsers.add_parser(
+        "detect", help="Detect the exact supported runtime platform."
+    )
     detect_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     detect_parser.add_argument("--platform", default="")
     detect_parser.add_argument("--skip-accelerator-probe", action="store_true")

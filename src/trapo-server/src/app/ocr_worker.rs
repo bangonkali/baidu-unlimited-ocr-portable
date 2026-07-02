@@ -13,14 +13,13 @@ enum OcrRunWorkerState {
 }
 
 enum OcrWorkerMessage {
-    Recognize(OcrWorkerRequest),
+    Recognize(Box<OcrWorkerRequest>),
     Shutdown,
 }
 
 struct OcrWorkerRequest {
     image_path: PathBuf,
-    file_hash: String,
-    page_no: u32,
+    context: OcrStreamContext,
     response: mpsc::Sender<crate::ocr::OcrResult>,
 }
 
@@ -28,6 +27,8 @@ struct OcrRunContext<'a> {
     profile_id: &'a str,
     model_id: &'a str,
     runtime_id: &'a str,
+    runtime_platform: &'a str,
+    accelerator: &'a str,
     worker: &'a OcrRunWorker,
 }
 
@@ -89,18 +90,20 @@ impl OcrRunWorker {
         }
     }
 
-    fn recognize(&self, image_path: &Path, file_hash: &str, page_no: u32) -> crate::ocr::OcrResult {
+    fn recognize(&self, image_path: &Path, context: OcrStreamContext) -> crate::ocr::OcrResult {
         let OcrRunWorkerState::Ready { sender, .. } = &self.state else {
             return ocr_failure(self.fallback_reason());
         };
         let (response, receiver) = mpsc::channel();
         let request = OcrWorkerRequest {
             image_path: image_path.to_path_buf(),
-            file_hash: file_hash.to_string(),
-            page_no,
+            context,
             response,
         };
-        if sender.send(OcrWorkerMessage::Recognize(request)).is_err() {
+        if sender
+            .send(OcrWorkerMessage::Recognize(Box::new(request)))
+            .is_err()
+        {
             return ocr_failure("OCR worker is not running");
         }
         receiver
@@ -168,6 +171,16 @@ impl AppState {
         }
         OcrRunWorker::spawn(paths, profile, self.inner.hub.clone())
     }
+
+    async fn runtime_stream_metadata(&self, runtime_id: &str) -> (String, String) {
+        let state = self.inner.state.lock().await;
+        state
+            .runtime_variants
+            .iter()
+            .find(|item| item.runtime_id == runtime_id)
+            .map(|item| (item.platform.clone(), item.accelerator.clone()))
+            .unwrap_or_else(|| (runtime_id.to_string(), String::new()))
+    }
 }
 
 fn run_worker_loop(
@@ -195,17 +208,10 @@ fn recognize_on_worker(
     max_tokens: i32,
     hub: &RealtimeHub,
 ) -> crate::ocr::OcrResult {
+    let mut telemetry = OcrStreamTelemetry::new();
     engine.recognize_image(image_path, max_tokens, |event| {
         if let crate::ocr::OcrEvent::Token { text, index } = event {
-            hub.publish(
-                "ocr.page.raw.delta",
-                json!({
-                    "file_hash": request.file_hash.as_str(),
-                    "page_no": request.page_no,
-                    "text": text,
-                    "index": index,
-                }),
-            );
+            publish_token_events(hub, &request.context, &mut telemetry, &text, index);
         }
     })
 }
@@ -226,12 +232,26 @@ mod ocr_worker_tests {
     #[test]
     fn fallback_worker_returns_failure_result() {
         let worker = OcrRunWorker::fallback("native OCR assets are not installed");
-        let result = worker.recognize(Path::new("missing.png"), "file", 1);
+        let result = worker.recognize(Path::new("missing.png"), stream_context());
 
         assert!(!result.ok);
         assert_eq!(
             result.error.as_deref(),
             Some("native OCR assets are not installed")
         );
+    }
+
+    fn stream_context() -> OcrStreamContext {
+        OcrStreamContext {
+            run_id: "run-a".to_string(),
+            file_hash: "file-a".to_string(),
+            page_no: 1,
+            engine_id: ENGINE_ID.to_string(),
+            profile_id: "experimental-exact-prefill-q4".to_string(),
+            model_id: "unlimited-ocr-q4-k-m".to_string(),
+            runtime_id: "windows-x86_64-cuda13".to_string(),
+            runtime_platform: "windows-x86_64-cuda13".to_string(),
+            accelerator: "cuda".to_string(),
+        }
     }
 }

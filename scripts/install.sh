@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-REPO="${UOCR_REPO:-bangonkali/baidu-unlimited-ocr-portable}"
-VERSION="${UOCR_VERSION:-latest}"
-INSTALL_DIR="${UOCR_INSTALL_DIR:-$HOME/.uocr}"
+REPO="${TRAPO_REPO:-${UOCR_REPO:-bangonkali/baidu-unlimited-ocr-portable}}"
+VERSION="${TRAPO_VERSION:-${UOCR_VERSION:-latest}}"
+INSTALL_DIR="${TRAPO_INSTALL_DIR:-${UOCR_INSTALL_DIR:-$HOME/.trapo}}"
 
 if command -v python3 >/dev/null 2>&1; then
   PYTHON=python3
@@ -44,14 +44,14 @@ else:
 api = f"https://api.github.com/repos/{repo}/releases/latest"
 if version != "latest":
     api = f"https://api.github.com/repos/{repo}/releases/tags/{version}"
-request = urllib.request.Request(api, headers={"User-Agent": "uocr-installer"})
+request = urllib.request.Request(api, headers={"User-Agent": "trapo-installer"})
 with urllib.request.urlopen(request, timeout=60) as response:
     release = json.loads(response.read().decode("utf-8"))
 
 asset = None
 for candidate in release.get("assets", []):
     name = candidate.get("name", "")
-    if f"uocr-workbench-{platform_key}-" in name and any(name.endswith(ext) for ext in patterns):
+    if f"trapo-workbench-{platform_key}-" in name and any(name.endswith(ext) for ext in patterns):
         asset = candidate
         break
 if asset is None:
@@ -61,7 +61,7 @@ if asset is None:
     )
 
 target = Path(install_dir).expanduser()
-with tempfile.TemporaryDirectory(prefix="uocr-install-") as tmp:
+with tempfile.TemporaryDirectory(prefix="trapo-install-") as tmp:
     archive = Path(tmp) / asset["name"]
     urllib.request.urlretrieve(asset["browser_download_url"], archive)
     extract = Path(tmp) / "extract"
@@ -72,19 +72,19 @@ with tempfile.TemporaryDirectory(prefix="uocr-install-") as tmp:
     else:
         with tarfile.open(archive) as tf:
             tf.extractall(extract)
-    candidates = list(extract.rglob("uocr-server"))
+    candidates = list(extract.rglob("trapo-server"))
     if not candidates:
-        raise SystemExit("Downloaded archive did not contain uocr-server.")
+        raise SystemExit("Downloaded archive did not contain trapo-server.")
     source = candidates[0].parent
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(source, target)
-    launcher = target / ("uocr-server.command" if system == "darwin" else "uocr-server.sh")
+    launcher = target / "trapo-server.sh"
     if launcher.exists():
         launcher.chmod(launcher.stat().st_mode | 0o755)
     else:
-        launcher = target / "uocr-server"
-    print(f"Installed Unlimited-OCR Workbench to {target}")
+        launcher = target / "trapo-server"
+    print(f"Installed Trapo Workbench to {target}")
     print(f"Run: {launcher}")
     print("Uninstall: delete that folder")
 PY

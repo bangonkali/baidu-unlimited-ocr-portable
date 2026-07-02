@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { QueryClient } from '@tanstack/react-query';
 
 import { queryKeys } from '../api/queryKeys';
-import type { LogsPayload, ModelsPayload } from '../api/types';
+import type { DocumentTextPayload, LogsPayload, ModelsPayload } from '../api/types';
 import { applyRealtimeEventToQueryClient } from './realtimeQueryBridge';
 import type { RealtimeEvent } from './realtimeTypes';
 import { parseRealtimeEvent } from './realtimeTypes';
@@ -123,6 +123,61 @@ describe('realtime events', () => {
       pages: [
         { page_no: 1, spans: [{ end: 5, page_no: 1, region_id: 'r1', start: 0 }], text: 'Total' },
       ],
+    });
+  });
+});
+
+describe('realtime OCR stream events', () => {
+  test('applies live OCR text patches to document text cache', () => {
+    const client = new QueryClient();
+
+    applyRealtimeEventToQueryClient(client, {
+      occurred_at: '2026-06-30T00:00:05Z',
+      payload: {
+        file_hash: 'abc',
+        page_no: 1,
+        run_id: 'run-a',
+      },
+      sequence: 12,
+      type: 'ocr.page.stream.started',
+      version: 1,
+    });
+    applyRealtimeEventToQueryClient(client, {
+      occurred_at: '2026-06-30T00:00:06Z',
+      payload: {
+        delta: 'Invoice',
+        elapsed_ms: 8,
+        avg_tps: 125,
+        file_hash: 'abc',
+        page_no: 1,
+        raw_end: 7,
+        raw_start: 0,
+        run_id: 'run-a',
+        token_index: 0,
+      },
+      sequence: 13,
+      type: 'ocr.page.raw.delta',
+      version: 1,
+    });
+    applyRealtimeEventToQueryClient(client, {
+      occurred_at: '2026-06-30T00:00:07Z',
+      payload: {
+        end: 0,
+        file_hash: 'abc',
+        op: 'append',
+        page_no: 1,
+        run_id: 'run-a',
+        start: 0,
+        text: 'Invoice',
+      },
+      sequence: 14,
+      type: 'ocr.page.text.patch',
+      version: 1,
+    });
+
+    expect(client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc'))).toEqual({
+      file_hash: 'abc',
+      pages: [{ page_no: 1, spans: [], text: 'Invoice' }],
     });
   });
 });

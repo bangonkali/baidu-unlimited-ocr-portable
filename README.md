@@ -1,8 +1,7 @@
-# Unlimited-OCR Workbench
+# Trapo Workbench
 
 Portable local OCR workbench for Windows, macOS, and Ubuntu 24.04. The target
-product is the C++ Drogon server executable that hosts the React app itself;
-the Python Gradio app remains only as a reference and validation harness.
+product is the Rust Trapo server executable that hosts the React app itself.
 
 ## Quick Start
 
@@ -16,10 +15,11 @@ Choose the artifact for your machine:
 
 | Platform | Artifact | Launcher |
 | --- | --- | --- |
-| Windows x64 | `uocr-workbench-windows-x64-<tag>.zip` | `uocr-server.exe` |
-| macOS Apple Silicon | `uocr-workbench-macos-arm64-<tag>.zip` | `uocr-server.command` |
-| Ubuntu 24.04 x64 | `uocr-workbench-linux-x64-<tag>.tar.gz` | `./uocr-server.sh` |
-| Ubuntu 24.04 arm64 | `uocr-workbench-linux-arm64-<tag>.tar.gz` | `./uocr-server.sh` |
+| Windows x64 | `trapo-workbench-windows-x64-<tag>.zip` | `trapo-server.exe` |
+| Windows arm64 | `trapo-workbench-windows-arm64-<tag>.zip` | `trapo-server.exe` |
+| macOS Apple Silicon | `trapo-workbench-macos-arm64-<tag>.zip` | `./trapo-server.sh` |
+| Ubuntu 24.04 x64 | `trapo-workbench-linux-x64-<tag>.tar.gz` | `./trapo-server.sh` |
+| Ubuntu 24.04 arm64 | `trapo-workbench-linux-arm64-<tag>.tar.gz` | `./trapo-server.sh` |
 
 Extract the archive into a writable folder, run the launcher, then open:
 
@@ -30,14 +30,14 @@ http://127.0.0.1:8765/
 The server writes runtime logs inside the extracted folder:
 
 ```text
-logs/uocr-server.log
+logs/trapo-server.log
 ```
 
 OCR state, settings, selected model/runtime, workbench pane layout, text spans,
 bounding boxes, and scan history persist in:
 
 ```text
-data/uocr.duckdb
+data/trapo.duckdb
 ```
 
 ## First Run
@@ -54,8 +54,7 @@ downloads. The token is read from the process environment and is not logged or
 stored.
 
 Supported inputs are `.pdf`, `.png`, `.jpg`, `.jpeg`, `.bmp`, `.tif`, `.tiff`,
-and `.webp`. Multi-page PDFs are rendered in-process through vcpkg MuPDF; the
-portable app does not shell out to `mutool`.
+and `.webp`. Multi-page PDFs are rendered in-process through bundled PDFium.
 
 ## Runtime Notes
 
@@ -82,4 +81,3 @@ not the large GGUF model files.
 - [Runtime binaries](docs/RUNTIME-BINARIES.md)
 - [C++/Drogon architecture](docs/CXX-DROGON-PORT.md)
 - [Native FFI ABI](docs/NATIVE-FFI.md)
-- [Python reference app and harness](docs/PYTHON-REFERENCE-AND-HARNESS.md)

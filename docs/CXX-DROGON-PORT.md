@@ -8,8 +8,8 @@ The target product path is a local-first C++/React workbench:
 - `src/uocr-client`: React 19 SPA with VS Code-style workbench panes,
   TanStack Query/Router/Store/Table/Virtual/Pacer, CSS modules, Storybook,
   Biome, and Orval.
-- `src/baidu_unlimited_ocr_portable`: Python Gradio/reference demo. It remains
-  useful for behavior comparison and is not the launched product runtime.
+- `src/trapo-server`: Rust/Axum migration target for the portable release
+  pipeline.
 
 ## Backend Shape
 

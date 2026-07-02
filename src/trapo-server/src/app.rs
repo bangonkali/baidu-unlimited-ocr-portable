@@ -138,6 +138,7 @@ include!("app/model_methods.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");
 include!("app/download_runtime.rs");
+include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/page_pipeline.rs");

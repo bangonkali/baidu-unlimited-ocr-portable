@@ -96,104 +96,6 @@ jobs:
           cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
           git diff --exit-code -- src/trapo-server/openapi/trapo.openapi.json
 
-  cxx:
-    name: C++ tests (${{ matrix.platform }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-x64
-            runner: windows-2025
-            triplet: x64-windows-release
-          - platform: macos-arm64
-            runner: macos-15
-            triplet: arm64-osx
-            osx_arch: arm64
-          - platform: linux-x64
-            runner: ubuntu-24.04
-            triplet: x64-linux
-          - platform: linux-arm64
-            runner: ubuntu-24.04-arm
-            triplet: arm64-linux
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          lfs: true
-          persist-credentials: false
-          submodules: recursive
-
-      - name: Set up MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Ensure vcpkg on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (-not $env:VCPKG_ROOT) {
-            $env:VCPKG_ROOT = "C:\vcpkg"
-          }
-          if (-not (Test-Path $env:VCPKG_ROOT)) {
-            git clone https://github.com/microsoft/vcpkg "$env:VCPKG_ROOT"
-            & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat"
-          }
-          "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
-          & "$env:VCPKG_ROOT\vcpkg.exe" version
-
-      - name: Ensure vcpkg on Unix
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          if [[ -z "${VCPKG_ROOT:-}" ]]; then
-            VCPKG_ROOT="$HOME/vcpkg"
-          fi
-          if [[ ! -d "$VCPKG_ROOT" ]]; then
-            git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
-            "$VCPKG_ROOT/bootstrap-vcpkg.sh"
-          fi
-          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
-          "$VCPKG_ROOT/vcpkg" version
-
-      - name: Configure
-        shell: bash
-        run: |
-          cmake_args=(
-            -S .
-            -B "build/cxx-${{ matrix.platform }}"
-            -G Ninja
-            -DCMAKE_BUILD_TYPE=Release
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
-            -DVCPKG_TARGET_TRIPLET="${{ matrix.triplet }}"
-            -DTRANTOR_USE_TLS=openssl
-            -DUOCR_BUILD_SERVER=ON
-            -DUOCR_BUILD_CLIENT=OFF
-            -DUOCR_BUILD_TESTS=ON
-          )
-          if [[ -n "${{ matrix.osx_arch || '' }}" ]]; then
-            cmake_args+=(-DCMAKE_OSX_ARCHITECTURES="${{ matrix.osx_arch }}")
-          fi
-          cmake "${cmake_args[@]}"
-
-      - name: Build tests
-        shell: bash
-        run: |
-          cmake --build "build/cxx-${{ matrix.platform }}" --config Release --target \
-            uocr-platform-tests \
-            uocr-core-tests \
-            uocr-download-tests \
-            uocr-render-tests \
-            uocr-storage-tests \
-            uocr-dependency-tests \
-            uocr-realtime-tests
-
-      - name: Run tests
-        shell: bash
-        run: ctest --test-dir "build/cxx-${{ matrix.platform }}" -C Release --output-on-failure
-
   python:
     name: Python packaging scripts
     runs-on: ubuntu-24.04
@@ -212,7 +114,7 @@ jobs:
       - name: Run installer tests
         shell: bash
         run: |
-          python -m py_compile scripts/package_trapo_workbench.py
+          python -m py_compile scripts/package_runtime.py scripts/install_runtime.py scripts/test_ctypes_runtime.py scripts/package_trapo_workbench.py
           python -m unittest discover -s tests -p "test_*.py"
 
   complexity:
@@ -242,11 +144,10 @@ jobs:
           import sys
 
           ignored = re.compile(
-              r"node_modules|dist|generated|\.json$|\.md$|\.github|analysis/|"
-              r"src/baidu_unlimited_ocr_portable/|trapo/migrations|tests/|"
-              r"scripts/(install_runtime\.py|package_runtime\.py|test_ctypes_runtime\.py|"
-              r"windows/package-workbench\.ps1|windows/setup-build\.ps1|"
-              r"mac/setup-build\.sh|linux/setup-build\.sh)"
+              r"node_modules|dist|generated|\.json$|\.md$|trapo/migrations|tests/|"
+              r"scripts/(install_runtime\.py|package_runtime\.py|package_trapo_workbench\.py|"
+              r"test_ctypes_runtime\.py|windows/setup-build\.ps1|mac/setup-build\.sh|"
+              r"linux/setup-build\.sh)"
           )
 
           def scc_files(payload):

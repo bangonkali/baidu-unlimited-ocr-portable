@@ -342,7 +342,7 @@ function Invoke-Doctor {
 
     $toolChecks = @(
         @{ Name = "git"; Args = @("--version"); Reason = "clone/update git submodules" },
-        @{ Name = "uv"; Args = @("--version"); Reason = "sync Python/Gradio dependencies" }
+        @{ Name = "uv"; Args = @("--version"); Reason = "run Python release tooling" }
     )
     if ($NeedModelDownload) {
         $toolChecks += @{ Name = "hf"; Args = @("--version"); Reason = "download GGUF assets from Hugging Face" }
@@ -836,5 +836,4 @@ Write-Host "Wrote $envFile"
 Write-Step "Next commands"
 Write-Host ". '$envFile'"
 Write-Host "uv run --project '$RepoRoot' baidu-uocr-client --help"
-Write-Host "& '$RepoRoot\scripts\windows\run-demo.ps1' -Smoke -Image '<path-to-test-image>'"
-Write-Host "& '$RepoRoot\scripts\windows\run-demo.ps1'"
+Write-Host "Trapo releases are packaged through scripts/package_trapo_workbench.py."

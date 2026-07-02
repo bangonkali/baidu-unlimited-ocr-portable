@@ -1,12 +1,12 @@
 [CmdletBinding()]
 param(
     [string]$Version = "latest",
-    [string]$InstallDir = (Join-Path $HOME ".uocr"),
+    [string]$InstallDir = (Join-Path $HOME ".trapo"),
     [string]$Repo = "bangonkali/baidu-unlimited-ocr-portable"
 )
 
 $ErrorActionPreference = "Stop"
-$UserAgent = "uocr-installer"
+$UserAgent = "trapo-installer"
 
 function Resolve-ReleaseTag {
     if ($Version -ne "latest") {
@@ -25,10 +25,10 @@ function Resolve-ReleaseTag {
 }
 
 $releaseTag = Resolve-ReleaseTag
-$assetName = "uocr-workbench-windows-x64-$releaseTag.zip"
+$assetName = "trapo-workbench-windows-x64-$releaseTag.zip"
 $assetUrl = "https://github.com/$Repo/releases/download/$releaseTag/$assetName"
 $shaUrl = "$assetUrl.sha256"
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("uocr-install-" + [System.Guid]::NewGuid())
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("trapo-install-" + [System.Guid]::NewGuid())
 $zipPath = Join-Path $tempRoot $assetName
 $shaPath = "$zipPath.sha256"
 $extractRoot = Join-Path $tempRoot "extract"
@@ -44,19 +44,19 @@ try {
         throw "Checksum mismatch. Expected $expected, got $actual."
     }
     Expand-Archive -LiteralPath $zipPath -DestinationPath $extractRoot -Force
-    $exe = Get-ChildItem -LiteralPath $extractRoot -Recurse -Filter "uocr-server.exe" |
+    $exe = Get-ChildItem -LiteralPath $extractRoot -Recurse -Filter "trapo-server.exe" |
         Select-Object -First 1
     if (-not $exe) {
-        throw "Downloaded archive did not contain uocr-server.exe."
+        throw "Downloaded archive did not contain trapo-server.exe."
     }
     $sourceRoot = $exe.Directory.FullName
     Remove-Item -LiteralPath $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     Copy-Item -Path (Join-Path $sourceRoot "*") -Destination $InstallDir -Recurse -Force
 
-    $commandPath = Join-Path $InstallDir "uocr-server.exe"
+    $commandPath = Join-Path $InstallDir "trapo-server.exe"
     Write-Host ""
-    Write-Host "Installed Unlimited-OCR Workbench to $InstallDir"
+    Write-Host "Installed Trapo Workbench to $InstallDir"
     Write-Host "Run: & `"$commandPath`""
     Write-Host "Default URL: http://127.0.0.1:8765/"
     Write-Host "Uninstall: delete $InstallDir"

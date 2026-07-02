@@ -1,25 +1,11 @@
 [project]
 name = "baidu-unlimited-ocr-portable"
 version = "0.1.0"
-description = "Portable Baidu Unlimited-OCR runtime, demo client, and comparison harness"
+description = "Release tooling for the Trapo portable OCR workbench"
 requires-python = ">=3.14.6"
-dependencies = [
-    "fastapi>=0.110",
-    "gradio>=5.0,<6",
-    "pillow>=10",
-    "pymupdf>=1.24",
-    "python-multipart>=0.0.9",
-    "requests>=2.31",
-    "uvicorn>=0.29",
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.20",
 ]
-
-[project.scripts]
-uocr-harness = "analysis.uocr_harness.cli:main"
-baidu-uocr-client = "baidu_unlimited_ocr_portable.app:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["analysis", "src/baidu_unlimited_ocr_portable"]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"

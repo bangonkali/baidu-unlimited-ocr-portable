@@ -4,10 +4,7 @@ impl AppState {
         let raw_text = self
             .run_ocr_or_fallback(
                 page_work.image_path,
-                page_work.file_hash,
-                page_work.page_no,
-                ocr.profile_id,
-                ocr.model_id,
+                &page_work.stream_context(ocr),
                 ocr.worker,
             )
             .await;
@@ -110,21 +107,17 @@ impl AppState {
     async fn run_ocr_or_fallback(
         &self,
         image_path: &Path,
-        file_hash: &str,
-        page_no: u32,
-        profile_id: &str,
-        model_id: &str,
+        context: &OcrStreamContext,
         ocr_worker: &OcrRunWorker,
     ) -> String {
-        self.inner.hub.publish(
-            "ocr.page.stream.started",
-            json!({ "file_hash": file_hash, "page_no": page_no, "profile_id": profile_id, "model_id": model_id }),
-        );
-        let result = ocr_worker.recognize(image_path, file_hash, page_no);
+        let mut started = stream_context_payload(context);
+        started["started_at"] = json!(Utc::now().to_rfc3339());
+        self.inner.hub.publish("ocr.page.stream.started", started);
+        let result = ocr_worker.recognize(image_path, context.clone());
         if result.ok {
             self.inner.hub.publish(
                 "ocr.page.stream.completed",
-                json!({ "file_hash": file_hash, "page_no": page_no }),
+                stream_terminal_payload(context, "completed", None),
             );
             result.text
         } else {
@@ -133,7 +126,7 @@ impl AppState {
                 .unwrap_or_else(|| "uocr-ffi failed".to_string());
             self.inner.hub.publish(
                 "ocr.page.stream.failed",
-                json!({ "file_hash": file_hash, "page_no": page_no, "error": message }),
+                stream_terminal_payload(context, "failed", Some(&message)),
             );
             fallback_text(image_path, &message)
         }
@@ -240,4 +233,20 @@ impl AppState {
             .unwrap_or(false)
     }
 
+}
+
+impl<'a> PageWork<'a> {
+    fn stream_context(&self, ocr: &OcrRunContext<'_>) -> OcrStreamContext {
+        OcrStreamContext {
+            run_id: self.run_id.to_string(),
+            file_hash: self.file_hash.to_string(),
+            page_no: self.page_no,
+            engine_id: ENGINE_ID.to_string(),
+            profile_id: ocr.profile_id.to_string(),
+            model_id: ocr.model_id.to_string(),
+            runtime_id: ocr.runtime_id.to_string(),
+            runtime_platform: ocr.runtime_platform.to_string(),
+            accelerator: ocr.accelerator.to_string(),
+        }
+    }
 }

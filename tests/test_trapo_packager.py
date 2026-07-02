@@ -48,7 +48,7 @@ class TrapoPackagerTests(unittest.TestCase):
 
             launcher = (stage_root / "trapo-server.cmd").read_text(encoding="ascii")
             self.assertIn("thirdparty\\uocr-runtime\\*", launcher)
-            self.assertIn("set \"PATH=%%~fD\\bin;%PATH%\"", launcher)
+            self.assertIn('set "PATH=%%~fD\\bin;%PATH%"', launcher)
 
     def test_unix_launcher_adds_runtime_bins_to_library_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

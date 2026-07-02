@@ -24,22 +24,63 @@ DEFAULT_PDFIUM_RELEASE = "chromium/7920"
 PDFIUM_VERSION = "151.0.7920.0"
 
 PLATFORMS = {
-    "windows-x64": dict(archive_ext="zip", server="trapo-server.exe", duckdb="duckdb.dll", pdfium_asset="pdfium-win-x64.tgz", pdfium_lib="pdfium.dll", pdfium_dir=("thirdparty", "pdfium", "bin")),
-    "windows-arm64": dict(archive_ext="zip", server="trapo-server.exe", duckdb="duckdb.dll", pdfium_asset="pdfium-win-arm64.tgz", pdfium_lib="pdfium.dll", pdfium_dir=("thirdparty", "pdfium", "bin")),
-    "macos-arm64": dict(archive_ext="zip", server="trapo-server", duckdb="libduckdb.dylib", pdfium_asset="pdfium-mac-arm64.tgz", pdfium_lib="libpdfium.dylib", pdfium_dir=("thirdparty", "pdfium", "lib")),
-    "linux-x64": dict(archive_ext="tar.gz", server="trapo-server", duckdb="libduckdb.so", pdfium_asset="pdfium-linux-x64.tgz", pdfium_lib="libpdfium.so", pdfium_dir=("thirdparty", "pdfium", "lib")),
-    "linux-arm64": dict(archive_ext="tar.gz", server="trapo-server", duckdb="libduckdb.so", pdfium_asset="pdfium-linux-arm64.tgz", pdfium_lib="libpdfium.so", pdfium_dir=("thirdparty", "pdfium", "lib")),
+    "windows-x64": dict(
+        archive_ext="zip",
+        server="trapo-server.exe",
+        duckdb="duckdb.dll",
+        pdfium_asset="pdfium-win-x64.tgz",
+        pdfium_lib="pdfium.dll",
+        pdfium_dir=("thirdparty", "pdfium", "bin"),
+    ),
+    "windows-arm64": dict(
+        archive_ext="zip",
+        server="trapo-server.exe",
+        duckdb="duckdb.dll",
+        pdfium_asset="pdfium-win-arm64.tgz",
+        pdfium_lib="pdfium.dll",
+        pdfium_dir=("thirdparty", "pdfium", "bin"),
+    ),
+    "macos-arm64": dict(
+        archive_ext="zip",
+        server="trapo-server",
+        duckdb="libduckdb.dylib",
+        pdfium_asset="pdfium-mac-arm64.tgz",
+        pdfium_lib="libpdfium.dylib",
+        pdfium_dir=("thirdparty", "pdfium", "lib"),
+    ),
+    "linux-x64": dict(
+        archive_ext="tar.gz",
+        server="trapo-server",
+        duckdb="libduckdb.so",
+        pdfium_asset="pdfium-linux-x64.tgz",
+        pdfium_lib="libpdfium.so",
+        pdfium_dir=("thirdparty", "pdfium", "lib"),
+    ),
+    "linux-arm64": dict(
+        archive_ext="tar.gz",
+        server="trapo-server",
+        duckdb="libduckdb.so",
+        pdfium_asset="pdfium-linux-arm64.tgz",
+        pdfium_lib="libpdfium.so",
+        pdfium_dir=("thirdparty", "pdfium", "lib"),
+    ),
 }
+
 
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
 
+
 def safe_version(value: str) -> str:
     return value.strip().replace("/", "-").replace("\\", "-") or "dev"
 
-def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
+
+def run(
+    command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None
+) -> None:
     print("+ " + " ".join(command), flush=True)
     subprocess.run(command, cwd=cwd, env=env, check=True)
+
 
 def git_output(args: list[str]) -> str:
     try:
@@ -47,8 +88,10 @@ def git_output(args: list[str]) -> str:
     except Exception:
         return ""
 
+
 def csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
 
 def github_headers() -> dict[str, str]:
     headers = {"User-Agent": USER_AGENT}
@@ -57,16 +100,22 @@ def github_headers() -> dict[str, str]:
         headers["Authorization"] = f"Bearer {token}"
     return headers
 
+
 def download(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers=github_headers())
-    with urllib.request.urlopen(request, timeout=300) as response, destination.open("wb") as fh:
+    with (
+        urllib.request.urlopen(request, timeout=300) as response,
+        destination.open("wb") as fh,
+    ):
         shutil.copyfileobj(response, fh)
+
 
 def pdfium_url(release: str, asset: str) -> str:
     if release == "latest":
         return f"https://github.com/{PDFIUM_REPO}/releases/latest/download/{asset}"
     return f"https://github.com/{PDFIUM_REPO}/releases/download/{quote(release, safe='')}/{asset}"
+
 
 def safe_extract_tar(archive: Path, destination: Path) -> None:
     root = destination.resolve()
@@ -74,8 +123,11 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
         for member in tar.getmembers():
             target = (destination / member.name).resolve()
             if root not in (target, *target.parents):
-                die(f"refusing to extract archive member outside destination: {member.name}")
+                die(
+                    f"refusing to extract archive member outside destination: {member.name}"
+                )
         tar.extractall(destination)
+
 
 def install_pdfium(platform_id: str, stage_root: Path, release: str) -> dict[str, str]:
     config = PLATFORMS[platform_id]
@@ -103,6 +155,7 @@ def install_pdfium(platform_id: str, stage_root: Path, release: str) -> dict[str
             "library": str(Path(*config["pdfium_dir"]) / library.name),
         }
 
+
 def runtime_ffi_name(platform_id: str) -> str:
     if platform_id.startswith("windows-"):
         return "uocr-ffi.dll"
@@ -110,7 +163,10 @@ def runtime_ffi_name(platform_id: str) -> str:
         return "libuocr-ffi.dylib"
     return "libuocr-ffi.so"
 
-def ensure_runtime(platform_id: str, args: argparse.Namespace, *, optional: bool = False) -> Path | None:
+
+def ensure_runtime(
+    platform_id: str, args: argparse.Namespace, *, optional: bool = False
+) -> Path | None:
     runtime_dir = REPO_ROOT / "thirdparty" / "uocr-runtime" / platform_id
     ffi = runtime_dir / "bin" / runtime_ffi_name(platform_id)
     if not ffi.exists() and not args.no_runtime_download:
@@ -134,15 +190,22 @@ def ensure_runtime(platform_id: str, args: argparse.Namespace, *, optional: bool
             run(command)
         except subprocess.CalledProcessError:
             if optional:
-                print(f"warning: optional runtime {platform_id} was not available", file=sys.stderr)
+                print(
+                    f"warning: optional runtime {platform_id} was not available",
+                    file=sys.stderr,
+                )
                 return None
             raise
     if not ffi.exists():
         if optional:
-            print(f"warning: optional runtime FFI library is missing: {ffi}", file=sys.stderr)
+            print(
+                f"warning: optional runtime FFI library is missing: {ffi}",
+                file=sys.stderr,
+            )
             return None
         die(f"runtime FFI library is missing: {ffi}")
     return runtime_dir
+
 
 def build_outputs(args: argparse.Namespace) -> None:
     if args.no_build:
@@ -155,37 +218,50 @@ def build_outputs(args: argparse.Namespace) -> None:
     run(["bun", "run", "build"], cwd=REPO_ROOT / "src" / "trapo-client")
     run(["cargo", "build", "-p", "trapo-server", "--release"], env=env)
 
+
 def copy_tree(source: Path, destination: Path) -> None:
     if destination.exists():
         shutil.rmtree(destination)
     shutil.copytree(source, destination)
 
+
 def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
     binary = stage_root / "trapo-server"
-    if platform_id.startswith("macos-") and "@executable_path" not in subprocess.check_output(["otool", "-l", str(binary)], text=True):
-        run(["install_name_tool", "-add_rpath", "@executable_path", str(binary)], cwd=stage_root)
+    if platform_id.startswith(
+        "macos-"
+    ) and "@executable_path" not in subprocess.check_output(
+        ["otool", "-l", str(binary)], text=True
+    ):
+        run(
+            ["install_name_tool", "-add_rpath", "@executable_path", str(binary)],
+            cwd=stage_root,
+        )
+
 
 def make_launcher(stage_root: Path, platform_id: str) -> None:
     if platform_id.startswith("windows-"):
         (stage_root / "trapo-server.cmd").write_text(
             "@echo off\r\nsetlocal\r\nset TRAPO_HOME=%~dp0\r\n"
-            "for /D %%D in (\"%~dp0thirdparty\\uocr-runtime\\*\") do if exist \"%%~fD\\bin\" set \"PATH=%%~fD\\bin;%PATH%\"\r\n"
-            "\"%~dp0trapo-server.exe\" %*\r\n",
+            'for /D %%D in ("%~dp0thirdparty\\uocr-runtime\\*") do if exist "%%~fD\\bin" set "PATH=%%~fD\\bin;%PATH%"\r\n'
+            '"%~dp0trapo-server.exe" %*\r\n',
             encoding="ascii",
         )
         return
     launcher = stage_root / "trapo-server.sh"
-    lib_var = "DYLD_LIBRARY_PATH" if platform_id.startswith("macos-") else "LD_LIBRARY_PATH"
+    lib_var = (
+        "DYLD_LIBRARY_PATH" if platform_id.startswith("macos-") else "LD_LIBRARY_PATH"
+    )
     launcher.write_text(
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
-        "cd \"$(dirname \"$0\")\"\n"
-        "runtime_lib_path=$(find \"$PWD/thirdparty/uocr-runtime\" -mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | paste -sd: -)\n"
-        f"export {lib_var}=\"${{runtime_lib_path:+$runtime_lib_path:}}$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}\"\n"
-        "exec ./trapo-server \"$@\"\n",
+        'cd "$(dirname "$0")"\n'
+        'runtime_lib_path=$(find "$PWD/thirdparty/uocr-runtime" -mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | paste -sd: -)\n'
+        f'export {lib_var}="${{runtime_lib_path:+$runtime_lib_path:}}$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}"\n'
+        'exec ./trapo-server "$@"\n',
         encoding="utf-8",
     )
     launcher.chmod(launcher.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
 
 def create_archive(stage_root: Path, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
@@ -197,7 +273,10 @@ def create_archive(stage_root: Path, archive_path: Path) -> None:
     with tarfile.open(archive_path, "w:gz") as tar:
         tar.add(stage_root, arcname=stage_root.name)
 
-def write_readme(stage_root: Path, args: argparse.Namespace, runtimes: list[str]) -> None:
+
+def write_readme(
+    stage_root: Path, args: argparse.Namespace, runtimes: list[str]
+) -> None:
     (stage_root / "README.txt").write_text(
         f"""Trapo Workbench {args.version}
 
@@ -212,6 +291,7 @@ Uninstall: delete this folder.
 """,
         encoding="utf-8",
     )
+
 
 def package(args: argparse.Namespace) -> None:
     if args.platform not in PLATFORMS:
@@ -246,9 +326,14 @@ def package(args: argparse.Namespace) -> None:
     copy_tree(web_dist, stage_root / "web")
     openapi_dir = stage_root / "openapi"
     openapi_dir.mkdir()
-    shutil.copy2(REPO_ROOT / "src" / "trapo-server" / "openapi" / "trapo.openapi.json", openapi_dir)
+    shutil.copy2(
+        REPO_ROOT / "src" / "trapo-server" / "openapi" / "trapo.openapi.json",
+        openapi_dir,
+    )
 
-    runtime_platforms = list(dict.fromkeys([args.runtime_platform, *csv(args.additional_runtime_platforms)]))
+    runtime_platforms = list(
+        dict.fromkeys([args.runtime_platform, *csv(args.additional_runtime_platforms)])
+    )
     copied_runtimes: list[str] = []
     runtime_stage = stage_root / "thirdparty" / "uocr-runtime"
     runtime_stage.mkdir(parents=True)
@@ -276,18 +361,29 @@ def package(args: argparse.Namespace) -> None:
         "pdfium": pdfium,
         "created_at": dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    (stage_root / "install-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (stage_root / "install-manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
     create_archive(stage_root, archive)
     sha_path.write_text(f"{sha256_file(archive)}  {archive.name}\n", encoding="ascii")
     print(f"Packaged {archive}")
     print(f"Checksum {sha_path}")
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Package Trapo Workbench release artifacts.")
-    parser.add_argument("--version", default=git_output(["describe", "--tags", "--dirty", "--always"]) or "0.0.0-dev")
+    parser = argparse.ArgumentParser(
+        description="Package Trapo Workbench release artifacts."
+    )
+    parser.add_argument(
+        "--version",
+        default=git_output(["describe", "--tags", "--dirty", "--always"])
+        or "0.0.0-dev",
+    )
     parser.add_argument("--platform", required=True, choices=sorted(PLATFORMS))
     parser.add_argument("--runtime-version", default="latest")
-    parser.add_argument("--runtime-repo", default="bangonkali/baidu-unlimited-ocr-portable")
+    parser.add_argument(
+        "--runtime-repo", default="bangonkali/baidu-unlimited-ocr-portable"
+    )
     parser.add_argument("--runtime-platform", required=True)
     parser.add_argument("--additional-runtime-platforms", default="")
     parser.add_argument("--pdfium-release", default=DEFAULT_PDFIUM_RELEASE)
@@ -295,6 +391,7 @@ def main() -> None:
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--no-runtime-download", action="store_true")
     package(parser.parse_args())
+
 
 if __name__ == "__main__":
     main()
