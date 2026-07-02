@@ -20,6 +20,7 @@ export interface WorkbenchPaneState {
 
 export interface WorkbenchState {
   activeView: ActiveView;
+  folderDialogError?: string;
   selectedRoot: string;
   selectedProfile: string;
   selection: WorkbenchSelection;
@@ -36,6 +37,7 @@ const themeStorageKey = 'trapo.theme';
 const initialState: WorkbenchState = {
   activeView: 'workbench',
   autoFollowRegions: true,
+  folderDialogError: undefined,
   labelsVisible: true,
   overlayVisible: true,
   panesCollapsed: {
@@ -64,6 +66,14 @@ export function getWorkbenchSnapshot() {
 
 export function setSelectedRoot(selectedRoot: string) {
   workbenchStore.setState((state) => ({ ...state, selectedRoot }));
+}
+
+export function setFolderDialogError(folderDialogError: string) {
+  workbenchStore.setState((state) => ({ ...state, folderDialogError }));
+}
+
+export function clearFolderDialogError() {
+  workbenchStore.setState((state) => ({ ...state, folderDialogError: undefined }));
 }
 
 export function setSelectedProfile(selectedProfile: string) {

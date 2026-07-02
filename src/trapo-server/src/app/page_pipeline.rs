@@ -1,24 +1,23 @@
 impl AppState {
-    async fn process_page(
-        &self,
-        run_id: &str,
-        file_hash: &str,
-        image_path: &Path,
-        page_no: u32,
-        profile_id: &str,
-        model_id: &str,
-    ) -> Result<()> {
+    async fn process_page(&self, page_work: PageWork<'_>, ocr: &OcrRunContext<'_>) -> Result<()> {
         let started = Instant::now();
         let raw_text = self
-            .run_ocr_or_fallback(image_path, file_hash, page_no, profile_id, model_id)
+            .run_ocr_or_fallback(
+                page_work.image_path,
+                page_work.file_hash,
+                page_work.page_no,
+                ocr.profile_id,
+                ocr.model_id,
+                ocr.worker,
+            )
             .await;
         let mut parsed = crate::ocr::parse_ocr_markers(
             &raw_text,
             &crate::ocr::ParseContext {
-                file_hash: file_hash.to_string(),
-                page_no,
+                file_hash: page_work.file_hash.to_string(),
+                page_no: page_work.page_no,
                 engine_id: ENGINE_ID.to_string(),
-                profile_id: profile_id.to_string(),
+                profile_id: ocr.profile_id.to_string(),
             },
         );
         crate::ocr::apply_region_content(&mut parsed);
@@ -26,13 +25,13 @@ impl AppState {
             let mut state = self.inner.state.lock().await;
             let document = state
                 .documents
-                .get_mut(file_hash)
+                .get_mut(page_work.file_hash)
                 .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
             let (stored, width_px, height_px) = {
                 let page = document
                     .pages
                     .iter_mut()
-                    .find(|item| item.page_no == page_no)
+                    .find(|item| item.page_no == page_work.page_no)
                     .ok_or_else(|| AppError::NotFound("page not found".to_string()))?;
                 page.status = "completed".to_string();
                 page.raw_text = parsed.raw_text;
@@ -43,16 +42,20 @@ impl AppState {
                 };
                 page.boxes = parsed.boxes;
                 page.spans = parsed.spans;
-                (stored_page(file_hash, page), page.width_px, page.height_px)
+                (
+                    stored_page(page_work.file_hash, page),
+                    page.width_px,
+                    page.height_px,
+                )
             };
             self.inner.repository.replace_page_ocr(
                 &stored,
                 ENGINE_ID,
-                profile_id,
+                ocr.profile_id,
                 started.elapsed().as_millis() as u64,
             )?;
             let regions = DocumentRegionsPayload {
-                file_hash: file_hash.to_string(),
+                file_hash: page_work.file_hash.to_string(),
                 boxes: document
                     .pages
                     .iter()
@@ -60,7 +63,7 @@ impl AppState {
                     .collect(),
             };
             let text = DocumentTextPayload {
-                file_hash: file_hash.to_string(),
+                file_hash: page_work.file_hash.to_string(),
                 pages: document
                     .pages
                     .iter()
@@ -72,15 +75,16 @@ impl AppState {
                     .collect(),
             };
             let page_record = json!({
-                "file_hash": file_hash,
-                "page_no": page_no,
+                "file_hash": page_work.file_hash,
+                "page_no": page_work.page_no,
                 "status": "completed",
                 "width_px": width_px,
                 "height_px": height_px,
             });
             (page_record, regions, text)
         };
-        self.increment_run_page(run_id, file_hash).await?;
+        self.increment_run_page(page_work.run_id, page_work.file_hash)
+            .await?;
         self.inner.hub.publish("document.page.changed", page_record);
         self.inner.hub.publish(
             "document.regions.changed",
@@ -90,11 +94,11 @@ impl AppState {
             .hub
             .publish("document.text.changed", serde_json::to_value(text_payload)?);
         self.inner.repository.upsert_page_metrics(&OcrPageMetrics {
-            run_id: run_id.to_string(),
-            file_hash: file_hash.to_string(),
-            page_no,
-            model_id: model_id.to_string(),
-            runtime_id: self.selected_runtime_id().await,
+            run_id: page_work.run_id.to_string(),
+            file_hash: page_work.file_hash.to_string(),
+            page_no: page_work.page_no,
+            model_id: ocr.model_id.to_string(),
+            runtime_id: ocr.runtime_id.to_string(),
             status: "completed".to_string(),
             token_count: 0,
             avg_tps: 0.0,
@@ -110,44 +114,13 @@ impl AppState {
         page_no: u32,
         profile_id: &str,
         model_id: &str,
+        ocr_worker: &OcrRunWorker,
     ) -> String {
-        let (runtime, profile, model_file) = {
-            let state = self.inner.state.lock().await;
-            (
-                selected_runtime(&state).cloned(),
-                find_profile(profile_id),
-                find_model(model_id).map(|entry| entry.model_file),
-            )
-        };
-        let Some(runtime) = runtime.filter(|item| item.selectable) else {
-            return fallback_text(image_path, "runtime is not selectable");
-        };
-        let Some(profile) = profile else {
-            return fallback_text(image_path, "OCR profile was not found");
-        };
-        let Some(model_file) = model_file else {
-            return fallback_text(image_path, "model was not found");
-        };
-        let paths = crate::ocr::runtime_paths(&self.inner.config.app_root, &runtime, model_file);
-        if !paths.model.is_file() || !paths.mmproj.is_file() || !paths.ffi_library.is_file() {
-            return fallback_text(image_path, "native OCR assets are not installed");
-        }
-        let mut engine = match crate::ocr::UnlimitedOcrFfiEngine::load(paths, &profile) {
-            Ok(engine) => engine,
-            Err(error) => return fallback_text(image_path, &error.to_string()),
-        };
         self.inner.hub.publish(
             "ocr.page.stream.started",
             json!({ "file_hash": file_hash, "page_no": page_no, "profile_id": profile_id, "model_id": model_id }),
         );
-        let result = engine.recognize_image(image_path, profile.default_max_tokens as i32, |event| {
-            if let crate::ocr::OcrEvent::Token { text, index } = event {
-                self.inner.hub.publish(
-                    "ocr.page.raw.delta",
-                    json!({ "file_hash": file_hash, "page_no": page_no, "text": text, "index": index }),
-                );
-            }
-        });
+        let result = ocr_worker.recognize(image_path, file_hash, page_no);
         if result.ok {
             self.inner.hub.publish(
                 "ocr.page.stream.completed",
@@ -267,8 +240,4 @@ impl AppState {
             .unwrap_or(false)
     }
 
-    async fn selected_runtime_id(&self) -> String {
-        let state = self.inner.state.lock().await;
-        state.selected_runtime_id.clone()
-    }
 }

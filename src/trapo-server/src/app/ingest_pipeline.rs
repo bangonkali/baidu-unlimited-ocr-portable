@@ -5,10 +5,13 @@ impl AppState {
         files: Vec<DiscoveredFile>,
         profile_id: String,
         model_id: String,
+        runtime_id: String,
     ) {
         let state = self.clone();
         tokio::spawn(async move {
-            state.run_ingest(run_id, files, profile_id, model_id).await;
+            state
+                .run_ingest(run_id, files, profile_id, model_id, runtime_id)
+                .await;
         });
     }
 
@@ -18,15 +21,29 @@ impl AppState {
         files: Vec<DiscoveredFile>,
         profile_id: String,
         model_id: String,
+        runtime_id: String,
     ) {
         self.mark_run_status(&run_id, "running", None).await;
+        let ocr_worker = self
+            .create_ocr_worker(&runtime_id, &profile_id, &model_id)
+            .await;
+        if let Some(reason) = ocr_worker.fallback_error() {
+            self.log_warn("ocr", format!("using fallback OCR text: {reason}"))
+                .await;
+        }
+        let ocr_context = OcrRunContext {
+            profile_id: &profile_id,
+            model_id: &model_id,
+            runtime_id: &runtime_id,
+            worker: &ocr_worker,
+        };
         for file in files {
             if self.run_cancelled(&run_id).await {
                 break;
             }
             let file_hash = stable_hash(&file);
             if let Err(error) = self
-                .process_document(&run_id, &file_hash, &profile_id, &model_id)
+                .process_document(&run_id, &file_hash, &ocr_context)
                 .await
             {
                 self.mark_document_error(&run_id, &file_hash, error.to_string())
@@ -54,8 +71,7 @@ impl AppState {
         &self,
         run_id: &str,
         file_hash: &str,
-        profile_id: &str,
-        model_id: &str,
+        ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
         let document_path = {
             let mut state = self.inner.state.lock().await;
@@ -128,12 +144,13 @@ impl AppState {
                 return Ok(());
             }
             self.process_page(
-                run_id,
-                file_hash,
-                &page.image_path,
-                page.page_no,
-                profile_id,
-                model_id,
+                PageWork {
+                    run_id,
+                    file_hash,
+                    image_path: &page.image_path,
+                    page_no: page.page_no,
+                },
+                ocr_context,
             )
             .await?;
         }

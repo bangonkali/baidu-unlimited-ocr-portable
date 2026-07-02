@@ -17,7 +17,7 @@ import type {
   SettingsRouteSearch,
 } from '../../routeSearch';
 import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore';
-import { setSelectedRoot, setTheme } from '../../stores/workbenchStore';
+import { clearFolderDialogError, setSelectedRoot, setTheme } from '../../stores/workbenchStore';
 import type { useWorkbenchCommands } from './useWorkbenchCommands';
 import type { WorkbenchViewContentProps } from './WorkbenchViewContent';
 
@@ -88,6 +88,7 @@ export function buildContentProps(args: {
     activeRunId: args.activeRunId,
     activeView: args.route.activeView,
     diagnosticsSearch: args.route.diagnosticsSearch,
+    folderDialogError: args.workbench.folderDialogError,
     ingestBusy: args.actions.ingestBusy,
     ingestSearch: args.route.ingestSearch,
     modelBusy: args.actions.modelBusy,
@@ -104,7 +105,10 @@ export function buildContentProps(args: {
     onOpenModels: () => args.actions.commandController.navigateView('models'),
     onPickFolder: args.actions.pickFolder,
     onProfileChange: args.actions.changeProfile,
-    onRootPathChange: setSelectedRoot,
+    onRootPathChange: (value) => {
+      clearFolderDialogError();
+      setSelectedRoot(value);
+    },
     onRuntimeChange: args.actions.updateRuntime,
     onSelectDocument: args.actions.selectDocument,
     onSelectModel: (modelId) => args.actions.selectModel.mutate(modelId),

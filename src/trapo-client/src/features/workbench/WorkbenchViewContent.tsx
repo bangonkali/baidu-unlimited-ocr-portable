@@ -30,6 +30,7 @@ export interface WorkbenchViewContentProps {
   activeRunId?: string | null;
   diagnosticsSearch?: DiagnosticsRouteSearch;
   documents: DocumentSummary[];
+  folderDialogError?: string;
   ingestBusy: boolean;
   ingestSearch?: IngestRouteSearch;
   logs: LogRecord[];
@@ -117,6 +118,7 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
         activeRun={props.activeRun}
         activeRunId={props.activeRunId}
         busy={props.ingestBusy}
+        folderDialogError={props.folderDialogError}
         ingestSearch={props.ingestSearch}
         model={props.model}
         models={props.models}

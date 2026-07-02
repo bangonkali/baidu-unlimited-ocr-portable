@@ -84,7 +84,7 @@ impl AppState {
                 .publish("document.changed", serde_json::to_value(event)?);
         }
         self.publish_status_changed().await;
-        self.spawn_ingest(run_id.clone(), files, profile_id, model_id);
+        self.spawn_ingest(run_id.clone(), files, profile_id, model_id, runtime_id);
         self.get_run(&run_id).await
     }
 }
