@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -38,6 +39,28 @@ class TrapoPackagerTests(unittest.TestCase):
         self.assertEqual(platform["server"], "trapo-server")
         self.assertEqual(platform["duckdb"], "libduckdb.so")
         self.assertEqual(platform["pdfium_asset"], "pdfium-linux-arm64.tgz")
+
+    def test_windows_launcher_adds_runtime_bins_to_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            stage_root = Path(tmp)
+
+            package_trapo_workbench.make_launcher(stage_root, "windows-x64")
+
+            launcher = (stage_root / "trapo-server.cmd").read_text(encoding="ascii")
+            self.assertIn("thirdparty\\uocr-runtime\\*", launcher)
+            self.assertIn("set \"PATH=%%~fD\\bin;%PATH%\"", launcher)
+
+    def test_unix_launcher_adds_runtime_bins_to_library_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            stage_root = Path(tmp)
+
+            package_trapo_workbench.make_launcher(stage_root, "linux-x64")
+
+            launcher = (stage_root / "trapo-server.sh").read_text(encoding="utf-8")
+            self.assertIn("thirdparty/uocr-runtime", launcher)
+            self.assertIn("-name bin", launcher)
+            self.assertIn("LD_LIBRARY_PATH", launcher)
+            self.assertIn("runtime_lib_path", launcher)
 
 
 if __name__ == "__main__":

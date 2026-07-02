@@ -1,7 +1,6 @@
 impl UnlimitedOcrFfiEngine {
     pub fn load(paths: OcrRuntimePaths, profile: &OcrProfileRecord) -> Result<Self> {
-        let library = unsafe { Library::new(&paths.ffi_library) }
-            .map_err(|error| AppError::Internal(format!("failed to load uocr-ffi: {error}")))?;
+        let library = load_ffi_library(&paths.ffi_library)?;
         let abi_version = unsafe {
             *library
                 .get::<unsafe extern "C" fn() -> u32>(b"uocr_ffi_abi_version")
@@ -173,4 +172,28 @@ pub fn runtime_paths(
             .join(crate::catalog::SHARED_MMPROJ_FILE),
         n_gpu_layers: runtime.n_gpu_layers,
     }
+}
+
+#[cfg(windows)]
+fn load_ffi_library(path: &Path) -> Result<Library> {
+    use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
+
+    let library = unsafe { WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) }
+        .map_err(|error| {
+            AppError::Internal(format!(
+                "failed to load uocr-ffi from {}: {error}",
+                path.display()
+            ))
+        })?;
+    Ok(library.into())
+}
+
+#[cfg(not(windows))]
+fn load_ffi_library(path: &Path) -> Result<Library> {
+    unsafe { Library::new(path) }.map_err(|error| {
+        AppError::Internal(format!(
+            "failed to load uocr-ffi from {}: {error}",
+            path.display()
+        ))
+    })
 }

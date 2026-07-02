@@ -168,7 +168,9 @@ def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
 def make_launcher(stage_root: Path, platform_id: str) -> None:
     if platform_id.startswith("windows-"):
         (stage_root / "trapo-server.cmd").write_text(
-            "@echo off\r\nsetlocal\r\nset TRAPO_HOME=%~dp0\r\n\"%~dp0trapo-server.exe\" %*\r\n",
+            "@echo off\r\nsetlocal\r\nset TRAPO_HOME=%~dp0\r\n"
+            "for /D %%D in (\"%~dp0thirdparty\\uocr-runtime\\*\") do if exist \"%%~fD\\bin\" set \"PATH=%%~fD\\bin;%PATH%\"\r\n"
+            "\"%~dp0trapo-server.exe\" %*\r\n",
             encoding="ascii",
         )
         return
@@ -178,7 +180,8 @@ def make_launcher(stage_root: Path, platform_id: str) -> None:
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
         "cd \"$(dirname \"$0\")\"\n"
-        f"export {lib_var}=\"$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}\"\n"
+        "runtime_lib_path=$(find \"$PWD/thirdparty/uocr-runtime\" -mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | paste -sd: -)\n"
+        f"export {lib_var}=\"${{runtime_lib_path:+$runtime_lib_path:}}$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}\"\n"
         "exec ./trapo-server \"$@\"\n",
         encoding="utf-8",
     )

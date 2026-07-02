@@ -271,8 +271,7 @@
       ],
       "executables": [
         "llama-uocr-parity.exe",
-        "llama-mtmd-cli.exe",
-        "llama-server.exe"
+        "llama-mtmd-cli.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
