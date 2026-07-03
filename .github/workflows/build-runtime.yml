@@ -76,13 +76,13 @@ jobs:
       RUNTIME_BUILD_TARGETS: ${{ matrix.build_targets || 'llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi' }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
           persist-credentials: false
           submodules: recursive
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14.6"
       - name: Install CMake with Blackwell CUDA architecture support
@@ -90,12 +90,14 @@ jobs:
           python -m pip install --upgrade "cmake>=4.2.1,<5"
         shell: bash
       - name: Set runtime version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "${{ inputs.version }}"
+          python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "$INPUT_VERSION"
         shell: bash
       - name: Install CUDA toolkit
         if: matrix.backend == 'cuda'
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35
         with:
           cuda: ${{ env.CUDA_VERSION }}
           method: network
@@ -215,7 +217,7 @@ jobs:
         shell: bash
 
       - name: Upload packaged runtime
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: runtime-${{ matrix.platform }}
           path: |
@@ -232,18 +234,18 @@ jobs:
       contents: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14.6"
 
       - name: Download packaged runtimes
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: dist
 

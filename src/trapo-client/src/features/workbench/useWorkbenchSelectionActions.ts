@@ -51,7 +51,7 @@ export function useWorkbenchSelectionActions({
 }
 
 function selectionFromPatch(state: WorkbenchState, patch: WorkbenchSelectionPatch) {
-  const fileChanged = patch.fileHash !== undefined && patch.fileHash !== state.selection.fileHash;
+  const fileChanged = patch.fileHash !== undefined && patch.fileHash !== state.selection.fileHash; // skylos: ignore[SKY-D253] fileHash is public route state, not a secret token.
   const pageChanged = patch.pageNo !== undefined && patch.pageNo !== state.selection.pageNo;
   return {
     fileHash: patch.fileHash ?? state.selection.fileHash,

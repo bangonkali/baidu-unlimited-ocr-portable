@@ -18,15 +18,90 @@ fi
 import json
 import os
 import platform
+import re
 import shutil
 import sys
 import tarfile
 import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
 
 repo, version, install_dir = sys.argv[1:4]
+GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+GITHUB_DOWNLOAD_HOSTS = {
+    "api.github.com",
+    "github.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+
+
+def die(message):
+    raise SystemExit(message)
+
+
+def validate_github_repo(value):
+    candidate = value.strip("/")
+    if not GITHUB_REPO_RE.fullmatch(candidate):
+        die(f"TRAPO_REPO must be OWNER/REPO with GitHub-safe characters, got: {value}")
+    return candidate
+
+
+def validate_github_url(url):
+    parsed = urllib.parse.urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in GITHUB_DOWNLOAD_HOSTS:
+        die(f"refusing non-GitHub download URL: {url}")
+    return url
+
+
+def safe_asset_name(value):
+    name = Path(value).name
+    if name != value or not name:
+        die(f"release asset name must be a plain file name, got: {value}")
+    return name
+
+
+def safe_install_dir(value):
+    target = Path(value).expanduser().resolve()
+    forbidden = {Path(target.anchor).resolve(), Path.home().resolve()}
+    if target in forbidden:
+        die(f"refusing to install into destructive target: {target}")
+    return target
+
+
+def safe_extract_zip(archive, destination):
+    root = destination.resolve()
+    with zipfile.ZipFile(archive) as zf:
+        for member in zf.namelist():
+            target = (destination / member).resolve()
+            if root not in (target, *target.parents):
+                die(f"refusing to extract archive member outside destination: {member}")
+        zf.extractall(destination)  # skylos: ignore[SKY-D326] zip members are bounded to the temporary extract directory above.
+
+
+def safe_extract_tar(archive, destination):
+    root = destination.resolve()
+    with tarfile.open(archive) as tf:
+        for member in tf.getmembers():
+            target = (destination / member.name).resolve()
+            if root not in (target, *target.parents):
+                die(f"refusing to extract archive member outside destination: {member.name}")
+        tf.extractall(destination, filter="data")  # skylos: ignore[SKY-D326] tar members are bounded and Python's data filter rejects special files.
+
+
+def download(url, destination):
+    request = urllib.request.Request(validate_github_url(url), headers={"User-Agent": "trapo-installer"})
+    with (
+        urllib.request.urlopen(request, timeout=300) as response,  # skylos: ignore[SKY-D216] validate_github_url restricts release downloads to GitHub hosts.
+        destination.open("wb") as fh,  # skylos: ignore[SKY-D324] destination is a validated asset name under TemporaryDirectory.
+    ):
+        shutil.copyfileobj(response, fh)
+
+
+repo = validate_github_repo(repo)
 system = platform.system().lower()
 machine = platform.machine().lower()
 if system == "darwin" and machine in {"arm64", "aarch64"}:
@@ -43,9 +118,9 @@ else:
 
 api = f"https://api.github.com/repos/{repo}/releases/latest"
 if version != "latest":
-    api = f"https://api.github.com/repos/{repo}/releases/tags/{version}"
+    api = f"https://api.github.com/repos/{repo}/releases/tags/{urllib.parse.quote(version, safe='')}"
 request = urllib.request.Request(api, headers={"User-Agent": "trapo-installer"})
-with urllib.request.urlopen(request, timeout=60) as response:
+with urllib.request.urlopen(request, timeout=60) as response:  # skylos: ignore[SKY-D216] api is built from a validated GitHub repo and HTTPS tag path.
     release = json.loads(response.read().decode("utf-8"))
 
 asset = None
@@ -60,24 +135,22 @@ if asset is None:
         "Choose a release that includes this platform."
     )
 
-target = Path(install_dir).expanduser()
+target = safe_install_dir(install_dir)
 with tempfile.TemporaryDirectory(prefix="trapo-install-") as tmp:
-    archive = Path(tmp) / asset["name"]
-    urllib.request.urlretrieve(asset["browser_download_url"], archive)
+    archive = Path(tmp) / safe_asset_name(asset["name"])
+    download(asset["browser_download_url"], archive)
     extract = Path(tmp) / "extract"
     extract.mkdir()
     if archive.name.endswith(".zip"):
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(extract)
+        safe_extract_zip(archive, extract)
     else:
-        with tarfile.open(archive) as tf:
-            tf.extractall(extract)
+        safe_extract_tar(archive, extract)
     candidates = list(extract.rglob("trapo-server"))
     if not candidates:
         raise SystemExit("Downloaded archive did not contain trapo-server.")
     source = candidates[0].parent
     if target.exists():
-        shutil.rmtree(target)
+        shutil.rmtree(target)  # skylos: ignore[SKY-D215] target is the validated operator-selected install directory, never root or HOME.
     shutil.copytree(source, target)
     launcher = target / "trapo-server.sh"
     if launcher.exists():

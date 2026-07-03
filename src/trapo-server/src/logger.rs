@@ -19,7 +19,7 @@ impl AppLogger {
     pub fn open(log_dir: &Path) -> std::io::Result<Self> {
         std::fs::create_dir_all(log_dir)?;
         let path = log_dir.join("trapo-server.log");
-        let file = OpenOptions::new().create(true).append(true).open(&path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&path)?; // skylos: ignore[SKY-D215] log_dir is the app log root configured by startup.
         Ok(Self {
             path,
             file: Mutex::new(file),

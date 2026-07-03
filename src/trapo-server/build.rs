@@ -82,9 +82,9 @@ fn duckdb_link_roots() -> Result<Vec<PathBuf>, Box<dyn Error>> {
         .unwrap_or(manifest_dir);
     let mut roots = Vec::new();
     if let Some(target_dir) = target_dir {
-        roots.push(target_dir.join("duckdb-download"));
+        roots.push(target_dir.join("duckdb-download")); // skylos: ignore[SKY-D215] target_dir is derived from Cargo OUT_DIR.
     }
-    roots.push(repo_root.join("thirdparty/duckdb/windows-amd64/lib"));
+    roots.push(repo_root.join("thirdparty/duckdb/windows-amd64/lib")); // skylos: ignore[SKY-D215] repo_root is derived from Cargo CARGO_MANIFEST_DIR.
     Ok(roots)
 }
 

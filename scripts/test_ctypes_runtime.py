@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ctypes
 import json
 import os
@@ -10,7 +11,6 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ABI_VERSION = 1
@@ -54,19 +54,11 @@ def find_ffi_lib(explicit: str = "") -> Path:
     names = platform_ffi_names()
     candidates: list[Path] = []
     for name in names:
-        candidates.extend(
-            sorted((REPO_ROOT / "thirdparty" / "uocr-runtime").glob(f"*/bin/{name}"))
-        )
+        candidates.extend(sorted((REPO_ROOT / "thirdparty" / "uocr-runtime").glob(f"*/bin/{name}")))
         candidates.extend(
             [
                 REPO_ROOT / "thirdparty" / "llama.cpp" / "build" / "bin" / name,
-                REPO_ROOT
-                / "thirdparty"
-                / "llama.cpp"
-                / "build"
-                / "bin"
-                / "Release"
-                / name,
+                REPO_ROOT / "thirdparty" / "llama.cpp" / "build" / "bin" / "Release" / name,
             ]
         )
     for candidate in candidates:
@@ -135,9 +127,7 @@ def exported_symbols(path: Path) -> set[str]:
     )
     for command in commands:
         try:
-            output = subprocess.check_output(
-                command, text=True, stderr=subprocess.STDOUT
-            )
+            output = subprocess.check_output(command, text=True, stderr=subprocess.STDOUT)
         except Exception:
             continue
         symbols: set[str] = set()
@@ -157,9 +147,7 @@ def validate_exported_symbols(path: Path) -> dict[str, Any]:
     symbols = exported_symbols(path)
     missing = sorted(REQUIRED_SYMBOLS - symbols)
     if missing:
-        raise SystemExit(
-            f"FFI library is missing required exports: {', '.join(missing)}"
-        )
+        raise SystemExit(f"FFI library is missing required exports: {', '.join(missing)}")
     return {
         "ffi_library": str(path),
         "abi_version": ABI_VERSION,
@@ -175,10 +163,7 @@ def windows_dependency_dirs(path: Path) -> list[Path]:
             continue
         candidate = Path(raw.strip('"'))
         dirs.append(candidate)
-        if (
-            candidate.name.lower() in {"bin", "cmd"}
-            and candidate.parent.name.lower() == "git"
-        ):
+        if candidate.name.lower() in {"bin", "cmd"} and candidate.parent.name.lower() == "git":
             dirs.append(candidate.parent / "mingw64" / "bin")
 
     unique: list[Path] = []
@@ -214,17 +199,13 @@ def load_ffi_for_abi(path: Path) -> dict[str, Any]:
     elif sys.platform == "darwin":
         for sibling in sorted(path.parent.glob("lib*.dylib")):
             if sibling.resolve() != path.resolve():
-                try:
+                with contextlib.suppress(OSError):
                     ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
-                except OSError:
-                    pass
     else:
         for sibling in sorted(path.parent.glob("lib*.so*")):
             if sibling.resolve() != path.resolve():
-                try:
+                with contextlib.suppress(OSError):
                     ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
-                except OSError:
-                    pass
     try:
         lib = ctypes.CDLL(str(path))
     except OSError as exc:
@@ -243,12 +224,8 @@ def load_ffi_for_abi(path: Path) -> dict[str, Any]:
     return {
         "ffi_library": str(path),
         "abi_version": version,
-        "build_info": (lib.uocr_ffi_build_info() or b"").decode(
-            "utf-8", errors="replace"
-        ),
-        "media_marker": (lib.uocr_ffi_media_marker() or b"").decode(
-            "utf-8", errors="replace"
-        ),
+        "build_info": (lib.uocr_ffi_build_info() or b"").decode("utf-8", errors="replace"),
+        "media_marker": (lib.uocr_ffi_media_marker() or b"").decode("utf-8", errors="replace"),
     }
 
 
@@ -256,9 +233,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Validate the Unlimited-OCR ctypes native runtime ABI."
     )
-    parser.add_argument(
-        "--ffi-lib", default="", help="Path to libuocr-ffi/uocr-ffi.dll."
-    )
+    parser.add_argument("--ffi-lib", default="", help="Path to libuocr-ffi/uocr-ffi.dll.")
     parser.add_argument(
         "--abi-only",
         action="store_true",

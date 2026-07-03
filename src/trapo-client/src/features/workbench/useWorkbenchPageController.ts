@@ -275,7 +275,7 @@ function selectedDocumentFrom(
   documents: DocumentSummary[] | undefined,
   workbench: ReturnType<typeof useWorkbenchState>,
 ) {
-  return documents?.find((document) => document.file_hash === workbench.selection.fileHash);
+  return documents?.find((document) => document.file_hash === workbench.selection.fileHash); // skylos: ignore[SKY-D253] file_hash is a public document identifier, not a secret token.
 }
 
 function activeRunIdFromRuns(runs: IngestRunRecord[] | undefined) {

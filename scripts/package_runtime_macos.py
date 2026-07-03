@@ -15,9 +15,7 @@ def prepare_macos_runtime_files(files: list[Path], target: dict[str, Any]) -> No
 
 def _macos_macho_files(files: list[Path], target: dict[str, Any]) -> list[Path]:
     candidates = [
-        path
-        for path in files
-        if path.name in target["executables"] or path.name.endswith(".dylib")
+        path for path in files if path.name in target["executables"] or path.name.endswith(".dylib")
     ]
     unique: list[Path] = []
     seen: set[Path] = set()
@@ -35,9 +33,7 @@ def _otool_output(path: Path, *args: str) -> str:
             ["otool", *args, str(path)], text=True, stderr=subprocess.STDOUT
         )
     except FileNotFoundError as exc:
-        raise RuntimeError(
-            "otool is required to package macOS runtime artifacts"
-        ) from exc
+        raise RuntimeError("otool is required to package macOS runtime artifacts") from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"otool failed for {path}: {exc.output.strip()}") from exc
 
@@ -50,9 +46,7 @@ def _install_name_tool(*args: str) -> None:
             "install_name_tool is required to package macOS runtime artifacts"
         ) from exc
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"install_name_tool failed with exit code {exc.returncode}"
-        ) from exc
+        raise RuntimeError(f"install_name_tool failed with exit code {exc.returncode}") from exc
 
 
 def _macos_has_rpath(path: Path, rpath: str) -> bool:

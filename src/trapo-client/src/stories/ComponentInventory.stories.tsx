@@ -24,7 +24,6 @@ const components = [
   'StartHere',
   'GuidedTour',
   'StatusBar',
-  'IconButton',
 ];
 
 export const Inventory: Story = {

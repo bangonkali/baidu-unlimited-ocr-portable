@@ -12,6 +12,6 @@ fn main() -> anyhow::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
     let json = serde_json::to_string_pretty(&ApiDoc::openapi())?;
-    std::fs::write(output, format!("{json}\n"))?;
+    std::fs::write(output, format!("{json}\n"))?; // skylos: ignore[SKY-D215] output is an explicit CLI argument for the OpenAPI export tool.
     Ok(())
 }

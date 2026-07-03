@@ -5,14 +5,11 @@ import sys
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-spec = importlib.util.spec_from_file_location(
-    "install_runtime", SCRIPTS_DIR / "install_runtime.py"
-)
+spec = importlib.util.spec_from_file_location("install_runtime", SCRIPTS_DIR / "install_runtime.py")
 assert spec is not None
 install_runtime = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
@@ -58,14 +55,10 @@ class RuntimeInstallerTests(unittest.TestCase):
                 {"name": "uocr-runtime-linux-x86_64-cuda13-v0.0.7.tar.gz.sha256"},
             ]
         }
-        runtime_release = {
-            "assets": [{"name": "uocr-runtime-linux-arm64-cpu-v0.0.34.tar.gz"}]
-        }
+        runtime_release = {"assets": [{"name": "uocr-runtime-linux-arm64-cpu-v0.0.34.tar.gz"}]}
 
         self.assertFalse(
-            install_runtime.release_has_platform_asset(
-                REPO_ROOT, app_release, "linux-arm64-cpu"
-            )
+            install_runtime.release_has_platform_asset(REPO_ROOT, app_release, "linux-arm64-cpu")
         )
         self.assertTrue(
             install_runtime.release_has_platform_asset(

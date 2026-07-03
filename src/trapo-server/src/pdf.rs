@@ -36,7 +36,7 @@ impl PdfRenderer {
             ));
         };
         pdfium::set_library_location(&pdfium_library_location(pdfium_dir));
-        let document = PdfiumDocument::new_from_path(native_external_path(pdf_path), None)
+        let document = PdfiumDocument::new_from_path(native_external_path(pdf_path), None) // skylos: ignore[SKY-D215] pdf_path is from validated local ingest discovery.
             .map_err(|error| {
                 AppError::Internal(format!("failed to open PDF with PDFium: {error:?}"))
             })?;
@@ -70,7 +70,7 @@ impl PdfRenderer {
     }
 
     pub fn image_page(&self, image_path: &Path) -> Result<RenderedPage> {
-        let image = image::open(native_external_path(image_path))
+        let image = image::open(native_external_path(image_path)) // skylos: ignore[SKY-D215] image_path is from validated local ingest discovery.
             .map_err(|error| AppError::BadRequest(format!("failed to read image: {error}")))?;
         let (width_px, height_px) = image.dimensions();
         Ok(RenderedPage {

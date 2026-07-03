@@ -1,5 +1,4 @@
 import type { useQueryClient } from '@tanstack/react-query';
-import { CircleHelp, PanelBottom, PanelLeft, PanelRight, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { queryKeys } from '../../api/hooks';
@@ -10,14 +9,7 @@ import type {
   SettingsPayload,
   WorkbenchUiSettingsPatch,
 } from '../../api/types';
-import { IconButton } from '../../components/IconButton';
-import type {
-  ActiveView,
-  ThemeMode,
-  useWorkbenchState,
-  WorkbenchPaneId,
-  WorkbenchPaneState,
-} from '../../stores/workbenchStore';
+import type { ThemeMode, useWorkbenchState } from '../../stores/workbenchStore';
 import {
   applyThemePreference,
   followLatestRegion,
@@ -25,7 +17,6 @@ import {
   setSelectedProfile,
 } from '../../stores/workbenchStore';
 import { StatusBar } from './StatusBar';
-import styles from './WorkbenchPage.module.css';
 
 export function selectedModel(models?: ModelsPayload) {
   return (
@@ -87,52 +78,6 @@ export function WorkbenchFooter(props: {
       }`}
       selectedRoot={props.selectedRoot}
     />
-  );
-}
-
-export function WorkbenchHeader(props: {
-  activeView: ActiveView;
-  panesCollapsed: WorkbenchPaneState;
-  theme: ThemeMode;
-  onCommandOpen: () => void;
-  onStartGuide: () => void;
-  onTogglePane: (pane: WorkbenchPaneId) => void;
-}) {
-  const showPaneControls = props.activeView === 'workbench';
-  return (
-    <div className={styles.topHeader}>
-      <div className={styles.headerSpacer} />
-      <button className={styles.commandTrigger} onClick={props.onCommandOpen} type="button">
-        <Search size={15} />
-        <span>Search commands, models, routes, or documents</span>
-        <kbd>Ctrl K</kbd>
-      </button>
-      <div className={styles.headerActions}>
-        {showPaneControls ? (
-          <>
-            <PaneToggleButton
-              active={!props.panesCollapsed.explorer}
-              icon={PanelLeft}
-              label="Toggle Explorer"
-              onClick={() => props.onTogglePane('explorer')}
-            />
-            <PaneToggleButton
-              active={!props.panesCollapsed.diagnostics}
-              icon={PanelBottom}
-              label="Toggle Diagnostics"
-              onClick={() => props.onTogglePane('diagnostics')}
-            />
-            <PaneToggleButton
-              active={!props.panesCollapsed.details}
-              icon={PanelRight}
-              label="Toggle Details"
-              onClick={() => props.onTogglePane('details')}
-            />
-          </>
-        ) : null}
-        <IconButton icon={CircleHelp} label="Start guide" onClick={props.onStartGuide} />
-      </div>
-    </div>
   );
 }
 
@@ -208,27 +153,6 @@ function serializeWorkbenchUiSettings(value: WorkbenchUiSettingsPatch) {
     },
     theme: value.theme,
   });
-}
-
-function PaneToggleButton(props: {
-  active: boolean;
-  icon: typeof PanelLeft;
-  label: string;
-  onClick: () => void;
-}) {
-  const Icon = props.icon;
-  return (
-    <button
-      aria-label={props.label}
-      aria-pressed={props.active}
-      className={styles.paneToggle}
-      onClick={props.onClick}
-      title={props.label}
-      type="button"
-    >
-      <Icon size={16} strokeWidth={1.9} />
-    </button>
-  );
 }
 
 export function usePersistentProfile(

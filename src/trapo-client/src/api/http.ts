@@ -13,7 +13,7 @@ class ApiError extends Error {
 type ApiPath = `/api/${string}`;
 
 export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(toApiPath(url), { signal });
+  const response = await fetch(toApiPath(url), { signal }); // skylos: ignore[SKY-D216] toApiPath only allows same-origin /api/ paths.
   await assertOk(response);
   return response.json() as Promise<T>;
 }
@@ -24,6 +24,7 @@ export async function postJson<TResponse, TBody>(
   signal?: AbortSignal,
 ): Promise<TResponse> {
   const response = await fetch(toApiPath(url), {
+    // skylos: ignore[SKY-D216] toApiPath only allows same-origin /api/ paths.
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
     method: 'POST',
@@ -39,6 +40,7 @@ export async function putJson<TResponse, TBody>(
   signal?: AbortSignal,
 ): Promise<TResponse> {
   const response = await fetch(toApiPath(url), {
+    // skylos: ignore[SKY-D216] toApiPath only allows same-origin /api/ paths.
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
     method: 'PUT',

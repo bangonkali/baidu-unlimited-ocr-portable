@@ -85,7 +85,7 @@ fn env_flag(name: &str) -> bool {
 }
 
 fn command_exists(command: &str) -> bool {
-    Command::new(command).arg("--help").output().is_ok()
+    Command::new(command).arg("--help").output().is_ok() // skylos: ignore[SKY-D212] command values come from fixed hardware probe literals.
 }
 
 fn support_detail(probe: &HardwareProbe, accelerator: &str) -> String {

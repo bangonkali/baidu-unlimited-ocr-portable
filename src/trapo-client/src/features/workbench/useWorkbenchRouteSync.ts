@@ -46,7 +46,7 @@ export function useRouteSearchSync(args: {
     };
     if (
       routeSelection.fileHash !== undefined &&
-      (routeSelection.fileHash !== workbench.selection.fileHash ||
+      (routeSelection.fileHash !== workbench.selection.fileHash || // skylos: ignore[SKY-D253] fileHash is route UI state, not a secret token.
         routeSelection.pageNo !== workbench.selection.pageNo ||
         routeSelection.regionId !== workbench.selection.regionId)
     ) {

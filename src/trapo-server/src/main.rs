@@ -95,5 +95,5 @@ async fn open_browser_later(url: String) {
     let command = ("xdg-open", ["", "", "", &url]);
     let _ = std::process::Command::new(command.0)
         .args(command.1.into_iter().filter(|arg| !arg.is_empty()))
-        .spawn();
+        .spawn(); // skylos: ignore[SKY-D212] command is a fixed OS opener and url is local server origin.
 }

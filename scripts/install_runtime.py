@@ -6,8 +6,8 @@ import json
 import os
 import platform
 import re
-import subprocess
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -20,7 +20,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
-
 
 USER_AGENT = "trapo-workbench-runtime-installer"
 GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -54,9 +53,7 @@ def eprint(message: str) -> None:
 def validate_github_repo(value: str) -> str:
     repo = value.strip("/")
     if not GITHUB_REPO_RE.fullmatch(repo):
-        die(
-            f"--runtime-repo must be OWNER/REPO with GitHub-safe characters, got: {value}"
-        )
+        die(f"--runtime-repo must be OWNER/REPO with GitHub-safe characters, got: {value}")
     return repo
 
 
@@ -66,6 +63,23 @@ def validate_github_url(url: str) -> str:
     if parsed.scheme != "https" or host not in GITHUB_DOWNLOAD_HOSTS:
         die(f"refusing non-GitHub runtime download URL: {url}")
     return url
+
+
+def safe_asset_name(value: str) -> str:
+    name = Path(value).name
+    if name != value or not name:
+        die(f"release asset name must be a plain file name, got: {value}")
+    return name
+
+
+def safe_child_path(root: Path, *parts: str) -> Path:
+    resolved_root = root.resolve()
+    child = resolved_root.joinpath(*parts).resolve()
+    try:
+        child.relative_to(resolved_root)
+    except ValueError:
+        die(f"refusing path outside install root: {child}")
+    return child
 
 
 def normalize_arch(raw: str) -> str:
@@ -148,9 +162,7 @@ def probe_accelerator(
         gpus, query_error = query_nvidia_compute_caps(resolved)
         if gpus:
             parseable = [
-                f"{name} ({cap})"
-                for name, cap in gpus
-                if parse_compute_capability(cap) is not None
+                f"{name} ({cap})" for name, cap in gpus if parse_compute_capability(cap) is not None
             ]
             supported = [
                 f"{name} (compute capability {cap})"
@@ -279,7 +291,9 @@ def request_json(url: str) -> Any:
     if token:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=60) as response:
+    with (
+        urllib.request.urlopen(req, timeout=60) as response
+    ):  # skylos: ignore[SKY-D216] validate_github_url restricts scheme and host before dispatch.
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -291,8 +305,12 @@ def download_url(url: str, output_path: Path) -> None:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     with (
-        urllib.request.urlopen(req, timeout=300) as response,
-        output_path.open("wb") as fh,
+        urllib.request.urlopen(
+            req, timeout=300
+        ) as response,  # skylos: ignore[SKY-D216] GitHub host allowlist.
+        output_path.open(
+            "wb"
+        ) as fh,  # skylos: ignore[SKY-D324] validated asset under install root.
     ):
         shutil.copyfileobj(response, fh)
 
@@ -306,9 +324,7 @@ def github_release(runtime_repo: str, runtime_version: str) -> dict[str, Any]:
     try:
         return request_json(url)
     except urllib.error.HTTPError as exc:
-        die(
-            f"could not find GitHub release {runtime_version!r} in {repo}: HTTP {exc.code}"
-        )
+        die(f"could not find GitHub release {runtime_version!r} in {repo}: HTTP {exc.code}")
     except urllib.error.URLError as exc:
         die(f"could not reach GitHub Releases for {repo}: {exc.reason}")
 
@@ -332,9 +348,7 @@ def assets_by_name(release: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {asset["name"]: asset for asset in release.get("assets", [])}
 
 
-def release_has_platform_asset(
-    repo_root: Path, release: dict[str, Any], platform_id: str
-) -> bool:
+def release_has_platform_asset(repo_root: Path, release: dict[str, Any], platform_id: str) -> bool:
     platforms = load_platforms(repo_root)
     target = platforms["targets"].get(platform_id)
     if not target:
@@ -362,9 +376,7 @@ def github_runtime_release(
         for release in releases:
             if release_has_platform_asset(repo_root, release, platform_id):
                 return release
-    die(
-        f"no release with a runtime asset for {platform_id} was found in {runtime_repo}"
-    )
+    die(f"no release with a runtime asset for {platform_id} was found in {runtime_repo}")
 
 
 def parse_sha256_text(text: str) -> str:
@@ -387,13 +399,13 @@ def release_platform_entry(
 ) -> dict[str, Any]:
     manifest_asset = assets.get(aggregate_manifest_name)
     if manifest_asset:
-        with tempfile.NamedTemporaryFile(
-            prefix="uocr-release-manifest-", delete=False
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(prefix="uocr-release-manifest-", delete=False) as tmp:
             tmp_path = Path(tmp.name)
         try:
             download_url(manifest_asset["browser_download_url"], tmp_path)
-            manifest = json.loads(tmp_path.read_text(encoding="utf-8"))
+            manifest = json.loads(
+                tmp_path.read_text(encoding="utf-8")
+            )  # skylos: ignore[SKY-D325] tmp_path is a NamedTemporaryFile created by this process.
         finally:
             tmp_path.unlink(missing_ok=True)
         entry = manifest.get("platforms", {}).get(platform_id)
@@ -403,9 +415,7 @@ def release_platform_entry(
     tag = release.get("tag_name") or release.get("name") or "unknown"
     platforms = load_platforms(repo_root)
     target = platforms["targets"][platform_id]
-    archive_name = (
-        f"{platforms['asset_prefix']}-{platform_id}-{tag}.{target['archive_ext']}"
-    )
+    archive_name = f"{platforms['asset_prefix']}-{platform_id}-{tag}.{target['archive_ext']}"
     sha_name = f"{archive_name}.sha256"
     archive_asset = assets.get(archive_name)
     sha_asset = assets.get(sha_name)
@@ -455,10 +465,10 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
             try:
                 target.relative_to(destination_resolved)
             except ValueError:
-                die(
-                    f"refusing to extract archive member outside destination: {member.name}"
-                )
-        tar.extractall(destination)
+                die(f"refusing to extract archive member outside destination: {member.name}")
+        tar.extractall(
+            destination, filter="data"
+        )  # skylos: ignore[SKY-D326] members bounded; data filter.
 
 
 def safe_extract_zip(archive: Path, destination: Path) -> None:
@@ -475,9 +485,7 @@ def safe_extract_zip(archive: Path, destination: Path) -> None:
 
 def extract_archive(archive: Path, destination: Path) -> Path:
     destination.mkdir(parents=True, exist_ok=True)
-    before = (
-        {item.name for item in destination.iterdir()} if destination.exists() else set()
-    )
+    before = {item.name for item in destination.iterdir()} if destination.exists() else set()
     if archive.name.endswith(".zip"):
         safe_extract_zip(archive, destination)
     else:
@@ -511,11 +519,7 @@ def installed_paths(root: Path, entry: dict[str, Any]) -> dict[str, str]:
         ffi_names = (
             ["uocr-ffi.dll", "libuocr-ffi.dll"]
             if os.name == "nt"
-            else (
-                ["libuocr-ffi.dylib"]
-                if sys.platform == "darwin"
-                else ["libuocr-ffi.so"]
-            )
+            else (["libuocr-ffi.dylib"] if sys.platform == "darwin" else ["libuocr-ffi.so"])
         )
         for ffi_name in ffi_names:
             ffi_lib = bin_dir / ffi_name
@@ -580,24 +584,23 @@ def install_runtime(args: argparse.Namespace) -> None:
         platform_id=detected.platform_id,
         runtime_repo=runtime_repo,
     )
-    archive_name = entry["archive_name"]
+    archive_name = safe_asset_name(entry["archive_name"])
     archive_asset = assets.get(archive_name)
     if not archive_asset:
         die(f"release asset not found: {archive_name}")
 
-    install_dir = args.install_dir.resolve() / detected.platform_id
+    install_root = args.install_dir.resolve()
+    install_dir = safe_child_path(install_root, detected.platform_id)
     installed_manifest = install_dir / "manifest.json"
     if installed_manifest.exists() and not args.force:
         try:
-            manifest = json.loads(installed_manifest.read_text(encoding="utf-8"))
+            manifest = json.loads(
+                installed_manifest.read_text(encoding="utf-8")
+            )  # skylos: ignore[SKY-D325] bounded manifest path.
             if manifest.get("archive_sha256") == entry.get("archive_sha256"):
                 env = installed_paths(install_dir, manifest)
                 ffi_env = env.get("UOCR_FFI_LIB")
-                if (
-                    Path(env["UOCR_LLAMA_BIN"]).exists()
-                    and ffi_env
-                    and Path(ffi_env).exists()
-                ):
+                if Path(env["UOCR_LLAMA_BIN"]).exists() and ffi_env and Path(ffi_env).exists():
                     eprint(f"Using cached runtime: {install_dir}")
                     if args.print_env:
                         emit_env(env, args.print_env)
@@ -607,7 +610,7 @@ def install_runtime(args: argparse.Namespace) -> None:
         except Exception:
             pass
 
-    download_dir = args.install_dir.resolve() / "_downloads"
+    download_dir = safe_child_path(install_root, "_downloads")
     download_dir.mkdir(parents=True, exist_ok=True)
     archive_path = download_dir / archive_name
     eprint(f"Downloading {archive_name} from {runtime_repo}...")
@@ -617,15 +620,17 @@ def install_runtime(args: argparse.Namespace) -> None:
     expected_hash = entry.get("archive_sha256")
     if expected_hash and actual_hash.lower() != str(expected_hash).lower():
         archive_path.unlink(missing_ok=True)
-        die(
-            f"checksum mismatch for {archive_name}: expected {expected_hash}, got {actual_hash}"
-        )
+        die(f"checksum mismatch for {archive_name}: expected {expected_hash}, got {actual_hash}")
 
     if install_dir.exists():
-        shutil.rmtree(install_dir)
+        shutil.rmtree(
+            install_dir
+        )  # skylos: ignore[SKY-D215] install_dir is a platform child bounded by safe_child_path().
     with tempfile.TemporaryDirectory(prefix="uocr-runtime-extract-") as tmp:
         extracted_root = extract_archive(archive_path, Path(tmp))
-        shutil.move(str(extracted_root), str(install_dir))
+        shutil.move(
+            str(extracted_root), str(install_dir)
+        )  # skylos: ignore[SKY-D215] tmp source; bounded target.
 
     entry["archive_sha256"] = actual_hash
     entry["installed_from_release"] = release.get("tag_name") or args.runtime_version
@@ -676,15 +681,12 @@ def detect_command(args: argparse.Namespace) -> None:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         status = "supported" if detected.supported else "unsupported"
-        print(
-            f"{status}: {detected.platform_id or detected.os_name + '-' + detected.arch} ({detected.reason})"
-        )
+        label = detected.platform_id or f"{detected.os_name}-{detected.arch}"
+        print(f"{status}: {label} ({detected.reason})")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Install Unlimited-OCR prebuilt native runtimes."
-    )
+    parser = argparse.ArgumentParser(description="Install Unlimited-OCR prebuilt native runtimes.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     install_parser = subparsers.add_parser(
@@ -699,9 +701,7 @@ def main() -> None:
     install_parser.add_argument("--platform", default="")
     install_parser.add_argument("--force", action="store_true")
     install_parser.add_argument("--skip-accelerator-probe", action="store_true")
-    install_parser.add_argument(
-        "--print-env", choices=["sh", "powershell", "json"], default=""
-    )
+    install_parser.add_argument("--print-env", choices=["sh", "powershell", "json"], default="")
     install_parser.set_defaults(func=install_runtime)
 
     detect_parser = subparsers.add_parser(

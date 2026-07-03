@@ -52,7 +52,7 @@ impl AppState {
                 file_hashes: Vec::new(),
             };
             for file in &files {
-                let document = document_from_file(file, &root);
+                let document = document_from_file(file, &root); // skylos: ignore[SKY-D215] files come from discover_supported_files under validate_trusted_root().
                 run.file_hashes.push(document.file_hash.clone());
                 self.inner
                     .repository
@@ -70,7 +70,7 @@ impl AppState {
                         "size_bytes": document.size_bytes
                     }),
                 });
-                document_events.push(document_summary(&document));
+                document_events.push(document_summary(&document)); // skylos: ignore[SKY-D215] event contains metadata for a validated local document.
                 state.documents.insert(document.file_hash.clone(), document);
             }
             self.inner.repository.upsert_run(&stored_run(&run))?;

@@ -132,7 +132,7 @@ fn preload_macos_sibling_dylibs(path: &Path) -> Vec<Library> {
 fn load_macos_library_global(path: &Path) -> Result<Library> {
     use libloading::os::unix::{Library as UnixLibrary, RTLD_GLOBAL, RTLD_NOW};
 
-    unsafe { UnixLibrary::open(Some(path), RTLD_NOW | RTLD_GLOBAL) }
+    unsafe { UnixLibrary::open(Some(path), RTLD_NOW | RTLD_GLOBAL) } // skylos: ignore[SKY-D215] path is a selected local OCR runtime library.
         .map(Into::into)
         .map_err(|error| {
             AppError::Internal(format!(

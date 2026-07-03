@@ -14,7 +14,7 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from package_runtime import REPO_ROOT, sha256_file
 
@@ -22,6 +22,7 @@ USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
 DEFAULT_PDFIUM_RELEASE = "chromium/7920"
 PDFIUM_VERSION = "151.0.7920.0"
+PDFIUM_DOWNLOAD_HOSTS = {"github.com"}
 
 PLATFORMS = {
     "windows-x64": dict(
@@ -75,9 +76,15 @@ def safe_version(value: str) -> str:
     return value.strip().replace("/", "-").replace("\\", "-") or "dev"
 
 
-def run(
-    command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None
-) -> None:
+def validate_pdfium_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in PDFIUM_DOWNLOAD_HOSTS:
+        die(f"refusing non-PDFium GitHub download URL: {url}")
+    return url
+
+
+def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(command), flush=True)
     subprocess.run(command, cwd=cwd, env=env, check=True)
 
@@ -102,11 +109,14 @@ def github_headers() -> dict[str, str]:
 
 
 def download(url: str, destination: Path) -> None:
+    url = validate_pdfium_url(url)
     destination.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers=github_headers())
     with (
-        urllib.request.urlopen(request, timeout=300) as response,
-        destination.open("wb") as fh,
+        urllib.request.urlopen(
+            request, timeout=300
+        ) as response,  # skylos: ignore[SKY-D216] PDFium GitHub host allowlist.
+        destination.open("wb") as fh,  # skylos: ignore[SKY-D324] fixed temp asset path.
     ):
         shutil.copyfileobj(response, fh)
 
@@ -123,10 +133,10 @@ def safe_extract_tar(archive: Path, destination: Path) -> None:
         for member in tar.getmembers():
             target = (destination / member.name).resolve()
             if root not in (target, *target.parents):
-                die(
-                    f"refusing to extract archive member outside destination: {member.name}"
-                )
-        tar.extractall(destination)
+                die(f"refusing to extract archive member outside destination: {member.name}")
+        tar.extractall(
+            destination, filter="data"
+        )  # skylos: ignore[SKY-D326] members bounded; data filter.
 
 
 def install_pdfium(platform_id: str, stage_root: Path, release: str) -> dict[str, str]:
@@ -214,22 +224,25 @@ def build_outputs(args: argparse.Namespace) -> None:
     env["DUCKDB_DOWNLOAD_LIB"] = "1"
     env["TRAPO_GIT_TAG"] = args.version
     env["TRAPO_GIT_SHA"] = git_output(["rev-parse", "--short=12", "HEAD"]) or "unknown"
-    run(["bun", "install", "--frozen-lockfile"], cwd=REPO_ROOT / "src" / "trapo-client")
+    run(
+        ["bun", "install", "--frozen-lockfile", "--ignore-scripts"],
+        cwd=REPO_ROOT / "src" / "trapo-client",
+    )
     run(["bun", "run", "build"], cwd=REPO_ROOT / "src" / "trapo-client")
     run(["cargo", "build", "-p", "trapo-server", "--release"], env=env)
 
 
 def copy_tree(source: Path, destination: Path) -> None:
     if destination.exists():
-        shutil.rmtree(destination)
+        shutil.rmtree(
+            destination
+        )  # skylos: ignore[SKY-D215] destination is a deterministic package stage child.
     shutil.copytree(source, destination)
 
 
 def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
     binary = stage_root / "trapo-server"
-    if platform_id.startswith(
-        "macos-"
-    ) and "@executable_path" not in subprocess.check_output(
+    if platform_id.startswith("macos-") and "@executable_path" not in subprocess.check_output(
         ["otool", "-l", str(binary)], text=True
     ):
         run(
@@ -240,23 +253,27 @@ def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
 
 def make_launcher(stage_root: Path, platform_id: str) -> None:
     if platform_id.startswith("windows-"):
-        (stage_root / "trapo-server.cmd").write_text(
+        (
+            stage_root / "trapo-server.cmd"
+        ).write_text(  # skylos: ignore[SKY-D324] fixed package launcher path.
             "@echo off\r\nsetlocal\r\nset TRAPO_HOME=%~dp0\r\n"
-            'for /D %%D in ("%~dp0thirdparty\\uocr-runtime\\*") do if exist "%%~fD\\bin" set "PATH=%%~fD\\bin;%PATH%"\r\n'
+            'for /D %%D in ("%~dp0thirdparty\\uocr-runtime\\*") do '
+            'if exist "%%~fD\\bin" set "PATH=%%~fD\\bin;%PATH%"\r\n'
             '"%~dp0trapo-server.exe" %*\r\n',
             encoding="ascii",
         )
         return
     launcher = stage_root / "trapo-server.sh"
-    lib_var = (
-        "DYLD_LIBRARY_PATH" if platform_id.startswith("macos-") else "LD_LIBRARY_PATH"
-    )
-    launcher.write_text(
+    lib_var = "DYLD_LIBRARY_PATH" if platform_id.startswith("macos-") else "LD_LIBRARY_PATH"
+    launcher.write_text(  # skylos: ignore[SKY-D324] fixed package launcher path.
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
         'cd "$(dirname "$0")"\n'
-        'runtime_lib_path=$(find "$PWD/thirdparty/uocr-runtime" -mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | paste -sd: -)\n'
-        f'export {lib_var}="${{runtime_lib_path:+$runtime_lib_path:}}$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}"\n'
+        'runtime_lib_path=$(find "$PWD/thirdparty/uocr-runtime" '
+        "-mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | "
+        "paste -sd: -)\n"
+        f'export {lib_var}="${{runtime_lib_path:+$runtime_lib_path:}}'
+        f'$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}"\n'
         'exec ./trapo-server "$@"\n',
         encoding="utf-8",
     )
@@ -274,10 +291,8 @@ def create_archive(stage_root: Path, archive_path: Path) -> None:
         tar.add(stage_root, arcname=stage_root.name)
 
 
-def write_readme(
-    stage_root: Path, args: argparse.Namespace, runtimes: list[str]
-) -> None:
-    (stage_root / "README.txt").write_text(
+def write_readme(stage_root: Path, args: argparse.Namespace, runtimes: list[str]) -> None:
+    (stage_root / "README.txt").write_text(  # skylos: ignore[SKY-D324] fixed package README path.
         f"""Trapo Workbench {args.version}
 
 Run trapo-server to start the local Axum backend and hosted React app.
@@ -305,7 +320,7 @@ def package(args: argparse.Namespace) -> None:
     sha_path = Path(f"{archive}.sha256")
     for path in (stage_root, archive, sha_path):
         if path.is_dir():
-            shutil.rmtree(path)
+            shutil.rmtree(path)  # skylos: ignore[SKY-D215] deterministic package output.
         else:
             path.unlink(missing_ok=True)
     stage_root.mkdir(parents=True)
@@ -365,25 +380,22 @@ def package(args: argparse.Namespace) -> None:
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
     create_archive(stage_root, archive)
-    sha_path.write_text(f"{sha256_file(archive)}  {archive.name}\n", encoding="ascii")
+    sha_path.write_text(  # skylos: ignore[SKY-D324] deterministic checksum path.
+        f"{sha256_file(archive)}  {archive.name}\n", encoding="ascii"
+    )
     print(f"Packaged {archive}")
     print(f"Checksum {sha_path}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Package Trapo Workbench release artifacts."
-    )
+    parser = argparse.ArgumentParser(description="Package Trapo Workbench release artifacts.")
     parser.add_argument(
         "--version",
-        default=git_output(["describe", "--tags", "--dirty", "--always"])
-        or "0.0.0-dev",
+        default=git_output(["describe", "--tags", "--dirty", "--always"]) or "0.0.0-dev",
     )
     parser.add_argument("--platform", required=True, choices=sorted(PLATFORMS))
     parser.add_argument("--runtime-version", default="latest")
-    parser.add_argument(
-        "--runtime-repo", default="bangonkali/baidu-unlimited-ocr-portable"
-    )
+    parser.add_argument("--runtime-repo", default="bangonkali/baidu-unlimited-ocr-portable")
     parser.add_argument("--runtime-platform", required=True)
     parser.add_argument("--additional-runtime-platforms", default="")
     parser.add_argument("--pdfium-release", default=DEFAULT_PDFIUM_RELEASE)

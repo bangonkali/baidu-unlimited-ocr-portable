@@ -82,7 +82,7 @@ impl UnlimitedOcrFfiEngine {
             reserved_ptr2: std::ptr::null_mut(),
             reserved_ptr3: std::ptr::null_mut(),
         };
-        let session = unsafe { create(&params) };
+        let session = unsafe { create(&params) }; // skylos: ignore[SKY-D215] FFI receives validated runtime/model paths from local configuration.
         if session.is_null() {
             return Err(AppError::Internal(last_error_string(last_error, session)));
         }

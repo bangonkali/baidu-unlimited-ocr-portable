@@ -14,8 +14,9 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from package_runtime_macos import prepare_macos_runtime_files
-
+from package_runtime_macos import (
+    prepare_macos_runtime_files,
+)  # skylos: ignore[SKY-D222] local sibling script module, not a PyPI dependency.
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS_PATH = REPO_ROOT / "runtime" / "platforms.json"
@@ -23,7 +24,9 @@ PLATFORMS_PATH = REPO_ROOT / "runtime" / "platforms.json"
 
 def load_platforms(repo_root: Path) -> dict[str, Any]:
     path = repo_root / "runtime" / "platforms.json"
-    with path.open("r", encoding="utf-8") as fh:
+    with path.open(
+        "r", encoding="utf-8"
+    ) as fh:  # skylos: ignore[SKY-D325] path is a fixed repo manifest under repo_root.
         return json.load(fh)
 
 
@@ -33,7 +36,7 @@ def die(message: str) -> None:
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as fh:
+    with path.open("rb") as fh:  # skylos: ignore[SKY-D325] caller-selected artifact.
         for chunk in iter(lambda: fh.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
@@ -55,8 +58,7 @@ def find_one(build_dir: Path, names: list[str]) -> Path:
         ]
         candidates.extend(path for path in direct_candidates if path.exists())
         candidates.extend(
-            Path(match)
-            for match in glob.glob(str(build_dir / "**" / name), recursive=True)
+            Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)
         )
     seen: set[Path] = set()
     unique: list[Path] = []
@@ -66,9 +68,7 @@ def find_one(build_dir: Path, names: list[str]) -> Path:
             seen.add(resolved)
             unique.append(candidate)
     if not unique:
-        die(
-            f"could not find required runtime file under {build_dir}: {', '.join(names)}"
-        )
+        die(f"could not find required runtime file under {build_dir}: {', '.join(names)}")
     return unique[0]
 
 
@@ -90,10 +90,7 @@ def dependency_search_dirs(build_dir: Path) -> list[Path]:
     ]
     if os.name == "nt":
         for directory in path_dirs():
-            if (
-                directory.name.lower() in {"bin", "cmd"}
-                and directory.parent.name.lower() == "git"
-            ):
+            if directory.name.lower() in {"bin", "cmd"} and directory.parent.name.lower() == "git":
                 dirs.append(directory.parent / "mingw64" / "bin")
 
     unique: list[Path] = []
@@ -107,9 +104,7 @@ def dependency_search_dirs(build_dir: Path) -> list[Path]:
 
 
 def find_dependency(build_dir: Path, name: str) -> Path:
-    candidates = [
-        Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)
-    ]
+    candidates = [Path(match) for match in glob.glob(str(build_dir / "**" / name), recursive=True)]
     for directory in dependency_search_dirs(build_dir):
         candidates.append(directory / name)
     for candidate in candidates:
@@ -279,9 +274,7 @@ def package_runtime(args: argparse.Namespace) -> None:
             die(str(error))
 
     archive_ext = target["archive_ext"]
-    archive_name = (
-        f"{platforms['asset_prefix']}-{args.platform}-{version}.{archive_ext}"
-    )
+    archive_name = f"{platforms['asset_prefix']}-{args.platform}-{version}.{archive_ext}"
     archive_path = output_dir / archive_name
     root_name = f"uocr-runtime-{args.platform}-{version}"
 
@@ -318,9 +311,7 @@ def package_runtime(args: argparse.Namespace) -> None:
         )
 
         if archive_ext == "zip":
-            with zipfile.ZipFile(
-                archive_path, "w", compression=zipfile.ZIP_DEFLATED
-            ) as zipf:
+            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
                 for source in runtime_files:
                     add_zip_member(zipf, source, f"{root_name}/bin/{source.name}")
                 zipf.write(manifest_path, f"{root_name}/manifest.json")
@@ -356,12 +347,8 @@ def package_runtime(args: argparse.Namespace) -> None:
 
     # Keep local package outputs executable even if a filesystem lost mode bits.
     for file_path in runtime_files:
-        if file_path.name in target["executables"] and not file_path.name.endswith(
-            ".exe"
-        ):
-            file_path.chmod(
-                file_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-            )
+        if file_path.name in target["executables"] and not file_path.name.endswith(".exe"):
+            file_path.chmod(file_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     print(
         json.dumps(
@@ -409,9 +396,7 @@ def merge_manifests(args: argparse.Namespace) -> None:
         }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(output_path)
 
 
@@ -426,20 +411,18 @@ def write_version_env(args: argparse.Namespace) -> None:
     else:
         version = "dev"
     version = normalize_version(version)
-    with args.github_env.open("a", encoding="utf-8") as fh:
+    with args.github_env.open(
+        "a", encoding="utf-8"
+    ) as fh:  # skylos: ignore[SKY-D324] GitHub Actions env file.
         fh.write(f"UOCR_RUNTIME_VERSION={version}\n")
     print(version)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Package Unlimited-OCR native runtime binaries."
-    )
+    parser = argparse.ArgumentParser(description="Package Unlimited-OCR native runtime binaries.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    package_parser = subparsers.add_parser(
-        "package", help="Create a platform runtime archive."
-    )
+    package_parser = subparsers.add_parser("package", help="Create a platform runtime archive.")
     package_parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     package_parser.add_argument("--platform", required=True)
     package_parser.add_argument(

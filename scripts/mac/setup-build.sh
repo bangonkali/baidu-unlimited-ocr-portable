@@ -252,6 +252,46 @@ run_runtime_installer() {
     uv "${args[@]}"
 }
 
+apply_runtime_env() {
+    local repo_root="$1"
+    local runtime_json="$2"
+    local line key value
+
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        case "$key" in
+        UOCR_RUNTIME_LABEL | UOCR_RUNTIME_SOURCE | UOCR_RUNTIME_VERSION | UOCR_RUNTIME_ROOT | UOCR_LLAMA_BIN | UOCR_LLAMA_MTMD_BIN | UOCR_LLAMA_SERVER_BIN | UOCR_FFI_LIB) ;;
+        *) die "Unexpected runtime env key from installer: $key" ;;
+        esac
+        export "$key=$value"
+    done < <(
+        printf '%s\n' "$runtime_json" | uv run --project "$repo_root" python -c '
+import json
+import sys
+
+allowed = (
+    "UOCR_RUNTIME_LABEL",
+    "UOCR_RUNTIME_SOURCE",
+    "UOCR_RUNTIME_VERSION",
+    "UOCR_RUNTIME_ROOT",
+    "UOCR_LLAMA_BIN",
+    "UOCR_LLAMA_MTMD_BIN",
+    "UOCR_LLAMA_SERVER_BIN",
+    "UOCR_FFI_LIB",
+)
+data = json.load(sys.stdin)
+for key in allowed:
+    value = data.get(key)
+    if value:
+        if "\n" in value or "\0" in value:
+            raise SystemExit(f"unsafe runtime env value for {key}")
+        print(f"{key}={value}")
+'
+    )
+}
+
 assert_tooling() {
     local need_hf="$1"
     local need_build="$2"
@@ -725,11 +765,11 @@ if [[ "$runtime_source" == "download" || "$runtime_source" == "auto" ]]; then
     else
         write_step "Installing prebuilt native runtime"
         set +e
-        runtime_exports="$(run_runtime_installer "$repo_root" sh)"
+        runtime_env_json="$(run_runtime_installer "$repo_root" json)"
         runtime_status=$?
         set -e
         if [[ "$runtime_status" == "0" ]]; then
-            eval "$runtime_exports"
+            apply_runtime_env "$repo_root" "$runtime_env_json"
             runtime_source_actual="download"
         elif [[ "$runtime_source" == "download" ]]; then
             die "Prebuilt runtime download failed. Rerun with --runtime-source build to compile locally."

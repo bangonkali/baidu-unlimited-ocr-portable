@@ -9,3 +9,91 @@ dependencies = []
 dev = [
     "ruff>=0.15.20",
 ]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = [
+    ".env",
+    ".logs",
+    ".skylos",
+    ".venv",
+    "build",
+    "cache",
+    "data",
+    "dist",
+    "logs",
+    "models",
+    "target",
+    "thirdparty",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+include = ["scripts", "tests"]
+exclude = [
+    ".env",
+    ".logs",
+    ".skylos",
+    ".venv",
+    "build",
+    "cache",
+    "data",
+    "dist",
+    "logs",
+    "models",
+    "target",
+    "thirdparty",
+]
+
+[tool.skylos]
+complexity = 18
+nesting = 4
+max_args = 8
+max_lines = 100
+god_file_max_lines = 700
+god_file_max_definitions = 45
+god_file_max_top_level_definitions = 40
+duplicate_strings = 4
+security_enabled = true
+secrets_enabled = true
+quality_enabled = true
+exclude = [
+    ".env",
+    ".logs",
+    ".ruff_cache",
+    ".skylos",
+    ".venv",
+    "build",
+    "cache",
+    "data",
+    "dataset",
+    "dist",
+    "logs",
+    "models",
+    "runtime",
+    "target",
+    "thirdparty",
+    "src/trapo-client/dist",
+    "src/trapo-client/node_modules",
+    "src/trapo-client/storybook-static",
+    "src/trapo-client/src/generated",
+    "src/trapo-client/src/routeTree.gen.ts",
+    "src/trapo-server/openapi",
+]
+ignore = []
+
+[tool.skylos.gate]
+fail_on_critical = true
+max_critical = 0
+max_high = 0
+max_security = 0
+max_secrets = 0
+max_dependency_vulnerabilities = 0
+max_quality = 0
+max_dead_code = 0
+strict = false
