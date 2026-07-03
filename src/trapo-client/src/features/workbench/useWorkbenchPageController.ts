@@ -21,7 +21,12 @@ import {
   useStatus,
   useUpdateSettings,
 } from '../../api/hooks';
-import type { DocumentSummary, ModelAssetRecord, OcrProfileRecord } from '../../api/types';
+import type {
+  DocumentSummary,
+  IngestRunRecord,
+  ModelAssetRecord,
+  OcrProfileRecord,
+} from '../../api/types';
 import { useRealtimeState } from '../../realtime/realtimeStore';
 import type {
   DiagnosticsRouteSearch,
@@ -76,7 +81,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const [searchText, setSearchText] = useState(routeSearchText(props));
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const data = useWorkbenchData(workbench.selection.fileHash, debouncedSearch);
-  const activeRunId = data.status.data?.active_run_id ?? null;
+  const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
   const model = selectedModel(data.models.data);
   const profiles = profileOptions(data.models.data?.profiles, workbench.selectedProfile);
@@ -271,6 +276,10 @@ function selectedDocumentFrom(
   workbench: ReturnType<typeof useWorkbenchState>,
 ) {
   return documents?.find((document) => document.file_hash === workbench.selection.fileHash);
+}
+
+function activeRunIdFromRuns(runs: IngestRunRecord[] | undefined) {
+  return runs?.find((run) => ['queued', 'running'].includes(String(run.status)))?.run_id ?? null;
 }
 
 function isActiveDocumentStatus(status: string) {

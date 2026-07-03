@@ -106,7 +106,10 @@ async fn folder_dialog(
 async fn start_ingest(
     State(state): State<AppState>,
     Json(request): Json<IngestStartRequest>,
-) -> Result<(StatusCode, Json<crate::workbench_types::IngestRunRecord>)> {
+) -> Result<(
+    StatusCode,
+    Json<crate::workbench_types::IngestStartResponse>,
+)> {
     Ok((
         StatusCode::ACCEPTED,
         Json(state.start_ingest(request).await?),

@@ -15,6 +15,7 @@ export interface IngestRunRecord {
   engine_id: string;
   /** @nullable */
   error?: string | null;
+  file_hashes: string[];
   model_id: string;
   /** @minimum 0 */
   processed_pages: number;

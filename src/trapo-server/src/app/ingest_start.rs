@@ -1,5 +1,5 @@
 impl AppState {
-    pub async fn start_ingest(&self, request: IngestStartRequest) -> Result<IngestRunRecord> {
+    pub async fn start_ingest(&self, request: IngestStartRequest) -> Result<IngestStartResponse> {
         let root = PathBuf::from(&request.root_path);
         let files = discover_supported_files(&root)?;
         let run_id = now_id();
@@ -74,6 +74,9 @@ impl AppState {
                 state.documents.insert(document.file_hash.clone(), document);
             }
             self.inner.repository.upsert_run(&stored_run(&run))?;
+            self.inner
+                .repository
+                .replace_run_documents(&run_id, &run.file_hashes)?;
             let record = run_record(&run);
             state.active_run_id = Some(run_id.clone());
             state.runs.insert(run_id.clone(), run);
@@ -91,13 +94,18 @@ impl AppState {
         self.inner
             .hub
             .publish("run.changed", serde_json::to_value(&run_record)?);
-        for event in document_events {
+        for event in &document_events {
             self.inner
                 .hub
                 .publish("document.changed", serde_json::to_value(event)?);
         }
         self.publish_status_changed().await;
+        let replay_since_sequence = self.inner.hub.last_sequence();
         self.spawn_ingest(run_id.clone(), files, profile_id, model_id, runtime_id);
-        self.get_run(&run_id).await
+        Ok(IngestStartResponse {
+            run: self.get_run(&run_id).await?,
+            documents: document_events,
+            replay_since_sequence,
+        })
     }
 }

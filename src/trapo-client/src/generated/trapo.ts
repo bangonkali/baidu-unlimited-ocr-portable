@@ -26,6 +26,7 @@ import type {
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
+  IngestStartResponse,
   ListDocumentsDocParams,
   LogsDocParams,
   LogsPayload,
@@ -905,7 +906,7 @@ export const stopRunDoc = async (runId: string, options?: RequestInit): Promise<
 
 
 export type startIngestDocResponse202 = {
-  data: IngestRunRecord
+  data: IngestStartResponse
   status: 202
 }
 

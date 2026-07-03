@@ -89,6 +89,11 @@ the browser. On refresh, the workbench can replay historical page events from
 DuckDB and then continue applying new realtime events, so the same UI can be
 rebuilt while OCR is running or after a page has completed.
 
+Starting a new ingest also seeds the workbench from the accepted run snapshot
+before routing to `/workbench`. The first discovered document is selected with
+auto-follow enabled, and any missed page stream events are recovered from the
+DuckDB replay log.
+
 Detected regions are represented by compact text anchors. A region's content
 scope runs from its anchor to the next anchor, so PDF bounding boxes, details,
 and text-preview focus use the same boundary. OCR HTML tables render as tables,

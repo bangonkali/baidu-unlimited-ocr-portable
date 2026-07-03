@@ -27,6 +27,23 @@ impl Repository {
         Ok(())
     }
 
+    pub fn replace_run_documents(&self, run_id: &str, file_hashes: &[String]) -> Result<()> {
+        let conn = self.connect()?;
+        conn.execute(
+            "DELETE FROM ingest_run_documents WHERE run_id = ?",
+            params![run_id],
+        )?;
+        for (index, file_hash) in file_hashes.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO ingest_run_documents(run_id, file_hash, ordinal)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(run_id, file_hash) DO UPDATE SET ordinal = excluded.ordinal",
+                params![run_id, file_hash, i64::try_from(index).unwrap_or(i64::MAX)],
+            )?;
+        }
+        Ok(())
+    }
+
     pub fn upsert_document(&self, document: &StoredDocument) -> Result<()> {
         let conn = self.connect()?;
         conn.execute(

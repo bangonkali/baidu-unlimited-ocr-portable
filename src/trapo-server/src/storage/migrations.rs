@@ -252,4 +252,15 @@ CREATE INDEX IF NOT EXISTS idx_ingest_work_units_scope ON ingest_work_units(run_
 CREATE INDEX IF NOT EXISTS idx_ingest_model_leases_run ON ingest_model_leases(run_id);
 "#,
     },
+    Migration {
+        id: 8,
+        name: "ingest_run_documents",
+        sql: r#"
+CREATE TABLE IF NOT EXISTS ingest_run_documents (
+  run_id TEXT NOT NULL, file_hash TEXT NOT NULL, ordinal INTEGER NOT NULL,
+  PRIMARY KEY (run_id, file_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_run_documents_run ON ingest_run_documents(run_id, ordinal);
+"#,
+    },
 ];

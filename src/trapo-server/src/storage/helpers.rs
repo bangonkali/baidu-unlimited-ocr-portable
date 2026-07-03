@@ -115,4 +115,34 @@ mod tests {
         assert_eq!(events[0].payload["text"], "Total");
         Ok(())
     }
+
+    #[test]
+    fn reloads_run_document_membership() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        repo.upsert_run(&StoredRun {
+            run_id: "run-a".to_string(),
+            root_path: "dataset".to_string(),
+            status: "queued".to_string(),
+            profile_id: "profile".to_string(),
+            engine_id: "engine".to_string(),
+            model_id: "model".to_string(),
+            runtime_id: "runtime".to_string(),
+            queued_files: 2,
+            processed_pages: 0,
+            total_pages: 2,
+            error: None,
+        })?;
+        repo.replace_run_documents("run-a", &["file-b".to_string(), "file-a".to_string()])?;
+
+        let snapshot = repo.load_snapshot()?;
+
+        let files: Vec<_> = snapshot
+            .run_documents
+            .iter()
+            .map(|item| item.file_hash.as_str())
+            .collect();
+        assert_eq!(files, ["file-b", "file-a"]);
+        Ok(())
+    }
 }

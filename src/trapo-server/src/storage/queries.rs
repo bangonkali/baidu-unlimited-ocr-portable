@@ -17,6 +17,7 @@ impl Repository {
         let conn = self.connect()?;
         Ok(StoredSnapshot {
             runs: self.load_runs(&conn)?,
+            run_documents: self.load_run_documents(&conn)?,
             documents: self.load_documents(&conn)?,
             pages: self.load_pages(&conn)?,
         })

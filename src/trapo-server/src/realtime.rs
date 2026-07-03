@@ -48,6 +48,10 @@ impl RealtimeHub {
         self.sender.subscribe()
     }
 
+    pub fn last_sequence(&self) -> u64 {
+        self.sequence.load(Ordering::SeqCst)
+    }
+
     pub fn publish(&self, event_type: &str, payload: Value) -> EventEnvelope {
         let envelope = EventEnvelope {
             version: 1,
@@ -73,21 +77,32 @@ impl RealtimeHub {
         envelope
     }
 
-    pub fn ready_payload() -> Value {
+    pub fn ready_payload(&self) -> Value {
         json!({
             "path": "/api/events",
             "heartbeat": "native-websocket",
+            "last_sequence": self.last_sequence(),
             "supported_types": supported_event_types(),
         })
+    }
+
+    fn ready_envelope(&self) -> EventEnvelope {
+        EventEnvelope {
+            version: 1,
+            sequence: self.last_sequence(),
+            event_type: "connection.ready".to_string(),
+            occurred_at: Utc::now().to_rfc3339(),
+            payload: self.ready_payload(),
+        }
     }
 }
 
 pub async fn websocket(mut socket: WebSocket, hub: Arc<RealtimeHub>) {
-    let ready = hub.publish("connection.ready", RealtimeHub::ready_payload());
+    let mut receiver = hub.subscribe();
+    let ready = hub.ready_envelope();
     if send_json(&mut socket, &ready).await.is_err() {
         return;
     }
-    let mut receiver = hub.subscribe();
     loop {
         tokio::select! {
             message = socket.recv() => {
@@ -136,4 +151,31 @@ fn supported_event_types() -> Vec<&'static str> {
         "ocr.page.stream.failed",
         "log.appended",
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::broadcast::error::TryRecvError;
+
+    #[test]
+    fn ready_envelope_does_not_broadcast_or_increment_sequence() {
+        let hub = RealtimeHub::new();
+        let mut receiver = hub.subscribe();
+
+        let ready = hub.ready_envelope();
+
+        assert_eq!(ready.event_type, "connection.ready");
+        assert_eq!(ready.sequence, 0);
+        assert_eq!(hub.last_sequence(), 0);
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+
+        hub.publish("status.changed", json!({ "state": "running" }));
+        let event = receiver.try_recv();
+        assert!(event.is_ok(), "status event should broadcast: {event:?}");
+        if let Ok(event) = event {
+            assert_eq!(event.sequence, 1);
+            assert_eq!(event.event_type, "status.changed");
+        }
+    }
 }

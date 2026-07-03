@@ -43,6 +43,7 @@ export * from './healthPayload';
 export * from './ingestRunRecord';
 export * from './ingestRunsPayload';
 export * from './ingestStartRequest';
+export * from './ingestStartResponse';
 export * from './listDocumentsDocParams';
 export * from './logRecord';
 export * from './logsDocParams';

@@ -4,8 +4,10 @@ import type { useOpenFolderDialog, useStartIngest } from '../../api/hooks';
 import type { ModelAssetRecord } from '../../api/types';
 import {
   clearFolderDialogError,
+  setAutoFollowRegions,
   setFolderDialogError,
   setSelectedRoot,
+  setSelection,
 } from '../../stores/workbenchStore';
 
 export function useWorkbenchIngestActions(args: {
@@ -39,19 +41,28 @@ export function useWorkbenchIngestActions(args: {
   };
   const startScan = (options?: { reprocess?: boolean }) => {
     clearFolderDialogError();
-    args.startIngest.mutate(
-      {
+    void args.startIngest
+      .mutateAsync({
         model_id: args.model?.model_id,
         profile_id: args.selectedProfile,
         reprocess: options?.reprocess ?? false,
         root_path: args.rootPath,
-      },
-      {
-        onSuccess: () => {
-          void args.navigate({ to: '/workbench' });
-        },
-      },
-    );
+      })
+      .then((response) => {
+        const firstFileHash = response.documents[0]?.file_hash ?? response.run.file_hashes?.[0];
+        const pageNo = response.documents[0]?.current_page ?? 1;
+        setAutoFollowRegions(true);
+        setSelection({
+          fileHash: firstFileHash,
+          pageNo,
+          regionId: undefined,
+        });
+        void args.navigate({
+          search: firstFileHash ? { file: firstFileHash, follow: true, page: pageNo } : {},
+          to: '/workbench',
+        });
+      })
+      .catch(() => undefined);
   };
   return { pickFolder, startScan };
 }

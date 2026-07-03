@@ -18,14 +18,16 @@ export function useOcrReplay(params: {
   since_sequence?: number;
   limit?: number;
   enabled?: boolean;
+  refetchInterval?: number | false;
 }) {
-  const { enabled, ...query } = params;
+  const { enabled, refetchInterval, ...query } = params;
   return useQuery({
     enabled: (enabled ?? true) && Boolean(query.run_id || query.file_hash),
     placeholderData: { events: [] },
     queryFn: ({ signal }) =>
       getJson<OcrReplayPayload>(buildApiUrl('/api/ocr/events', query), signal),
     queryKey: queryKeys.ocrReplay(query),
+    refetchInterval,
   });
 }
 

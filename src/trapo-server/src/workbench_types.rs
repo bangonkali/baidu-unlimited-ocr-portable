@@ -17,6 +17,7 @@ pub struct IngestRunRecord {
     pub run_id: String,
     pub root_path: String,
     pub status: String,
+    pub file_hashes: Vec<String>,
     pub queued_files: u32,
     pub processed_pages: u32,
     pub total_pages: u32,
@@ -27,6 +28,13 @@ pub struct IngestRunRecord {
     pub model_id: String,
     pub runtime_id: String,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct IngestStartResponse {
+    pub run: IngestRunRecord,
+    pub documents: Vec<DocumentSummary>,
+    pub replay_since_sequence: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

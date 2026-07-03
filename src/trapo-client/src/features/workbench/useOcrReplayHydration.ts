@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { useOcrReplay } from '../../api/hooks';
 import type { OcrReplayPayload } from '../../api/types';
-import { applyRealtimeEventToQueryClient } from '../../realtime/realtimeQueryBridge';
+import { applyProjectedOcrReplay } from '../../realtime/ocrReplayProjection';
 import { realtimeEventFromRecord } from '../../realtime/realtimeTypes';
 
 export function useSelectedPageReplay(args: {
@@ -17,17 +17,17 @@ export function useSelectedPageReplay(args: {
     file_hash: args.fileHash,
     limit: 10_000,
     page_no: args.pageNo,
+    refetchInterval: args.enabled ? 1000 : false,
   });
   useReplayHydration(args.queryClient, replay.data);
 }
 
 function useReplayHydration(queryClient: QueryClient, replay: OcrReplayPayload | undefined) {
   useEffect(() => {
-    for (const record of replay?.events ?? []) {
+    const events = (replay?.events ?? []).flatMap((record) => {
       const event = realtimeEventFromRecord(record);
-      if (event) {
-        applyRealtimeEventToQueryClient(queryClient, event);
-      }
-    }
+      return event ? [event] : [];
+    });
+    applyProjectedOcrReplay(queryClient, events);
   }, [queryClient, replay]);
 }

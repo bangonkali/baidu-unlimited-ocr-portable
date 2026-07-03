@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { buildApiUrl, getJson, postJson, putJson } from './http';
@@ -10,6 +11,7 @@ import type {
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
+  IngestStartResponse,
   LogsPayload,
   ModelDownloadRecord,
   ModelDownloadRequest,
@@ -185,14 +187,47 @@ export function useStartIngest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: IngestStartRequest) =>
-      postJson<IngestRunRecord, IngestStartRequest>('/api/ingest/start', body),
-    onSuccess: () => {
+      postJson<IngestStartResponse, IngestStartRequest>('/api/ingest/start', body),
+    onSuccess: (response) => {
+      seedIngestStartResponse(queryClient, response);
       void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
       void queryClient.invalidateQueries({ queryKey: queryKeys.status });
       void queryClient.invalidateQueries({ queryKey: ['documents'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
     },
   });
+}
+
+function seedIngestStartResponse(queryClient: QueryClient, response: IngestStartResponse) {
+  queryClient.setQueryData<IngestRunsPayload>(queryKeys.runs, (current) => ({
+    runs: upsertById(current?.runs ?? [], response.run, (run) => run.run_id),
+  }));
+  queryClient.setQueryData<DocumentsPayload>(queryKeys.documents(''), (current) => ({
+    documents: upsertManyById(
+      current?.documents ?? [],
+      response.documents,
+      (document) => document.file_hash,
+    ),
+  }));
+  queryClient.setQueryData<StatusPayload>(queryKeys.status, (current) =>
+    current
+      ? {
+          ...current,
+          active_run_id: response.run.run_id,
+          state: response.run.status,
+        }
+      : current,
+  );
+}
+
+function upsertManyById<T>(current: T[], incoming: T[], getId: (value: T) => string) {
+  return incoming.reduce((items, item) => upsertById(items, item, getId), current);
+}
+
+function upsertById<T>(items: T[], item: T, getId: (value: T) => string) {
+  const id = getId(item);
+  const found = items.some((value) => getId(value) === id);
+  return found ? items.map((value) => (getId(value) === id ? item : value)) : [item, ...items];
 }
 
 export function useRunCommand(command: 'stop') {

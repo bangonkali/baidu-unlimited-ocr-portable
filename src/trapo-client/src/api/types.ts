@@ -189,6 +189,7 @@ export interface IngestRunRecord {
   run_id: string;
   root_path: string;
   status: RunState | string;
+  file_hashes?: string[];
   queued_files?: number;
   processed_pages?: number;
   total_pages?: number;
@@ -201,6 +202,11 @@ export interface IngestRunRecord {
   error?: string | null;
 }
 
+export interface IngestStartResponse {
+  run: IngestRunRecord;
+  documents: DocumentSummary[];
+  replay_since_sequence: number;
+}
 export interface IngestRunsPayload {
   runs: IngestRunRecord[];
 }

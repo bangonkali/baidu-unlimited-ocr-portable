@@ -754,7 +754,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IngestRunRecord"
+                  "$ref": "#/components/schemas/IngestStartResponse"
                 }
               }
             }
@@ -2166,6 +2166,7 @@
           "run_id",
           "root_path",
           "status",
+          "file_hashes",
           "queued_files",
           "processed_pages",
           "total_pages",
@@ -2192,6 +2193,12 @@
               "string",
               "null"
             ]
+          },
+          "file_hashes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "model_id": {
             "type": "string"
@@ -2278,6 +2285,30 @@
           },
           "root_path": {
             "type": "string"
+          }
+        }
+      },
+      "IngestStartResponse": {
+        "type": "object",
+        "required": [
+          "run",
+          "documents",
+          "replay_since_sequence"
+        ],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentSummary"
+            }
+          },
+          "replay_since_sequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "run": {
+            "$ref": "#/components/schemas/IngestRunRecord"
           }
         }
       },

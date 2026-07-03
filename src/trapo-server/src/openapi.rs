@@ -62,6 +62,7 @@ use crate::{error::ErrorPayload, types::*, workbench_types::*};
         WorkbenchUiSettingsPatch,
         WorkbenchPaneSettingsPatch,
         IngestStartRequest,
+        IngestStartResponse,
         IngestRunRecord,
         IngestRunsPayload,
         OcrMetricsTreeNode,
@@ -166,7 +167,7 @@ fn openapi_doc() {}
 #[utoipa::path(post, path = "/api/system/folder-dialog", tag = "system", responses((status = 200, body = FolderDialogResponse)))]
 fn folder_dialog_doc() {}
 
-#[utoipa::path(post, path = "/api/ingest/start", tag = "ingest", request_body = IngestStartRequest, responses((status = 202, description = "Ingest run queued", body = IngestRunRecord), (status = 400, body = ErrorPayload)))]
+#[utoipa::path(post, path = "/api/ingest/start", tag = "ingest", request_body = IngestStartRequest, responses((status = 202, description = "Ingest run queued", body = IngestStartResponse), (status = 400, body = ErrorPayload)))]
 fn start_ingest_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs", tag = "ingest", responses((status = 200, body = IngestRunsPayload)))]

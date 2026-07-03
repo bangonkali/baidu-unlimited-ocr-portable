@@ -3,15 +3,19 @@ import { describe, expect, test } from 'bun:test';
 import {
   clearFolderDialogError,
   getWorkbenchSnapshot,
+  setAutoFollowRegions,
   setSelectedRoot,
+  setSelection,
 } from '../../stores/workbenchStore';
 import { fixtureModels } from '../../stories/fixtures/workbenchFixtures';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
 
 describe('useWorkbenchIngestActions', () => {
-  test('navigates to workbench after an ingest starts', () => {
+  test('seeds follow selection and navigates to the started file', async () => {
     const navigateCalls: unknown[] = [];
     const startCalls: unknown[] = [];
+    setAutoFollowRegions(false);
+    setSelection({ fileHash: undefined, pageNo: 1, regionId: undefined });
     const actions = useWorkbenchIngestActions({
       folderDialog: { mutateAsync: async () => ({ cancelled: true }) } as never,
       model: fixtureModels.models[0],
@@ -21,14 +25,32 @@ describe('useWorkbenchIngestActions', () => {
       rootPath: '/data/incoming',
       selectedProfile: 'experimental-exact-prefill-q4',
       startIngest: {
-        mutate: (payload: unknown, options: { onSuccess: () => void }) => {
+        mutateAsync: async (payload: unknown) => {
           startCalls.push(payload);
-          options.onSuccess();
+          return {
+            documents: [
+              {
+                display_name: 'invoice.pdf',
+                file_hash: 'file-a',
+                page_count: 1,
+                relative_path: 'invoice.pdf',
+                status: 'queued',
+              },
+            ],
+            replay_since_sequence: 8,
+            run: {
+              file_hashes: ['file-a'],
+              root_path: '/data/incoming',
+              run_id: 'run-a',
+              status: 'queued',
+            },
+          };
         },
       } as never,
     });
 
     actions.startScan({ reprocess: true });
+    await Promise.resolve();
 
     expect(startCalls).toEqual([
       {
@@ -38,7 +60,11 @@ describe('useWorkbenchIngestActions', () => {
         root_path: '/data/incoming',
       },
     ]);
-    expect(navigateCalls).toEqual([{ to: '/workbench' }]);
+    expect(navigateCalls).toEqual([
+      { search: { file: 'file-a', follow: true, page: 1 }, to: '/workbench' },
+    ]);
+    expect(getWorkbenchSnapshot().autoFollowRegions).toBe(true);
+    expect(getWorkbenchSnapshot().selection.fileHash).toBe('file-a');
   });
 
   test('stores manual path fallback when folder picker reports an error', async () => {

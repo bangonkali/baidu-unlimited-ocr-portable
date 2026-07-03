@@ -49,6 +49,13 @@ pub struct StoredDocument {
 }
 
 #[derive(Debug, Clone)]
+pub struct StoredRunDocument {
+    pub run_id: String,
+    pub file_hash: String,
+    pub ordinal: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct StoredPage {
     pub file_hash: String,
     pub page_no: u32,
@@ -241,6 +248,7 @@ pub struct DiagnosticEventInsert {
 #[derive(Debug, Default)]
 pub struct StoredSnapshot {
     pub runs: Vec<StoredRun>,
+    pub run_documents: Vec<StoredRunDocument>,
     pub documents: Vec<StoredDocument>,
     pub pages: Vec<StoredPage>,
 }

@@ -132,6 +132,7 @@ fn run_record(run: &RunState) -> IngestRunRecord {
         run_id: run.run_id.clone(),
         root_path: run.root_path.clone(),
         status: run.status.clone(),
+        file_hashes: run.file_hashes.clone(),
         queued_files: run.queued_files,
         processed_pages: run.processed_pages,
         total_pages: run.total_pages,

@@ -8,6 +8,7 @@ import type {
   LogsPayload,
   ModelsPayload,
 } from '../api/types';
+import { applyProjectedOcrReplay } from './ocrReplayProjection';
 import { applyRealtimeEventToQueryClient } from './realtimeQueryBridge';
 import type { RealtimeEvent } from './realtimeTypes';
 import { parseRealtimeEvent } from './realtimeTypes';
@@ -133,6 +134,46 @@ describe('realtime events', () => {
 });
 
 describe('realtime OCR stream events', () => {
+  test('projects replayed OCR patches idempotently', () => {
+    const client = new QueryClient();
+    const events: RealtimeEvent[] = [
+      {
+        occurred_at: '2026-06-30T00:00:05Z',
+        payload: {
+          file_hash: 'abc',
+          page_no: 1,
+          run_id: 'run-a',
+        },
+        sequence: 12,
+        type: 'ocr.page.stream.started',
+        version: 1,
+      },
+      {
+        occurred_at: '2026-06-30T00:00:07Z',
+        payload: {
+          end: 0,
+          file_hash: 'abc',
+          op: 'append',
+          page_no: 1,
+          run_id: 'run-a',
+          start: 0,
+          text: 'Invoice',
+        },
+        sequence: 14,
+        type: 'ocr.page.text.patch',
+        version: 1,
+      },
+    ];
+
+    applyProjectedOcrReplay(client, events);
+    applyProjectedOcrReplay(client, events);
+
+    expect(client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc'))).toEqual({
+      file_hash: 'abc',
+      pages: [{ page_no: 1, spans: [], text: 'Invoice' }],
+    });
+  });
+
   test('applies live OCR text patches to document text cache', () => {
     const client = new QueryClient();
 

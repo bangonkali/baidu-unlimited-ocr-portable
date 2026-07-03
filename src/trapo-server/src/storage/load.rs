@@ -48,6 +48,22 @@ impl Repository {
         collect_rows(rows)
     }
 
+    fn load_run_documents(&self, conn: &Connection) -> Result<Vec<StoredRunDocument>> {
+        let mut statement = conn.prepare(
+            "SELECT run_id, file_hash, ordinal
+             FROM ingest_run_documents
+             ORDER BY run_id, ordinal, file_hash",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(StoredRunDocument {
+                run_id: row.get(0)?,
+                file_hash: row.get(1)?,
+                ordinal: i64_to_u32(row.get::<_, i64>(2)?),
+            })
+        })?;
+        collect_rows(rows)
+    }
+
     fn load_pages(&self, conn: &Connection) -> Result<Vec<StoredPage>> {
         let mut statement = conn.prepare(
             "SELECT p.file_hash, p.page_no, coalesce(p.width_px, 0), coalesce(p.height_px, 0),

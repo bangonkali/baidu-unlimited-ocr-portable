@@ -67,9 +67,12 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
         .await?;
     assert_eq!(response.status(), StatusCode::ACCEPTED);
     let body = to_bytes(response.into_body(), usize::MAX).await?;
-    let run: serde_json::Value = serde_json::from_slice(&body)?;
+    let start: serde_json::Value = serde_json::from_slice(&body)?;
+    let run = &start["run"];
     let run_id = run["run_id"].as_str().unwrap_or_default();
     assert!(!run_id.is_empty());
+    assert!(start["documents"].as_array().is_some());
+    assert!(start["replay_since_sequence"].as_u64().is_some());
 
     let response = app
         .clone()
@@ -129,7 +132,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
     assert_eq!(
         value["paths"]["/api/ingest/start"]["post"]["responses"]["202"]["content"]["application/json"]
             ["schema"]["$ref"],
-        "#/components/schemas/IngestRunRecord"
+        "#/components/schemas/IngestStartResponse"
     );
     assert_eq!(
         value["paths"]["/api/documents/{file_hash}/text"]["get"]["responses"]["200"]["content"]["application/json"]

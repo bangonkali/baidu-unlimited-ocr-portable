@@ -10,6 +10,7 @@ where page text, regions, spans, timing, and failures must be traceable.
 `trapo-server` persists diagnostics in structured tables:
 
 - `ingest_runs` stores each OCR run and its status.
+- `ingest_run_documents` stores the ordered files discovered for each run.
 - `ingest_work_units` stores run, file, page, and phase progress.
 - `ingest_diagnostic_spans` stores waterfall spans with timing, status, engine,
   pipeline step, parent span, and JSON attributes.
@@ -50,11 +51,15 @@ The realtime hub stores replayable `ocr.page.*` events before publishing them
 to the websocket. `/api/ocr/events` returns historical events filtered by run,
 file hash, page number, sequence, and limit.
 
-The React workbench hydrates the selected active page by replaying stored events
-into the same reducer used for websocket events. After hydration, new websocket
-events continue from the current state. Completed pages are loaded from the
-persisted document/page/region tables so refresh after completion produces the
-same preview and bounding boxes without relying on websocket history alone.
+The React workbench hydrates the selected active page by projecting stored events
+with the same reducer primitives used for websocket events. Projection is
+idempotent, so repeated replay reads do not duplicate appended text. After
+hydration, new websocket events continue from the current state. If the client
+detects a websocket sequence gap, it reads missed `ocr.page.*` rows from
+DuckDB and invalidates table-backed run, document, status, and log queries.
+Completed pages are loaded from the persisted document/page/region tables so
+refresh after completion produces the same preview and bounding boxes without
+relying on websocket history alone.
 
 ## Failure Analysis
 

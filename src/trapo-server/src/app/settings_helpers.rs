@@ -13,6 +13,13 @@ fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -> Resu
     for run in snapshot.runs {
         state.runs.insert(run.run_id.clone(), run_from_stored(run));
     }
+    for run_document in snapshot.run_documents {
+        if let Some(run) = state.runs.get_mut(&run_document.run_id) {
+            let ordinal = usize::try_from(run_document.ordinal).unwrap_or(usize::MAX);
+            let insert_at = ordinal.min(run.file_hashes.len());
+            run.file_hashes.insert(insert_at, run_document.file_hash);
+        }
+    }
     for document in snapshot.documents {
         state
             .documents

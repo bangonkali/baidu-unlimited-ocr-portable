@@ -35,6 +35,7 @@ export type RealtimeEventType =
 export interface ConnectionReadyPayload {
   path?: string;
   heartbeat?: string;
+  last_sequence?: number;
   supported_types?: RealtimeEventType[];
 }
 

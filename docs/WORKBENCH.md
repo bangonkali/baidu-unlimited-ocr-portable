@@ -19,6 +19,14 @@ The dedicated ingest page owns folder selection and run creation. It sends an
 `IngestStartRequest` to `trapo-server`, which discovers supported files and
 creates an ingest run in DuckDB before background processing begins.
 
+The start response is a causal snapshot, not just an acknowledgement. It returns
+the accepted run, ordered file hashes, discovered document summaries, and the
+OCR replay sequence to resume from. The React client seeds the run and document
+caches from that response, turns auto-follow on for the new run, selects the
+first discovered document, and then navigates to `/workbench` with explicit
+`file`, `page`, and `follow` route state. This keeps the preview and text panes
+reliable even when the websocket connects during the route transition.
+
 ## File Explorer
 
 The explorer follows the selected target directory structure. Every visible row

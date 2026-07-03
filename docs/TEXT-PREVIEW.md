@@ -43,15 +43,25 @@ ocr.page.stream.completed
 
 Replayable `ocr.page.*` events are inserted into DuckDB before websocket
 broadcast. The client can request those events from `/api/ocr/events` and apply
-them through the same reducer used for live websocket updates. This lets the
-Workbench rebuild the selected page after a refresh while OCR is still running.
-After completion, final document/page/region tables are the source of truth.
+them through the same reducer primitives used for live websocket updates. Replay
+hydration is projected from history before it is merged into the cache, so
+repeated refreshes or replay polling do not append the same streamed text twice.
+This lets the Workbench rebuild the selected page after a refresh while OCR is
+still running. After completion, final document/page/region tables are the
+source of truth.
 
 ## Client Behavior
 
 The React workbench applies one more defensive filter before rendering the text
 pane. If an older payload contains queued placeholder pages, the client derives
 visible pages from document progress, `current_page`, existing text, and spans.
+
+When a new ingest starts, the client seeds the selected file and page from the
+`/api/ingest/start` response before navigating to `/workbench`. The selected
+active page replays persisted OCR events while it is still running. If the
+websocket reconnects with a sequence gap, the client reads missed `ocr.page.*`
+events from DuckDB and invalidates table-backed run, document, status, and log
+queries.
 
 Region anchors render as compact `#` controls instead of wrapping a text span.
 Clicking a PDF annotation focuses the matching text anchor. Clicking a text
