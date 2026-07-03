@@ -25,26 +25,15 @@ jobs:
       - name: Install Skylos
         run: python -m pip install --disable-pip-version-check --only-binary=:all: skylos==4.27.0
 
-      - name: Run Skylos triage
-        shell: bash
-        run: |
-          mkdir -p .logs
-          skylos . -a --format json --no-upload --output .logs/skylos-ci.raw.json
-          python scripts/skylos_triage.py \
-            --raw .logs/skylos-ci.raw.json \
-            --filtered .logs/skylos-ci.filtered.json \
-            --summary .logs/skylos-ci.summary.md \
-            --fail-on-open
+      - name: Run Skylos quality gate
+        run: python scripts/quality.py --profile ci --only skylos --github --report-dir .logs/quality/skylos
 
-      - name: Upload Skylos logs
+      - name: Upload quality logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: skylos-first-party-triage
-          path: |
-            .logs/skylos-ci.raw.json
-            .logs/skylos-ci.filtered.json
-            .logs/skylos-ci.summary.md
+          name: quality-skylos
+          path: .logs/quality/skylos/**
           if-no-files-found: error
 
   frontend:
@@ -57,38 +46,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14.6"
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
 
-      - name: Install dependencies
-        working-directory: src/trapo-client
-        run: bun install --frozen-lockfile --ignore-scripts
+      - name: Run frontend quality gate
+        run: python scripts/quality.py --profile ci --only frontend --github --report-dir .logs/quality/frontend
 
-      - name: Check formatting
-        working-directory: src/trapo-client
-        run: bun run format:check
-
-      - name: Lint
-        working-directory: src/trapo-client
-        run: bun run lint
-
-      - name: Test
-        working-directory: src/trapo-client
-        run: bun run test
-
-      - name: Typecheck
-        working-directory: src/trapo-client
-        run: bun run typecheck
-
-      - name: Build
-        working-directory: src/trapo-client
-        run: bun run build
-
-      - name: Build Storybook
-        working-directory: src/trapo-client
-        run: bun run build-storybook
+      - name: Upload quality logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quality-frontend
+          path: .logs/quality/frontend/**
+          if-no-files-found: error
 
   rust:
     name: Trapo Rust server (${{ matrix.platform }})
@@ -110,33 +87,33 @@ jobs:
             runner: ubuntu-24.04-arm
     env:
       DUCKDB_DOWNLOAD_LIB: "1"
+      TRAPO_RUST_PLATFORM: ${{ matrix.platform }}
     steps:
       - name: Check out repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14.6"
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           toolchain: stable
 
-      - name: Check formatting
-        if: matrix.platform == 'linux-x64'
-        run: cargo fmt --all -- --check
+      - name: Run Rust quality gate
+        run: python scripts/quality.py --profile ci --only rust --github --report-dir .logs/quality/rust-${{ matrix.platform }}
 
-      - name: Clippy
-        run: cargo clippy -p trapo-server --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test -p trapo-server
-
-      - name: Verify OpenAPI export
-        if: matrix.platform == 'linux-x64'
-        shell: bash
-        run: |
-          cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
-          git diff --exit-code -- src/trapo-server/openapi/trapo.openapi.json
+      - name: Upload quality logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quality-rust-${{ matrix.platform }}
+          path: .logs/quality/rust-${{ matrix.platform }}/**
+          if-no-files-found: error
 
   python:
     name: Python packaging scripts
@@ -153,12 +130,19 @@ jobs:
         with:
           python-version: "3.14.6"
 
-      - name: Run installer tests
-        shell: bash
-        run: |
-          python -m py_compile scripts/package_runtime.py scripts/install_runtime.py scripts/test_ctypes_runtime.py scripts/package_trapo_workbench.py
-          python -m py_compile scripts/package_runtime_macos.py
-          python -m unittest discover -s tests -p "test_*.py"
+      - name: Install Python quality tools
+        run: python -m pip install --disable-pip-version-check --only-binary=:all: ruff==0.15.20
+
+      - name: Run Python quality gate
+        run: python scripts/quality.py --profile ci --only python --github --report-dir .logs/quality/python
+
+      - name: Upload quality logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quality-python
+          path: .logs/quality/python/**
+          if-no-files-found: error
 
   complexity:
     name: SCC complexity
@@ -170,6 +154,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14.6"
+
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -177,52 +166,12 @@ jobs:
           cache: false
 
       - name: Run SCC gate
-        shell: bash
-        run: |
-          mkdir -p .logs
-          go install github.com/boyter/scc/v3@latest
-          "$HOME/go/bin/scc" --by-file --format json > .logs/scc.json
-          python3 - <<'PY'
-          import json
-          import re
-          import sys
+        run: python scripts/quality.py --profile ci --only scc --github --report-dir .logs/quality/scc
 
-          ignored = re.compile(
-              r"node_modules|dist|generated|\.json$|\.md$|trapo/migrations|tests/|"
-              r"scripts/(install_runtime\.py|package_runtime\.py|package_trapo_workbench\.py|"
-              r"test_ctypes_runtime\.py|windows/setup-build\.ps1|mac/setup-build\.sh|"
-              r"linux/setup-build\.sh)"
-          )
-
-          def scc_files(payload):
-              if isinstance(payload, dict):
-                  return payload.get("Files", [])
-              if isinstance(payload, list):
-                  return [
-                      item
-                      for group in payload
-                      if isinstance(group, dict)
-                      for item in group.get("Files", [])
-                  ]
-              return []
-
-          data = json.load(open(".logs/scc.json", encoding="utf-8"))
-          offenders = [
-              item
-              for item in scc_files(data)
-              if item.get("Lines", 0) > 300
-              and not ignored.search(item.get("Location", "").replace("\\", "/"))
-          ]
-          offenders.sort(key=lambda item: item.get("Lines", 0), reverse=True)
-          for item in offenders:
-              print(f"{item.get('Location')} lines={item.get('Lines')} code={item.get('Code')} complexity={item.get('Complexity')}")
-          sys.exit(1 if offenders else 0)
-          PY
-
-      - name: Upload SCC log
+      - name: Upload quality logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: scc-complexity-log
-          path: .logs/scc.json
+          name: quality-scc
+          path: .logs/quality/scc/**
           if-no-files-found: error

@@ -252,6 +252,13 @@
       "reason": "The triage wrapper writes operator-selected local reports under docs/skylos/issues or ignored .logs paths."
     },
     {
+      "id": "quality-runner-local-reports",
+      "rule_id": "*",
+      "category": "danger",
+      "path_glob": "scripts/quality_*.py",
+      "reason": "The quality runner reads and writes operator-selected local gate logs/reports and GitHub Actions summary/annotation output."
+    },
+    {
       "id": "ctypes-runtime-local-abi-read",
       "rule_id": "SKY-D325",
       "category": "danger",

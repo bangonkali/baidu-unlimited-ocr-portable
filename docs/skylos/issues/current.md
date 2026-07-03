@@ -1,12 +1,12 @@
 # Current Skylos Triage
 
-Raw input: `.logs/skylos-first-party-20260704-r3.raw.json`
+Raw input: `C:/Users/Bangonkali/Desktop/Projects/uocr/baidu-unlimited-ocr-portable/.logs/quality-skylos-state/skylos/skylos.raw.json`
 
 | State | Count |
 | --- | ---: |
 | Open | 0 |
-| Accepted exception | 297 |
-| Excluded by scope | 55 |
+| Accepted exception | 311 |
+| Excluded by scope | 51 |
 
 ## Open Findings
 
@@ -33,8 +33,15 @@ No open first-party findings remain.
 | danger | SKY-D215 | `scripts/package_trapo_workbench.py` | 237 |  | workbench-packager-stage-paths |
 | danger | SKY-D215 | `scripts/package_trapo_workbench.py` | 240 |  | workbench-packager-stage-paths |
 | danger | SKY-D324 | `scripts/package_trapo_workbench.py` | 256 |  | workbench-packager-stage-writes |
-| danger | SKY-D325 | `scripts/skylos_triage.py` | 28 |  | skylos-triage-local-artifacts |
-| danger | SKY-D324 | `scripts/skylos_triage.py` | 160 |  | skylos-triage-local-reports |
+| danger | SKY-D324 | `scripts/quality_core.py` | 87 |  | quality-runner-local-reports |
+| danger | SKY-D324 | `scripts/quality_core.py` | 150 |  | quality-runner-local-reports |
+| danger | SKY-D215 | `scripts/quality_core.py` | 210 |  | quality-runner-local-reports |
+| danger | SKY-D325 | `scripts/quality_core.py` | 210 |  | quality-runner-local-reports |
+| danger | SKY-D325 | `scripts/quality_gates.py` | 135 |  | quality-runner-local-reports |
+| danger | SKY-D325 | `scripts/quality_scc.py` | 71 |  | quality-runner-local-reports |
+| danger | SKY-D324 | `scripts/quality_scc.py` | 77 |  | quality-runner-local-reports |
+| danger | SKY-D325 | `scripts/skylos_triage.py` | 44 |  | skylos-triage-local-artifacts |
+| danger | SKY-D324 | `scripts/skylos_triage.py` | 182 |  | skylos-triage-local-reports |
 | danger | SKY-D325 | `scripts/test_ctypes_runtime.py` | 78 |  | ctypes-runtime-local-abi-read |
 | danger | SKY-D216 | `src/trapo-client/src/api/http.ts` | 16 |  | client-api-same-origin-fetch |
 | danger | SKY-D216 | `src/trapo-client/src/api/http.ts` | 26 |  | client-api-same-origin-fetch |
@@ -75,9 +82,16 @@ No open first-party findings remain.
 | quality | SKY-P403 | `scripts/package_runtime.py` | 134 | nested_loop | python-release-script-complexity |
 | quality | SKY-Q306 | `scripts/package_runtime.py` | 254 | package_runtime | python-release-script-complexity |
 | quality | SKY-C304 | `scripts/package_runtime.py` | 254 | package_runtime | python-release-script-complexity |
-| quality | SKY-T102 | `scripts/skylos_triage.py` | 87 | iter_findings | python-release-script-complexity |
-| quality | SKY-P403 | `scripts/skylos_triage.py` | 89 | nested_loop | python-release-script-complexity |
-| quality | SKY-P403 | `scripts/skylos_triage.py` | 171 | nested_loop | python-release-script-complexity |
+| quality | SKY-L027 | `scripts/quality.py` | 40 | store_true | python-release-script-complexity |
+| quality | SKY-L027 | `scripts/quality_core.py` | 101 | utf-8 | python-release-script-complexity |
+| quality | SKY-L029 | `scripts/quality_core.py` | 144 | synthetic_step.passed | python-release-script-complexity |
+| quality | SKY-P403 | `scripts/quality_core.py` | 216 | nested_loop | python-release-script-complexity |
+| quality | SKY-L027 | `scripts/quality_gates.py` | 197 | skylos | python-release-script-complexity |
+| quality | SKY-L027 | `scripts/quality_gates.py` | 92 | cargo | python-release-script-complexity |
+| quality | SKY-L027 | `scripts/quality_gates.py` | 99 | trapo-server | python-release-script-complexity |
+| quality | SKY-T102 | `scripts/skylos_triage.py` | 103 | iter_findings | python-release-script-complexity |
+| quality | SKY-P403 | `scripts/skylos_triage.py` | 105 | nested_loop | python-release-script-complexity |
+| quality | SKY-P403 | `scripts/skylos_triage.py` | 193 | nested_loop | python-release-script-complexity |
 | quality | SKY-P403 | `scripts/test_ctypes_runtime.py` | 134 | nested_loop | python-release-script-complexity |
 | quality | SKY-L007 | `scripts/test_ctypes_runtime.py` | 131 | except | python-release-script-complexity |
 | quality | SKY-L030 | `scripts/test_ctypes_runtime.py` | 131 | except | python-release-script-complexity |
@@ -114,8 +128,8 @@ No open first-party findings remain.
 | quality | SKY-C304 | `src/trapo-client/src/features/workbench/WorkbenchViewContent.tsx` | 77 | WorkbenchViewContent | react-composition-length |
 | quality | SKY-C304 | `src/trapo-client/src/realtime/ocrReplayProjection.ts` | 36 | projectOcrReplayEvents | react-composition-length |
 | quality | SKY-C304 | `src/trapo-client/src/realtime/RealtimeBridge.tsx` | 33 | createRealtimeDispatcher | react-composition-length |
-| quality | SKY-C304 | `src/trapo-client/src/realtime/realtimeEvents.test.ts` | 78 | anonymous | react-composition-length |
 | quality | SKY-C304 | `src/trapo-client/src/realtime/realtimeEvents.test.ts` | 20 | anonymous | react-composition-length |
+| quality | SKY-C304 | `src/trapo-client/src/realtime/realtimeEvents.test.ts` | 78 | anonymous | react-composition-length |
 | quality | SKY-C304 | `src/trapo-client/src/realtime/realtimeEvents.test.ts` | 136 | anonymous | react-composition-length |
 | quality | SKY-C304 | `src/trapo-client/src/realtime/realtimeEvents.test.ts` | 177 | anonymous | react-composition-length |
 | quality | SKY-Q301 | `src/trapo-client/src/realtime/realtimeQueryBridge.ts` | 93 | applyRealtimeEventToQueryClient | react-state-branching |
@@ -155,8 +169,8 @@ No open first-party findings remain.
 | unused_files | SKY-E003 | `src/trapo-client/src/stores/notificationStore.ts` | 1 |  | react-framework-dead-code |
 | unused_files | SKY-E003 | `src/trapo-client/src/stories/ComponentInventory.stories.tsx` | 1 |  | storybook-entrypoints |
 | unused_files | SKY-E003 | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 1 |  | storybook-entrypoints |
-| unused_functions |  | `src/trapo-client/src/features/workbench/ModelGridCells.tsx` | 39 | FilesCell | react-public-cells |
 | unused_functions |  | `src/trapo-client/src/features/workbench/ModelGridCells.tsx` | 21 | ProgressCell | react-public-cells |
+| unused_functions |  | `src/trapo-client/src/features/workbench/ModelGridCells.tsx` | 39 | FilesCell | react-public-cells |
 | unused_functions |  | `src/trapo-server/src/openapi.rs` | 159 | health_doc | utoipa-openapi-builders |
 | unused_functions |  | `src/trapo-server/src/openapi.rs` | 162 | status_doc | utoipa-openapi-builders |
 | unused_functions |  | `src/trapo-server/src/openapi.rs` | 165 | openapi_doc | utoipa-openapi-builders |
@@ -304,12 +318,12 @@ No open first-party findings remain.
 | unused_imports |  | `src/trapo-server/src/storage.rs` | 12 | Result | rust-module-reexports |
 | unused_variables |  | `src/trapo-client/src/routes/__root.tsx` | 3 | Route | tanstack-router-route-exports |
 | unused_variables |  | `src/trapo-client/src/stories/ComponentInventory.stories.tsx` | 29 | Inventory | storybook-named-exports |
-| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 143 | Models | storybook-named-exports |
-| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 156 | ModelsDownloading | storybook-named-exports |
-| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 169 | ModelDownloads | storybook-named-exports |
-| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 233 | fixturePreviewImage | storybook-named-exports |
 | unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 64 | Explorer | storybook-named-exports |
 | unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 76 | Traceability | storybook-named-exports |
-| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 38 | Ingest | storybook-named-exports |
 | unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 104 | LiveText | storybook-named-exports |
+| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 156 | ModelsDownloading | storybook-named-exports |
 | unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 184 | ModelDetail | storybook-named-exports |
+| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 233 | fixturePreviewImage | storybook-named-exports |
+| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 38 | Ingest | storybook-named-exports |
+| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 143 | Models | storybook-named-exports |
+| unused_variables |  | `src/trapo-client/src/stories/WorkbenchSurfaces.stories.tsx` | 169 | ModelDownloads | storybook-named-exports |

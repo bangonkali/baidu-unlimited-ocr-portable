@@ -131,6 +131,7 @@ not the large GGUF model files.
 - [Diagnostics and replay](docs/DIAGNOSTICS.md)
 - [Text preview behavior](docs/TEXT-PREVIEW.md)
 - [Release process](docs/RELEASES.md)
+- [Quality gates](docs/QUALITY.md)
 - [Local Skylos workflow](docs/skylos/README.md)
 - [Runtime binaries](docs/RUNTIME-BINARIES.md)
 - [Native FFI ABI](docs/NATIVE-FFI.md)
