@@ -24,7 +24,7 @@ jobs:
 
       - name: Install Skylos
         run: |
-          python -m pip install --disable-pip-version-check --only-binary=:all: skylos==4.27.0
+          python -m pip install --disable-pip-version-check skylos==4.27.0
 
       - name: Run Skylos quality gate
         run: python scripts/quality.py --profile ci --only skylos --github --report-dir .logs/quality/skylos
