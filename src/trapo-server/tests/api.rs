@@ -2,8 +2,9 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
+use duckdb::params;
 use tower::ServiceExt;
-use trapo_server::{AppState, ServerConfig, build_router, openapi::ApiDoc};
+use trapo_server::{AppState, ServerConfig, build_router, openapi::ApiDoc, storage::Repository};
 use utoipa::OpenApi;
 
 #[tokio::test]
@@ -156,6 +157,100 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         value["paths"]["/api/models/{model_id}/cancel"]["post"]["responses"]["202"].is_object()
     );
     Ok(())
+}
+
+#[test]
+fn openapi_page_fields_remain_numeric() -> anyhow::Result<()> {
+    let value = serde_json::to_value(ApiDoc::openapi())?;
+    for (schema_name, field_name) in [
+        ("DocumentSummary", "page_count"),
+        ("DocumentSummary", "current_page"),
+        ("DocumentDetail", "page_count"),
+        ("DocumentDetail", "current_page"),
+        ("IngestRunRecord", "current_page"),
+        ("OverlayBox", "page_no"),
+        ("PageTextRecord", "page_no"),
+        ("TextRegionSpan", "page_no"),
+    ] {
+        let schema = &value["components"]["schemas"][schema_name]["properties"][field_name];
+        assert_integer_schema(schema, &format!("{schema_name}.{field_name}"));
+    }
+
+    let parameters =
+        value["paths"]["/api/documents/{file_hash}/preview-images/{variant}/{page_no}"]["get"]
+            ["parameters"]
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("preview route parameters were not an array"))?;
+    let page_no = parameters
+        .iter()
+        .find(|parameter| parameter["name"].as_str() == Some("page_no"))
+        .ok_or_else(|| anyhow::anyhow!("preview route is missing page_no parameter"))?;
+    assert_integer_schema(
+        &page_no["schema"],
+        "GET /api/documents/{file_hash}/preview-images/{variant}/{page_no} page_no",
+    );
+    Ok(())
+}
+
+#[test]
+fn duckdb_page_columns_remain_integer() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let database_path = temp.path().join("trapo.duckdb");
+    let _repository = Repository::open(database_path.clone())?;
+    let conn = duckdb::Connection::open(&database_path)?;
+
+    for (table, column) in [
+        ("files", "page_count"),
+        ("ingest_work_units", "page_no"),
+        ("document_pages", "page_no"),
+        ("document_preview_images", "page_no"),
+        ("document_page_ocr", "page_no"),
+        ("document_regions", "page_no"),
+        ("document_text_region_links", "page_no"),
+        ("document_terms", "page_no"),
+        ("annotation_visibility_overrides", "page_no"),
+        ("document_region_annotations", "page_no"),
+        ("ocr_page_metrics", "page_no"),
+        ("ocr_stream_events", "page_no"),
+        ("ingest_diagnostic_spans", "page_no"),
+        ("ingest_diagnostic_events", "page_no"),
+    ] {
+        assert_eq!(
+            column_type(&conn, table, column)?,
+            "INTEGER",
+            "{table}.{column} must remain INTEGER"
+        );
+    }
+    Ok(())
+}
+
+fn assert_integer_schema(schema: &serde_json::Value, name: &str) {
+    assert!(
+        schema_type_contains(schema, "integer"),
+        "{name} must include integer type: {schema}"
+    );
+    assert!(
+        !schema_type_contains(schema, "string"),
+        "{name} must not include string type: {schema}"
+    );
+}
+
+fn schema_type_contains(schema: &serde_json::Value, expected: &str) -> bool {
+    match &schema["type"] {
+        serde_json::Value::String(value) => value == expected,
+        serde_json::Value::Array(values) => {
+            values.iter().any(|value| value.as_str() == Some(expected))
+        }
+        _ => false,
+    }
+}
+
+fn column_type(conn: &duckdb::Connection, table: &str, column: &str) -> anyhow::Result<String> {
+    Ok(conn.query_row(
+        "SELECT data_type FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        params![table, column],
+        |row| row.get::<_, String>(0),
+    )?)
 }
 
 async fn test_state() -> anyhow::Result<AppState> {

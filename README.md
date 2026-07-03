@@ -60,6 +60,12 @@ Workbench UI settings in:
 data/trapo.duckdb
 ```
 
+Page numbers are numeric throughout the stack. DuckDB stores page counts and
+page numbers as `INTEGER`, the OpenAPI schema exposes page fields as integers,
+and the React workbench treats generated TypeScript page fields as `number`.
+Explorer labels such as `Page 10` are display text only, so page rows sort by
+actual page number instead of string order.
+
 Runtime logs are written to:
 
 ```text

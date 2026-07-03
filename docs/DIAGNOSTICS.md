@@ -23,6 +23,12 @@ These rows are written through repository methods rather than direct SQL in
 route handlers. Query endpoints shape the data for the React tree grid and keep
 the DuckDB schema independent from UI rendering details.
 
+Page fields are stored as numeric data. DuckDB page columns, including
+`files.page_count`, page-scoped `page_no` columns, diagnostics page filters, and
+OCR replay event scopes, use `INTEGER` storage. API contracts keep the same
+numeric shape so diagnostics can filter and sort by page number without string
+coercion.
+
 ## Waterfall View
 
 The diagnostics route loads runs from `/api/diagnostics/runs` and detailed trace

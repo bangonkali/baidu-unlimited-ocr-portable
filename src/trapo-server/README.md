@@ -38,6 +38,11 @@ client can replay historical page events from `/api/ocr/events` and then merge
 new websocket events, while completed pages are rebuilt from persisted page,
 box, and span rows.
 
+Page numbers are a numeric contract. Rust DTOs use `u32`, OpenAPI emits integer
+schemas for `page_no`, `page_count`, and `current_page`, and DuckDB page columns
+use `INTEGER`. UI labels may render `Page 10`, but clients should sort and
+filter using the numeric fields.
+
 Diagnostics are stored as work units, spans, events, and model leases in
 DuckDB. The Workbench diagnostics route queries those rows as a waterfall tree,
 run progress tree, analytics summary, and model lease history.

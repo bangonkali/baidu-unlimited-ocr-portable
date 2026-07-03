@@ -56,6 +56,11 @@ The React workbench applies one more defensive filter before rendering the text
 pane. If an older payload contains queued placeholder pages, the client derives
 visible pages from document progress, `current_page`, existing text, and spans.
 
+Page identity remains numeric across this flow. Backend payloads expose
+`page_no`, `page_count`, and `current_page` as integer OpenAPI schemas, generated
+TypeScript models consume them as `number`, and display strings such as `Page 2`
+are only UI labels.
+
 When a new ingest starts, the client seeds the selected file and page from the
 `/api/ingest/start` response before navigating to `/workbench`. The selected
 active page replays persisted OCR events while it is still running. If the

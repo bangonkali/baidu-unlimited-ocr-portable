@@ -42,6 +42,12 @@ Rows are built with the shared `TreeView` and `TreeGrid` components under
 `src/trapo-client/src/components/workbench`. Feature panels pass nodes into that
 shared component instead of hand-rolling separate tree renderers.
 
+Page rows are generated from numeric document `page_count` values and carry a
+numeric `pageNo` sort key. The explorer displays labels such as `Page 10`, but
+sorting never parses those labels as strings; page children are ordered by the
+actual page number so multi-page files appear as `Page 1`, `Page 2`, and then
+later `Page 10`.
+
 ## Download Manager
 
 Model downloads are coordinated by `trapo-server` as a serial queue. The model

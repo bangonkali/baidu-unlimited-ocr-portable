@@ -56,9 +56,10 @@ export function ExplorerTree({
 interface MutableTreeNode extends TreeNode {
   children: MutableTreeNode[];
   kind: 'root' | 'folder' | 'document' | 'page';
+  pageNo?: number;
 }
 
-function buildDocumentTree(
+export function buildDocumentTree(
   documents: DocumentSummary[],
   onSelectDocument: (fileHash: string, pageNo?: number) => void,
   selectedFileHash: string | undefined,
@@ -102,36 +103,46 @@ function buildDocumentTree(
 function documentNode(
   document: DocumentSummary,
   fileName: string,
-  selectedFileHash: string | undefined,
+  selectedDocumentId: string | undefined,
   onSelectDocument: (fileHash: string, pageNo?: number) => void,
 ): MutableTreeNode {
+  const documentId = document.file_hash;
   const pageCount = Math.max(document.page_count || 1, 1);
   return {
     badge: <StatusIcon status={document.status} />,
     children:
       pageCount > 1
-        ? Array.from({ length: pageCount }, (_, index) => pageNode(document, index + 1))
+        ? Array.from({ length: pageCount }, (_, index) =>
+            pageNode(document, documentId, index + 1, selectedDocumentId, onSelectDocument),
+          )
         : [],
     icon: <FileText size={14} />,
-    id: `document:${document.file_hash}`,
+    id: `document:${documentId}`,
     kind: 'document',
     label: fileName,
-    onSelect: () => onSelectDocument(document.file_hash, 1),
-    selected: selectedFileHash === document.file_hash,
+    onSelect: () => onSelectDocument(documentId, 1),
+    selected: selectedDocumentId === documentId,
   };
+}
 
-  function pageNode(source: DocumentSummary, pageNo: number): MutableTreeNode {
-    return {
-      badge: pageBadge(source, pageNo),
-      children: [],
-      icon: <FileText size={13} />,
-      id: `document:${source.file_hash}:page:${pageNo}`,
-      kind: 'page',
-      label: `Page ${pageNo}`,
-      onSelect: () => onSelectDocument(source.file_hash, pageNo),
-      selected: selectedFileHash === source.file_hash && source.current_page === pageNo,
-    };
-  }
+function pageNode(
+  document: DocumentSummary,
+  documentId: string,
+  pageNo: number,
+  selectedDocumentId: string | undefined,
+  onSelectDocument: (fileHash: string, pageNo?: number) => void,
+): MutableTreeNode {
+  return {
+    badge: pageBadge(document, pageNo),
+    children: [],
+    icon: <FileText size={13} />,
+    id: `document:${documentId}:page:${pageNo}`,
+    kind: 'page',
+    label: `Page ${pageNo}`,
+    onSelect: () => onSelectDocument(documentId, pageNo),
+    pageNo,
+    selected: selectedDocumentId === documentId && document.current_page === pageNo,
+  };
 }
 
 function StatusIcon({ status }: { status: string }) {
@@ -167,14 +178,47 @@ function sortedDocuments(documents: DocumentSummary[]) {
 
 function sortNodes(node: MutableTreeNode) {
   node.children.sort((left, right) => {
-    if (left.kind !== right.kind) {
-      return left.kind === 'folder' ? -1 : 1;
+    const kindOrder = nodeKindOrder(left) - nodeKindOrder(right);
+    if (kindOrder !== 0) {
+      return kindOrder;
+    }
+    if (left.kind === 'page' && right.kind === 'page') {
+      const pageOrder = pageNumberOrder(left, right);
+      if (pageOrder !== 0) {
+        return pageOrder;
+      }
     }
     return left.label.localeCompare(right.label);
   });
   for (const child of node.children) {
     sortNodes(child);
   }
+}
+
+function nodeKindOrder(node: MutableTreeNode) {
+  if (node.kind === 'folder') {
+    return 0;
+  }
+  if (node.kind === 'document') {
+    return 1;
+  }
+  if (node.kind === 'page') {
+    return 2;
+  }
+  return 3;
+}
+
+function pageNumberOrder(left: MutableTreeNode, right: MutableTreeNode) {
+  if (left.pageNo !== undefined && right.pageNo !== undefined) {
+    return left.pageNo - right.pageNo;
+  }
+  if (left.pageNo !== undefined) {
+    return -1;
+  }
+  if (right.pageNo !== undefined) {
+    return 1;
+  }
+  return 0;
 }
 
 function defaultExpandedIds(nodes: TreeNode[]) {
