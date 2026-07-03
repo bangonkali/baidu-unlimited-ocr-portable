@@ -30,9 +30,12 @@ impl PdfRenderer {
     }
 
     pub fn render_pdf(&self, file_hash: &str, pdf_path: &Path) -> Result<Vec<RenderedPage>> {
-        if let Some(pdfium_dir) = &self.pdfium_dir {
-            pdfium::set_library_location(&pdfium_library_location(pdfium_dir));
-        }
+        let Some(pdfium_dir) = &self.pdfium_dir else {
+            return Err(AppError::Internal(
+                "PDFium runtime was not found; set TRAPO_PDFIUM_DIR or run from a packaged Trapo workbench".to_string(),
+            ));
+        };
+        pdfium::set_library_location(&pdfium_library_location(pdfium_dir));
         let document = PdfiumDocument::new_from_path(native_external_path(pdf_path), None)
             .map_err(|error| {
                 AppError::Internal(format!("failed to open PDF with PDFium: {error:?}"))

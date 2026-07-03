@@ -10,6 +10,232 @@
     "version": "0.1.5"
   },
   "paths": {
+    "/api/diagnostics/analytics": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_analytics_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticAnalyticsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diagnostics/models": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_models_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticModelsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diagnostics/progress": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_progress_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticProgressPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diagnostics/runs": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_runs_doc",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticRunsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/diagnostics/trace": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_trace_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file_hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticTracePayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/documents": {
       "get": {
         "tags": [
@@ -768,6 +994,74 @@
         }
       }
     },
+    "/api/ocr/events": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "ocr_events_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file_hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "since_sequence",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrReplayPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/openapi.json": {
       "get": {
         "tags": [
@@ -912,6 +1206,723 @@
   },
   "components": {
     "schemas": {
+      "DiagnosticAnalyticsPayload": {
+        "type": "object",
+        "required": [
+          "summary",
+          "by_pipeline_step",
+          "by_category",
+          "slow_spans",
+          "recommendations"
+        ],
+        "properties": {
+          "by_category": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticBreakdownRecord"
+            }
+          },
+          "by_pipeline_step": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticBreakdownRecord"
+            }
+          },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticRecommendationRecord"
+            }
+          },
+          "slow_spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticSlowSpanRecord"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DiagnosticAnalyticsSummary"
+          }
+        }
+      },
+      "DiagnosticAnalyticsSummary": {
+        "type": "object",
+        "required": [
+          "span_count",
+          "event_count",
+          "error_count",
+          "total_duration_ms",
+          "average_span_ms"
+        ],
+        "properties": {
+          "average_span_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "error_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "span_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total_duration_ms": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DiagnosticBreakdownRecord": {
+        "type": "object",
+        "required": [
+          "key",
+          "count",
+          "total_duration_ms"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "key": {
+            "type": "string"
+          },
+          "total_duration_ms": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DiagnosticEventRecord": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "trace_id",
+          "timestamp",
+          "event_type",
+          "name",
+          "severity",
+          "message",
+          "attributes"
+        ],
+        "properties": {
+          "attributes": {
+            "type": "object"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "file_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "type": "string"
+          },
+          "span_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "DiagnosticModelLeaseRecord": {
+        "type": "object",
+        "required": [
+          "lease_id",
+          "run_id",
+          "execution_key",
+          "provider",
+          "model",
+          "status",
+          "started_at",
+          "metadata"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution_key": {
+            "type": "string"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lease_id": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "model": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "requested_context_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "verified_context_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "DiagnosticModelsPayload": {
+        "type": "object",
+        "required": [
+          "model_leases"
+        ],
+        "properties": {
+          "model_leases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticModelLeaseRecord"
+            }
+          }
+        }
+      },
+      "DiagnosticProgressPayload": {
+        "type": "object",
+        "required": [
+          "summary",
+          "work_units",
+          "model_leases"
+        ],
+        "properties": {
+          "model_leases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticModelLeaseRecord"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DiagnosticProgressSummary"
+          },
+          "work_units": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticWorkUnitRecord"
+            }
+          }
+        }
+      },
+      "DiagnosticProgressSummary": {
+        "type": "object",
+        "required": [
+          "total_work_units",
+          "queued",
+          "running",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "properties": {
+          "cancelled": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "queued": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "running": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total_work_units": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "DiagnosticRecommendationRecord": {
+        "type": "object",
+        "required": [
+          "severity",
+          "title",
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "DiagnosticRunRecord": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "root_path",
+          "status",
+          "duration_ms",
+          "span_count",
+          "error_count",
+          "file_count",
+          "page_count"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "error_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "file_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "root_path": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "span_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "DiagnosticRunsPayload": {
+        "type": "object",
+        "required": [
+          "runs"
+        ],
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticRunRecord"
+            }
+          }
+        }
+      },
+      "DiagnosticSlowSpanRecord": {
+        "type": "object",
+        "required": [
+          "span_id",
+          "name",
+          "pipeline_step",
+          "duration_ms",
+          "status"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pipeline_step": {
+            "type": "string"
+          },
+          "span_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "DiagnosticSpanRecord": {
+        "type": "object",
+        "required": [
+          "span_id",
+          "trace_id",
+          "name",
+          "pipeline_step",
+          "category",
+          "status",
+          "started_at",
+          "ended_at",
+          "duration_ms",
+          "attributes"
+        ],
+        "properties": {
+          "annotation_engine": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attributes": {
+            "type": "object"
+          },
+          "category": {
+            "type": "string"
+          },
+          "duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "ended_at": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_stack": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "parent_span_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pipeline_step": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "span_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          }
+        }
+      },
+      "DiagnosticTracePayload": {
+        "type": "object",
+        "required": [
+          "summary",
+          "spans",
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticEventRecord"
+            }
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticSpanRecord"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DiagnosticTraceSummary"
+          }
+        }
+      },
+      "DiagnosticTraceSummary": {
+        "type": "object",
+        "required": [
+          "span_count",
+          "event_count",
+          "error_count",
+          "total_duration_ms"
+        ],
+        "properties": {
+          "error_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "span_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total_duration_ms": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "DiagnosticWorkUnitRecord": {
+        "type": "object",
+        "required": [
+          "work_unit_id",
+          "run_id",
+          "work_key",
+          "phase",
+          "engine",
+          "provider",
+          "model",
+          "execution_key",
+          "status",
+          "attempt_count",
+          "result",
+          "metadata"
+        ],
+        "properties": {
+          "artifact_variant": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "execution_key": {
+            "type": "string"
+          },
+          "file_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "model": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "phase": {
+            "type": "string"
+          },
+          "profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "source_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "work_key": {
+            "type": "string"
+          },
+          "work_unit_id": {
+            "type": "string"
+          }
+        }
+      },
       "DocumentDetail": {
         "type": "object",
         "required": [
@@ -1780,6 +2791,28 @@
           }
         }
       },
+      "OcrReplayPayload": {
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RealtimeEventRecord"
+            }
+          },
+          "next_since_sequence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "OverlayBox": {
         "type": "object",
         "required": [
@@ -1883,6 +2916,51 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RealtimeEventRecord": {
+        "type": "object",
+        "required": [
+          "sequence",
+          "type",
+          "occurred_at",
+          "payload"
+        ],
+        "properties": {
+          "file_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "payload": {
+            "type": "object"
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "type": {
+            "type": "string"
           }
         }
       },
@@ -2254,6 +3332,9 @@
     },
     {
       "name": "ingest"
+    },
+    {
+      "name": "diagnostics"
     },
     {
       "name": "documents"

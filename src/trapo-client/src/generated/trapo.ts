@@ -6,6 +6,16 @@
  * OpenAPI spec version: 0.1.5
  */
 import type {
+  DiagnosticAnalyticsPayload,
+  DiagnosticModelsPayload,
+  DiagnosticProgressPayload,
+  DiagnosticRunsPayload,
+  DiagnosticTracePayload,
+  DiagnosticsAnalyticsDocParams,
+  DiagnosticsModelsDocParams,
+  DiagnosticsProgressDocParams,
+  DiagnosticsRunsDocParams,
+  DiagnosticsTraceDocParams,
   DocumentDetail,
   DocumentRegionsPayload,
   DocumentTextPayload,
@@ -23,7 +33,9 @@ import type {
   ModelDownloadRequest,
   ModelSelectRecord,
   ModelsPayload,
+  OcrEventsDocParams,
   OcrMetricsTreePayload,
+  OcrReplayPayload,
   PreviewImagesPayload,
   RecentMetricsDocParams,
   SearchDocumentsDocParams,
@@ -31,6 +43,241 @@ import type {
   SettingsUpdateRequest,
   StatusPayload
 } from './model';
+
+export type diagnosticsAnalyticsDocResponse200 = {
+  data: DiagnosticAnalyticsPayload
+  status: 200
+}
+
+export type diagnosticsAnalyticsDocResponseSuccess = (diagnosticsAnalyticsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsAnalyticsDocResponse = (diagnosticsAnalyticsDocResponseSuccess)
+
+export const getDiagnosticsAnalyticsDocUrl = (params?: DiagnosticsAnalyticsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/analytics?${stringifiedParams}` : `/api/diagnostics/analytics`
+}
+
+export const diagnosticsAnalyticsDoc = async (params?: DiagnosticsAnalyticsDocParams, options?: RequestInit): Promise<diagnosticsAnalyticsDocResponse> => {
+
+  const res = await fetch(getDiagnosticsAnalyticsDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsAnalyticsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsAnalyticsDocResponse
+}
+
+
+
+export type diagnosticsModelsDocResponse200 = {
+  data: DiagnosticModelsPayload
+  status: 200
+}
+
+export type diagnosticsModelsDocResponseSuccess = (diagnosticsModelsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsModelsDocResponse = (diagnosticsModelsDocResponseSuccess)
+
+export const getDiagnosticsModelsDocUrl = (params?: DiagnosticsModelsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/models?${stringifiedParams}` : `/api/diagnostics/models`
+}
+
+export const diagnosticsModelsDoc = async (params?: DiagnosticsModelsDocParams, options?: RequestInit): Promise<diagnosticsModelsDocResponse> => {
+
+  const res = await fetch(getDiagnosticsModelsDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsModelsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsModelsDocResponse
+}
+
+
+
+export type diagnosticsProgressDocResponse200 = {
+  data: DiagnosticProgressPayload
+  status: 200
+}
+
+export type diagnosticsProgressDocResponseSuccess = (diagnosticsProgressDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsProgressDocResponse = (diagnosticsProgressDocResponseSuccess)
+
+export const getDiagnosticsProgressDocUrl = (params?: DiagnosticsProgressDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/progress?${stringifiedParams}` : `/api/diagnostics/progress`
+}
+
+export const diagnosticsProgressDoc = async (params?: DiagnosticsProgressDocParams, options?: RequestInit): Promise<diagnosticsProgressDocResponse> => {
+
+  const res = await fetch(getDiagnosticsProgressDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsProgressDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsProgressDocResponse
+}
+
+
+
+export type diagnosticsRunsDocResponse200 = {
+  data: DiagnosticRunsPayload
+  status: 200
+}
+
+export type diagnosticsRunsDocResponseSuccess = (diagnosticsRunsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsRunsDocResponse = (diagnosticsRunsDocResponseSuccess)
+
+export const getDiagnosticsRunsDocUrl = (params?: DiagnosticsRunsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/runs?${stringifiedParams}` : `/api/diagnostics/runs`
+}
+
+export const diagnosticsRunsDoc = async (params?: DiagnosticsRunsDocParams, options?: RequestInit): Promise<diagnosticsRunsDocResponse> => {
+
+  const res = await fetch(getDiagnosticsRunsDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsRunsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsRunsDocResponse
+}
+
+
+
+export type diagnosticsTraceDocResponse200 = {
+  data: DiagnosticTracePayload
+  status: 200
+}
+
+export type diagnosticsTraceDocResponseSuccess = (diagnosticsTraceDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsTraceDocResponse = (diagnosticsTraceDocResponseSuccess)
+
+export const getDiagnosticsTraceDocUrl = (params?: DiagnosticsTraceDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/trace?${stringifiedParams}` : `/api/diagnostics/trace`
+}
+
+export const diagnosticsTraceDoc = async (params?: DiagnosticsTraceDocParams, options?: RequestInit): Promise<diagnosticsTraceDocResponse> => {
+
+  const res = await fetch(getDiagnosticsTraceDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsTraceDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsTraceDocResponse
+}
+
+
 
 export type listDocumentsDocResponse200 = {
   data: DocumentsPayload
@@ -976,6 +1223,53 @@ export const selectModelDoc = async (modelId: string, options?: RequestInit): Pr
 
   const data: selectModelDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as selectModelDocResponse
+}
+
+
+
+export type ocrEventsDocResponse200 = {
+  data: OcrReplayPayload
+  status: 200
+}
+
+export type ocrEventsDocResponseSuccess = (ocrEventsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type ocrEventsDocResponse = (ocrEventsDocResponseSuccess)
+
+export const getOcrEventsDocUrl = (params?: OcrEventsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ocr/events?${stringifiedParams}` : `/api/ocr/events`
+}
+
+export const ocrEventsDoc = async (params?: OcrEventsDocParams, options?: RequestInit): Promise<ocrEventsDocResponse> => {
+
+  const res = await fetch(getOcrEventsDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: ocrEventsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ocrEventsDocResponse
 }
 
 

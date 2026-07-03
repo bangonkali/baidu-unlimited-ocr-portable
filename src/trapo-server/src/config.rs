@@ -132,15 +132,43 @@ fn resolve_client_dist(app_root: &Path) -> PathBuf {
 }
 
 fn resolve_pdfium_dir(app_root: &Path) -> Option<PathBuf> {
-    let candidates = [
+    let mut candidates = vec![
         app_root.join("thirdparty").join("pdfium").join("bin"),
         app_root.join("thirdparty").join("pdfium").join("lib"),
         app_root.join("thirdparty").join("pdfium"),
         app_root.to_path_buf(),
     ];
+    candidates.extend(local_dist_pdfium_dirs(app_root));
     candidates
         .into_iter()
         .find(|path| path.join(pdfium_library_name()).is_file())
+}
+
+fn local_dist_pdfium_dirs(app_root: &Path) -> Vec<PathBuf> {
+    let dist = app_root.join("dist");
+    let Ok(entries) = std::fs::read_dir(dist) else {
+        return Vec::new();
+    };
+    let mut roots = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("trapo-workbench-"))
+        })
+        .collect::<Vec<_>>();
+    roots.sort_by(|left, right| right.file_name().cmp(&left.file_name()));
+    roots
+        .into_iter()
+        .flat_map(|root| {
+            [
+                root.join("thirdparty").join("pdfium").join("bin"),
+                root.join("thirdparty").join("pdfium").join("lib"),
+                root.join("thirdparty").join("pdfium"),
+            ]
+        })
+        .collect()
 }
 
 fn pdfium_library_name() -> &'static str {
@@ -175,6 +203,47 @@ mod tests {
         std::fs::create_dir_all(&web)?;
         std::fs::write(web.join("index.html"), "")?;
         assert_eq!(resolve_client_dist(temp.path()), web);
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_packaged_pdfium_before_dist_fallback() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let packaged = temp.path().join("thirdparty").join("pdfium").join("bin");
+        let fallback = temp
+            .path()
+            .join("dist")
+            .join("trapo-workbench-windows-x64-v0.1.9")
+            .join("thirdparty")
+            .join("pdfium")
+            .join("bin");
+        std::fs::create_dir_all(&packaged)?;
+        std::fs::create_dir_all(&fallback)?;
+        std::fs::write(packaged.join(pdfium_library_name()), "")?;
+        std::fs::write(fallback.join(pdfium_library_name()), "")?;
+        assert_eq!(
+            resolve_pdfium_dir(temp.path()).as_deref(),
+            Some(packaged.as_path())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn resolves_local_dist_pdfium_for_source_runs() -> std::io::Result<()> {
+        let temp = tempfile::tempdir()?;
+        let fallback = temp
+            .path()
+            .join("dist")
+            .join("trapo-workbench-windows-x64-v0.1.9")
+            .join("thirdparty")
+            .join("pdfium")
+            .join("bin");
+        std::fs::create_dir_all(&fallback)?;
+        std::fs::write(fallback.join(pdfium_library_name()), "")?;
+        assert_eq!(
+            resolve_pdfium_dir(temp.path()).as_deref(),
+            Some(fallback.as_path())
+        );
         Ok(())
     }
 
