@@ -122,6 +122,17 @@ https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF
 The release archive contains the native runtime binaries and the React app, but
 not the large GGUF model files.
 
+## Quality Gate
+
+Every task must finish with a 100% passing unified gate:
+
+```powershell
+uv run python scripts\quality.py --profile ci --parallel
+```
+
+The report is written to `.logs/quality/quality-report.md`. See
+[Quality gates](docs/QUALITY.md) for per-gate details and CI output flags.
+
 ## More Documentation
 
 - [Windows portable app](docs/WINDOWS.md)

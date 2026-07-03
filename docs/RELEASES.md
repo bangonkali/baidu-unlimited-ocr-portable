@@ -57,17 +57,24 @@ portable archive, smokes the extracted app, verifies `logs/trapo-server.log` and
 `data/trapo.duckdb`, and uploads workflow artifacts. A final publish job uploads
 all artifacts to one GitHub Release.
 
-`Workbench CI` runs React quality gates, Rust tests across supported OS
-families, Python release-tool tests, and SCC complexity checks. `Build runtime
-binaries` publishes native FFI runtime archives used by Trapo releases.
+`Workbench CI` invokes the unified quality runner for Skylos, React, Rust,
+Python, and SCC gates. `Build runtime binaries` publishes native FFI runtime
+archives used by Trapo releases.
 
 ## Maintainer Flow
+
+Before tagging any release, run the unified quality gate locally and require a
+100% pass:
+
+```powershell
+uv run python scripts\quality.py --profile ci --parallel
+```
 
 Tag releases by incrementing the patch version:
 
 ```sh
-git tag v0.1.14
-git push origin feat/trapo-rust v0.1.14
+git tag <next-patch-tag>
+git push origin feat/trapo-rust <next-patch-tag>
 ```
 
 Local Trapo packages are produced by:

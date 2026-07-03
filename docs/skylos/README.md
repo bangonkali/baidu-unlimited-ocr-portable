@@ -22,6 +22,12 @@ of truth for scope and accepted exceptions.
 
 ## Commands
 
+Run Skylos through the required unified quality gate:
+
+```powershell
+uv run python scripts\quality.py --profile ci --only skylos
+```
+
 Run a local raw scan and first-party triage:
 
 ```powershell
@@ -55,8 +61,15 @@ comments must explain the invariant that makes the flagged operation safe.
 
 ## Validation Notes
 
-CI runs the same local triage in `.github/workflows/workbench-ci.yml` and
-uploads the raw, filtered, and markdown Skylos logs as workflow artifacts.
+Every task must finish with a 100% passing unified quality gate:
+
+```powershell
+uv run python scripts\quality.py --profile ci --parallel
+```
+
+CI runs the same local triage through `.github/workflows/workbench-ci.yml` and
+uploads the raw, filtered, markdown, and global quality logs as workflow
+artifacts.
 
 The reference Skylos clone currently has a Microsoft Defender detection on
 `$env:PROJECTS\skylos\test\test_audit_candidates.py`.
