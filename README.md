@@ -47,8 +47,8 @@ http://127.0.0.1:8765/
 1. Click the Start OCR icon in the Workbench activity bar.
 2. If the selected model is downloaded, Trapo opens the dedicated ingest start
    page immediately.
-3. If the selected model is missing locally, Trapo opens the model downloader
-   and records a lower-right notification explaining what blocked ingest.
+3. If the selected model is missing locally, Trapo opens the model library and
+   records a lower-right notification explaining what blocked ingest.
 4. Choose a folder on the ingest start page and start the scan.
 5. Use the Workbench explorer, preview, text pane, and diagnostics page to
    inspect page images, OCR text, bounding boxes, spans, logs, and timing.
@@ -59,6 +59,10 @@ Workbench UI settings in:
 ```text
 data/trapo.duckdb
 ```
+
+Download lifecycle events are stored there as well. The active Download Manager
+shows only queued or in-progress files; missing files stay in the model library
+as a neutral, restorable state and can be downloaded again.
 
 Page numbers are numeric throughout the stack. DuckDB stores page counts and
 page numbers as `INTEGER`, the OpenAPI schema exposes page fields as integers,
@@ -99,6 +103,10 @@ Starting a new ingest also seeds the workbench from the accepted run snapshot
 before routing to `/workbench`. The first discovered document is selected with
 auto-follow enabled, and any missed page stream events are recovered from the
 DuckDB replay log.
+
+Auto-follow is route-aware. Manual document or region focus writes
+`follow=false` into the workbench route, while the Preview pane toggle writes
+`follow=true` when the user turns following back on.
 
 Detected regions are represented by compact text anchors. A region's content
 scope runs from its anchor to the next anchor, so PDF bounding boxes, details,

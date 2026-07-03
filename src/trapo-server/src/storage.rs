@@ -208,6 +208,24 @@ pub struct WorkUnitUpsert {
 }
 
 #[derive(Debug, Clone)]
+pub struct DownloadEventInsert {
+    pub event_id: String,
+    pub download_id: String,
+    pub owner_kind: String,
+    pub owner_id: String,
+    pub file_id: String,
+    pub file_name: String,
+    pub target_path: String,
+    pub source_url: String,
+    pub event_type: String,
+    pub status: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub error: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct DiagnosticSpanInsert {
     pub span_id: String,
     pub trace_id: String,
@@ -259,6 +277,7 @@ include!("storage/queries.rs");
 include!("storage/internal.rs");
 include!("storage/load.rs");
 include!("storage/replay.rs");
+include!("storage/download_events.rs");
 include!("storage/diagnostics_writes.rs");
 include!("storage/diagnostics_queries.rs");
 include!("storage/diagnostics_rows.rs");

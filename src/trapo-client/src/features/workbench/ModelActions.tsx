@@ -27,7 +27,7 @@ export function ModelActions({
   const isQueued = model.status === 'queued';
   const isActive = isDownloading || isQueued || model.status === 'cancelling';
   const isReady = model.status === 'downloaded';
-  const isRetry = ['error', 'cancelled'].includes(model.status);
+  const isRetry = ['failed', 'cancelled'].includes(model.status);
   return (
     <div className={compact ? styles.actionsCompact : styles.actions}>
       <button

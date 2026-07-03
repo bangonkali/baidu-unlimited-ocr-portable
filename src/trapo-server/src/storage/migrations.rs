@@ -263,4 +263,19 @@ CREATE TABLE IF NOT EXISTS ingest_run_documents (
 CREATE INDEX IF NOT EXISTS idx_ingest_run_documents_run ON ingest_run_documents(run_id, ordinal);
 "#,
     },
+    Migration {
+        id: 9,
+        name: "download_events",
+        sql: r#"
+CREATE TABLE IF NOT EXISTS download_events (
+  event_id TEXT PRIMARY KEY, download_id TEXT NOT NULL, owner_kind TEXT NOT NULL,
+  owner_id TEXT NOT NULL, file_id TEXT NOT NULL, file_name TEXT NOT NULL,
+  target_path TEXT NOT NULL, source_url TEXT NOT NULL, event_type TEXT NOT NULL,
+  status TEXT NOT NULL, downloaded_bytes UBIGINT NOT NULL DEFAULT 0,
+  total_bytes UBIGINT, error TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_download_events_download ON download_events(download_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_kind, owner_id, created_at);
+"#,
+    },
 ];

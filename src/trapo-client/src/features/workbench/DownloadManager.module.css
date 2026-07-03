@@ -105,14 +105,28 @@
   min-width: 0;
 }
 
-.rowHeader strong {
+.title {
+  display: grid;
   min-width: 0;
   flex: 1;
+}
+
+.title strong,
+.title span {
+  min-width: 0;
   overflow: hidden;
-  color: var(--text);
-  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.title strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.title span {
+  color: var(--subtle);
+  font-size: 11px;
 }
 
 .status {

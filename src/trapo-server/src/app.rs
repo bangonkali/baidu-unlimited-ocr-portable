@@ -27,8 +27,8 @@ use crate::{
     storage::{
         DiagnosticEventInsert, DiagnosticEventRow, DiagnosticModelLeaseRow, DiagnosticRunRow,
         DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
-        OcrPageMetrics, Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun,
-        WorkUnitUpsert,
+        DownloadEventInsert, OcrPageMetrics, Repository, StoredDocument, StoredPage,
+        StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
     },
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
@@ -130,8 +130,15 @@ pub struct PageState {
 
 #[derive(Debug, Clone)]
 struct DownloadState {
+    download_id: String,
+    owner_kind: String,
+    owner_id: String,
+    file_id: String,
+    file_name: String,
+    source_url: String,
+    target_path: PathBuf,
+    force: bool,
     status: String,
-    current_file: Option<String>,
     downloaded_bytes: u64,
     total_bytes: Option<u64>,
     error: Option<String>,
@@ -145,6 +152,7 @@ pub fn build_router(state: AppState) -> axum::Router {
 }
 
 include!("app/core.rs");
+include!("app/download_targets.rs");
 include!("app/model_methods.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");

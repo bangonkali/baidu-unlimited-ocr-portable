@@ -12,7 +12,7 @@ import type {
   PageTextRecord,
 } from '../../api/types';
 import type { useWorkbenchState } from '../../stores/workbenchStore';
-import { setAutoFollowRegions, setPaneCollapsed } from '../../stores/workbenchStore';
+import { setPaneCollapsed } from '../../stores/workbenchStore';
 import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { ExplorerTree } from './ExplorerTree';
@@ -35,6 +35,7 @@ interface WorkbenchPanelsProps {
   selectedDocument?: DocumentSummary;
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
+  onAutoFollowChange: (enabled: boolean) => void;
   onSelectDocument: (fileHash: string, pageNo?: number) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
@@ -114,7 +115,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
               pages={props.previewPages}
               selectedPageNo={props.workbench.selection.pageNo}
               selectedRegionId={props.workbench.selection.regionId}
-              onAutoFollowChange={setAutoFollowRegions}
+              onAutoFollowChange={props.onAutoFollowChange}
               onSelectRegion={props.onSelectRegion}
             />
           </Panel>

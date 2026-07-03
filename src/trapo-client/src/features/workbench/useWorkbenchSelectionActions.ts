@@ -11,6 +11,12 @@ interface WorkbenchSelectionPatch {
   regionId?: string;
 }
 
+interface WorkbenchSelectionValue {
+  fileHash?: string;
+  pageNo: number;
+  regionId?: string;
+}
+
 interface UseWorkbenchSelectionActionsArgs {
   navigate: ReturnType<typeof useNavigate>;
   searchText: string;
@@ -22,6 +28,23 @@ export function useWorkbenchSelectionActions({
   searchText,
   workbench,
 }: UseWorkbenchSelectionActionsArgs) {
+  const changeAutoFollow = useCallback(
+    (enabled: boolean) => {
+      setAutoFollowRegions(enabled);
+      void navigate({
+        replace: true,
+        search: () =>
+          routeSearchFromSelection(
+            { ...workbench, autoFollowRegions: enabled },
+            workbench.selection,
+            searchText,
+          ),
+        to: '/workbench',
+      });
+    },
+    [navigate, searchText, workbench],
+  );
+
   const selectWorkbenchTarget = useCallback(
     (patch: WorkbenchSelectionPatch) => {
       const nextSelection = selectionFromPatch(workbench, patch);
@@ -29,7 +52,12 @@ export function useWorkbenchSelectionActions({
       setSelection(nextSelection);
       void navigate({
         replace: true,
-        search: () => routeSearchFromSelection(workbench, nextSelection, searchText),
+        search: () =>
+          routeSearchFromSelection(
+            { ...workbench, autoFollowRegions: false },
+            nextSelection,
+            searchText,
+          ),
         to: '/workbench',
       });
     },
@@ -47,7 +75,7 @@ export function useWorkbenchSelectionActions({
     [selectWorkbenchTarget],
   );
 
-  return { selectDocument, selectRegion, selectWorkbenchTarget };
+  return { changeAutoFollow, selectDocument, selectRegion, selectWorkbenchTarget };
 }
 
 function selectionFromPatch(state: WorkbenchState, patch: WorkbenchSelectionPatch) {
@@ -65,14 +93,14 @@ function selectionFromPatch(state: WorkbenchState, patch: WorkbenchSelectionPatc
   };
 }
 
-function routeSearchFromSelection(
+export function routeSearchFromSelection(
   state: WorkbenchState,
-  selection: ReturnType<typeof selectionFromPatch>,
+  selection: WorkbenchSelectionValue,
   searchText: string,
 ): WorkbenchRouteSearch {
   return {
     file: selection.fileHash,
-    follow: selection.fileHash ? false : undefined,
+    follow: selection.fileHash ? state.autoFollowRegions : undefined,
     labels: state.labelsVisible ? undefined : false,
     overlays: state.overlayVisible ? undefined : false,
     page: selection.fileHash ? selection.pageNo : undefined,

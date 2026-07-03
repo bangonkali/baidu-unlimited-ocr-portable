@@ -49,15 +49,15 @@ function statusMatches(
   filter: DownloadStatusFilter,
 ) {
   if (filter === 'all') {
-    return scope === 'downloads' ? status !== 'downloaded' : true;
+    return scope === 'downloads' ? ['downloading', 'queued', 'cancelling'].includes(status) : true;
   }
   if (filter === 'active') {
-    return status === 'downloading';
+    return status === 'downloading' || status === 'cancelling';
   }
   if (filter === 'queued') {
     return status === 'queued';
   }
-  return ['missing', 'error', 'cancelled'].includes(status);
+  return false;
 }
 
 function compareModels(
@@ -103,20 +103,23 @@ function statusRank(status: string) {
   if (status === 'downloading') {
     return 0;
   }
-  if (status === 'queued') {
+  if (status === 'cancelling') {
     return 1;
   }
-  if (status === 'missing') {
+  if (status === 'queued') {
     return 2;
   }
-  if (status === 'error') {
+  if (status === 'missing') {
     return 3;
   }
-  if (status === 'cancelled') {
+  if (status === 'failed') {
     return 4;
   }
-  if (status === 'downloaded') {
+  if (status === 'cancelled') {
     return 5;
+  }
+  if (status === 'downloaded') {
+    return 6;
   }
   return 6;
 }

@@ -54,6 +54,7 @@ export interface WorkbenchViewContentProps {
   theme: ThemeMode;
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
+  onAutoFollowChange: (enabled: boolean) => void;
   onCancelModel: (modelId: string) => void;
   onDiagnosticsSearchChange: (patch: Partial<DiagnosticsRouteSearch>) => void;
   onDownloadModel: (modelId: string, force?: boolean) => void;
@@ -157,6 +158,7 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
       documents={props.documents}
       logs={props.logs}
       model={props.model}
+      onAutoFollowChange={props.onAutoFollowChange}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
       onSelectDocument={props.onSelectDocument}

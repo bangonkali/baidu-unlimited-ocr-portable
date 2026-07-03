@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-
-import type { ActiveView } from '../../stores/workbenchStore';
+import type { ActiveView, WorkbenchState } from '../../stores/workbenchStore';
 import { autoFollowEnabledForRoute } from './useWorkbenchRouteSync';
+import { routeSearchFromSelection } from './useWorkbenchSelectionActions';
 
 describe('autoFollowEnabledForRoute', () => {
   test('disables auto-follow for manual workbench deep links unless follow is explicit', () => {
@@ -37,3 +37,45 @@ describe('autoFollowEnabledForRoute', () => {
     ).toBe(false);
   });
 });
+
+describe('routeSearchFromSelection', () => {
+  test('keeps explicit follow state for focused workbench routes', () => {
+    const state = workbenchState({ autoFollowRegions: true });
+    expect(routeSearchFromSelection(state, state.selection, '')).toMatchObject({
+      file: 'hash-doc',
+      follow: true,
+      page: 2,
+    });
+
+    const disabled = workbenchState({ autoFollowRegions: false });
+    expect(routeSearchFromSelection(disabled, disabled.selection, '')).toMatchObject({
+      file: 'hash-doc',
+      follow: false,
+      page: 2,
+    });
+  });
+});
+
+function workbenchState(patch: Partial<WorkbenchState>): WorkbenchState {
+  return {
+    activeView: 'workbench',
+    autoFollowRegions: false,
+    labelsVisible: true,
+    overlayVisible: true,
+    panesCollapsed: {
+      details: true,
+      diagnostics: true,
+      explorer: false,
+    },
+    selectedProfile: 'experimental-exact-prefill-q4',
+    selectedRoot: '',
+    selection: {
+      fileHash: 'hash-doc',
+      pageNo: 2,
+      regionId: 'reg-a',
+    },
+    theme: 'dark',
+    tourRun: false,
+    ...patch,
+  };
+}

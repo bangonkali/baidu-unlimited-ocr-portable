@@ -92,7 +92,7 @@ function navigationCommands(): AppCommand[] {
     nav('nav.models', 'Model Library', 'Browse all available Unlimited-OCR model variants.', {
       to: '/models',
     }),
-    nav('nav.downloads', 'Model Downloads', 'Show active and pending model downloads.', {
+    nav('nav.downloads', 'Active Downloads', 'Show queued and in-progress file downloads.', {
       search: { status: 'all' },
       to: '/models/downloads',
     }),
@@ -203,10 +203,10 @@ function modelCommands(models: ModelAssetRecord[]): AppCommand[] {
       });
       return commands;
     }
-    if (model.status === 'downloading') {
+    if (['downloading', 'queued', 'cancelling'].includes(model.status)) {
       commands.push({
         action: { kind: 'cancelModelDownload', modelId: model.model_id },
-        description: 'Cancel the active model download.',
+        description: 'Cancel queued or in-progress model files.',
         group: 'Models',
         icon: 'download',
         id: `model.cancel.${model.model_id}`,

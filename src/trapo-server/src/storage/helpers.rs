@@ -117,6 +117,33 @@ mod tests {
     }
 
     #[test]
+    fn persists_download_lifecycle_events() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let event = DownloadEventInsert {
+            event_id: "event-a".to_string(),
+            download_id: "model:model-a:model".to_string(),
+            owner_kind: "model".to_string(),
+            owner_id: "model-a".to_string(),
+            file_id: "model".to_string(),
+            file_name: "model.gguf".to_string(),
+            target_path: "models/model.gguf".to_string(),
+            source_url: "https://example.invalid/model.gguf".to_string(),
+            event_type: "started".to_string(),
+            status: "downloading".to_string(),
+            downloaded_bytes: 0,
+            total_bytes: Some(128),
+            error: None,
+            created_at: "2026-07-03T00:00:00Z".to_string(),
+        };
+
+        repo.insert_download_event(&event)?;
+
+        assert_eq!(repo.download_event_count(&event.download_id, "started")?, 1);
+        Ok(())
+    }
+
+    #[test]
     fn reloads_run_document_membership() -> Result<()> {
         let temp = tempfile::tempdir()?;
         let repo = Repository::open(temp.path().join("trapo.duckdb"))?;

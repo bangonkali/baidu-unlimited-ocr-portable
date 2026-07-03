@@ -25,9 +25,8 @@ export function startOcrEntry(args: {
   void args.navigate({
     search: {
       model: args.model?.model_id,
-      status: 'pending',
       view: 'grid',
     },
-    to: '/models/downloads',
+    to: '/models',
   });
 }

@@ -42,54 +42,72 @@ impl AppState {
     ) -> Result<ModelDownloadRecord> {
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
-        if self.model_ready(entry.model_id).await && request.force != Some(true) {
+        let force = request.force == Some(true);
+        if self.model_ready(entry.model_id).await && !force {
             return Ok(ModelDownloadRecord {
                 model_id: model_id.to_string(),
                 status: "downloaded".to_string(),
             });
         }
-        let (status, event) = {
+        let targets = model_download_targets(&self.inner.config.model_dir, entry);
+        let (status, event, should_spawn_next) = {
             let mut state = self.inner.state.lock().await;
-            if let Some(download) = state.downloads.get(model_id)
-                && matches!(
-                    download.status.as_str(),
-                    "downloading" | "queued" | "cancelling"
-                )
-            {
-                return Ok(ModelDownloadRecord {
-                    model_id: model_id.to_string(),
-                    status: download.status.clone(),
-                });
-            }
             let active = state
                 .downloads
                 .values()
                 .any(|download| matches!(download.status.as_str(), "downloading" | "cancelling"));
-            let status = if active { "queued" } else { "downloading" }.to_string();
-            if active && !state.download_queue.iter().any(|item| item == model_id) {
-                state.download_queue.push_back(model_id.to_string());
+            let mut queued_any = false;
+            for target in targets {
+                if !force && file_is_present(&target.target_path) {
+                    continue;
+                }
+                if state
+                    .downloads
+                    .get(&target.download_id)
+                    .is_some_and(|download| is_active_download_status(&download.status))
+                {
+                    queued_any = true;
+                    continue;
+                }
+                if !state
+                    .download_queue
+                    .iter()
+                    .any(|item| item == &target.download_id)
+                {
+                    state.download_queue.push_back(target.download_id.clone());
+                }
+                state.downloads.insert(
+                    target.download_id.clone(),
+                    DownloadState {
+                        download_id: target.download_id,
+                        owner_kind: target.owner_kind,
+                        owner_id: target.owner_id,
+                        file_id: target.file_id,
+                        file_name: target.file_name,
+                        source_url: target.source_url,
+                        target_path: target.target_path,
+                        force,
+                        status: "queued".to_string(),
+                        downloaded_bytes: 0,
+                        total_bytes: Some(target.total_bytes),
+                        error: None,
+                        started_at: None,
+                        cancel_requested: false,
+                        last_event_at: Some(Utc::now().to_rfc3339()),
+                    },
+                );
+                queued_any = true;
             }
-            state.downloads.insert(
-                model_id.to_string(),
-                DownloadState {
-                    status: status.clone(),
-                    current_file: None,
-                    downloaded_bytes: 0,
-                    total_bytes: Some(entry.model_size_bytes + SHARED_MMPROJ_SIZE_BYTES),
-                    error: None,
-                    started_at: (!active).then(Instant::now),
-                    cancel_requested: false,
-                    last_event_at: Some(Utc::now().to_rfc3339()),
-                },
-            );
+            let record = model_record(&self.inner.config.model_dir, &state, entry);
             (
-                status,
-                serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))?,
+                record.status.clone(),
+                serde_json::to_value(record)?,
+                queued_any && !active,
             )
         };
         self.inner.hub.publish("model.changed", event);
-        if status == "downloading" {
-            self.spawn_download(model_id.to_string());
+        if should_spawn_next {
+            self.spawn_next_download().await;
         }
         Ok(ModelDownloadRecord {
             model_id: model_id.to_string(),
@@ -103,7 +121,16 @@ impl AppState {
         }
         let (status, event) = {
             let mut state = self.inner.state.lock().await;
-            if let Some(download) = state.downloads.get_mut(model_id) {
+            let mut touched = false;
+            for download in state
+                .downloads
+                .values_mut()
+                .filter(|download| {
+                    download.owner_kind == "model"
+                        && download.owner_id == model_id
+                        && is_active_download_status(&download.status)
+                })
+            {
                 download.cancel_requested = true;
                 download.status = if download.status == "queued" {
                     "cancelled".to_string()
@@ -111,15 +138,15 @@ impl AppState {
                     "cancelling".to_string()
                 };
                 download.last_event_at = Some(Utc::now().to_rfc3339());
+                touched = true;
+            }
+            if touched {
                 let entry = find_model(model_id)
                     .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
+                let record = model_record(&self.inner.config.model_dir, &state, entry);
                 (
-                    download.status.clone(),
-                    Some(serde_json::to_value(model_record(
-                        &self.inner.config.model_dir,
-                        &state,
-                        entry,
-                    ))?),
+                    record.status.clone(),
+                    Some(serde_json::to_value(record)?),
                 )
             } else {
                 ("idle".to_string(), None)

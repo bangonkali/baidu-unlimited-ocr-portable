@@ -11,8 +11,8 @@ The Workbench no longer uses a top toolbar. The primary entry point is the Start
 OCR icon in the activity bar.
 
 - If the selected model is already downloaded, the icon opens `/ingest/start`.
-- If no selected model is downloaded, the icon opens `/models/downloads` and
-  writes a notification to the lower-right notification history.
+- If the selected model is missing locally, the icon opens `/models` and writes
+  a notification to the lower-right notification history.
 - The notification bell keeps historical messages visible even after routing.
 
 The dedicated ingest page owns folder selection and run creation. It sends an
@@ -24,8 +24,11 @@ the accepted run, ordered file hashes, discovered document summaries, and the
 OCR replay sequence to resume from. The React client seeds the run and document
 caches from that response, turns auto-follow on for the new run, selects the
 first discovered document, and then navigates to `/workbench` with explicit
-`file`, `page`, and `follow` route state. This keeps the preview and text panes
-reliable even when the websocket connects during the route transition.
+`file`, `page`, and `follow` route state. The preview Auto Follow button updates
+the route's `follow` value as well as the local store, so manual focus links can
+turn following off without preventing the user from turning it back on. This
+keeps the preview and text panes reliable even when the websocket connects
+during the route transition.
 
 ## File Explorer
 
@@ -50,14 +53,23 @@ later `Page 10`.
 
 ## Download Manager
 
-Model downloads are coordinated by `trapo-server` as a serial queue. The model
-manager starts, cancels, deletes, or selects a model, while the separate
-Download Manager shows queue-level and file-level progress.
+Downloads are coordinated by `trapo-server` as a serial file queue. Model
+downloads enqueue their required GGUF files into the same generic queue used by
+future file download operations. The model manager starts, cancels, re-downloads,
+or selects a model, while the separate Download Manager shows only queued or
+in-progress files.
 
-The manager can stay open while the user navigates across pages. It shows the
-active model, queued models, downloaded bytes, total bytes when known, estimated
-time remaining, current file, and cancel controls. Model cards and grids keep
-their own UI compact by showing only model-specific state and actions.
+`/models/downloads` is the active-downloads route. It opens the Models surface in
+a queue-focused scope and automatically opens the Download Manager. Missing,
+failed, cancelled, or already downloaded files stay in the main `/models`
+library, similar to Chrome's split between the active download tray and the full
+downloads list.
+
+Download start, completion, cancellation, and failure events are recorded in
+DuckDB `download_events`. Runtime status still comes from the filesystem first:
+if a GGUF file was previously downloaded but is no longer present under
+`models/`, the model appears as a neutral missing state and offers download
+again instead of trusting stale history.
 
 ## Onboarding And Tooltips
 

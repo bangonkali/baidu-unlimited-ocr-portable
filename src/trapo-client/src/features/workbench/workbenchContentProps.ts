@@ -32,6 +32,7 @@ interface MutationLike<TInput> {
 
 export interface WorkbenchContentActions {
   cancelModelDownload: MutationLike<string>;
+  changeAutoFollow: (enabled: boolean) => void;
   changeModelScope: (scope: 'library' | 'downloads') => void;
   changeProfile: (profileId: string) => void;
   commandController: ReturnType<typeof useWorkbenchCommands>;
@@ -95,6 +96,7 @@ export function buildContentProps(args: {
     modelDetailId: args.route.modelDetailId,
     modelScope: args.route.modelScope,
     modelSearch: args.route.modelSearch,
+    onAutoFollowChange: args.actions.changeAutoFollow,
     onCancelModel: (modelId) => args.actions.cancelModelDownload.mutate(modelId),
     onDiagnosticsSearchChange: args.actions.commandController.updateDiagnosticsRouteSearch,
     onDownloadModel: (modelId, force) => args.actions.downloadModel.mutate({ force, modelId }),

@@ -58,7 +58,7 @@ export function ModelManager(props: ModelManagerProps) {
       <header className={styles.header}>
         <div className={styles.headerTitle}>
           <Library size={16} />
-          <span>{scope === 'downloads' ? 'Model Downloads' : 'Model Library'}</span>
+          <span>{scope === 'downloads' ? 'Active Downloads' : 'Model Library'}</span>
         </div>
         <span className={styles.provider}>{props.models?.provider_repo ?? selected?.repo_id}</span>
       </header>
@@ -184,10 +184,9 @@ function ModelToolbar(props: {
             onChange={(event) => props.onStatusChange(event.target.value as DownloadStatusFilter)}
             value={props.status}
           >
-            <option value="all">All pending</option>
+            <option value="all">All active</option>
             <option value="active">Active</option>
             <option value="queued">Queued</option>
-            <option value="pending">Pending</option>
           </select>
         </label>
       ) : null}
@@ -196,7 +195,7 @@ function ModelToolbar(props: {
         onClick={() => props.onScopeChange(props.scope === 'downloads' ? 'library' : 'downloads')}
         type="button"
       >
-        {props.scope === 'downloads' ? 'Library' : 'Downloads'}
+        {props.scope === 'downloads' ? 'Library' : 'Active Downloads'}
       </button>
       <button
         className={styles.iconButton}

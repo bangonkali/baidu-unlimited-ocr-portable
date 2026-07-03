@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
 import { fixtureDownloadingModels, fixtureModels } from '../../stories/fixtures/workbenchFixtures';
-import { DownloadManager } from './DownloadManager';
+import { activeDownloadItems, DownloadManager } from './DownloadManager';
 import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
 import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
@@ -49,7 +49,7 @@ describe('ModelManager', () => {
     expect(html).toContain('downloading');
   });
 
-  test('renders queued download details in the download manager', () => {
+  test('renders active file download details in the download manager', () => {
     const html = renderToString(
       <DownloadManager
         models={fixtureDownloadingModels.models}
@@ -57,9 +57,11 @@ describe('ModelManager', () => {
         onClose={() => undefined}
       />,
     );
-    expect(html).toContain('36.7%');
+    expect(html).toContain('active files');
+    expect(html).toContain('45.0%');
     expect(html).toContain('11.25 MiB/s');
     expect(html).toContain('Unlimited-OCR-Q4_K_M.gguf');
+    expect(activeDownloadItems(fixtureModels.models)).toHaveLength(0);
   });
 
   test('renders compact grid headers by default', () => {
@@ -75,12 +77,12 @@ describe('ModelManager', () => {
     expect(html).toContain('Downloads');
   });
 
-  test('filters downloads and sorts by size', () => {
-    const downloads = visibleModels(fixtureModels.models, {
+  test('filters active downloads and sorts by size', () => {
+    const downloads = visibleModels(fixtureDownloadingModels.models, {
       scope: 'downloads',
-      status: 'pending',
+      status: 'all',
     });
-    expect(downloads.map((model) => model.model_id)).toEqual(['unlimited-ocr-iq2-m']);
+    expect(downloads.map((model) => model.model_id)).toEqual(['unlimited-ocr-q4-k-m']);
 
     const bySize = visibleModels(fixtureModels.models, { dir: 'asc', sort: 'size' });
     expect(bySize[0]?.model_id).toBe('unlimited-ocr-iq2-m');

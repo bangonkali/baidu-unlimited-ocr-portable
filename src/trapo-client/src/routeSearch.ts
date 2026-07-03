@@ -19,7 +19,7 @@ export type ModelSortKey =
   | 'speed'
   | 'eta';
 export type SortDirection = 'asc' | 'desc';
-export type DownloadStatusFilter = 'active' | 'queued' | 'pending' | 'all';
+export type DownloadStatusFilter = 'active' | 'queued' | 'all';
 
 export interface ModelRouteSearch {
   dir?: SortDirection;
@@ -155,7 +155,5 @@ function modelSortValue(value: unknown): ModelSortKey | undefined {
 }
 
 function downloadStatusValue(value: unknown): DownloadStatusFilter | undefined {
-  return value === 'active' || value === 'queued' || value === 'pending' || value === 'all'
-    ? value
-    : undefined;
+  return value === 'active' || value === 'queued' || value === 'all' ? value : undefined;
 }
