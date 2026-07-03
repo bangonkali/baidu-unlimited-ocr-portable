@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
@@ -24,17 +24,27 @@ use crate::{
     scanner::{
         DiscoveredFile, SUPPORTED_INPUTS, discover_supported_files, generic_path, stable_hash,
     },
-    storage::{OcrPageMetrics, Repository, StoredDocument, StoredPage, StoredRun},
+    storage::{
+        DiagnosticEventInsert, DiagnosticEventRow, DiagnosticModelLeaseRow, DiagnosticRunRow,
+        DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
+        OcrPageMetrics, Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun,
+        WorkUnitUpsert,
+    },
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
         ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
         SettingsPayload, SettingsUpdateRequest, StatusPayload, WorkbenchUiSettings,
     },
     workbench_types::{
-        DocumentDetail, DocumentRegionsPayload, DocumentSummary, DocumentTextPayload,
-        DocumentsPayload, FolderDialogResponse, IngestRunRecord, IngestRunsPayload,
-        IngestStartRequest, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload, PageTextRecord,
-        PreviewImagesPayload,
+        DiagnosticAnalyticsPayload, DiagnosticAnalyticsSummary, DiagnosticBreakdownRecord,
+        DiagnosticEventRecord, DiagnosticModelLeaseRecord, DiagnosticModelsPayload,
+        DiagnosticProgressPayload, DiagnosticProgressSummary, DiagnosticRecommendationRecord,
+        DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSlowSpanRecord, DiagnosticSpanRecord,
+        DiagnosticTracePayload, DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail,
+        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
+        FolderDialogResponse, IngestRunRecord, IngestRunsPayload, IngestStartRequest, LogsPayload,
+        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord,
+        PreviewImagesPayload, RealtimeEventRecord,
     },
 };
 
@@ -67,6 +77,7 @@ struct WorkbenchState {
     runs: BTreeMap<String, RunState>,
     documents: BTreeMap<String, DocumentState>,
     downloads: HashMap<String, DownloadState>,
+    download_queue: VecDeque<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -141,10 +152,15 @@ include!("app/download_runtime.rs");
 include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
+include!("app/process_document.rs");
 include!("app/region_snippets.rs");
 include!("app/page_pipeline.rs");
 include!("app/download_helpers.rs");
 include!("app/logging.rs");
+include!("app/diagnostics_recording.rs");
+include!("app/diagnostics_methods.rs");
+include!("app/diagnostics_records.rs");
+include!("app/replay_methods.rs");
 
 include!("app/settings_helpers.rs");
 include!("app/model_records.rs");

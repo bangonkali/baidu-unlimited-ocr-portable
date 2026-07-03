@@ -12,6 +12,7 @@ pub mod routes;
 pub mod scanner;
 pub mod storage;
 pub mod types;
+pub mod workbench_diagnostics_types;
 pub mod workbench_types;
 
 pub use app::{AppState, build_router};

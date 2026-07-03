@@ -4,9 +4,8 @@ import type { ModelAssetRecord } from '../../api/types';
 import type { ModelActionHandlers } from './ModelActions';
 import { ModelActions } from './ModelActions';
 import styles from './ModelCards.module.css';
-import { ModelFileTable } from './ModelFileTable';
-import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
-import { modelDownloadedBytes, modelPercent, modelRequiredBytes } from './modelLibrary';
+import { formatBytes } from './modelDownloadFormat';
+import { modelRequiredBytes } from './modelLibrary';
 import { statusIcon, statusText } from './modelStatus';
 
 interface ModelCardsProps extends ModelActionHandlers {
@@ -39,7 +38,6 @@ export function ModelCards({
 
 function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAssetRecord }) {
   const { model } = props;
-  const percent = modelPercent(model);
   return (
     <article className={styles.model} data-selected={model.selected === true}>
       <div className={styles.titleRow}>
@@ -78,39 +76,7 @@ function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAs
             : 'Using public Hugging Face download'}
         </span>
       </div>
-      <ProgressBar label={`${model.display_name} download progress`} percent={percent} />
-      <dl className={styles.meta}>
-        <dt>Progress</dt>
-        <dd>
-          {formatBytes(modelDownloadedBytes(model))} / {formatBytes(modelRequiredBytes(model))} (
-          {formatPercent(percent)})
-        </dd>
-        <dt>Speed</dt>
-        <dd>{formatRate(model.bytes_per_second)}</dd>
-        <dt>ETA</dt>
-        <dd>{formatEta(model.eta_seconds)}</dd>
-        <dt>Files</dt>
-        <dd>
-          {model.downloaded_file_count ?? 0}/{model.total_file_count ?? 2} ready
-        </dd>
-      </dl>
-      <ModelFileTable files={model.files} model={model} />
       {model.error ? <div className={styles.error}>{model.error}</div> : null}
     </article>
-  );
-}
-
-export function ProgressBar({ label, percent }: { label: string; percent: number }) {
-  return (
-    <div
-      aria-label={label}
-      aria-valuemax={100}
-      aria-valuemin={0}
-      aria-valuenow={Math.round(percent)}
-      className={styles.progress}
-      role="progressbar"
-    >
-      <div style={{ width: `${percent}%` }} />
-    </div>
   );
 }

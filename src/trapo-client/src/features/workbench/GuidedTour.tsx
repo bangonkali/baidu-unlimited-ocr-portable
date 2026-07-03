@@ -6,7 +6,12 @@ import { setTourRun } from '../../stores/workbenchStore';
 
 const steps: Step[] = [
   {
-    content: 'Open Models first and download the Unlimited-OCR model files from Hugging Face.',
+    content:
+      'Use Start OCR to begin. If the selected model is missing, Trapo opens the downloader.',
+    target: '[data-tour="start-ocr"]',
+  },
+  {
+    content: 'Download and select a local OCR model before starting an ingest run.',
     target: '[data-tour="models"]',
   },
   {
@@ -23,7 +28,12 @@ const steps: Step[] = [
     target: '[data-tour="preview"]',
   },
   {
-    content: 'Diagnostics shows real runs and the server log file also printed in the terminal.',
+    content:
+      'The explorer follows the target directory tree and marks queued, running, and completed pages.',
+    target: '[aria-label="Explorer"]',
+  },
+  {
+    content: 'Diagnostics shows the OCR waterfall, work units, model leases, and logs.',
     target: '[data-tour="diagnostics"]',
   },
 ];
@@ -60,13 +70,16 @@ function handleTourEvent(event: EventData, onViewChange: (view: ActiveView) => v
     setTourRun(false);
     return;
   }
-  if (event.index === 0) {
+  if (event.index === 1) {
     onViewChange('models');
   }
-  if (event.index === 1 || event.index === 2 || event.index === 3) {
+  if (event.index === 2 || event.index === 3) {
+    onViewChange('ingest');
+  }
+  if (event.index === 0 || event.index === 4 || event.index === 5) {
     onViewChange('workbench');
   }
-  if (event.index === 4) {
+  if (event.index === 6) {
     onViewChange('diagnostics');
   }
 }

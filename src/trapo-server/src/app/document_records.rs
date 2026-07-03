@@ -51,7 +51,7 @@ fn page_from_stored(stored: StoredPage) -> PageState {
         raw_text: stored.raw_text,
         cleaned_text: stored.cleaned_text,
         boxes: stored.boxes,
-        spans: Vec::new(),
+        spans: stored.spans,
         error: stored.error,
     }
 }
@@ -84,6 +84,7 @@ fn stored_page(file_hash: &str, page: &PageState) -> StoredPage {
         cleaned_text: page.cleaned_text.clone(),
         raw_text: page.raw_text.clone(),
         boxes: page.boxes.clone(),
+        spans: page.spans.clone(),
     }
 }
 

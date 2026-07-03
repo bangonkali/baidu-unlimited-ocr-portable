@@ -4,6 +4,7 @@ impl AppState {
         let repository = Repository::open(config.database_path.clone())?;
         let logger = AppLogger::open(&config.log_dir)?;
         let hub = RealtimeHub::new();
+        hub.attach_repository(repository.clone());
         let variants = runtime_variants(&config.app_root);
         let selected_model_id =
             read_string_setting(&repository, "selected_model_id", DEFAULT_MODEL_ID);
@@ -30,6 +31,7 @@ impl AppState {
             runs: BTreeMap::new(),
             documents: BTreeMap::new(),
             downloads: HashMap::new(),
+            download_queue: VecDeque::new(),
         };
         hydrate_snapshot(&repository, &mut state)?;
         let app = Self {

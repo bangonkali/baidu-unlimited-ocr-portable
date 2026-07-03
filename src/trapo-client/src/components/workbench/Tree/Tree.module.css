@@ -1,0 +1,144 @@
+.treeView,
+.treeGrid {
+  min-width: 0;
+  padding: 2px 0;
+  font-size: 13px;
+}
+
+.treeGrid {
+  border: 0;
+  background: transparent;
+}
+
+.treeRow,
+.treeGridRow {
+  align-items: center;
+  color: var(--text);
+}
+
+.treeRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px 0 calc(4px + (var(--tree-level, 0) * 14px));
+}
+
+.treeRowWithCheckbox {
+  grid-template-columns: 16px 16px minmax(0, 1fr) auto;
+}
+
+.treeGridRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 34px;
+  min-height: 24px;
+}
+
+.treeRow:hover,
+.treeGridRow:hover {
+  background: var(--panel-3);
+}
+
+.active {
+  background: var(--panel-3);
+}
+
+.treeTwisty,
+.treeLabelButton,
+.treeCheckbox {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.treeTwisty {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 22px;
+  padding: 0;
+}
+
+.treeLabelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 22px;
+  padding: 0;
+  text-align: left;
+}
+
+.treeLabelButton svg {
+  flex: 0 0 auto;
+}
+
+.treeLabelButton span,
+.treeRow small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeRow small,
+.treeGridBadge {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.treeGridName {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  min-width: 0;
+  padding-left: calc(4px + (var(--tree-level, 0) * 14px));
+}
+
+.treeGridBadge {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeGridSwitchCell {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.treeCheckbox {
+  appearance: none;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  margin: 0;
+}
+
+.treeCheckbox:checked,
+.treeCheckbox:indeterminate {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+}
+
+.treeCheckbox:checked::after {
+  content: "";
+  width: 7px;
+  height: 4px;
+  border: solid var(--accent);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+}
+
+.treeCheckbox:indeterminate::after {
+  content: "";
+  width: 7px;
+  height: 2px;
+  background: var(--accent);
+}

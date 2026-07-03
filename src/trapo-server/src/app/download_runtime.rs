@@ -36,6 +36,46 @@ impl AppState {
         });
     }
 
+    async fn spawn_next_download(&self) {
+        let (next_model_id, event) = {
+            let mut state = self.inner.state.lock().await;
+            let active = state
+                .downloads
+                .values()
+                .any(|download| matches!(download.status.as_str(), "downloading" | "cancelling"));
+            if active {
+                return;
+            }
+            let mut next_model_id = None;
+            while let Some(model_id) = state.download_queue.pop_front() {
+                let Some(download) = state.downloads.get_mut(&model_id) else {
+                    continue;
+                };
+                if download.status != "queued" {
+                    continue;
+                }
+                download.status = "downloading".to_string();
+                download.started_at = Some(Instant::now());
+                download.last_event_at = Some(Utc::now().to_rfc3339());
+                next_model_id = Some(model_id);
+                break;
+            }
+            let event = next_model_id.as_deref().and_then(|model_id| {
+                find_model(model_id).and_then(|entry| {
+                    serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))
+                        .ok()
+                })
+            });
+            (next_model_id, event)
+        };
+        if let Some(event) = event {
+            self.inner.hub.publish("model.changed", event);
+        }
+        if let Some(model_id) = next_model_id {
+            self.spawn_download(model_id);
+        }
+    }
+
     async fn download_model(&self, model_id: String) -> Result<()> {
         let entry = find_model(&model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;

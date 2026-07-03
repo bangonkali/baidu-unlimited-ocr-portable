@@ -1,5 +1,5 @@
 use std::sync::{
-    Arc,
+    Arc, RwLock,
     atomic::{AtomicU64, Ordering},
 };
 
@@ -8,6 +8,8 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::sync::broadcast;
+
+use crate::storage::Repository;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventEnvelope {
@@ -23,6 +25,7 @@ pub struct EventEnvelope {
 pub struct RealtimeHub {
     sequence: AtomicU64,
     sender: broadcast::Sender<EventEnvelope>,
+    repository: RwLock<Option<Repository>>,
 }
 
 impl RealtimeHub {
@@ -31,7 +34,14 @@ impl RealtimeHub {
         Arc::new(Self {
             sequence: AtomicU64::new(0),
             sender,
+            repository: RwLock::new(None),
         })
+    }
+
+    pub fn attach_repository(&self, repository: Repository) {
+        if let Ok(mut guard) = self.repository.write() {
+            *guard = Some(repository);
+        }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
@@ -46,6 +56,19 @@ impl RealtimeHub {
             occurred_at: Utc::now().to_rfc3339(),
             payload,
         };
+        let repository = self
+            .repository
+            .read()
+            .ok()
+            .and_then(|guard| guard.as_ref().cloned());
+        if let Some(repository) = repository {
+            let _ = repository.persist_realtime_event(
+                envelope.sequence,
+                &envelope.event_type,
+                &envelope.occurred_at,
+                &envelope.payload,
+            );
+        }
         let _ = self.sender.send(envelope.clone());
         envelope
     }

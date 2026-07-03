@@ -1,0 +1,161 @@
+.overlay {
+  position: absolute;
+  top: 35px;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: 34px auto minmax(0, 1fr);
+  width: min(420px, 100%);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 28px rgba(0, 0, 0, 0.3);
+}
+
+.header,
+.summary,
+.rowHeader,
+.fileRow {
+  display: flex;
+  align-items: center;
+}
+
+.header {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+.close {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--text);
+  background: var(--panel-3);
+}
+
+.summary {
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.summaryText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.summaryText strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.summaryText span,
+.meta,
+.fileRow {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.progress {
+  height: 5px;
+  overflow: hidden;
+  background: var(--control-strong);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent-2);
+}
+
+.list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.item {
+  display: grid;
+  gap: 7px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rowHeader {
+  gap: 8px;
+  min-width: 0;
+}
+
+.rowHeader strong {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.files {
+  display: grid;
+  gap: 4px;
+}
+
+.fileRow {
+  gap: 6px;
+}
+
+.fileRow span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cancel {
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.cancel:hover {
+  color: var(--danger);
+}
+
+.empty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}

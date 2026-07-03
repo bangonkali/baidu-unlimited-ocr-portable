@@ -50,10 +50,14 @@ impl Repository {
             params![page.file_hash, i64::from(page.page_no), engine_id, profile_id],
         )?;
         for box_record in &page.boxes {
+            let source_span = page
+                .spans
+                .iter()
+                .find(|span| span.region_id == box_record.region_id);
             conn.execute(
                 "INSERT INTO document_regions(region_id, file_hash, page_no, engine_id, profile_id, label,
                   x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     box_record.region_id,
                     page.file_hash,
@@ -65,6 +69,8 @@ impl Repository {
                     box_record.top_percent / 100.0 * 999.0,
                     (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
                     (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
+                    source_span.map(|span| span.start as i64),
+                    source_span.map(|span| span.end as i64),
                     box_record.content_markdown,
                     box_record.content_html
                 ],
@@ -80,6 +86,20 @@ impl Repository {
                     i64::from(page.page_no),
                     box_record.content_markdown,
                     box_record.content_html
+                ],
+            )?;
+        }
+        for span in &page.spans {
+            conn.execute(
+                "INSERT INTO document_text_region_links(file_hash, page_no, region_id, text_start, text_end)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(file_hash, page_no, region_id, text_start, text_end) DO NOTHING",
+                params![
+                    page.file_hash,
+                    i64::from(page.page_no),
+                    span.region_id,
+                    span.start as i64,
+                    span.end as i64
                 ],
             )?;
         }

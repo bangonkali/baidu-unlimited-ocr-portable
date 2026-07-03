@@ -17,16 +17,32 @@
   border-right: 1px solid var(--border);
 }
 
-.brand {
+.brand,
+.startOcrButton {
   display: grid;
   width: 32px;
   height: 32px;
   margin: 0 auto;
+  place-items: center;
+}
+
+.brand {
   font-weight: 700;
   color: var(--accent-foreground);
   background: var(--accent-2);
   border-radius: 4px;
-  place-items: center;
+}
+
+.startOcrButton {
+  color: var(--accent-foreground);
+  background: var(--accent-2);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.startOcrButton:hover {
+  filter: brightness(1.08);
 }
 
 .activityNav {
@@ -63,7 +79,7 @@
 
 .main {
   display: grid;
-  grid-template-rows: 36px minmax(0, 1fr) 24px;
+  grid-template-rows: minmax(0, 1fr) 24px;
   min-width: 0;
   min-height: 0;
 }
@@ -149,7 +165,7 @@
 
 .workbenchStack {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
@@ -180,7 +196,7 @@
   }
 
   .main {
-    grid-template-rows: 36px minmax(0, 1fr) 24px;
+    grid-template-rows: minmax(0, 1fr) 24px;
   }
 
   .topHeader {

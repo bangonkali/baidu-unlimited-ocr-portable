@@ -21,6 +21,14 @@ import type {
   StatusPayload,
 } from './types';
 
+export {
+  useDiagnosticAnalytics,
+  useDiagnosticModels,
+  useDiagnosticProgress,
+  useDiagnosticRuns,
+  useDiagnosticTrace,
+  useOcrReplay,
+} from './diagnosticsHooks';
 export { queryKeys };
 
 export function useStatus() {

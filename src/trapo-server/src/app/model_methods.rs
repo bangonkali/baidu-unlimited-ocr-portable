@@ -48,35 +48,52 @@ impl AppState {
                 status: "downloaded".to_string(),
             });
         }
-        {
+        let (status, event) = {
             let mut state = self.inner.state.lock().await;
-            if state
+            if let Some(download) = state.downloads.get(model_id)
+                && matches!(
+                    download.status.as_str(),
+                    "downloading" | "queued" | "cancelling"
+                )
+            {
+                return Ok(ModelDownloadRecord {
+                    model_id: model_id.to_string(),
+                    status: download.status.clone(),
+                });
+            }
+            let active = state
                 .downloads
                 .values()
-                .any(|download| download.status == "downloading")
-            {
-                return Err(AppError::Conflict(
-                    "another model download is already running".to_string(),
-                ));
+                .any(|download| matches!(download.status.as_str(), "downloading" | "cancelling"));
+            let status = if active { "queued" } else { "downloading" }.to_string();
+            if active && !state.download_queue.iter().any(|item| item == model_id) {
+                state.download_queue.push_back(model_id.to_string());
             }
             state.downloads.insert(
                 model_id.to_string(),
                 DownloadState {
-                    status: "downloading".to_string(),
+                    status: status.clone(),
                     current_file: None,
                     downloaded_bytes: 0,
                     total_bytes: Some(entry.model_size_bytes + SHARED_MMPROJ_SIZE_BYTES),
                     error: None,
-                    started_at: Some(Instant::now()),
+                    started_at: (!active).then(Instant::now),
                     cancel_requested: false,
                     last_event_at: Some(Utc::now().to_rfc3339()),
                 },
             );
+            (
+                status,
+                serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))?,
+            )
+        };
+        self.inner.hub.publish("model.changed", event);
+        if status == "downloading" {
+            self.spawn_download(model_id.to_string());
         }
-        self.spawn_download(model_id.to_string());
         Ok(ModelDownloadRecord {
             model_id: model_id.to_string(),
-            status: "downloading".to_string(),
+            status,
         })
     }
 
@@ -84,16 +101,34 @@ impl AppState {
         if find_model(model_id).is_none() {
             return Err(AppError::BadRequest("unknown model id".to_string()));
         }
-        let status = {
+        let (status, event) = {
             let mut state = self.inner.state.lock().await;
             if let Some(download) = state.downloads.get_mut(model_id) {
                 download.cancel_requested = true;
-                download.status = "cancelling".to_string();
-                "cancelling".to_string()
+                download.status = if download.status == "queued" {
+                    "cancelled".to_string()
+                } else {
+                    "cancelling".to_string()
+                };
+                download.last_event_at = Some(Utc::now().to_rfc3339());
+                let entry = find_model(model_id)
+                    .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
+                (
+                    download.status.clone(),
+                    Some(serde_json::to_value(model_record(
+                        &self.inner.config.model_dir,
+                        &state,
+                        entry,
+                    ))?),
+                )
             } else {
-                "idle".to_string()
+                ("idle".to_string(), None)
             }
         };
+        if let Some(event) = event {
+            self.inner.hub.publish("model.changed", event);
+        }
+        self.spawn_next_download().await;
         Ok(ModelDownloadRecord {
             model_id: model_id.to_string(),
             status,

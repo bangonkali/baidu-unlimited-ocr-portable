@@ -17,6 +17,12 @@ use crate::{error::ErrorPayload, types::*, workbench_types::*};
         get_run_doc,
         stop_run_doc,
         run_events_doc,
+        ocr_events_doc,
+        diagnostics_runs_doc,
+        diagnostics_trace_doc,
+        diagnostics_progress_doc,
+        diagnostics_analytics_doc,
+        diagnostics_models_doc,
         run_metrics_doc,
         recent_metrics_doc,
         list_documents_doc,
@@ -71,11 +77,30 @@ use crate::{error::ErrorPayload, types::*, workbench_types::*};
         FolderDialogResponse,
         PreviewImagesPayload,
         LogRecord,
-        LogsPayload
+        LogsPayload,
+        RealtimeEventRecord,
+        OcrReplayPayload,
+        DiagnosticRunRecord,
+        DiagnosticRunsPayload,
+        DiagnosticSpanRecord,
+        DiagnosticEventRecord,
+        DiagnosticTraceSummary,
+        DiagnosticTracePayload,
+        DiagnosticWorkUnitRecord,
+        DiagnosticModelLeaseRecord,
+        DiagnosticProgressSummary,
+        DiagnosticProgressPayload,
+        DiagnosticBreakdownRecord,
+        DiagnosticSlowSpanRecord,
+        DiagnosticRecommendationRecord,
+        DiagnosticAnalyticsSummary,
+        DiagnosticAnalyticsPayload,
+        DiagnosticModelsPayload
     )),
     tags(
         (name = "system"),
         (name = "ingest"),
+        (name = "diagnostics"),
         (name = "documents"),
         (name = "settings"),
         (name = "models"),
@@ -155,6 +180,24 @@ fn stop_run_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}/events", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, description = "Server-sent run snapshots", body = String, content_type = "text/event-stream"), (status = 404, body = ErrorPayload)))]
 fn run_events_doc() {}
+
+#[utoipa::path(get, path = "/api/ocr/events", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("since_sequence" = Option<u64>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = OcrReplayPayload)))]
+fn ocr_events_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/runs", tag = "diagnostics", params(("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticRunsPayload)))]
+fn diagnostics_runs_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/trace", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("status" = Option<String>, Query), ("q" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticTracePayload)))]
+fn diagnostics_trace_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/progress", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticProgressPayload)))]
+fn diagnostics_progress_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/analytics", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticAnalyticsPayload)))]
+fn diagnostics_analytics_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/models", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticModelsPayload)))]
+fn diagnostics_models_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}/metrics", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, body = OcrMetricsTreePayload)))]
 fn run_metrics_doc() {}

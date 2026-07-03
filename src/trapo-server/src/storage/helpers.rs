@@ -26,6 +26,10 @@ fn i64_to_u32(value: i64) -> u32 {
     u32::try_from(value.max(0)).unwrap_or(u32::MAX)
 }
 
+fn i64_to_u64(value: i64) -> u64 {
+    u64::try_from(value.max(0)).unwrap_or(u64::MAX)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -39,6 +43,76 @@ mod tests {
             repo.setting_value("selected_model_id")?,
             Some(Value::String("model".to_string()))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn reloads_page_regions_and_spans() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let page = StoredPage {
+            file_hash: "file-a".to_string(),
+            page_no: 1,
+            width_px: 100,
+            height_px: 200,
+            render_dpi: 200,
+            status: "completed".to_string(),
+            error: None,
+            preview_path: Some("page.png".to_string()),
+            cleaned_text: "Total".to_string(),
+            raw_text: "Total".to_string(),
+            boxes: vec![OverlayBox {
+                region_id: "region-a".to_string(),
+                label: "Total".to_string(),
+                content_markdown: "Total".to_string(),
+                content_html: None,
+                page_no: 1,
+                left_percent: 10.0,
+                top_percent: 20.0,
+                width_percent: 30.0,
+                height_percent: 40.0,
+                hidden: false,
+            }],
+            spans: vec![TextRegionSpan {
+                region_id: "region-a".to_string(),
+                page_no: 1,
+                start: 0,
+                end: 5,
+            }],
+        };
+
+        repo.upsert_page(&page)?;
+        repo.replace_page_ocr(&page, "engine", "profile", 42)?;
+
+        let snapshot = repo.load_snapshot()?;
+        assert_eq!(snapshot.pages.len(), 1);
+        let loaded = &snapshot.pages[0];
+        assert_eq!(loaded.boxes.len(), 1);
+        assert_eq!(loaded.spans.len(), 1);
+        assert_eq!(loaded.spans[0].region_id, "region-a");
+        Ok(())
+    }
+
+    #[test]
+    fn persists_and_lists_ocr_stream_events() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        repo.persist_realtime_event(
+            7,
+            "ocr.page.text.patch",
+            "2026-07-03T00:00:00Z",
+            &serde_json::json!({
+                "run_id": "run-a",
+                "file_hash": "file-a",
+                "page_no": 1,
+                "text": "Total"
+            }),
+        )?;
+
+        let events = repo.list_ocr_stream_events(Some("run-a"), Some("file-a"), Some(1), None, 10)?;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].sequence, 7);
+        assert_eq!(events[0].payload["text"], "Total");
         Ok(())
     }
 }

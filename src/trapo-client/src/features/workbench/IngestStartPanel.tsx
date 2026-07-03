@@ -59,7 +59,7 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
       </header>
       <div className={styles.body}>
         <div className={styles.form}>
-          <section className={styles.group}>
+          <section className={styles.group} data-tour="folder">
             <h2>Folder</h2>
             <p>Select the local folder to scan recursively for PDFs and images.</p>
             <div className={styles.actions}>
@@ -129,6 +129,7 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
           <div className={styles.actions}>
             <button
               className={styles.primaryButton}
+              data-tour="start"
               disabled={!canStart}
               onClick={() => props.onStart({ reprocess })}
               type="button"

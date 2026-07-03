@@ -17,6 +17,12 @@ Useful endpoints:
 ```text
 /api/status
 /api/openapi.json
+/api/ocr/events
+/api/diagnostics/runs
+/api/diagnostics/trace
+/api/diagnostics/progress
+/api/diagnostics/analytics
+/api/diagnostics/models
 /api/documents/{file_hash}/text
 /api/documents/{file_hash}/regions
 /api/documents/{file_hash}/regions/{region_id}/snippet
@@ -26,6 +32,15 @@ Useful endpoints:
 Text region spans are zero-width anchors. Region content is scoped from one
 anchor to the next, and image-like regions can expose cropped local PNG snippets
 through the snippet endpoint.
+
+Realtime `ocr.page.*` events are persisted before websocket broadcast. The
+client can replay historical page events from `/api/ocr/events` and then merge
+new websocket events, while completed pages are rebuilt from persisted page,
+box, and span rows.
+
+Diagnostics are stored as work units, spans, events, and model leases in
+DuckDB. The Workbench diagnostics route queries those rows as a waterfall tree,
+run progress tree, analytics summary, and model lease history.
 
 The server writes:
 

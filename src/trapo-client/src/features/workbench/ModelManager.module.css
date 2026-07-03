@@ -1,4 +1,5 @@
 .manager {
+  position: relative;
   display: grid;
   grid-template-rows: 35px auto auto minmax(0, 1fr);
   min-height: 0;
@@ -120,7 +121,8 @@
 
 .segmented button,
 .directionButton,
-.routeLink {
+.routeLink,
+.iconButton {
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -138,9 +140,15 @@
 
 .segmented button[aria-pressed="true"],
 .directionButton:hover,
-.routeLink:hover {
+.routeLink:hover,
+.iconButton:hover {
   background: var(--panel-3);
   border-color: var(--border);
+}
+
+.iconButton {
+  width: 28px;
+  padding: 0;
 }
 
 .actions,

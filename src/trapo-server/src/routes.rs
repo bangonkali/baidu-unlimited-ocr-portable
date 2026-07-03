@@ -15,7 +15,7 @@ use crate::{
     error::{AppError, Result},
     openapi::ApiDoc,
     realtime,
-    types::{ModelDownloadRequest, SettingsUpdateRequest},
+    types::SettingsUpdateRequest,
     workbench_types::IngestStartRequest,
 };
 
@@ -42,6 +42,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/ingest/runs/{run_id}/metrics", get(run_metrics))
         .route("/api/ingest/runs/{run_id}/stop", post(stop_run))
         .route("/api/ingest/runs/{run_id}/events", get(run_events))
+        .route("/api/ocr/events", get(ocr_events))
+        .route("/api/diagnostics/runs", get(diagnostics_runs))
+        .route("/api/diagnostics/trace", get(diagnostics_trace))
+        .route("/api/diagnostics/progress", get(diagnostics_progress))
+        .route("/api/diagnostics/analytics", get(diagnostics_analytics))
+        .route("/api/diagnostics/models", get(diagnostics_models))
         .route("/api/documents", get(list_documents))
         .route("/api/search", get(list_documents))
         .route("/api/documents/{file_hash}", get(get_document))
@@ -230,54 +236,6 @@ async fn update_settings(
     Ok(Json(state.update_settings(request).await?))
 }
 
-async fn models(State(state): State<AppState>) -> Json<crate::types::ModelsPayload> {
-    Json(state.models().await)
-}
-
-async fn download_model(
-    State(state): State<AppState>,
-    Path(model_id): Path<String>,
-    Json(request): Json<ModelDownloadRequest>,
-) -> Result<(StatusCode, Json<crate::types::ModelDownloadRecord>)> {
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(state.start_model_download(&model_id, request).await?),
-    ))
-}
-
-async fn select_model(
-    State(state): State<AppState>,
-    Path(model_id): Path<String>,
-) -> Result<(StatusCode, Json<crate::types::ModelSelectRecord>)> {
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(state.select_model(&model_id).await?),
-    ))
-}
-
-async fn cancel_model(
-    State(state): State<AppState>,
-    Path(model_id): Path<String>,
-) -> Result<(StatusCode, Json<crate::types::ModelDownloadRecord>)> {
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(state.cancel_model_download(&model_id).await?),
-    ))
-}
-
-async fn model_events(
-    State(state): State<AppState>,
-    Path(model_id): Path<String>,
-) -> Result<Response> {
-    let record = state.model_download_event(&model_id).await?;
-    let data = serde_json::to_string(&record)?;
-    Ok((
-        [(header::CONTENT_TYPE, "text/event-stream")],
-        format!("event: model\ndata: {data}\n\n"),
-    )
-        .into_response())
-}
-
 async fn logs(
     State(state): State<AppState>,
     Query(query): Query<LimitQuery>,
@@ -289,3 +247,6 @@ async fn websocket(State(state): State<AppState>, ws: WebSocketUpgrade) -> Respo
     let hub = state.hub();
     ws.on_upgrade(move |socket| realtime::websocket(socket, hub))
 }
+
+include!("routes_diagnostics.rs");
+include!("routes_models.rs");

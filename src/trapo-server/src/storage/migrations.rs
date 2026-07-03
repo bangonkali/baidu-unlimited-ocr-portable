@@ -185,4 +185,71 @@ CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_run ON ocr_page_metrics(run_id, 
 CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_model_runtime ON ocr_page_metrics(model_id, runtime_id);
 "#,
     },
+    Migration {
+        id: 7,
+        name: "diagnostics_replay_and_download_queue",
+        sql: r#"
+CREATE TABLE IF NOT EXISTS ocr_stream_events (
+  sequence UBIGINT PRIMARY KEY, event_type TEXT NOT NULL, occurred_at TEXT NOT NULL,
+  run_id TEXT, file_hash TEXT, page_no INTEGER, payload_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ocr_stream_events_scope ON ocr_stream_events(run_id, file_hash, page_no, sequence);
+CREATE INDEX IF NOT EXISTS idx_ocr_stream_events_file_page ON ocr_stream_events(file_hash, page_no, sequence);
+
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS trace_id TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS file_hash TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS page_no INTEGER;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS pipeline_step TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS annotation_engine TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok';
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS ended_at TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS duration_ms DOUBLE DEFAULT 0;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS attributes_json TEXT DEFAULT '{}';
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_type TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_stack TEXT;
+
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS trace_id TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS file_hash TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS page_no INTEGER;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS timestamp TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'log';
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS severity TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS attributes_json TEXT DEFAULT '{}';
+
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS work_key TEXT;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'ocr';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS engine TEXT DEFAULT 'unlimited-ocr-ffi';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS model TEXT DEFAULT '';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS profile TEXT;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT '';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS artifact_variant TEXT;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS attempt_count INTEGER DEFAULT 0;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS duration_ms DOUBLE;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS result_json TEXT DEFAULT '{}';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS metadata_json TEXT DEFAULT '{}';
+
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT '';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS model TEXT DEFAULT '';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS requested_context_tokens INTEGER;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS verified_context_tokens INTEGER;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS started_at TEXT;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS finished_at TEXT;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS duration_ms DOUBLE;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS error TEXT;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS metadata_json TEXT DEFAULT '{}';
+
+CREATE INDEX IF NOT EXISTS idx_ingest_diag_spans_run ON ingest_diagnostic_spans(run_id);
+CREATE INDEX IF NOT EXISTS idx_ingest_diag_spans_scope ON ingest_diagnostic_spans(run_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_ingest_diag_events_scope ON ingest_diagnostic_events(run_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_ingest_work_units_run_status ON ingest_work_units(run_id, status);
+CREATE INDEX IF NOT EXISTS idx_ingest_work_units_scope ON ingest_work_units(run_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_ingest_model_leases_run ON ingest_model_leases(run_id);
+"#,
+    },
 ];

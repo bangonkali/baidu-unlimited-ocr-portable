@@ -1,13 +1,11 @@
-import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore';
-import { setTourRun, togglePaneCollapsed } from '../../stores/workbenchStore';
 import { CommandPalette } from '../commands/CommandPalette';
 import { ActivityBar } from './ActivityBar';
 import { GuidedTour } from './GuidedTour';
-import type { useWorkbenchCommands } from './useWorkbenchCommands';
+import { NotificationBell } from './NotificationBell';
 import type { WorkbenchPageProps } from './useWorkbenchPageController';
 import { useWorkbenchPageController } from './useWorkbenchPageController';
 import styles from './WorkbenchPage.module.css';
-import { WorkbenchFooter, WorkbenchHeader } from './WorkbenchPageSupport';
+import { WorkbenchFooter } from './WorkbenchPageSupport';
 import { WorkbenchViewContent } from './WorkbenchViewContent';
 
 export function WorkbenchPage(props: WorkbenchPageProps) {
@@ -24,40 +22,15 @@ export function WorkbenchPage(props: WorkbenchPageProps) {
         onOpenChange={controller.commandController.setCommandOpen}
         open={controller.commandController.commandOpen}
       />
-      <ActivityBar activeView={controller.activeView} />
+      <ActivityBar activeView={controller.activeView} onStartOcr={controller.startOcr} />
       <main className={styles.main}>
-        <PageHeader
-          activeView={controller.activeView}
-          commandController={controller.commandController}
-          workbench={controller.workbench}
-        />
         <div className={styles.body}>
           <WorkbenchViewContent {...controller.contentProps} />
         </div>
         <PageFooter {...controller.footerProps} />
       </main>
+      <NotificationBell />
     </div>
-  );
-}
-
-function PageHeader({
-  activeView,
-  commandController,
-  workbench,
-}: {
-  activeView: ActiveView;
-  commandController: ReturnType<typeof useWorkbenchCommands>;
-  workbench: ReturnType<typeof useWorkbenchState>;
-}) {
-  return (
-    <WorkbenchHeader
-      activeView={activeView}
-      onCommandOpen={() => commandController.setCommandOpen(true)}
-      onStartGuide={() => setTourRun(true)}
-      onTogglePane={togglePaneCollapsed}
-      panesCollapsed={workbench.panesCollapsed}
-      theme={workbench.theme}
-    />
   );
 }
 

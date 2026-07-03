@@ -99,8 +99,8 @@ function navigationCommands(): AppCommand[] {
     nav('nav.ingest', 'Start Ingest', 'Configure a folder scan and OCR run.', {
       to: '/ingest/start',
     }),
-    nav('nav.diagnostics', 'Diagnostics', 'Open runs and logs.', {
-      search: { tab: 'runs' },
+    nav('nav.diagnostics', 'Diagnostics', 'Open OCR waterfall, progress, and logs.', {
+      search: { tab: 'waterfall' },
       to: '/diagnostics',
     }),
     nav('nav.settings', 'Settings', 'Open application settings.', {

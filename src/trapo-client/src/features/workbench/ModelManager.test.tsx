@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
 import { fixtureDownloadingModels, fixtureModels } from '../../stories/fixtures/workbenchFixtures';
+import { DownloadManager } from './DownloadManager';
 import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
 import { formatBytes, formatEta, formatPercent, formatRate } from './modelDownloadFormat';
@@ -29,7 +30,6 @@ describe('ModelManager', () => {
     );
     expect(html).toContain('Authenticated with HF_TOKEN');
     expect(html).toContain('Re-download');
-    expect(html).toContain('Unlimited-OCR-Q4_K_M.gguf');
     expect(html).toContain('Unlimited-OCR IQ2_M');
     expect(html).toContain('In Use');
     expect(html).toContain('Recommended');
@@ -46,8 +46,20 @@ describe('ModelManager', () => {
       />,
     );
     expect(html).toContain('Cancel');
+    expect(html).toContain('downloading');
+  });
+
+  test('renders queued download details in the download manager', () => {
+    const html = renderToString(
+      <DownloadManager
+        models={fixtureDownloadingModels.models}
+        onCancelModel={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     expect(html).toContain('36.7%');
     expect(html).toContain('11.25 MiB/s');
+    expect(html).toContain('Unlimited-OCR-Q4_K_M.gguf');
   });
 
   test('renders compact grid headers by default', () => {

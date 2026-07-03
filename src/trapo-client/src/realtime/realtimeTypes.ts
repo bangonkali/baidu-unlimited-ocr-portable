@@ -6,6 +6,7 @@ import type {
   LogRecord,
   ModelAssetRecord,
   OverlayBox,
+  RealtimeEventRecord,
   StatusPayload,
   TextRegionSpan,
 } from '../api/types';
@@ -182,4 +183,15 @@ export function parseRealtimeEvent(data: string): RealtimeEvent | null {
   } catch {
     return null;
   }
+}
+
+export function realtimeEventFromRecord(record: RealtimeEventRecord): RealtimeEvent | null {
+  const candidate = {
+    occurred_at: record.occurred_at,
+    payload: record.payload,
+    sequence: record.sequence,
+    type: record.type,
+    version: 1,
+  };
+  return isRealtimeEvent(candidate) ? candidate : null;
 }

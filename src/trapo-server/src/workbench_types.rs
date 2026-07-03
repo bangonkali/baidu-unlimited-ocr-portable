@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+pub use crate::workbench_diagnostics_types::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 pub struct IngestStartRequest {
     pub root_path: String,

@@ -57,6 +57,19 @@ impl AppState {
                 self.inner
                     .repository
                     .upsert_document(&stored_document(&document))?;
+                self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
+                    run_id: &run_id,
+                    file_hash: &document.file_hash,
+                    page_no: None,
+                    phase: "render",
+                    model: &model_id,
+                    profile: &profile_id,
+                    metadata: json!({
+                        "relative_path": generic_path(&document.relative_path),
+                        "extension": document.extension.clone(),
+                        "size_bytes": document.size_bytes
+                    }),
+                });
                 document_events.push(document_summary(&document));
                 state.documents.insert(document.file_hash.clone(), document);
             }

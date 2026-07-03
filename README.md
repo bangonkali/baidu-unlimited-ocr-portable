@@ -5,6 +5,12 @@ supported local document formats. It is optimized for local setup: one portable
 Rust server hosts the React workbench, API, PDF rendering, persistence, runtime
 loading, and model download flow.
 
+The name comes from the Filipino word "trapo", meaning rag. The current product
+cleans and structures local document content for the larger direction of a
+Graph RAG application: OCR is the ingest layer, DuckDB is the local operational
+store, and the workbench is the inspection surface for text, layout, spans, and
+diagnostics before graph extraction is added.
+
 The repository is now Trapo-first. The supported product path is:
 
 ```text
@@ -38,11 +44,14 @@ http://127.0.0.1:8765/
 
 ## Ingest Workflow
 
-1. Open **Models** and download a model. `Q4_K_M` is the recommended default.
-2. Click **Use** on the downloaded model.
-3. Open **Start Ingest**, choose a folder with the picker or paste a path, then
-   start the scan.
-4. Use the Workbench to inspect page images, OCR text, and bounding boxes.
+1. Click the Start OCR icon in the Workbench activity bar.
+2. If the selected model is downloaded, Trapo opens the dedicated ingest start
+   page immediately.
+3. If the selected model is missing locally, Trapo opens the model downloader
+   and records a lower-right notification explaining what blocked ingest.
+4. Choose a folder on the ingest start page and start the scan.
+5. Use the Workbench explorer, preview, text pane, and diagnostics page to
+   inspect page images, OCR text, bounding boxes, spans, logs, and timing.
 
 Trapo stores OCR text, bounding boxes, run history, selected runtime/model, and
 Workbench UI settings in:
@@ -75,6 +84,11 @@ The backend marks each page `running` as OCR starts and omits queued pages from
 document text payloads. The React workbench also filters stale full-page payloads
 as a defensive guard.
 
+Live OCR stream events are persisted independently before they are broadcast to
+the browser. On refresh, the workbench can replay historical page events from
+DuckDB and then continue applying new realtime events, so the same UI can be
+rebuilt while OCR is running or after a page has completed.
+
 Detected regions are represented by compact text anchors. A region's content
 scope runs from its anchor to the next anchor, so PDF bounding boxes, details,
 and text-preview focus use the same boundary. OCR HTML tables render as tables,
@@ -102,6 +116,8 @@ not the large GGUF model files.
 - [Windows portable app](docs/WINDOWS.md)
 - [macOS portable app](docs/MACOS.md)
 - [Ubuntu 24.04 portable app](docs/LINUX.md)
+- [Workbench flow](docs/WORKBENCH.md)
+- [Diagnostics and replay](docs/DIAGNOSTICS.md)
 - [Text preview behavior](docs/TEXT-PREVIEW.md)
 - [Release process](docs/RELEASES.md)
 - [Runtime binaries](docs/RUNTIME-BINARIES.md)

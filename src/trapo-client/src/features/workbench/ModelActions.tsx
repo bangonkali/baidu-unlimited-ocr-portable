@@ -24,6 +24,8 @@ export function ModelActions({
   onSelectModel,
 }: ModelActionsProps) {
   const isDownloading = model.status === 'downloading';
+  const isQueued = model.status === 'queued';
+  const isActive = isDownloading || isQueued || model.status === 'cancelling';
   const isReady = model.status === 'downloaded';
   const isRetry = ['error', 'cancelled'].includes(model.status);
   return (
@@ -37,7 +39,7 @@ export function ModelActions({
         <CircleDot size={15} strokeWidth={1.9} />
         <span>{model.selected ? 'In Use' : 'Use'}</span>
       </button>
-      {isDownloading ? (
+      {isDownloading || isQueued ? (
         <button
           className={styles.secondaryButton}
           disabled={busy}
@@ -48,7 +50,7 @@ export function ModelActions({
           <span>Cancel</span>
         </button>
       ) : null}
-      {!isReady && !isDownloading ? (
+      {!isReady && !isActive ? (
         <button
           className={styles.downloadButton}
           disabled={busy}

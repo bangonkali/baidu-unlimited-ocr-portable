@@ -290,3 +290,5 @@ export interface LogsPayload {
   log_path?: string;
   logs: LogRecord[];
 }
+
+export type * from './diagnosticsTypes';

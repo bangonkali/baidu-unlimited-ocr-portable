@@ -1,14 +1,29 @@
 import { Link } from '@tanstack/react-router';
-import { Bot, Database, FileSearch, Settings } from 'lucide-react';
+import { Bot, Database, FileSearch, Hammer, Settings } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 import type { ActiveView } from '../../stores/workbenchStore';
 import styles from './WorkbenchPage.module.css';
 
-export function ActivityBar({ activeView }: { activeView: ActiveView }) {
+export function ActivityBar({
+  activeView,
+  onStartOcr,
+}: {
+  activeView: ActiveView;
+  onStartOcr: () => void;
+}) {
   return (
     <aside className={styles.activityBar} aria-label="Primary">
-      <div className={styles.brand}>U</div>
+      <button
+        aria-label="Start OCR"
+        className={styles.startOcrButton}
+        data-tour="start-ocr"
+        onClick={onStartOcr}
+        title="Start OCR"
+        type="button"
+      >
+        <Hammer size={18} strokeWidth={1.8} />
+      </button>
       <nav className={styles.activityNav}>
         <ActivityLink
           active={activeView === 'workbench'}

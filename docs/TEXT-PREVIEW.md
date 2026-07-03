@@ -41,6 +41,12 @@ ocr.page.span.upsert
 ocr.page.stream.completed
 ```
 
+Replayable `ocr.page.*` events are inserted into DuckDB before websocket
+broadcast. The client can request those events from `/api/ocr/events` and apply
+them through the same reducer used for live websocket updates. This lets the
+Workbench rebuild the selected page after a refresh while OCR is still running.
+After completion, final document/page/region tables are the source of truth.
+
 ## Client Behavior
 
 The React workbench applies one more defensive filter before rendering the text

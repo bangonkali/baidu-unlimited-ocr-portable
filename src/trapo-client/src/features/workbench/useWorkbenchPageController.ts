@@ -1,4 +1,5 @@
 import { useDebouncedValue } from '@tanstack/react-pacer';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -31,8 +32,10 @@ import type {
 } from '../../routeSearch';
 import type { ActiveView } from '../../stores/workbenchStore';
 import { useWorkbenchState } from '../../stores/workbenchStore';
+import { startOcrEntry } from './startOcrEntry';
 import { visibleTextPages } from './textPreviewPages';
 import { useModelRouteActions } from './useModelRouteActions';
+import { useSelectedPageReplay } from './useOcrReplayHydration';
 import { useWorkbenchCommands } from './useWorkbenchCommands';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
 import {
@@ -67,6 +70,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const activeView = props.activeView ?? 'workbench';
   const modelScope = props.modelScope ?? 'library';
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const workbench = useWorkbenchState();
   const realtime = useRealtimeState();
   const [searchText, setSearchText] = useState(routeSearchText(props));
@@ -77,6 +81,12 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const model = selectedModel(data.models.data);
   const profiles = profileOptions(data.models.data?.profiles, workbench.selectedProfile);
   const selectedDocument = selectedDocumentFrom(data.documents.data?.documents, workbench);
+  useSelectedPageReplay({
+    enabled: selectedDocument ? isActiveDocumentStatus(selectedDocument.status) : false,
+    fileHash: workbench.selection.fileHash,
+    pageNo: workbench.selection.pageNo,
+    queryClient,
+  });
 
   useThemeSync(workbench.theme);
   usePersistedWorkbenchUiSettings({
@@ -140,6 +150,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
       selectedRoot: workbench.selectedRoot,
       status: data.status.data,
     },
+    startOcr: () => startOcrEntry({ model, navigate, selectedProfile: workbench.selectedProfile }),
     workbench,
   };
 }
@@ -260,6 +271,10 @@ function selectedDocumentFrom(
   workbench: ReturnType<typeof useWorkbenchState>,
 ) {
   return documents?.find((document) => document.file_hash === workbench.selection.fileHash);
+}
+
+function isActiveDocumentStatus(status: string) {
+  return status === 'queued' || status === 'rendering' || status === 'running';
 }
 
 function routeSearchText(props: WorkbenchPageProps) {

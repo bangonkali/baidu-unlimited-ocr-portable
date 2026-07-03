@@ -8,7 +8,7 @@ import type { ModelSortKey, SortDirection } from '../../routeSearch';
 import type { ModelActionHandlers } from './ModelActions';
 import { ModelActions } from './ModelActions';
 import styles from './ModelDataGrid.module.css';
-import { FilesCell, ModelCell, ProgressCell } from './ModelGridCells';
+import { ModelCell } from './ModelGridCells';
 import { formatBytes } from './modelDownloadFormat';
 import { modelRequiredBytes } from './modelLibrary';
 import { statusIcon } from './modelStatus';
@@ -117,16 +117,6 @@ function modelColumns(handlers: ModelActionHandlers & { busy?: boolean }) {
       id: 'size',
       header: 'Size',
       cell: ({ row }) => formatBytes(modelRequiredBytes(row.original)),
-    },
-    {
-      id: 'progress',
-      header: 'Progress',
-      cell: ({ row }) => <ProgressCell model={row.original} />,
-    },
-    {
-      id: 'files',
-      header: 'Files',
-      cell: ({ row }) => <FilesCell model={row.original} />,
     },
     {
       id: 'actions',

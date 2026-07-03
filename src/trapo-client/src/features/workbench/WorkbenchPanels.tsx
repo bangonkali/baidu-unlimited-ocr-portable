@@ -17,7 +17,6 @@ import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { ExplorerTree } from './ExplorerTree';
 import { PreviewPane } from './PreviewPane';
-import { StartHere } from './StartHere';
 import { TextPane } from './TextPane';
 import { scopedRegionText } from './traceRegionAnchors';
 import styles from './WorkbenchPage.module.css';
@@ -53,13 +52,6 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
   usePanelCollapseSync(detailsRef, props.workbench.panesCollapsed.details);
   return (
     <div className={styles.workbenchStack}>
-      <StartHere
-        model={props.model}
-        onOpenModels={props.onOpenModels}
-        onPickFolder={props.onPickFolder}
-        onStart={props.onStart}
-        rootPath={props.rootPath}
-      />
       <PanelGroup direction="horizontal">
         <Panel
           collapsible
@@ -73,6 +65,7 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
           <ExplorerTree
             documents={props.documents}
             onSelectDocument={props.onSelectDocument}
+            rootPath={props.rootPath}
             selectedFileHash={props.workbench.selection.fileHash}
           />
         </Panel>

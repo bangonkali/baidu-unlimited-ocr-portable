@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { DetailsPane } from '../features/workbench/DetailsPane';
 import { DiagnosticsPanel } from '../features/workbench/DiagnosticsPanel';
@@ -29,6 +30,10 @@ const meta = {
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+const storyQueryClient = new QueryClient({
+  defaultOptions: { queries: { enabled: false, retry: false } },
+});
 
 export const Ingest: Story = {
   render: () => (
@@ -128,7 +133,9 @@ export const Details: Story = {
 export const Diagnostics: Story = {
   render: () => (
     <div className="storyTall">
-      <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} search={{ tab: 'logs' }} />
+      <QueryClientProvider client={storyQueryClient}>
+        <DiagnosticsPanel logs={fixtureLogs} runs={fixtureRuns} search={{ tab: 'logs' }} />
+      </QueryClientProvider>
     </div>
   ),
 };
