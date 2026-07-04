@@ -29,3 +29,6 @@
 [submodule "thirdparty/duckdb-rs"]
 	path = thirdparty/duckdb-rs
 	url = git@github.com:duckdb/duckdb-rs.git
+[submodule "thirdparty/deadpool"]
+	path = thirdparty/deadpool
+	url = git@github.com:deadpool-rs/deadpool.git
