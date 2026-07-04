@@ -2,21 +2,28 @@ mod migrations;
 
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use chrono::Utc;
 use duckdb::{Connection, OptionalExt, params};
 use serde_json::Value;
+use tokio::sync::Semaphore;
 
 use crate::{
-    error::Result,
+    error::{AppError, Result},
     workbench_types::{OverlayBox, TextRegionSpan},
 };
+
+const DB_READ_CONCURRENCY: usize = 8;
+const DB_WRITE_CONCURRENCY: usize = 1;
 
 #[derive(Debug, Clone)]
 pub struct Repository {
     database_path: Arc<PathBuf>,
+    shared_connection: Arc<Mutex<Connection>>,
+    read_slots: Arc<Semaphore>,
+    write_slots: Arc<Semaphore>,
 }
 
 #[derive(Debug, Clone)]

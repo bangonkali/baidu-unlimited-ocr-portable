@@ -29,7 +29,7 @@ impl AppState {
         }
 
         let mut document_events = Vec::new();
-        let run_record = {
+        let (run_record, stored_documents, run_to_store, run_file_hashes, diagnostics) = {
             let mut state = self.inner.state.lock().await;
             let mut run = RunState {
                 run_id: run_id.clone(),
@@ -51,37 +51,55 @@ impl AppState {
                 cancel_requested: false,
                 file_hashes: Vec::new(),
             };
+            let mut stored_documents = Vec::new();
+            let mut diagnostics = Vec::new();
             for file in &files {
                 let document = document_from_file(file, &root); // skylos: ignore[SKY-D215] files come from discover_supported_files under validate_trusted_root().
                 run.file_hashes.push(document.file_hash.clone());
-                self.inner
-                    .repository
-                    .upsert_document(&stored_document(&document))?;
-                self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
-                    run_id: &run_id,
-                    file_hash: &document.file_hash,
-                    page_no: None,
-                    phase: "render",
-                    model: &model_id,
-                    profile: &profile_id,
-                    metadata: json!({
+                stored_documents.push(stored_document(&document));
+                diagnostics.push((
+                    document.file_hash.clone(),
+                    json!({
                         "relative_path": generic_path(&document.relative_path),
                         "extension": document.extension.clone(),
                         "size_bytes": document.size_bytes
                     }),
-                });
+                ));
                 document_events.push(document_summary(&document)); // skylos: ignore[SKY-D215] event contains metadata for a validated local document.
                 state.documents.insert(document.file_hash.clone(), document);
             }
-            self.inner.repository.upsert_run(&stored_run(&run))?;
-            self.inner
-                .repository
-                .replace_run_documents(&run_id, &run.file_hashes)?;
             let record = run_record(&run);
+            let run_to_store = stored_run(&run);
+            let run_file_hashes = run.file_hashes.clone();
             state.active_run_id = Some(run_id.clone());
             state.runs.insert(run_id.clone(), run);
-            record
+            (
+                record,
+                stored_documents,
+                run_to_store,
+                run_file_hashes,
+                diagnostics,
+            )
         };
+        for document in &stored_documents {
+            self.inner.repository.upsert_document(document).await?;
+        }
+        for (file_hash, metadata) in diagnostics {
+            self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
+                run_id: &run_id,
+                file_hash: &file_hash,
+                page_no: None,
+                phase: "render",
+                model: &model_id,
+                profile: &profile_id,
+                metadata,
+            });
+        }
+        self.inner.repository.upsert_run(&run_to_store).await?;
+        self.inner
+            .repository
+            .replace_run_documents(&run_id, &run_file_hashes)
+            .await?;
         self.log_info(
             "ingest",
             format!(

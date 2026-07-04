@@ -4,7 +4,8 @@ impl AppState {
             runs: self
                 .inner
                 .repository
-                .diagnostic_runs(limit_u32(limit, 500))?
+                .diagnostic_runs(limit_u32(limit, 500))
+                .await?
                 .into_iter()
                 .map(diagnostic_run_record)
                 .collect(),
@@ -28,7 +29,7 @@ impl AppState {
             q: q.as_deref(),
             limit: limit_u32(limit, 10_000),
         };
-        let (spans, events) = self.inner.repository.diagnostic_trace(&filter)?;
+        let (spans, events) = self.inner.repository.diagnostic_trace(&filter).await?;
         let summary = diagnostic_trace_summary(run_id, &spans, &events);
         Ok(DiagnosticTracePayload {
             summary,
@@ -45,11 +46,13 @@ impl AppState {
         let work_units = self
             .inner
             .repository
-            .diagnostic_work_units(run_id.as_deref(), limit_u32(limit, 10_000))?;
+            .diagnostic_work_units(run_id.as_deref(), limit_u32(limit, 10_000))
+            .await?;
         let model_leases = self
             .inner
             .repository
-            .diagnostic_model_leases(run_id.as_deref(), limit_u32(limit, 2_000))?;
+            .diagnostic_model_leases(run_id.as_deref(), limit_u32(limit, 2_000))
+            .await?;
         let summary = diagnostic_progress_summary(&work_units);
         Ok(DiagnosticProgressPayload {
             summary,
@@ -74,7 +77,7 @@ impl AppState {
             q: None,
             limit: limit_u32(limit, 25_000),
         };
-        let (spans, events) = self.inner.repository.diagnostic_trace(&filter)?;
+        let (spans, events) = self.inner.repository.diagnostic_trace(&filter).await?;
         let span_count = spans.len() as u32;
         let event_count = events.len() as u32;
         let error_count = diagnostic_error_count(&spans, &events);
@@ -110,7 +113,8 @@ impl AppState {
             model_leases: self
                 .inner
                 .repository
-                .diagnostic_model_leases(run_id.as_deref(), limit_u32(limit, 2_000))?
+                .diagnostic_model_leases(run_id.as_deref(), limit_u32(limit, 2_000))
+                .await?
                 .into_iter()
                 .map(diagnostic_model_lease_record)
                 .collect(),

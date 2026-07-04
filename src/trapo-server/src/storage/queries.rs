@@ -1,6 +1,7 @@
 impl Repository {
-    pub fn search_document_hashes(&self, query: &str, limit: u32) -> Result<Vec<String>> {
-        let conn = self.connect()?;
+    pub async fn search_document_hashes(&self, query: &str, limit: u32) -> Result<Vec<String>> {
+        let query = query.to_string();
+        self.with_read(move |conn| {
         let pattern = format!("%{}%", query.to_lowercase());
         let mut statement = conn.prepare(
             "SELECT DISTINCT f.file_hash FROM files f
@@ -11,20 +12,26 @@ impl Repository {
         )?;
         let rows = statement.query_map(params![pattern, i64::from(limit)], |row| row.get(0))?;
         collect_rows(rows)
-    }
-
-    pub fn load_snapshot(&self) -> Result<StoredSnapshot> {
-        let conn = self.connect()?;
-        Ok(StoredSnapshot {
-            runs: self.load_runs(&conn)?,
-            run_documents: self.load_run_documents(&conn)?,
-            documents: self.load_documents(&conn)?,
-            pages: self.load_pages(&conn)?,
         })
+        .await
     }
 
-    pub fn upsert_page_metrics(&self, metrics: &OcrPageMetrics) -> Result<()> {
-        let conn = self.connect()?;
+    pub async fn load_snapshot(&self) -> Result<StoredSnapshot> {
+        let repository = self.clone();
+        self.with_read(move |conn| {
+            Ok(StoredSnapshot {
+                runs: repository.load_runs(&conn)?,
+                run_documents: repository.load_run_documents(&conn)?,
+                documents: repository.load_documents(&conn)?,
+                pages: repository.load_pages(&conn)?,
+            })
+        })
+        .await
+    }
+
+    pub async fn upsert_page_metrics(&self, metrics: &OcrPageMetrics) -> Result<()> {
+        let metrics = metrics.clone();
+        self.with_write(move |conn| {
         conn.execute(
             "INSERT INTO ocr_page_metrics(run_id, file_hash, page_no, engine_id, profile_id, model_id,
               runtime_id, runtime_platform, accelerator, status, token_count, avg_tps, elapsed_ms, started_at)
@@ -45,14 +52,17 @@ impl Repository {
             ],
         )?;
         Ok(())
+        })
+        .await
     }
 
-    pub fn list_page_metrics(
+    pub async fn list_page_metrics(
         &self,
         run_id: Option<&str>,
         limit: u32,
     ) -> Result<Vec<OcrPageMetrics>> {
-        let conn = self.connect()?;
+        let run_id = run_id.map(str::to_string);
+        self.with_read(move |conn| {
         let sql = if run_id.is_some() {
             "SELECT run_id, file_hash, page_no, model_id, coalesce(runtime_id, ''), status,
               token_count, avg_tps, elapsed_ms FROM ocr_page_metrics
@@ -63,12 +73,14 @@ impl Repository {
              ORDER BY updated_at DESC LIMIT ?"
         };
         let mut statement = conn.prepare(sql)?;
-        if let Some(run_id) = run_id {
+        if let Some(run_id) = run_id.as_deref() {
             let rows = statement.query_map(params![run_id, i64::from(limit)], metrics_from_row)?;
             collect_rows(rows)
         } else {
             let rows = statement.query_map(params![i64::from(limit)], metrics_from_row)?;
             collect_rows(rows)
         }
+        })
+        .await
     }
 }

@@ -1,19 +1,20 @@
 impl AppState {
     pub async fn new(config: ServerConfig) -> Result<Self> {
         config.ensure_directories()?;
-        let repository = Repository::open(config.database_path.clone())?;
+        let repository = Repository::open(config.database_path.clone()).await?;
         let logger = AppLogger::open(&config.log_dir)?;
         let hub = RealtimeHub::new();
         hub.attach_repository(repository.clone());
         let variants = runtime_variants(&config.app_root);
         let selected_model_id =
-            read_string_setting(&repository, "selected_model_id", DEFAULT_MODEL_ID);
+            read_string_setting(&repository, "selected_model_id", DEFAULT_MODEL_ID).await;
         let selected_profile_id =
-            read_string_setting(&repository, "selected_profile_id", DEFAULT_PROFILE_ID);
-        let preferred_runtime = read_string_setting(&repository, "selected_runtime_id", "");
+            read_string_setting(&repository, "selected_profile_id", DEFAULT_PROFILE_ID).await;
+        let preferred_runtime = read_string_setting(&repository, "selected_runtime_id", "").await;
         let selected_runtime_id = choose_runtime_id(&variants, &preferred_runtime);
         let workbench_ui = repository
-            .setting_value("workbench_ui")?
+            .setting_value("workbench_ui")
+            .await?
             .and_then(|value| serde_json::from_value(value).ok())
             .unwrap_or_default();
         let renderer = PdfRenderer::new(
@@ -33,7 +34,7 @@ impl AppState {
             downloads: HashMap::new(),
             download_queue: VecDeque::new(),
         };
-        hydrate_snapshot(&repository, &mut state)?;
+        hydrate_snapshot(&repository, &mut state).await?;
         let app = Self {
             inner: Arc::new(AppInner {
                 config,
@@ -114,44 +115,43 @@ impl AppState {
     }
 
     pub async fn update_settings(&self, request: SettingsUpdateRequest) -> Result<SettingsPayload> {
-        let mut state = self.inner.state.lock().await;
-        if let Some(runtime_id) = request
-            .selected_runtime_id
-            .filter(|value| !value.is_empty())
-        {
-            let runtime = state
-                .runtime_variants
-                .iter()
-                .find(|item| item.runtime_id == runtime_id);
-            if !runtime.is_some_and(|item| item.selectable) {
-                return Err(AppError::BadRequest(format!(
-                    "runtime is not supported on this device or is not installed: {runtime_id}"
-                )));
+        let mut settings_to_persist = Vec::new();
+        let payload = {
+            let mut state = self.inner.state.lock().await;
+            if let Some(runtime_id) = request
+                .selected_runtime_id
+                .filter(|value| !value.is_empty())
+            {
+                let runtime = state
+                    .runtime_variants
+                    .iter()
+                    .find(|item| item.runtime_id == runtime_id);
+                if !runtime.is_some_and(|item| item.selectable) {
+                    return Err(AppError::BadRequest(format!(
+                        "runtime is not supported on this device or is not installed: {runtime_id}"
+                    )));
+                }
+                state.selected_runtime_id = runtime_id.clone();
+                settings_to_persist.push(("selected_runtime_id", Value::String(runtime_id)));
             }
-            state.selected_runtime_id = runtime_id.clone();
-            self.inner
-                .repository
-                .put_setting("selected_runtime_id", &Value::String(runtime_id))?;
-        }
-        if let Some(profile_id) = request.default_profile.filter(|value| !value.is_empty()) {
-            if find_profile(&profile_id).is_none() {
-                return Err(AppError::BadRequest(format!(
-                    "unknown OCR profile: {profile_id}"
-                )));
+            if let Some(profile_id) = request.default_profile.filter(|value| !value.is_empty()) {
+                if find_profile(&profile_id).is_none() {
+                    return Err(AppError::BadRequest(format!(
+                        "unknown OCR profile: {profile_id}"
+                    )));
+                }
+                state.selected_profile_id = profile_id.clone();
+                settings_to_persist.push(("selected_profile_id", Value::String(profile_id)));
             }
-            state.selected_profile_id = profile_id.clone();
-            self.inner
-                .repository
-                .put_setting("selected_profile_id", &Value::String(profile_id))?;
+            if let Some(patch) = request.workbench_ui {
+                apply_workbench_patch(&mut state.workbench_ui, patch)?;
+                settings_to_persist.push(("workbench_ui", serde_json::to_value(&state.workbench_ui)?));
+            }
+            settings_payload(&self.inner, &state)
+        };
+        for (key, value) in settings_to_persist {
+            self.inner.repository.put_setting(key, &value).await?;
         }
-        if let Some(patch) = request.workbench_ui {
-            apply_workbench_patch(&mut state.workbench_ui, patch)?;
-            self.inner
-                .repository
-                .put_setting("workbench_ui", &serde_json::to_value(&state.workbench_ui)?)?;
-        }
-        let payload = settings_payload(&self.inner, &state);
-        drop(state);
         self.publish_status_changed().await;
         Ok(payload)
     }

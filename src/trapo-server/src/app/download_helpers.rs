@@ -42,7 +42,7 @@ impl AppState {
                 completed,
             )
         };
-        self.record_download_event(&completed, "completed");
+        self.record_download_event(&completed, "completed").await;
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
@@ -67,7 +67,7 @@ impl AppState {
                 failed,
             )
         };
-        self.record_download_event(&failed, "failed");
+        self.record_download_event(&failed, "failed").await;
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
@@ -90,7 +90,7 @@ impl AppState {
                 cancelled,
             )
         };
-        self.record_download_event(&cancelled, "cancelled");
+        self.record_download_event(&cancelled, "cancelled").await;
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
@@ -105,7 +105,7 @@ impl AppState {
             .is_some_and(|download| download.cancel_requested)
     }
 
-    fn record_download_event(&self, download: &DownloadState, event_type: &str) {
+    async fn record_download_event(&self, download: &DownloadState, event_type: &str) {
         let event = DownloadEventInsert {
             event_id: uuid::Uuid::new_v4().to_string(),
             download_id: download.download_id.clone(),
@@ -122,7 +122,7 @@ impl AppState {
             error: download.error.clone(),
             created_at: Utc::now().to_rfc3339(),
         };
-        if let Err(error) = self.inner.repository.insert_download_event(&event) {
+        if let Err(error) = self.inner.repository.insert_download_event(&event).await {
             tracing::warn!(%error, download_id = %download.download_id, "failed to persist download event");
         }
     }

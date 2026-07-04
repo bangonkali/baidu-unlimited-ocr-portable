@@ -25,7 +25,7 @@ impl AppState {
             page_work.image_path,
             &mut parsed.boxes,
         )?;
-        let (page_record, regions_payload, text_payload) = {
+        let (stored, page_record, regions_payload, text_payload) = {
             let mut state = self.inner.state.lock().await;
             let document = state
                 .documents
@@ -52,12 +52,6 @@ impl AppState {
                     page.height_px,
                 )
             };
-            self.inner.repository.replace_page_ocr(
-                &stored,
-                ENGINE_ID,
-                ocr.profile_id,
-                started.elapsed().as_millis() as u64,
-            )?;
             let regions = DocumentRegionsPayload {
                 file_hash: page_work.file_hash.to_string(),
                 boxes: document
@@ -77,8 +71,17 @@ impl AppState {
                 "width_px": width_px,
                 "height_px": height_px,
             });
-            (page_record, regions, text)
+            (stored, page_record, regions, text)
         };
+        self.inner
+            .repository
+            .replace_page_ocr(
+                &stored,
+                ENGINE_ID,
+                ocr.profile_id,
+                started.elapsed().as_millis() as u64,
+            )
+            .await?;
         self.increment_run_page(page_work.run_id, page_work.file_hash)
             .await?;
         self.inner.hub.publish("document.page.changed", page_record);
@@ -89,22 +92,25 @@ impl AppState {
         self.inner
             .hub
             .publish("document.text.changed", serde_json::to_value(text_payload)?);
-        self.inner.repository.upsert_page_metrics(&OcrPageMetrics {
-            run_id: page_work.run_id.to_string(),
-            file_hash: page_work.file_hash.to_string(),
-            page_no: page_work.page_no,
-            model_id: ocr.model_id.to_string(),
-            runtime_id: ocr.runtime_id.to_string(),
-            status: "completed".to_string(),
-            token_count: 0,
-            avg_tps: 0.0,
-            elapsed_ms: started.elapsed().as_millis() as u64,
-        })?;
+        self.inner
+            .repository
+            .upsert_page_metrics(&OcrPageMetrics {
+                run_id: page_work.run_id.to_string(),
+                file_hash: page_work.file_hash.to_string(),
+                page_no: page_work.page_no,
+                model_id: ocr.model_id.to_string(),
+                runtime_id: ocr.runtime_id.to_string(),
+                status: "completed".to_string(),
+                token_count: 0,
+                avg_tps: 0.0,
+                elapsed_ms: started.elapsed().as_millis() as u64,
+            })
+            .await?;
         Ok(())
     }
 
     async fn mark_page_started(&self, file_hash: &str, page_no: u32) -> Result<()> {
-        let (page_record, document_event) = {
+        let (stored, page_record, document_event) = {
             let mut state = self.inner.state.lock().await;
             let document = state
                 .documents
@@ -116,9 +122,7 @@ impl AppState {
                 .find(|item| item.page_no == page_no)
                 .ok_or_else(|| AppError::NotFound("page not found".to_string()))?;
             page.status = "running".to_string();
-            self.inner
-                .repository
-                .upsert_page(&stored_page(file_hash, page))?;
+            let stored = stored_page(file_hash, page);
             let page_record = json!({
                 "file_hash": file_hash,
                 "page_no": page_no,
@@ -126,8 +130,9 @@ impl AppState {
                 "width_px": page.width_px,
                 "height_px": page.height_px,
             });
-            (page_record, document_summary(document))
+            (stored, page_record, document_summary(document))
         };
+        self.inner.repository.upsert_page(&stored).await?;
         self.inner.hub.publish("document.page.changed", page_record);
         self.inner
             .hub
@@ -164,18 +169,19 @@ impl AppState {
     }
 
     async fn increment_run_page(&self, run_id: &str, file_hash: &str) -> Result<()> {
-        let (run_event, document_event) = {
+        let (stored, run_event, document_event) = {
             let mut state = self.inner.state.lock().await;
             let Some(run) = state.runs.get_mut(run_id) else {
                 return Err(AppError::NotFound("run not found".to_string()));
             };
             run.processed_pages = run.processed_pages.saturating_add(1);
             run.current_page = Some(run.processed_pages);
-            self.inner.repository.upsert_run(&stored_run(run))?;
+            let stored = stored_run(run);
             let run_event = run_record(run);
             let document_event = state.documents.get(file_hash).map(document_summary);
-            (run_event, document_event)
+            (stored, run_event, document_event)
         };
+        self.inner.repository.upsert_run(&stored).await?;
         self.inner
             .hub
             .publish("run.changed", serde_json::to_value(run_event)?);
@@ -194,18 +200,16 @@ impl AppState {
         status: &str,
         error: Option<String>,
     ) -> Result<()> {
-        let event = {
+        let (stored, event) = {
             let mut state = self.inner.state.lock().await;
             let Some(document) = state.documents.get_mut(file_hash) else {
                 return Err(AppError::NotFound("document not found".to_string()));
             };
             document.status = status.to_string();
             document.error = error;
-            self.inner
-                .repository
-                .upsert_document(&stored_document(document))?;
-            document_summary(document)
+            (stored_document(document), document_summary(document))
         };
+        self.inner.repository.upsert_document(&stored).await?;
         self.inner
             .hub
             .publish("document.changed", serde_json::to_value(event)?);
@@ -221,7 +225,7 @@ impl AppState {
     }
 
     async fn mark_run_status(&self, run_id: &str, status: &str, error: Option<String>) {
-        let event = {
+        let (stored, event) = {
             let mut state = self.inner.state.lock().await;
             let Some(run) = state.runs.get_mut(run_id) else {
                 return;
@@ -230,9 +234,11 @@ impl AppState {
             if error.is_some() {
                 run.error = error;
             }
-            let _ = self.inner.repository.upsert_run(&stored_run(run));
-            run_record(run)
+            (stored_run(run), run_record(run))
         };
+        if let Err(error) = self.inner.repository.upsert_run(&stored).await {
+            tracing::warn!(%error, run_id, "failed to persist run status");
+        }
         self.inner.hub.publish(
             "run.changed",
             serde_json::to_value(event).unwrap_or_else(|_| json!({})),

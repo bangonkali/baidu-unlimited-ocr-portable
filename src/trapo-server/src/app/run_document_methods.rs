@@ -16,7 +16,7 @@ impl AppState {
     }
 
     pub async fn stop_run(&self, run_id: &str) -> Result<IngestRunRecord> {
-        let (record, document_events) = {
+        let (record, document_events, run_to_store, documents_to_store) = {
             let mut state = self.inner.state.lock().await;
             let Some(run) = state.runs.get_mut(run_id) else {
                 return Err(AppError::NotFound("run not found".to_string()));
@@ -24,22 +24,25 @@ impl AppState {
             run.cancel_requested = true;
             run.status = "cancelled".to_string();
             let file_hashes = run.file_hashes.clone();
-            self.inner.repository.upsert_run(&stored_run(run))?;
+            let run_to_store = stored_run(run);
             let record = run_record(run);
             let mut document_events = Vec::new();
+            let mut documents_to_store = Vec::new();
             for file_hash in file_hashes {
                 if let Some(document) = state.documents.get_mut(&file_hash) {
                     if matches!(document.status.as_str(), "queued" | "running" | "rendering") {
                         document.status = "cancelled".to_string();
                     }
-                    self.inner
-                        .repository
-                        .upsert_document(&stored_document(document))?;
+                    documents_to_store.push(stored_document(document));
                     document_events.push(document_summary(document));
                 }
             }
-            (record, document_events)
+            (record, document_events, run_to_store, documents_to_store)
         };
+        self.inner.repository.upsert_run(&run_to_store).await?;
+        for document in &documents_to_store {
+            self.inner.repository.upsert_document(document).await?;
+        }
         self.log_warn("ingest", format!("stop requested for run {run_id}"))
             .await;
         self.inner
@@ -59,14 +62,23 @@ impl AppState {
         run_id: Option<&str>,
         limit: u32,
     ) -> Result<OcrMetricsTreePayload> {
-        let rows = self.inner.repository.list_page_metrics(run_id, limit)?;
+        let rows = self.inner.repository.list_page_metrics(run_id, limit).await?;
         Ok(metrics_tree(rows))
     }
 
     pub async fn list_documents(&self, query: Option<String>) -> Result<DocumentsPayload> {
+        let persisted = if let Some(query) = query.filter(|value| !value.is_empty()) {
+            Some(
+                self.inner
+                    .repository
+                    .search_document_hashes(&query, 200)
+                    .await?,
+            )
+        } else {
+            None
+        };
         let state = self.inner.state.lock().await;
-        let documents = if let Some(query) = query.filter(|value| !value.is_empty()) {
-            let persisted = self.inner.repository.search_document_hashes(&query, 200)?;
+        let documents = if let Some(persisted) = persisted {
             persisted
                 .iter()
                 .filter_map(|hash| state.documents.get(hash).map(document_summary))

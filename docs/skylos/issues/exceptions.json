@@ -322,6 +322,13 @@
       "reason": "The log file is opened under the app log root configured during local server startup."
     },
     {
+      "id": "server-duckdb-configured-data-path",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/storage/core.rs",
+      "reason": "The repository opens the configured DuckDB file under the app data directory during local server startup; request handlers do not choose this path."
+    },
+    {
       "id": "server-ffi-local-runtime-paths",
       "rule_id": "SKY-D215",
       "category": "danger",

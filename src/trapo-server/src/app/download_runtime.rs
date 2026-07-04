@@ -62,7 +62,7 @@ impl AppState {
             )
         };
         if let Some(download) = started.as_ref() {
-            self.record_download_event(download, "started");
+            self.record_download_event(download, "started").await;
         }
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);

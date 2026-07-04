@@ -20,11 +20,12 @@ impl AppState {
         let event = {
             let mut state = self.inner.state.lock().await;
             state.selected_model_id = model_id.to_string();
-            self.inner
-                .repository
-                .put_setting("selected_model_id", &Value::String(model_id.to_string()))?;
             serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))?
         };
+        self.inner
+            .repository
+            .put_setting("selected_model_id", &Value::String(model_id.to_string()))
+            .await?;
         self.log_info("models", format!("selected model {model_id}"))
             .await;
         self.inner.hub.publish("model.changed", event);

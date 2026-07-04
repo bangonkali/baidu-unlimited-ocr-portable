@@ -1,10 +1,46 @@
 impl Repository {
-    fn connect(&self) -> Result<Connection> {
-        Ok(Connection::open(self.database_path.as_path())?)
+    async fn with_read<T, F>(&self, operation: F) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(Connection) -> Result<T> + Send + 'static,
+    {
+        self.with_lane(self.read_slots.clone(), operation).await
     }
 
-    fn migrate(&self) -> Result<()> {
-        let conn = self.connect()?;
+    async fn with_write<T, F>(&self, operation: F) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(Connection) -> Result<T> + Send + 'static,
+    {
+        self.with_lane(self.write_slots.clone(), operation).await
+    }
+
+    async fn with_lane<T, F>(&self, lane: Arc<Semaphore>, operation: F) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(Connection) -> Result<T> + Send + 'static,
+    {
+        let permit = lane
+            .acquire_owned()
+            .await
+            .map_err(|error| AppError::Internal(format!("database lane closed: {error}")))?;
+        let shared_connection = self.shared_connection.clone();
+        tokio::task::spawn_blocking(move || {
+            let conn = {
+                let guard = shared_connection
+                    .lock()
+                    .map_err(|_| AppError::Internal("database connection mutex poisoned".to_string()))?;
+                guard.try_clone()?
+            };
+            let _permit = permit;
+            operation(conn)
+        })
+        .await
+        .map_err(|error| AppError::Internal(format!("database worker failed: {error}")))?
+    }
+
+    async fn migrate(&self) -> Result<()> {
+        self.with_write(|conn| {
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS schema_migrations (
               id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TIMESTAMP NOT NULL DEFAULT current_timestamp
@@ -28,6 +64,8 @@ impl Repository {
             )?;
         }
         Ok(())
+        })
+        .await
     }
 
     fn replace_regions(

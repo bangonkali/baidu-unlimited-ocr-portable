@@ -192,11 +192,12 @@ fn openapi_page_fields_remain_numeric() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[test]
-fn duckdb_page_columns_remain_integer() -> anyhow::Result<()> {
+#[tokio::test]
+async fn duckdb_page_columns_remain_integer() -> anyhow::Result<()> {
     let temp = tempfile::tempdir()?;
     let database_path = temp.path().join("trapo.duckdb");
-    let _repository = Repository::open(database_path.clone())?;
+    let repository = Repository::open(database_path.clone()).await?;
+    drop(repository);
     let conn = duckdb::Connection::open(&database_path)?;
 
     for (table, column) in [

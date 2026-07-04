@@ -1,6 +1,7 @@
-fn read_string_setting(repository: &Repository, key: &str, fallback: &str) -> String {
+async fn read_string_setting(repository: &Repository, key: &str, fallback: &str) -> String {
     repository
         .setting_value(key)
+        .await
         .ok()
         .flatten()
         .and_then(|value| value.as_str().map(ToString::to_string))
@@ -8,8 +9,8 @@ fn read_string_setting(repository: &Repository, key: &str, fallback: &str) -> St
         .unwrap_or_else(|| fallback.to_string())
 }
 
-fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -> Result<()> {
-    let snapshot = repository.load_snapshot()?;
+async fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -> Result<()> {
+    let snapshot = repository.load_snapshot().await?;
     for run in snapshot.runs {
         state.runs.insert(run.run_id.clone(), run_from_stored(run));
     }

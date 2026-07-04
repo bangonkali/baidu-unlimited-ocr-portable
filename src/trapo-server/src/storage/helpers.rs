@@ -34,22 +34,23 @@ fn i64_to_u64(value: i64) -> u64 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn migrates_and_persists_settings() -> Result<()> {
+    #[tokio::test]
+    async fn migrates_and_persists_settings() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
-        repo.put_setting("selected_model_id", &Value::String("model".to_string()))?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        repo.put_setting("selected_model_id", &Value::String("model".to_string()))
+            .await?;
         assert_eq!(
-            repo.setting_value("selected_model_id")?,
+            repo.setting_value("selected_model_id").await?,
             Some(Value::String("model".to_string()))
         );
         Ok(())
     }
 
-    #[test]
-    fn reloads_page_regions_and_spans() -> Result<()> {
+    #[tokio::test]
+    async fn reloads_page_regions_and_spans() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
         let page = StoredPage {
             file_hash: "file-a".to_string(),
             page_no: 1,
@@ -81,10 +82,11 @@ mod tests {
             }],
         };
 
-        repo.upsert_page(&page)?;
-        repo.replace_page_ocr(&page, "engine", "profile", 42)?;
+        repo.upsert_page(&page).await?;
+        repo.replace_page_ocr(&page, "engine", "profile", 42)
+            .await?;
 
-        let snapshot = repo.load_snapshot()?;
+        let snapshot = repo.load_snapshot().await?;
         assert_eq!(snapshot.pages.len(), 1);
         let loaded = &snapshot.pages[0];
         assert_eq!(loaded.boxes.len(), 1);
@@ -93,10 +95,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn persists_and_lists_ocr_stream_events() -> Result<()> {
+    #[tokio::test]
+    async fn persists_and_lists_ocr_stream_events() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
         repo.persist_realtime_event(
             7,
             "ocr.page.text.patch",
@@ -107,19 +109,22 @@ mod tests {
                 "page_no": 1,
                 "text": "Total"
             }),
-        )?;
+        )
+        .await?;
 
-        let events = repo.list_ocr_stream_events(Some("run-a"), Some("file-a"), Some(1), None, 10)?;
+        let events = repo
+            .list_ocr_stream_events(Some("run-a"), Some("file-a"), Some(1), None, 10)
+            .await?;
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].sequence, 7);
         assert_eq!(events[0].payload["text"], "Total");
         Ok(())
     }
 
-    #[test]
-    fn persists_download_lifecycle_events() -> Result<()> {
+    #[tokio::test]
+    async fn persists_download_lifecycle_events() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
         let event = DownloadEventInsert {
             event_id: "event-a".to_string(),
             download_id: "model:model-a:model".to_string(),
@@ -137,16 +142,19 @@ mod tests {
             created_at: "2026-07-03T00:00:00Z".to_string(),
         };
 
-        repo.insert_download_event(&event)?;
+        repo.insert_download_event(&event).await?;
 
-        assert_eq!(repo.download_event_count(&event.download_id, "started")?, 1);
+        assert_eq!(
+            repo.download_event_count(&event.download_id, "started").await?,
+            1
+        );
         Ok(())
     }
 
-    #[test]
-    fn reloads_run_document_membership() -> Result<()> {
+    #[tokio::test]
+    async fn reloads_run_document_membership() -> Result<()> {
         let temp = tempfile::tempdir()?;
-        let repo = Repository::open(temp.path().join("trapo.duckdb"))?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
         repo.upsert_run(&StoredRun {
             run_id: "run-a".to_string(),
             root_path: "dataset".to_string(),
@@ -159,10 +167,12 @@ mod tests {
             processed_pages: 0,
             total_pages: 2,
             error: None,
-        })?;
-        repo.replace_run_documents("run-a", &["file-b".to_string(), "file-a".to_string()])?;
+        })
+        .await?;
+        repo.replace_run_documents("run-a", &["file-b".to_string(), "file-a".to_string()])
+            .await?;
 
-        let snapshot = repo.load_snapshot()?;
+        let snapshot = repo.load_snapshot().await?;
 
         let files: Vec<_> = snapshot
             .run_documents

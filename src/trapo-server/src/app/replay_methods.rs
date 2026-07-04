@@ -7,13 +7,28 @@ impl AppState {
         since_sequence: Option<u64>,
         limit: usize,
     ) -> Result<OcrReplayPayload> {
-        let events = self.inner.repository.list_ocr_stream_events(
+        let limit = limit.min(10_000);
+        let mut events = self
+            .inner
+            .repository
+            .list_ocr_stream_events(
+                run_id.as_deref(),
+                file_hash.as_deref(),
+                page_no,
+                since_sequence,
+                limit_u32(limit, 10_000),
+            )
+            .await?;
+        events.extend(self.inner.hub.recent_ocr_events(
             run_id.as_deref(),
             file_hash.as_deref(),
             page_no,
             since_sequence,
-            limit_u32(limit, 10_000),
-        )?;
+            limit,
+        ));
+        events.sort_by_key(|event| event.sequence);
+        events.dedup_by_key(|event| event.sequence);
+        events.truncate(limit);
         let next_since_sequence = events.last().map(|event| event.sequence);
         Ok(OcrReplayPayload {
             events: events.into_iter().map(realtime_event_record).collect(),

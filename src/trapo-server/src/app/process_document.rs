@@ -5,22 +5,23 @@ impl AppState {
         file_hash: &str,
         ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
-        let document_path = {
+        let (document_path, stored, event) = {
             let mut state = self.inner.state.lock().await;
             let document = state
                 .documents
                 .get_mut(file_hash)
                 .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
             document.status = "rendering".to_string();
-            self.inner
-                .repository
-                .upsert_document(&stored_document(document))?;
-            self.inner.hub.publish(
-                "document.changed",
-                serde_json::to_value(document_summary(document))?,
-            );
-            document.absolute_path.clone()
+            (
+                document.absolute_path.clone(),
+                stored_document(document),
+                document_summary(document),
+            )
         };
+        self.inner.repository.upsert_document(&stored).await?;
+        self.inner
+            .hub
+            .publish("document.changed", serde_json::to_value(event)?);
         let render_work_unit_id = self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
             run_id,
             file_hash,
@@ -101,7 +102,7 @@ impl AppState {
                 return Err(error);
             }
         };
-        {
+        let (stored, pages, event, page_diagnostics) = {
             let mut state = self.inner.state.lock().await;
             let document = state
                 .documents
@@ -125,32 +126,50 @@ impl AppState {
                     error: None,
                 })
                 .collect();
-            self.inner
-                .repository
-                .upsert_document(&stored_document(document))?;
-            for page in &document.pages {
-                self.inner
-                    .repository
-                    .upsert_page(&stored_page(file_hash, page))?;
-                self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
-                    run_id,
-                    file_hash,
-                    page_no: Some(page.page_no),
-                    phase: "ocr",
-                    model: ocr_context.model_id,
-                    profile: ocr_context.profile_id,
-                    metadata: json!({
-                        "width_px": page.width_px,
-                        "height_px": page.height_px,
-                        "render_dpi": page.render_dpi
-                    }),
-                });
-            }
-            self.inner.hub.publish(
-                "document.changed",
-                serde_json::to_value(document_summary(document))?,
-            );
+            let pages: Vec<_> = document
+                .pages
+                .iter()
+                .map(|page| stored_page(file_hash, page))
+                .collect();
+            let page_diagnostics: Vec<_> = document
+                .pages
+                .iter()
+                .map(|page| {
+                    (
+                        page.page_no,
+                        json!({
+                            "width_px": page.width_px,
+                            "height_px": page.height_px,
+                            "render_dpi": page.render_dpi
+                        }),
+                    )
+                })
+                .collect();
+            (
+                stored_document(document),
+                pages,
+                document_summary(document),
+                page_diagnostics,
+            )
+        };
+        self.inner.repository.upsert_document(&stored).await?;
+        for page in &pages {
+            self.inner.repository.upsert_page(page).await?;
         }
+        for (page_no, metadata) in page_diagnostics {
+            self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
+                run_id,
+                file_hash,
+                page_no: Some(page_no),
+                phase: "ocr",
+                model: ocr_context.model_id,
+                profile: ocr_context.profile_id,
+                metadata,
+            });
+        }
+        self.inner
+            .hub
+            .publish("document.changed", serde_json::to_value(event)?);
         for page in rendered {
             if self.run_cancelled(run_id).await {
                 return Ok(());

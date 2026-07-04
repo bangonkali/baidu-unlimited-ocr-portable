@@ -1,5 +1,5 @@
 impl Repository {
-    pub fn persist_realtime_event(
+    pub async fn persist_realtime_event(
         &self,
         sequence: u64,
         event_type: &str,
@@ -9,7 +9,6 @@ impl Repository {
         if !event_type.starts_with("ocr.page.") {
             return Ok(());
         }
-        let conn = self.connect()?;
         let run_id = payload
             .get("run_id")
             .and_then(Value::as_str)
@@ -19,24 +18,52 @@ impl Repository {
             .and_then(Value::as_str)
             .map(str::to_string);
         let page_no = payload.get("page_no").and_then(Value::as_u64);
-        conn.execute(
-            "INSERT INTO ocr_stream_events(sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(sequence) DO NOTHING",
-            params![
-                sequence as i64,
-                event_type,
-                occurred_at,
-                run_id,
-                file_hash,
-                page_no.map(|value| value as i64),
-                payload.to_string()
-            ],
-        )?;
-        Ok(())
+        self.persist_realtime_events(vec![StoredRealtimeEvent {
+            sequence,
+            event_type: event_type.to_string(),
+            occurred_at: occurred_at.to_string(),
+            run_id,
+            file_hash,
+            page_no: page_no.and_then(|value| u32::try_from(value).ok()),
+            payload: payload.clone(),
+        }])
+        .await
     }
 
-    pub fn list_ocr_stream_events(
+    pub async fn persist_realtime_events(&self, events: Vec<StoredRealtimeEvent>) -> Result<()> {
+        let records: Vec<_> = events
+            .into_iter()
+            .filter(|event| event.event_type.starts_with("ocr.page."))
+            .map(RealtimeEventWrite::from)
+            .collect();
+        if records.is_empty() {
+            return Ok(());
+        }
+        self.with_write(move |mut conn| {
+            let transaction = conn.transaction()?;
+            for record in &records {
+                transaction.execute(
+                    "INSERT INTO ocr_stream_events(sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(sequence) DO NOTHING",
+                    params![
+                        record.sequence,
+                        record.event_type.as_str(),
+                        record.occurred_at.as_str(),
+                        record.run_id.as_deref(),
+                        record.file_hash.as_deref(),
+                        record.page_no,
+                        record.payload_json.as_str()
+                    ],
+                )?;
+            }
+            transaction.commit()?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn list_ocr_stream_events(
         &self,
         run_id: Option<&str>,
         file_hash: Option<&str>,
@@ -44,34 +71,62 @@ impl Repository {
         since_sequence: Option<u64>,
         limit: u32,
     ) -> Result<Vec<StoredRealtimeEvent>> {
-        let conn = self.connect()?;
-        let page_no = page_no.map(i64::from);
-        let since_sequence = since_sequence.map(|value| value as i64).unwrap_or(0);
-        let limit = i64::from(limit.clamp(1, 100_000));
-        let mut statement = conn.prepare(
-            "SELECT sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json
-             FROM ocr_stream_events
-             WHERE sequence > ?
-               AND (? IS NULL OR run_id = ?)
-               AND (? IS NULL OR file_hash = ?)
-               AND (? IS NULL OR page_no = ?)
-             ORDER BY sequence ASC
-             LIMIT ?",
-        )?;
-        let rows = statement.query_map(
-            params![
-                since_sequence,
-                run_id,
-                run_id,
-                file_hash,
-                file_hash,
-                page_no,
-                page_no,
-                limit
-            ],
-            realtime_event_from_row,
-        )?;
-        collect_rows(rows)
+        let run_id = run_id.map(str::to_string);
+        let file_hash = file_hash.map(str::to_string);
+        self.with_read(move |conn| {
+            let page_no = page_no.map(i64::from);
+            let since_sequence = since_sequence.map(|value| value as i64).unwrap_or(0);
+            let limit = i64::from(limit.clamp(1, 100_000));
+            let mut statement = conn.prepare(
+                "SELECT sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json
+                 FROM ocr_stream_events
+                 WHERE sequence > ?
+                   AND (? IS NULL OR run_id = ?)
+                   AND (? IS NULL OR file_hash = ?)
+                   AND (? IS NULL OR page_no = ?)
+                 ORDER BY sequence ASC
+                 LIMIT ?",
+            )?;
+            let rows = statement.query_map(
+                params![
+                    since_sequence,
+                    run_id.as_deref(),
+                    run_id.as_deref(),
+                    file_hash.as_deref(),
+                    file_hash.as_deref(),
+                    page_no,
+                    page_no,
+                    limit
+                ],
+                realtime_event_from_row,
+            )?;
+            collect_rows(rows)
+        })
+        .await
+    }
+}
+
+struct RealtimeEventWrite {
+    sequence: i64,
+    event_type: String,
+    occurred_at: String,
+    run_id: Option<String>,
+    file_hash: Option<String>,
+    page_no: Option<i64>,
+    payload_json: String,
+}
+
+impl From<StoredRealtimeEvent> for RealtimeEventWrite {
+    fn from(event: StoredRealtimeEvent) -> Self {
+        Self {
+            sequence: event.sequence as i64,
+            event_type: event.event_type,
+            occurred_at: event.occurred_at,
+            run_id: event.run_id,
+            file_hash: event.file_hash,
+            page_no: event.page_no.map(i64::from),
+            payload_json: event.payload.to_string(),
+        }
     }
 }
 
