@@ -94,8 +94,10 @@ fn preload_macos_sibling_dylibs(path: &Path) -> Vec<Library> {
         return Vec::new();
     };
     let ffi_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let mut candidates: Vec<PathBuf> = match std::fs::read_dir(parent) {
-        Ok(entries) => entries
+    let mut candidates: Vec<PathBuf> = std::fs::read_dir(parent).map_or_else(
+        |_| Vec::new(),
+        |entries| {
+            entries
             .filter_map(std::result::Result::ok)
             .map(|entry| entry.path())
             .filter(|candidate| candidate.extension().is_some_and(|ext| ext == "dylib"))
@@ -104,9 +106,9 @@ fn preload_macos_sibling_dylibs(path: &Path) -> Vec<Library> {
                     .canonicalize()
                     .map_or(true, |resolved| resolved != ffi_path)
             })
-            .collect(),
-        Err(_) => Vec::new(),
-    };
+            .collect()
+        },
+    );
     candidates.sort_by(|left, right| {
         let left_name = left.file_name().and_then(|name| name.to_str()).unwrap_or("");
         let right_name = right.file_name().and_then(|name| name.to_str()).unwrap_or("");

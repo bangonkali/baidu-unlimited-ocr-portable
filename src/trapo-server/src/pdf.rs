@@ -131,7 +131,7 @@ fn strip_windows_verbatim_prefix(path: &Path) -> Option<PathBuf> {
 }
 
 #[cfg(not(windows))]
-fn strip_windows_verbatim_prefix(_path: &Path) -> Option<PathBuf> {
+const fn strip_windows_verbatim_prefix(_path: &Path) -> Option<PathBuf> {
     None
 }
 

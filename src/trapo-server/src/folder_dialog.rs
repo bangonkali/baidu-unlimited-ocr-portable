@@ -120,10 +120,10 @@ fn is_cancelled_command(status: &std::process::ExitStatus, stderr: &str) -> bool
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 fn command_failure_detail(status: &std::process::ExitStatus, stderr: &str) -> String {
-    let status = status
-        .code()
-        .map(|code| format!(" with exit code {code}"))
-        .unwrap_or_else(|| " without an exit code".to_string());
+    let status = status.code().map_or_else(
+        || " without an exit code".to_string(),
+        |code| format!(" with exit code {code}"),
+    );
     if stderr.is_empty() {
         status
     } else {
@@ -201,7 +201,7 @@ enum LinuxDialogBackend {
 }
 
 #[cfg(target_os = "linux")]
-fn linux_dialog_backend(zenity: bool, kdialog: bool) -> Option<LinuxDialogBackend> {
+const fn linux_dialog_backend(zenity: bool, kdialog: bool) -> Option<LinuxDialogBackend> {
     if zenity {
         Some(LinuxDialogBackend::Zenity)
     } else if kdialog {
