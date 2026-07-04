@@ -1,167 +1,167 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-pub use crate::workbench_diagnostics_types::*;
+pub(crate) use crate::workbench_diagnostics_types::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
-pub struct IngestStartRequest {
-    pub root_path: String,
-    pub profile_id: Option<String>,
-    pub model_id: Option<String>,
-    pub engine_id: Option<String>,
-    pub reprocess: Option<bool>,
+pub(crate) struct IngestStartRequest {
+    pub(crate) root_path: String,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) model_id: Option<String>,
+    pub(crate) engine_id: Option<String>,
+    pub(crate) reprocess: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct IngestRunRecord {
-    pub run_id: String,
-    pub root_path: String,
-    pub status: String,
-    pub file_hashes: Vec<String>,
-    pub queued_files: u32,
-    pub processed_pages: u32,
-    pub total_pages: u32,
-    pub current_page: Option<u32>,
-    pub progress_percent: f64,
-    pub profile_id: String,
-    pub engine_id: String,
-    pub model_id: String,
-    pub runtime_id: String,
-    pub error: Option<String>,
+pub(crate) struct IngestRunRecord {
+    pub(crate) run_id: String,
+    pub(crate) root_path: String,
+    pub(crate) status: String,
+    pub(crate) file_hashes: Vec<String>,
+    pub(crate) queued_files: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) current_page: Option<u32>,
+    pub(crate) progress_percent: f64,
+    pub(crate) profile_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct IngestStartResponse {
-    pub run: IngestRunRecord,
-    pub documents: Vec<DocumentSummary>,
-    pub replay_since_sequence: u64,
+pub(crate) struct IngestStartResponse {
+    pub(crate) run: IngestRunRecord,
+    pub(crate) documents: Vec<DocumentSummary>,
+    pub(crate) replay_since_sequence: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct IngestRunsPayload {
-    pub runs: Vec<IngestRunRecord>,
+pub(crate) struct IngestRunsPayload {
+    pub(crate) runs: Vec<IngestRunRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct OcrMetricsTreePayload {
-    pub roots: Vec<OcrMetricsTreeNode>,
+pub(crate) struct OcrMetricsTreePayload {
+    pub(crate) roots: Vec<OcrMetricsTreeNode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct OcrMetricsTreeNode {
-    pub id: String,
-    pub label: String,
-    pub kind: String,
-    pub status: String,
-    pub token_count: u64,
-    pub avg_tps: f64,
-    pub elapsed_ms: u64,
+pub(crate) struct OcrMetricsTreeNode {
+    pub(crate) id: String,
+    pub(crate) label: String,
+    pub(crate) kind: String,
+    pub(crate) status: String,
+    pub(crate) token_count: u64,
+    pub(crate) avg_tps: f64,
+    pub(crate) elapsed_ms: u64,
     #[schema(no_recursion)]
-    pub children: Vec<OcrMetricsTreeNode>,
+    pub(crate) children: Vec<Self>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DocumentSummary {
-    pub file_hash: String,
-    pub display_name: String,
-    pub relative_path: String,
-    pub status: String,
-    pub page_count: u32,
-    pub processed_pages: u32,
-    pub total_pages: u32,
-    pub current_page: Option<u32>,
-    pub progress_percent: f64,
-    pub regions: u32,
-    pub error: Option<String>,
+pub(crate) struct DocumentSummary {
+    pub(crate) file_hash: String,
+    pub(crate) display_name: String,
+    pub(crate) relative_path: String,
+    pub(crate) status: String,
+    pub(crate) page_count: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) current_page: Option<u32>,
+    pub(crate) progress_percent: f64,
+    pub(crate) regions: u32,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DocumentDetail {
-    pub file_hash: String,
-    pub display_name: String,
-    pub relative_path: String,
-    pub absolute_path: String,
-    pub status: String,
-    pub page_count: u32,
-    pub processed_pages: u32,
-    pub total_pages: u32,
-    pub current_page: Option<u32>,
-    pub progress_percent: f64,
-    pub regions: u32,
-    pub error: Option<String>,
+pub(crate) struct DocumentDetail {
+    pub(crate) file_hash: String,
+    pub(crate) display_name: String,
+    pub(crate) relative_path: String,
+    pub(crate) absolute_path: String,
+    pub(crate) status: String,
+    pub(crate) page_count: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) current_page: Option<u32>,
+    pub(crate) progress_percent: f64,
+    pub(crate) regions: u32,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DocumentsPayload {
-    pub documents: Vec<DocumentSummary>,
+pub(crate) struct DocumentsPayload {
+    pub(crate) documents: Vec<DocumentSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DocumentRegionsPayload {
-    pub file_hash: String,
-    pub boxes: Vec<OverlayBox>,
+pub(crate) struct DocumentRegionsPayload {
+    pub(crate) file_hash: String,
+    pub(crate) boxes: Vec<OverlayBox>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct OverlayBox {
-    pub region_id: String,
-    pub label: String,
-    pub content_markdown: String,
-    pub content_html: Option<String>,
-    pub page_no: u32,
-    pub left_percent: f64,
-    pub top_percent: f64,
-    pub width_percent: f64,
-    pub height_percent: f64,
-    pub hidden: bool,
+pub(crate) struct OverlayBox {
+    pub(crate) region_id: String,
+    pub(crate) label: String,
+    pub(crate) content_markdown: String,
+    pub(crate) content_html: Option<String>,
+    pub(crate) page_no: u32,
+    pub(crate) left_percent: f64,
+    pub(crate) top_percent: f64,
+    pub(crate) width_percent: f64,
+    pub(crate) height_percent: f64,
+    pub(crate) hidden: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct TextRegionSpan {
-    pub region_id: String,
-    pub page_no: u32,
-    pub start: u64,
-    pub end: u64,
+pub(crate) struct TextRegionSpan {
+    pub(crate) region_id: String,
+    pub(crate) page_no: u32,
+    pub(crate) start: u64,
+    pub(crate) end: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct PageTextRecord {
-    pub page_no: u32,
-    pub text: String,
-    pub spans: Vec<TextRegionSpan>,
+pub(crate) struct PageTextRecord {
+    pub(crate) page_no: u32,
+    pub(crate) text: String,
+    pub(crate) spans: Vec<TextRegionSpan>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DocumentTextPayload {
-    pub file_hash: String,
-    pub pages: Vec<PageTextRecord>,
+pub(crate) struct DocumentTextPayload {
+    pub(crate) file_hash: String,
+    pub(crate) pages: Vec<PageTextRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct PreviewImagesPayload {
-    pub file_hash: String,
-    pub variants: Vec<String>,
-    pub pages: Vec<u32>,
+pub(crate) struct PreviewImagesPayload {
+    pub(crate) file_hash: String,
+    pub(crate) variants: Vec<String>,
+    pub(crate) pages: Vec<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct FolderDialogResponse {
-    pub cancelled: bool,
-    pub selected_path: String,
-    pub manual_path_supported: bool,
-    pub error: Option<String>,
+pub(crate) struct FolderDialogResponse {
+    pub(crate) cancelled: bool,
+    pub(crate) selected_path: String,
+    pub(crate) manual_path_supported: bool,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct LogRecord {
-    pub timestamp: String,
-    pub level: String,
-    pub component: String,
-    pub message: String,
+pub(crate) struct LogRecord {
+    pub(crate) timestamp: String,
+    pub(crate) level: String,
+    pub(crate) component: String,
+    pub(crate) message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct LogsPayload {
-    pub log_path: String,
-    pub logs: Vec<LogRecord>,
+pub(crate) struct LogsPayload {
+    pub(crate) log_path: String,
+    pub(crate) logs: Vec<LogRecord>,
 }

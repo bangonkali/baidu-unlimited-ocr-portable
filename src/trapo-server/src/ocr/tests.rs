@@ -51,8 +51,8 @@ mod tests {
                 profile_id: "profile".to_string(),
             },
         );
-        assert_eq!(parsed.boxes[0].left_percent, 100.0 / 999.0 * 100.0);
-        assert_eq!(parsed.boxes[0].width_percent, 800.0 / 999.0 * 100.0);
+        assert_close(parsed.boxes[0].left_percent, 100.0 / 999.0 * 100.0);
+        assert_close(parsed.boxes[0].width_percent, 800.0 / 999.0 * 100.0);
     }
 
     #[test]
@@ -71,5 +71,9 @@ mod tests {
         assert_eq!(names[0], "libggml-base.0.dylib");
         assert_eq!(names[1], "libggml.0.dylib");
         assert_eq!(names[5], "libllama-common.0.dylib");
+    }
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert!((actual - expected).abs() < 1e-9);
     }
 }

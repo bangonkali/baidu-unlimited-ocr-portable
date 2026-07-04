@@ -159,35 +159,39 @@ impl AppState {
         });
     }
 
-    fn record_model_lease(
-        &self,
-        run_id: &str,
-        model_id: &str,
-        runtime_id: &str,
-        profile_id: &str,
-        scope: DiagnosticSpanScope,
-        error: Option<&str>,
-    ) {
+    fn record_model_lease(&self, lease: ModelLeaseDiagnostic<'_>, scope: &DiagnosticSpanScope) {
         let repository = self.inner.repository.clone();
-        let run_id = run_id.to_string();
-        let model_id = model_id.to_string();
-        let status = if error.is_some() { "fallback" } else { "ok" }.to_string();
+        let status = if lease.error.is_some() { "fallback" } else { "ok" }.to_string();
         let metadata = json!({
-            "runtime_id": runtime_id,
-            "profile_id": profile_id,
-            "started_at": scope.started_at,
+            "runtime_id": lease.runtime_id,
+            "profile_id": lease.profile_id,
+            "started_at": scope.started_at.as_str(),
             "duration_ms": scope.started.elapsed().as_secs_f64() * 1000.0,
-            "error": error
+            "error": lease.error
         });
+        let record = DiagnosticModelLeaseInsert {
+            run_id: lease.run_id.to_string(),
+            execution_key: "model".to_string(),
+            provider: "local".to_string(),
+            model: lease.model_id.to_string(),
+            status,
+            metadata,
+        };
         tokio::spawn(async move {
-            if let Err(error) = repository
-                .insert_model_lease(&run_id, "model", "local", &model_id, &status, &metadata)
-                .await
-            {
+            if let Err(error) = repository.insert_model_lease(&record).await {
                 tracing::warn!(%error, "failed to persist model lease");
             }
         });
     }
+}
+
+#[derive(Clone, Copy)]
+struct ModelLeaseDiagnostic<'a> {
+    run_id: &'a str,
+    model_id: &'a str,
+    runtime_id: &'a str,
+    profile_id: &'a str,
+    error: Option<&'a str>,
 }
 
 fn diagnostic_work_unit_id(
@@ -196,8 +200,8 @@ fn diagnostic_work_unit_id(
     page_no: Option<u32>,
     phase: &str,
 ) -> String {
-    match page_no {
-        Some(page_no) => format!("{run_id}:{file_hash}:page-{page_no}:{phase}"),
-        None => format!("{run_id}:{file_hash}:file:{phase}"),
-    }
+    page_no.map_or_else(
+        || format!("{run_id}:{file_hash}:file:{phase}"),
+        |page_no| format!("{run_id}:{file_hash}:page-{page_no}:{phase}"),
+    )
 }

@@ -1,4 +1,10 @@
 impl AppState {
+    /// Creates server state and opens required local resources.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when directories, the logger, or the `DuckDB` repository
+    /// cannot be initialized.
     pub async fn new(config: ServerConfig) -> Result<Self> {
         config.ensure_directories()?;
         let repository = Repository::open(config.database_path.clone()).await?;
@@ -45,26 +51,29 @@ impl AppState {
                 state: Mutex::new(state),
             }),
         };
-        app.log_info("server", "trapo-server initialized").await;
+        app.log_info("server", "trapo-server initialized");
         Ok(app)
     }
 
+    /// Returns the effective server configuration.
+    #[must_use]
     pub fn config(&self) -> &ServerConfig {
         &self.inner.config
     }
 
-    pub fn hub(&self) -> Arc<RealtimeHub> {
+    #[must_use]
+    pub(crate) fn hub(&self) -> Arc<RealtimeHub> {
         self.inner.hub.clone()
     }
 
-    pub async fn health(&self) -> HealthPayload {
+    pub(crate) fn health() -> HealthPayload {
         HealthPayload {
             ok: true,
             service: "trapo-server".to_string(),
         }
     }
 
-    pub async fn status(&self) -> StatusPayload {
+    pub(crate) async fn status(&self) -> StatusPayload {
         let state = self.inner.state.lock().await;
         let runtime = selected_runtime(&state);
         StatusPayload {
@@ -101,20 +110,23 @@ impl AppState {
         }
     }
 
-    pub async fn logs(&self, limit: usize) -> LogsPayload {
+    pub(crate) fn logs(&self, limit: usize) -> LogsPayload {
         self.inner.logger.recent(limit)
     }
 
-    pub async fn folder_dialog(&self) -> FolderDialogResponse {
+    pub(crate) async fn folder_dialog(&self) -> FolderDialogResponse {
         crate::folder_dialog::open_folder_dialog().await
     }
 
-    pub async fn settings(&self) -> SettingsPayload {
+    pub(crate) async fn settings(&self) -> SettingsPayload {
         let state = self.inner.state.lock().await;
         settings_payload(&self.inner, &state)
     }
 
-    pub async fn update_settings(&self, request: SettingsUpdateRequest) -> Result<SettingsPayload> {
+    pub(crate) async fn update_settings(
+        &self,
+        request: SettingsUpdateRequest,
+    ) -> Result<SettingsPayload> {
         let mut settings_to_persist = Vec::new();
         let payload = {
             let mut state = self.inner.state.lock().await;
@@ -131,7 +143,7 @@ impl AppState {
                         "runtime is not supported on this device or is not installed: {runtime_id}"
                     )));
                 }
-                state.selected_runtime_id = runtime_id.clone();
+                state.selected_runtime_id.clone_from(&runtime_id);
                 settings_to_persist.push(("selected_runtime_id", Value::String(runtime_id)));
             }
             if let Some(profile_id) = request.default_profile.filter(|value| !value.is_empty()) {
@@ -140,14 +152,19 @@ impl AppState {
                         "unknown OCR profile: {profile_id}"
                     )));
                 }
-                state.selected_profile_id = profile_id.clone();
+                state.selected_profile_id.clone_from(&profile_id);
                 settings_to_persist.push(("selected_profile_id", Value::String(profile_id)));
             }
             if let Some(patch) = request.workbench_ui {
                 apply_workbench_patch(&mut state.workbench_ui, patch)?;
-                settings_to_persist.push(("workbench_ui", serde_json::to_value(&state.workbench_ui)?));
+                settings_to_persist.push((
+                    "workbench_ui",
+                    serde_json::to_value(&state.workbench_ui)?,
+                ));
             }
-            settings_payload(&self.inner, &state)
+            let payload = settings_payload(&self.inner, &state);
+            drop(state);
+            payload
         };
         for (key, value) in settings_to_persist {
             self.inner.repository.put_setting(key, &value).await?;

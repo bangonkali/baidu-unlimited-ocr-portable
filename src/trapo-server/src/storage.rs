@@ -18,6 +18,7 @@ use crate::{
 const DB_READ_CONCURRENCY: usize = 8;
 const DB_WRITE_CONCURRENCY: usize = 1;
 
+/// DuckDB-backed repository for workbench state and telemetry.
 #[derive(Debug, Clone)]
 pub struct Repository {
     database_path: Arc<PathBuf>,
@@ -27,255 +28,255 @@ pub struct Repository {
 }
 
 #[derive(Debug, Clone)]
-pub struct StoredRun {
-    pub run_id: String,
-    pub root_path: String,
-    pub status: String,
-    pub profile_id: String,
-    pub engine_id: String,
-    pub model_id: String,
-    pub runtime_id: String,
-    pub queued_files: u32,
-    pub processed_pages: u32,
-    pub total_pages: u32,
-    pub error: Option<String>,
+pub(crate) struct StoredRun {
+    pub(crate) run_id: String,
+    pub(crate) root_path: String,
+    pub(crate) status: String,
+    pub(crate) profile_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) queued_files: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StoredDocument {
-    pub file_hash: String,
-    pub display_name: String,
-    pub extension: String,
-    pub size_bytes: u64,
-    pub page_count: u32,
-    pub status: String,
-    pub error: Option<String>,
-    pub root_path: String,
-    pub absolute_path: String,
-    pub relative_path: String,
+pub(crate) struct StoredDocument {
+    pub(crate) file_hash: String,
+    pub(crate) display_name: String,
+    pub(crate) extension: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) page_count: u32,
+    pub(crate) status: String,
+    pub(crate) error: Option<String>,
+    pub(crate) root_path: String,
+    pub(crate) absolute_path: String,
+    pub(crate) relative_path: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct StoredRunDocument {
-    pub run_id: String,
-    pub file_hash: String,
-    pub ordinal: u32,
+pub(crate) struct StoredRunDocument {
+    pub(crate) run_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) ordinal: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct StoredPage {
-    pub file_hash: String,
-    pub page_no: u32,
-    pub width_px: u32,
-    pub height_px: u32,
-    pub render_dpi: u32,
-    pub status: String,
-    pub error: Option<String>,
-    pub preview_path: Option<String>,
-    pub cleaned_text: String,
-    pub raw_text: String,
-    pub boxes: Vec<OverlayBox>,
-    pub spans: Vec<TextRegionSpan>,
+pub(crate) struct StoredPage {
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) width_px: u32,
+    pub(crate) height_px: u32,
+    pub(crate) render_dpi: u32,
+    pub(crate) status: String,
+    pub(crate) error: Option<String>,
+    pub(crate) preview_path: Option<String>,
+    pub(crate) cleaned_text: String,
+    pub(crate) raw_text: String,
+    pub(crate) boxes: Vec<OverlayBox>,
+    pub(crate) spans: Vec<TextRegionSpan>,
 }
 
 #[derive(Debug, Clone)]
-pub struct OcrPageMetrics {
-    pub run_id: String,
-    pub file_hash: String,
-    pub page_no: u32,
-    pub model_id: String,
-    pub runtime_id: String,
-    pub status: String,
-    pub token_count: u64,
-    pub avg_tps: f64,
-    pub elapsed_ms: u64,
+pub(crate) struct OcrPageMetrics {
+    pub(crate) run_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) status: String,
+    pub(crate) token_count: u64,
+    pub(crate) avg_tps: f64,
+    pub(crate) elapsed_ms: u64,
 }
 
 #[derive(Debug, Clone)]
-pub struct StoredRealtimeEvent {
-    pub sequence: u64,
-    pub event_type: String,
-    pub occurred_at: String,
-    pub run_id: Option<String>,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub payload: Value,
+pub(crate) struct StoredRealtimeEvent {
+    pub(crate) sequence: u64,
+    pub(crate) event_type: String,
+    pub(crate) occurred_at: String,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) payload: Value,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticRunRow {
-    pub run_id: String,
-    pub root_path: String,
-    pub status: String,
-    pub started_at: Option<String>,
-    pub finished_at: Option<String>,
-    pub duration_ms: f64,
-    pub span_count: u32,
-    pub error_count: u32,
-    pub file_count: u32,
-    pub page_count: u32,
+pub(crate) struct DiagnosticRunRow {
+    pub(crate) run_id: String,
+    pub(crate) root_path: String,
+    pub(crate) status: String,
+    pub(crate) started_at: Option<String>,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) duration_ms: f64,
+    pub(crate) span_count: u32,
+    pub(crate) error_count: u32,
+    pub(crate) file_count: u32,
+    pub(crate) page_count: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticSpanRow {
-    pub span_id: String,
-    pub trace_id: String,
-    pub parent_span_id: Option<String>,
-    pub run_id: Option<String>,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub name: String,
-    pub pipeline_step: String,
-    pub category: String,
-    pub annotation_engine: Option<String>,
-    pub status: String,
-    pub started_at: String,
-    pub ended_at: String,
-    pub duration_ms: f64,
-    pub attributes: Value,
-    pub error_type: Option<String>,
-    pub error_message: Option<String>,
-    pub error_stack: Option<String>,
+pub(crate) struct DiagnosticSpanRow {
+    pub(crate) span_id: String,
+    pub(crate) trace_id: String,
+    pub(crate) parent_span_id: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) name: String,
+    pub(crate) pipeline_step: String,
+    pub(crate) category: String,
+    pub(crate) annotation_engine: Option<String>,
+    pub(crate) status: String,
+    pub(crate) started_at: String,
+    pub(crate) ended_at: String,
+    pub(crate) duration_ms: f64,
+    pub(crate) attributes: Value,
+    pub(crate) error_type: Option<String>,
+    pub(crate) error_message: Option<String>,
+    pub(crate) error_stack: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticEventRow {
-    pub event_id: String,
-    pub trace_id: String,
-    pub span_id: Option<String>,
-    pub run_id: Option<String>,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub timestamp: String,
-    pub event_type: String,
-    pub name: String,
-    pub severity: String,
-    pub message: String,
-    pub attributes: Value,
+pub(crate) struct DiagnosticEventRow {
+    pub(crate) event_id: String,
+    pub(crate) trace_id: String,
+    pub(crate) span_id: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) timestamp: String,
+    pub(crate) event_type: String,
+    pub(crate) name: String,
+    pub(crate) severity: String,
+    pub(crate) message: String,
+    pub(crate) attributes: Value,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticWorkUnitRow {
-    pub work_unit_id: String,
-    pub run_id: String,
-    pub work_key: String,
-    pub file_hash: Option<String>,
-    pub filename: Option<String>,
-    pub source_path: Option<String>,
-    pub page_no: Option<u32>,
-    pub phase: String,
-    pub engine: String,
-    pub provider: String,
-    pub model: String,
-    pub profile: Option<String>,
-    pub execution_key: String,
-    pub artifact_variant: Option<String>,
-    pub status: String,
-    pub attempt_count: u32,
-    pub started_at: Option<String>,
-    pub finished_at: Option<String>,
-    pub duration_ms: Option<f64>,
-    pub error: Option<String>,
-    pub result: Value,
-    pub metadata: Value,
+pub(crate) struct DiagnosticWorkUnitRow {
+    pub(crate) work_unit_id: String,
+    pub(crate) run_id: String,
+    pub(crate) work_key: String,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) filename: Option<String>,
+    pub(crate) source_path: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) phase: String,
+    pub(crate) engine: String,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    pub(crate) profile: Option<String>,
+    pub(crate) execution_key: String,
+    pub(crate) artifact_variant: Option<String>,
+    pub(crate) status: String,
+    pub(crate) attempt_count: u32,
+    pub(crate) started_at: Option<String>,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) duration_ms: Option<f64>,
+    pub(crate) error: Option<String>,
+    pub(crate) result: Value,
+    pub(crate) metadata: Value,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticModelLeaseRow {
-    pub lease_id: String,
-    pub run_id: String,
-    pub execution_key: String,
-    pub provider: String,
-    pub model: String,
-    pub requested_context_tokens: Option<u32>,
-    pub verified_context_tokens: Option<u32>,
-    pub status: String,
-    pub started_at: String,
-    pub finished_at: Option<String>,
-    pub duration_ms: Option<f64>,
-    pub error: Option<String>,
-    pub metadata: Value,
+pub(crate) struct DiagnosticModelLeaseRow {
+    pub(crate) lease_id: String,
+    pub(crate) run_id: String,
+    pub(crate) execution_key: String,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    pub(crate) requested_context_tokens: Option<u32>,
+    pub(crate) verified_context_tokens: Option<u32>,
+    pub(crate) status: String,
+    pub(crate) started_at: String,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) duration_ms: Option<f64>,
+    pub(crate) error: Option<String>,
+    pub(crate) metadata: Value,
 }
 
 #[derive(Debug, Clone)]
-pub struct WorkUnitUpsert {
-    pub work_unit_id: String,
-    pub run_id: String,
-    pub work_key: String,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub phase: String,
-    pub engine: String,
-    pub provider: String,
-    pub model: String,
-    pub profile: Option<String>,
-    pub execution_key: String,
-    pub artifact_variant: Option<String>,
-    pub metadata: Value,
+pub(crate) struct WorkUnitUpsert {
+    pub(crate) work_unit_id: String,
+    pub(crate) run_id: String,
+    pub(crate) work_key: String,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) phase: String,
+    pub(crate) engine: String,
+    pub(crate) provider: String,
+    pub(crate) model: String,
+    pub(crate) profile: Option<String>,
+    pub(crate) execution_key: String,
+    pub(crate) artifact_variant: Option<String>,
+    pub(crate) metadata: Value,
 }
 
 #[derive(Debug, Clone)]
-pub struct DownloadEventInsert {
-    pub event_id: String,
-    pub download_id: String,
-    pub owner_kind: String,
-    pub owner_id: String,
-    pub file_id: String,
-    pub file_name: String,
-    pub target_path: String,
-    pub source_url: String,
-    pub event_type: String,
-    pub status: String,
-    pub downloaded_bytes: u64,
-    pub total_bytes: Option<u64>,
-    pub error: Option<String>,
-    pub created_at: String,
+pub(crate) struct DownloadEventInsert {
+    pub(crate) event_id: String,
+    pub(crate) download_id: String,
+    pub(crate) owner_kind: String,
+    pub(crate) owner_id: String,
+    pub(crate) file_id: String,
+    pub(crate) file_name: String,
+    pub(crate) target_path: String,
+    pub(crate) source_url: String,
+    pub(crate) event_type: String,
+    pub(crate) status: String,
+    pub(crate) downloaded_bytes: u64,
+    pub(crate) total_bytes: Option<u64>,
+    pub(crate) error: Option<String>,
+    pub(crate) created_at: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticSpanInsert {
-    pub span_id: String,
-    pub trace_id: String,
-    pub parent_span_id: Option<String>,
-    pub run_id: Option<String>,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub name: String,
-    pub pipeline_step: String,
-    pub category: String,
-    pub annotation_engine: Option<String>,
-    pub status: String,
-    pub started_at: String,
-    pub ended_at: String,
-    pub duration_ms: f64,
-    pub attributes: Value,
-    pub error_type: Option<String>,
-    pub error_message: Option<String>,
-    pub error_stack: Option<String>,
+pub(crate) struct DiagnosticSpanInsert {
+    pub(crate) span_id: String,
+    pub(crate) trace_id: String,
+    pub(crate) parent_span_id: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) name: String,
+    pub(crate) pipeline_step: String,
+    pub(crate) category: String,
+    pub(crate) annotation_engine: Option<String>,
+    pub(crate) status: String,
+    pub(crate) started_at: String,
+    pub(crate) ended_at: String,
+    pub(crate) duration_ms: f64,
+    pub(crate) attributes: Value,
+    pub(crate) error_type: Option<String>,
+    pub(crate) error_message: Option<String>,
+    pub(crate) error_stack: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-pub struct DiagnosticEventInsert {
-    pub event_id: String,
-    pub trace_id: String,
-    pub span_id: Option<String>,
-    pub run_id: Option<String>,
-    pub file_hash: Option<String>,
-    pub page_no: Option<u32>,
-    pub timestamp: String,
-    pub event_type: String,
-    pub name: String,
-    pub severity: String,
-    pub message: String,
-    pub attributes: Value,
+pub(crate) struct DiagnosticEventInsert {
+    pub(crate) event_id: String,
+    pub(crate) trace_id: String,
+    pub(crate) span_id: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) timestamp: String,
+    pub(crate) event_type: String,
+    pub(crate) name: String,
+    pub(crate) severity: String,
+    pub(crate) message: String,
+    pub(crate) attributes: Value,
 }
 
 #[derive(Debug, Default)]
-pub struct StoredSnapshot {
-    pub runs: Vec<StoredRun>,
-    pub run_documents: Vec<StoredRunDocument>,
-    pub documents: Vec<StoredDocument>,
-    pub pages: Vec<StoredPage>,
+pub(crate) struct StoredSnapshot {
+    pub(crate) runs: Vec<StoredRun>,
+    pub(crate) run_documents: Vec<StoredRunDocument>,
+    pub(crate) documents: Vec<StoredDocument>,
+    pub(crate) pages: Vec<StoredPage>,
 }
 
 include!("storage/core.rs");
@@ -285,6 +286,7 @@ include!("storage/internal.rs");
 include!("storage/load.rs");
 include!("storage/replay.rs");
 include!("storage/download_events.rs");
+include!("storage/diagnostics_types.rs");
 include!("storage/diagnostics_writes.rs");
 include!("storage/diagnostics_queries.rs");
 include!("storage/diagnostics_rows.rs");

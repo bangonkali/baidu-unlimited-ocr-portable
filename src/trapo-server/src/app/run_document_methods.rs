@@ -1,12 +1,12 @@
 impl AppState {
-    pub async fn list_runs(&self) -> IngestRunsPayload {
+    pub(crate) async fn list_runs(&self) -> IngestRunsPayload {
         let state = self.inner.state.lock().await;
         IngestRunsPayload {
             runs: state.runs.values().rev().map(run_record).collect(),
         }
     }
 
-    pub async fn get_run(&self, run_id: &str) -> Result<IngestRunRecord> {
+    pub(crate) async fn get_run(&self, run_id: &str) -> Result<IngestRunRecord> {
         let state = self.inner.state.lock().await;
         state
             .runs
@@ -15,7 +15,7 @@ impl AppState {
             .ok_or_else(|| AppError::NotFound("run not found".to_string()))
     }
 
-    pub async fn stop_run(&self, run_id: &str) -> Result<IngestRunRecord> {
+    pub(crate) async fn stop_run(&self, run_id: &str) -> Result<IngestRunRecord> {
         let (record, document_events, run_to_store, documents_to_store) = {
             let mut state = self.inner.state.lock().await;
             let Some(run) = state.runs.get_mut(run_id) else {
@@ -43,8 +43,7 @@ impl AppState {
         for document in &documents_to_store {
             self.inner.repository.upsert_document(document).await?;
         }
-        self.log_warn("ingest", format!("stop requested for run {run_id}"))
-            .await;
+        self.log_warn("ingest", format!("stop requested for run {run_id}"));
         self.inner
             .hub
             .publish("run.changed", serde_json::to_value(&record)?);
@@ -57,7 +56,7 @@ impl AppState {
         Ok(record)
     }
 
-    pub async fn run_metrics(
+    pub(crate) async fn run_metrics(
         &self,
         run_id: Option<&str>,
         limit: u32,
@@ -66,7 +65,7 @@ impl AppState {
         Ok(metrics_tree(rows))
     }
 
-    pub async fn list_documents(&self, query: Option<String>) -> Result<DocumentsPayload> {
+    pub(crate) async fn list_documents(&self, query: Option<String>) -> Result<DocumentsPayload> {
         let persisted = if let Some(query) = query.filter(|value| !value.is_empty()) {
             Some(
                 self.inner
@@ -78,27 +77,34 @@ impl AppState {
             None
         };
         let state = self.inner.state.lock().await;
-        let documents = if let Some(persisted) = persisted {
-            persisted
-                .iter()
-                .filter_map(|hash| state.documents.get(hash).map(document_summary))
-                .collect()
-        } else {
-            state.documents.values().map(document_summary).collect()
-        };
+        let documents = persisted.as_ref().map_or_else(
+            || state.documents.values().map(document_summary).collect(),
+            |persisted| {
+                persisted
+                    .iter()
+                    .filter_map(|hash| state.documents.get(hash).map(document_summary))
+                    .collect()
+            },
+        );
+        drop(state);
         Ok(DocumentsPayload { documents })
     }
 
-    pub async fn get_document(&self, file_hash: &str) -> Result<DocumentDetail> {
-        let state = self.inner.state.lock().await;
-        let document = state
-            .documents
-            .get(file_hash)
-            .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
-        Ok(document_detail(document))
+    pub(crate) async fn get_document(&self, file_hash: &str) -> Result<DocumentDetail> {
+        let detail = {
+            let state = self.inner.state.lock().await;
+            let document = state
+                .documents
+                .get(file_hash)
+                .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
+            let detail = document_detail(document);
+            drop(state);
+            detail
+        };
+        Ok(detail)
     }
 
-    pub async fn document_regions(&self, file_hash: &str) -> DocumentRegionsPayload {
+    pub(crate) async fn document_regions(&self, file_hash: &str) -> DocumentRegionsPayload {
         let state = self.inner.state.lock().await;
         let boxes = state
             .documents
@@ -111,26 +117,28 @@ impl AppState {
                     .collect()
             })
             .unwrap_or_default();
+        drop(state);
         DocumentRegionsPayload {
             file_hash: file_hash.to_string(),
             boxes,
         }
     }
 
-    pub async fn document_text(&self, file_hash: &str) -> DocumentTextPayload {
+    pub(crate) async fn document_text(&self, file_hash: &str) -> DocumentTextPayload {
         let state = self.inner.state.lock().await;
         let pages = state
             .documents
             .get(file_hash)
             .map(started_page_text_records)
             .unwrap_or_default();
+        drop(state);
         DocumentTextPayload {
             file_hash: file_hash.to_string(),
             pages,
         }
     }
 
-    pub async fn preview_images(&self, file_hash: &str) -> PreviewImagesPayload {
+    pub(crate) async fn preview_images(&self, file_hash: &str) -> PreviewImagesPayload {
         let state = self.inner.state.lock().await;
         let pages = state
             .documents
@@ -143,6 +151,7 @@ impl AppState {
                 }
             })
             .unwrap_or_default();
+        drop(state);
         PreviewImagesPayload {
             file_hash: file_hash.to_string(),
             variants: if pages.is_empty() {
@@ -154,7 +163,7 @@ impl AppState {
         }
     }
 
-    pub async fn preview_image_path(
+    pub(crate) async fn preview_image_path(
         &self,
         file_hash: &str,
         variant: &str,
@@ -164,12 +173,14 @@ impl AppState {
             return None;
         }
         let state = self.inner.state.lock().await;
-        state.documents.get(file_hash).and_then(|document| {
+        let path = state.documents.get(file_hash).and_then(|document| {
             document
                 .pages
                 .iter()
                 .find(|page| page.page_no == page_no)
                 .map(|page| page.image_path.clone())
-        })
+        });
+        drop(state);
+        path
     }
 }

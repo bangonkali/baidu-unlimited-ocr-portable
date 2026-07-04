@@ -1,13 +1,15 @@
+//! Exports the generated Trapo `OpenAPI` document to a JSON file.
+
 use std::{env, path::PathBuf};
 
-use trapo_server::openapi::ApiDoc;
+use trapo_server::ApiDoc;
 use utoipa::OpenApi;
 
 fn main() -> anyhow::Result<()> {
-    let output = env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("openapi/trapo.openapi.json"));
+    let output = env::args().nth(1).map_or_else(
+        || PathBuf::from("openapi/trapo.openapi.json"),
+        PathBuf::from,
+    );
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)?;
     }

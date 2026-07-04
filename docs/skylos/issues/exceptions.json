@@ -364,6 +364,50 @@
       "reason": "Axum/utoipa route handlers are registered through router composition and macro expansion."
     },
     {
+      "id": "rust-api-payload-dtos",
+      "rule_id": "*",
+      "category": "unused_classes",
+      "path_glob": "src/trapo-server/src/*types.rs",
+      "reason": "Server payload DTOs are consumed through Serde, Axum extractors/responses, utoipa schemas, and generated client contracts; cargo clippy and integration tests are authoritative for Rust use."
+    },
+    {
+      "id": "rust-app-include-state-types",
+      "rule_id": "*",
+      "category": "unused_classes",
+      "path_glob": "src/trapo-server/src/app/*.rs",
+      "reason": "App include files share a single Rust module; helper context structs are consumed across included items that Skylos does not resolve."
+    },
+    {
+      "id": "rust-app-route-state-methods",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/app/*.rs",
+      "name_glob": "AppState.*",
+      "reason": "AppState route methods are called from Axum route modules and included implementation fragments; cargo clippy and API integration tests validate reachability."
+    },
+    {
+      "id": "rust-app-include-helpers",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/app*.rs",
+      "reason": "Small app helpers are referenced from Rust include fragments; cargo clippy is authoritative for actual dead code."
+    },
+    {
+      "id": "rust-ocr-ffi-include-helpers",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/ocr/ffi_*.rs",
+      "reason": "FFI helper functions are shared across included native ABI fragments that Skylos does not resolve."
+    },
+    {
+      "id": "rust-storage-repository-methods",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/storage/*.rs",
+      "name_glob": "Repository.*",
+      "reason": "Repository methods are reached through async application services across Rust include fragments; cargo clippy and storage tests validate reachability."
+    },
+    {
       "id": "root-policy-precommit",
       "rule_id": "SKY-R104",
       "category": "quality",

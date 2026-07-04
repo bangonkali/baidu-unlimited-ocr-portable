@@ -1,9 +1,7 @@
 fn document_from_file(file: &DiscoveredFile, root_path: &Path) -> DocumentState {
     let display_name = file
         .absolute_path
-        .file_name()
-        .map(|value| value.to_string_lossy().to_string())
-        .unwrap_or_else(|| generic_path(&file.relative_path));
+        .file_name().map_or_else(|| generic_path(&file.relative_path), |value| value.to_string_lossy().to_string());
     DocumentState {
         file_hash: stable_hash(file),
         display_name,
@@ -151,7 +149,7 @@ fn document_summary(document: &DocumentState) -> DocumentSummary {
         .pages
         .iter()
         .filter(|page| page.status == "completed")
-        .count() as u32;
+        .count();
     let current_page = document
         .pages
         .iter()
@@ -163,15 +161,16 @@ fn document_summary(document: &DocumentState) -> DocumentSummary {
         relative_path: generic_path(&document.relative_path),
         status: document.status.clone(),
         page_count: document.page_count,
-        processed_pages,
+        processed_pages: usize_to_u32_saturating(processed_pages),
         total_pages: document.page_count,
         current_page,
-        progress_percent: percent(processed_pages, document.page_count),
+        progress_percent: percent(usize_to_u32_saturating(processed_pages), document.page_count),
         regions: document
             .pages
             .iter()
-            .map(|page| page.boxes.len() as u32)
-            .sum(),
+            .fold(0_u32, |total, page| {
+                total.saturating_add(usize_to_u32_saturating(page.boxes.len()))
+            }),
         error: document.error.clone(),
     }
 }
@@ -233,9 +232,7 @@ fn fallback_text(image_path: &Path, reason: &str) -> String {
     format!(
         "OCR was not executed for {} because {reason}.",
         image_path
-            .file_name()
-            .map(|value| value.to_string_lossy().to_string())
-            .unwrap_or_else(|| image_path.to_string_lossy().to_string())
+            .file_name().map_or_else(|| image_path.to_string_lossy().to_string(), |value| value.to_string_lossy().to_string())
     )
 }
 
@@ -243,15 +240,14 @@ fn percent(done: u32, total: u32) -> f64 {
     if total == 0 {
         0.0
     } else {
-        done as f64 / total as f64 * 100.0
+        f64::from(done) / f64::from(total) * 100.0
     }
 }
 
 fn now_id() -> String {
     let millis = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
-        .unwrap_or(0);
+        .map_or(0, |duration| duration.as_millis());
     format!("run-{millis}")
 }
 

@@ -1,10 +1,12 @@
+//! Integration tests for the Trapo HTTP API and persisted schema contract.
+
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
 use duckdb::params;
 use tower::ServiceExt;
-use trapo_server::{AppState, ServerConfig, build_router, openapi::ApiDoc, storage::Repository};
+use trapo_server::{ApiDoc, AppState, Repository, ServerConfig, build_router};
 use utoipa::OpenApi;
 
 #[tokio::test]
@@ -112,6 +114,10 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
 #[test]
 fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
     let value = serde_json::to_value(ApiDoc::openapi())?;
+    let preview_images_path = format!(
+        "/api/documents/{{{}}}/preview-images/{{{}}}/{{{}}}",
+        "file_hash", "variant", "page_no"
+    );
     let paths = value["paths"]
         .as_object()
         .ok_or_else(|| anyhow::anyhow!("OpenAPI paths were not an object"))?;
@@ -125,7 +131,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/documents/{file_hash}/text",
         "/api/documents/{file_hash}/regions",
         "/api/documents/{file_hash}/regions/{region_id}/snippet",
-        "/api/documents/{file_hash}/preview-images/{variant}/{page_no}",
+        preview_images_path.as_str(),
     ] {
         assert!(paths.contains_key(path), "missing OpenAPI path {path}");
     }
@@ -141,8 +147,8 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "#/components/schemas/DocumentTextPayload"
     );
     assert_eq!(
-        value["paths"]["/api/documents/{file_hash}/preview-images/{variant}/{page_no}"]["get"]["responses"]
-            ["200"]["content"]["image/png"]["schema"]["format"],
+        value["paths"][preview_images_path.as_str()]["get"]["responses"]["200"]["content"]["image/png"]
+            ["schema"]["format"],
         "binary"
     );
     assert_eq!(
@@ -162,6 +168,10 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
 #[test]
 fn openapi_page_fields_remain_numeric() -> anyhow::Result<()> {
     let value = serde_json::to_value(ApiDoc::openapi())?;
+    let preview_images_path = format!(
+        "/api/documents/{{{}}}/preview-images/{{{}}}/{{{}}}",
+        "file_hash", "variant", "page_no"
+    );
     for (schema_name, field_name) in [
         ("DocumentSummary", "page_count"),
         ("DocumentSummary", "current_page"),
@@ -176,18 +186,16 @@ fn openapi_page_fields_remain_numeric() -> anyhow::Result<()> {
         assert_integer_schema(schema, &format!("{schema_name}.{field_name}"));
     }
 
-    let parameters =
-        value["paths"]["/api/documents/{file_hash}/preview-images/{variant}/{page_no}"]["get"]
-            ["parameters"]
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("preview route parameters were not an array"))?;
+    let parameters = value["paths"][preview_images_path.as_str()]["get"]["parameters"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("preview route parameters were not an array"))?;
     let page_no = parameters
         .iter()
         .find(|parameter| parameter["name"].as_str() == Some("page_no"))
         .ok_or_else(|| anyhow::anyhow!("preview route is missing page_no parameter"))?;
     assert_integer_schema(
         &page_no["schema"],
-        "GET /api/documents/{file_hash}/preview-images/{variant}/{page_no} page_no",
+        &format!("GET {preview_images_path} page_no"),
     );
     Ok(())
 }

@@ -98,6 +98,7 @@ def gate_rust(report_dir: Path, _: argparse.Namespace) -> GateResult:
                 "-p",
                 "trapo-server",
                 "--all-targets",
+                "--all-features",
                 "--",
                 "-D",
                 "warnings",

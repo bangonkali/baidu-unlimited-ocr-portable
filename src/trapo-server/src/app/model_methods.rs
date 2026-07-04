@@ -1,5 +1,5 @@
 impl AppState {
-    pub async fn models(&self) -> ModelsPayload {
+    pub(crate) async fn models(&self) -> ModelsPayload {
         let state = self.inner.state.lock().await;
         ModelsPayload {
             provider_repo: PROVIDER_REPO_ID.to_string(),
@@ -14,20 +14,22 @@ impl AppState {
         }
     }
 
-    pub async fn select_model(&self, model_id: &str) -> Result<ModelSelectRecord> {
+    pub(crate) async fn select_model(&self, model_id: &str) -> Result<ModelSelectRecord> {
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
         let event = {
             let mut state = self.inner.state.lock().await;
             state.selected_model_id = model_id.to_string();
-            serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))?
+            let event =
+                serde_json::to_value(model_record(&self.inner.config.model_dir, &state, entry))?;
+            drop(state);
+            event
         };
         self.inner
             .repository
             .put_setting("selected_model_id", &Value::String(model_id.to_string()))
             .await?;
-        self.log_info("models", format!("selected model {model_id}"))
-            .await;
+        self.log_info("models", format!("selected model {model_id}"));
         self.inner.hub.publish("model.changed", event);
         self.publish_status_changed().await;
         Ok(ModelSelectRecord {
@@ -36,7 +38,7 @@ impl AppState {
         })
     }
 
-    pub async fn start_model_download(
+    pub(crate) async fn start_model_download(
         &self,
         model_id: &str,
         request: ModelDownloadRequest,
@@ -44,7 +46,7 @@ impl AppState {
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
         let force = request.force == Some(true);
-        if self.model_ready(entry.model_id).await && !force {
+        if self.model_ready(entry.model_id) && !force {
             return Ok(ModelDownloadRecord {
                 model_id: model_id.to_string(),
                 status: "downloaded".to_string(),
@@ -100,11 +102,10 @@ impl AppState {
                 queued_any = true;
             }
             let record = model_record(&self.inner.config.model_dir, &state, entry);
-            (
-                record.status.clone(),
-                serde_json::to_value(record)?,
-                queued_any && !active,
-            )
+            let status = record.status.clone();
+            let event = serde_json::to_value(record)?;
+            drop(state);
+            (status, event, queued_any && !active)
         };
         self.inner.hub.publish("model.changed", event);
         if should_spawn_next {
@@ -116,7 +117,7 @@ impl AppState {
         })
     }
 
-    pub async fn cancel_model_download(&self, model_id: &str) -> Result<ModelDownloadRecord> {
+    pub(crate) async fn cancel_model_download(&self, model_id: &str) -> Result<ModelDownloadRecord> {
         if find_model(model_id).is_none() {
             return Err(AppError::BadRequest("unknown model id".to_string()));
         }
@@ -145,11 +146,12 @@ impl AppState {
                 let entry = find_model(model_id)
                     .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
                 let record = model_record(&self.inner.config.model_dir, &state, entry);
-                (
-                    record.status.clone(),
-                    Some(serde_json::to_value(record)?),
-                )
+                let status = record.status.clone();
+                let event = serde_json::to_value(record)?;
+                drop(state);
+                (status, Some(event))
             } else {
+                drop(state);
                 ("idle".to_string(), None)
             }
         };
@@ -163,11 +165,15 @@ impl AppState {
         })
     }
 
-    pub async fn model_download_event(&self, model_id: &str) -> Result<ModelDownloadEvent> {
+    pub(crate) async fn model_download_event(&self, model_id: &str) -> Result<ModelDownloadEvent> {
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
-        let state = self.inner.state.lock().await;
-        let record = model_record(&self.inner.config.model_dir, &state, entry);
+        let record = {
+            let state = self.inner.state.lock().await;
+            let record = model_record(&self.inner.config.model_dir, &state, entry);
+            drop(state);
+            record
+        };
         Ok(ModelDownloadEvent {
             phase: record.status.clone(),
             message: record.status_message.clone().unwrap_or_default(),

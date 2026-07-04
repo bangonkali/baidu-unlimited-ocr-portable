@@ -1,4 +1,5 @@
-pub fn ocr_profiles() -> Vec<OcrProfileRecord> {
+#[must_use]
+pub(crate) fn ocr_profiles() -> Vec<OcrProfileRecord> {
     vec![
         OcrProfileRecord {
             key: RETRY_PROFILE_ID.to_string(),
@@ -30,7 +31,8 @@ pub fn ocr_profiles() -> Vec<OcrProfileRecord> {
     ]
 }
 
-pub fn find_profile(profile_id: &str) -> Option<OcrProfileRecord> {
+#[must_use]
+pub(crate) fn find_profile(profile_id: &str) -> Option<OcrProfileRecord> {
     ocr_profiles()
         .into_iter()
         .find(|profile| profile.key == profile_id)

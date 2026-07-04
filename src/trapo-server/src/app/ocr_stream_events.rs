@@ -35,7 +35,7 @@ impl OcrStreamTelemetry {
         self.raw_text.push_str(text);
         self.raw_end = self.raw_end.saturating_add(text.len());
         self.token_count = self.token_count.max(index.saturating_add(1));
-        let elapsed_ms = self.started.elapsed().as_millis() as u64;
+        let elapsed_ms = elapsed_millis_u64(self.started);
         OcrTokenTelemetry {
             raw_start,
             raw_end: self.raw_end,
@@ -157,6 +157,10 @@ fn stream_terminal_payload(
     payload
 }
 
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "telemetry rate is approximate and exported as f64"
+)]
 fn average_tps(token_count: u64, elapsed_ms: u64) -> f64 {
     if token_count == 0 || elapsed_ms == 0 {
         return 0.0;

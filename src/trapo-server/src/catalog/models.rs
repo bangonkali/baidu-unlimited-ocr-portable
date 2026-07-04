@@ -175,7 +175,8 @@ struct HardwareProbe {
     metal: bool,
 }
 
-pub fn model_catalog() -> &'static [ModelCatalogEntry] {
+#[must_use]
+pub(crate) const fn model_catalog() -> &'static [ModelCatalogEntry] {
     &MODEL_CATALOG
 }
 
@@ -208,7 +209,8 @@ impl ModelCatalogEntry {
     }
 }
 
-pub fn find_model(model_id: &str) -> Option<&'static ModelCatalogEntry> {
+#[must_use]
+pub(crate) fn find_model(model_id: &str) -> Option<&'static ModelCatalogEntry> {
     model_catalog()
         .iter()
         .find(|entry| entry.model_id == model_id)

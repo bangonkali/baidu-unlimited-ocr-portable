@@ -30,16 +30,17 @@ impl AppState {
             .await;
         let fallback_reason = ocr_worker.fallback_error().map(ToString::to_string);
         self.record_model_lease(
-            &run_id,
-            &model_id,
-            &runtime_id,
-            &profile_id,
-            lease_scope,
-            fallback_reason.as_deref(),
+            ModelLeaseDiagnostic {
+                run_id: &run_id,
+                model_id: &model_id,
+                runtime_id: &runtime_id,
+                profile_id: &profile_id,
+                error: fallback_reason.as_deref(),
+            },
+            &lease_scope,
         );
         if let Some(reason) = fallback_reason.as_deref() {
-            self.log_warn("ocr", format!("using fallback OCR text: {reason}"))
-                .await;
+            self.log_warn("ocr", format!("using fallback OCR text: {reason}"));
         }
         let (runtime_platform, accelerator) = self.runtime_stream_metadata(&runtime_id).await;
         let ocr_context = OcrRunContext {

@@ -8,9 +8,44 @@ license = "AGPL-3.0-or-later"
 repository = "https://github.com/bangonkali/baidu-unlimited-ocr-portable"
 
 [workspace.lints.rust]
-missing_docs = "allow"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+non_ascii_idents = "forbid"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unreachable_pub = "warn"
 
 [workspace.lints.clippy]
-unwrap_used = "deny"
+await_holding_invalid_type = "deny"
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+cargo = { level = "warn", priority = -1 }
+dbg_macro = "deny"
+exit = "deny"
 expect_used = "deny"
+large_futures = "deny"
+manual_async_fn = "deny"
+missing_errors_doc = "warn"
+nursery = { level = "warn", priority = -1 }
 panic = "deny"
+pedantic = { level = "warn", priority = -1 }
+print_stderr = "deny"
+print_stdout = "deny"
+redundant_async_block = "deny"
+todo = "deny"
+undocumented_unsafe_blocks = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+
+# These lints are noisy for Axum/OpenAPI schema code, crate-visible DTO modules,
+# or dependency graph state and are reviewed in normal code review instead of
+# being enforced globally.
+match_same_arms = "allow"
+module_name_repetitions = "allow"
+redundant_pub_crate = "allow"
+similar_names = "allow"
+single_match_else = "allow"
+struct_excessive_bools = "allow"
+multiple_crate_versions = "allow"
+trivially_copy_pass_by_ref = "allow"

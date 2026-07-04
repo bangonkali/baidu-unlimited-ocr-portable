@@ -3,6 +3,11 @@ fn open_configured_database(database_path: &Path) -> duckdb::Result<Connection> 
 }
 
 impl Repository {
+    /// Opens the repository and applies pending schema migrations.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the `DuckDB` file cannot be opened or migrations fail.
     pub async fn open(database_path: impl Into<PathBuf>) -> Result<Self> {
         let database_path = database_path.into();
         if let Some(parent) = database_path.parent() {
@@ -24,11 +29,12 @@ impl Repository {
         Ok(repository)
     }
 
-    pub fn path(&self) -> &Path {
+    #[must_use]
+    pub(crate) fn path(&self) -> &Path {
         &self.database_path
     }
 
-    pub async fn setting_value(&self, key: &str) -> Result<Option<Value>> {
+    pub(crate) async fn setting_value(&self, key: &str) -> Result<Option<Value>> {
         let key = key.to_string();
         self.with_read(move |conn| {
             let value: Option<String> = conn
@@ -43,7 +49,7 @@ impl Repository {
         .await
     }
 
-    pub async fn put_setting(&self, key: &str, value: &Value) -> Result<()> {
+    pub(crate) async fn put_setting(&self, key: &str, value: &Value) -> Result<()> {
         let key = key.to_string();
         let value = value.to_string();
         self.with_write(move |conn| {

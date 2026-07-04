@@ -44,9 +44,7 @@ fn settings_payload(inner: &AppInner, state: &WorkbenchState) -> SettingsPayload
         cache_path: inner.config.cache_dir.to_string_lossy().to_string(),
         database_path: inner.repository.path().to_string_lossy().to_string(),
         selected_runtime_id: state.selected_runtime_id.clone(),
-        selected_accelerator: runtime
-            .map(|item| item.accelerator.clone())
-            .unwrap_or_else(|| "cpu".to_string()),
+        selected_accelerator: runtime.map_or_else(|| "cpu".to_string(), |item| item.accelerator.clone()),
         selected_model_id: state.selected_model_id.clone(),
         runtime_variants: state
             .runtime_variants

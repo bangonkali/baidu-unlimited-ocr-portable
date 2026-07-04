@@ -1,3 +1,7 @@
+//! Build script for embedding git metadata and runtime link hints.
+// Cargo build scripts communicate with Cargo through stdout directives.
+#![allow(clippy::print_stdout)]
+
 use std::{
     env,
     error::Error,

@@ -61,19 +61,23 @@ impl AppState {
         Ok(())
     }
 
-    pub async fn region_snippet_path_for_request(
+    pub(crate) async fn region_snippet_path_for_request(
         &self,
         file_hash: &str,
         region_id: &str,
     ) -> Option<PathBuf> {
-        let state = self.inner.state.lock().await;
-        let has_region = state.documents.get(file_hash).is_some_and(|document| {
-            document.pages.iter().any(|page| {
-                page.boxes
-                    .iter()
-                    .any(|item| item.region_id == region_id && is_image_region(item))
-            })
-        });
+        let has_region = {
+            let state = self.inner.state.lock().await;
+            let has_region = state.documents.get(file_hash).is_some_and(|document| {
+                document.pages.iter().any(|page| {
+                    page.boxes
+                        .iter()
+                        .any(|item| item.region_id == region_id && is_image_region(item))
+                })
+            });
+            drop(state);
+            has_region
+        };
         let path = self.region_snippet_path(file_hash, region_id);
         (has_region && path.is_file()).then_some(path)
     }
@@ -105,6 +109,11 @@ fn crop_bounds(item: &OverlayBox, image_width: u32, image_height: u32) -> Option
     ))
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "region crop percentages are clamped to the unsigned image dimensions before rounding"
+)]
 fn percent_to_pixel(percent: f64, dimension: u32) -> u32 {
     ((percent.clamp(0.0, 100.0) / 100.0) * f64::from(dimension)).round() as u32
 }

@@ -1,5 +1,5 @@
 impl AppState {
-    pub async fn diagnostics_runs(&self, limit: usize) -> Result<DiagnosticRunsPayload> {
+    pub(crate) async fn diagnostics_runs(&self, limit: usize) -> Result<DiagnosticRunsPayload> {
         Ok(DiagnosticRunsPayload {
             runs: self
                 .inner
@@ -12,25 +12,20 @@ impl AppState {
         })
     }
 
-    pub async fn diagnostic_trace(
+    pub(crate) async fn diagnostic_trace(
         &self,
-        run_id: Option<String>,
-        file_hash: Option<String>,
-        page_no: Option<u32>,
-        status: Option<String>,
-        q: Option<String>,
-        limit: usize,
+        request: DiagnosticTraceRequest,
     ) -> Result<DiagnosticTracePayload> {
         let filter = DiagnosticTraceFilter {
-            run_id: run_id.as_deref(),
-            file_hash: file_hash.as_deref(),
-            page_no,
-            status: status.as_deref(),
-            q: q.as_deref(),
-            limit: limit_u32(limit, 10_000),
+            run_id: request.run_id.as_deref(),
+            file_hash: request.file_hash.as_deref(),
+            page_no: request.page_no,
+            status: request.status.as_deref(),
+            q: request.q.as_deref(),
+            limit: limit_u32(request.limit, 10_000),
         };
         let (spans, events) = self.inner.repository.diagnostic_trace(&filter).await?;
-        let summary = diagnostic_trace_summary(run_id, &spans, &events);
+        let summary = diagnostic_trace_summary(request.run_id, &spans, &events);
         Ok(DiagnosticTracePayload {
             summary,
             spans: spans.into_iter().map(diagnostic_span_record).collect(),
@@ -38,7 +33,7 @@ impl AppState {
         })
     }
 
-    pub async fn diagnostic_progress(
+    pub(crate) async fn diagnostic_progress(
         &self,
         run_id: Option<String>,
         limit: usize,
@@ -64,7 +59,7 @@ impl AppState {
         })
     }
 
-    pub async fn diagnostic_analytics(
+    pub(crate) async fn diagnostic_analytics(
         &self,
         run_id: Option<String>,
         limit: usize,
@@ -78,8 +73,8 @@ impl AppState {
             limit: limit_u32(limit, 25_000),
         };
         let (spans, events) = self.inner.repository.diagnostic_trace(&filter).await?;
-        let span_count = spans.len() as u32;
-        let event_count = events.len() as u32;
+        let span_count = usize_to_u32_saturating(spans.len());
+        let event_count = usize_to_u32_saturating(events.len());
         let error_count = diagnostic_error_count(&spans, &events);
         let total_duration_ms = spans.iter().map(|span| span.duration_ms).sum::<f64>();
         let average_span_ms = if span_count == 0 {
@@ -104,7 +99,7 @@ impl AppState {
         })
     }
 
-    pub async fn diagnostic_models(
+    pub(crate) async fn diagnostic_models(
         &self,
         run_id: Option<String>,
         limit: usize,
@@ -120,4 +115,13 @@ impl AppState {
                 .collect(),
         })
     }
+}
+
+pub(crate) struct DiagnosticTraceRequest {
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) status: Option<String>,
+    pub(crate) q: Option<String>,
+    pub(crate) limit: usize,
 }

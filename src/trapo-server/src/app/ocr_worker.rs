@@ -53,11 +53,11 @@ impl OcrRunWorker {
     ) -> Self {
         let (ready_sender, ready_receiver) = mpsc::channel();
         let (sender, receiver) = mpsc::channel();
-        let max_tokens = profile.default_max_tokens as i32;
+        let max_tokens = u32_to_i32_saturating(profile.default_max_tokens);
         let join = match thread::Builder::new()
             .name("trapo-ocr-worker".to_string())
             .spawn(move || {
-                let mut engine = match crate::ocr::UnlimitedOcrFfiEngine::load(paths, &profile) {
+                let mut engine = match crate::ocr::UnlimitedOcrFfiEngine::load(&paths, &profile) {
                     Ok(engine) => engine,
                     Err(error) => {
                         let _ = ready_sender.send(Err(error.to_string()));
@@ -65,7 +65,7 @@ impl OcrRunWorker {
                     }
                 };
                 let _ = ready_sender.send(Ok(()));
-                run_worker_loop(&mut engine, receiver, max_tokens, hub);
+                run_worker_loop(&mut engine, receiver, max_tokens, &hub);
             }) {
             Ok(join) => join,
             Err(error) => {
@@ -177,9 +177,7 @@ impl AppState {
         state
             .runtime_variants
             .iter()
-            .find(|item| item.runtime_id == runtime_id)
-            .map(|item| (item.platform.clone(), item.accelerator.clone()))
-            .unwrap_or_else(|| (runtime_id.to_string(), String::new()))
+            .find(|item| item.runtime_id == runtime_id).map_or_else(|| (runtime_id.to_string(), String::new()), |item| (item.platform.clone(), item.accelerator.clone()))
     }
 }
 
@@ -187,13 +185,13 @@ fn run_worker_loop(
     engine: &mut crate::ocr::UnlimitedOcrFfiEngine,
     receiver: mpsc::Receiver<OcrWorkerMessage>,
     max_tokens: i32,
-    hub: Arc<RealtimeHub>,
+    hub: &RealtimeHub,
 ) {
     for message in receiver {
         match message {
             OcrWorkerMessage::Recognize(request) => {
                 let result =
-                    recognize_on_worker(engine, request.image_path.as_path(), &request, max_tokens, &hub);
+                    recognize_on_worker(engine, request.image_path.as_path(), &request, max_tokens, hub);
                 let _ = request.response.send(result);
             }
             OcrWorkerMessage::Shutdown => break,
@@ -221,7 +219,6 @@ fn ocr_failure(message: impl Into<String>) -> crate::ocr::OcrResult {
         ok: false,
         text: String::new(),
         error: Some(message.into()),
-        status_code: -1,
     }
 }
 

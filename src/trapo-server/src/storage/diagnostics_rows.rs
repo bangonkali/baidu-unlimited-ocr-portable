@@ -20,8 +20,8 @@ fn work_unit_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticWorkUni
         finished_at: row.get(17)?,
         duration_ms: row.get(18)?,
         error: row.get(19)?,
-        result: json_value(row.get(20)?),
-        metadata: json_value(row.get(21)?),
+        result: json_value(row.get::<_, String>(20)?.as_str()),
+        metadata: json_value(row.get::<_, String>(21)?.as_str()),
     })
 }
 
@@ -39,6 +39,6 @@ fn lease_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticModelLeaseR
         finished_at: row.get(9)?,
         duration_ms: row.get(10)?,
         error: row.get(11)?,
-        metadata: json_value(row.get(12)?),
+        metadata: json_value(row.get::<_, String>(12)?.as_str()),
     })
 }

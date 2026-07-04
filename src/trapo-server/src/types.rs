@@ -2,201 +2,201 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct HealthPayload {
-    pub ok: bool,
-    pub service: String,
+pub(crate) struct HealthPayload {
+    pub(crate) ok: bool,
+    pub(crate) service: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct StatusPayload {
-    pub state: String,
-    pub host: String,
-    pub active_run_id: Option<String>,
-    pub default_profile: String,
-    pub version: String,
-    pub git_tag: String,
-    pub git_sha: String,
-    pub supported_inputs: Vec<String>,
-    pub runtime_platform: Option<String>,
-    pub accelerator: Option<String>,
-    pub runtime_selectable: bool,
-    pub runtime_variants: Vec<RuntimeVariantRecord>,
-    pub inference_engine: String,
-    pub log_path: String,
-    pub database_path: String,
-    pub realtime_path: String,
-    pub selected_model_id: String,
+pub(crate) struct StatusPayload {
+    pub(crate) state: String,
+    pub(crate) host: String,
+    pub(crate) active_run_id: Option<String>,
+    pub(crate) default_profile: String,
+    pub(crate) version: String,
+    pub(crate) git_tag: String,
+    pub(crate) git_sha: String,
+    pub(crate) supported_inputs: Vec<String>,
+    pub(crate) runtime_platform: Option<String>,
+    pub(crate) accelerator: Option<String>,
+    pub(crate) runtime_selectable: bool,
+    pub(crate) runtime_variants: Vec<RuntimeVariantRecord>,
+    pub(crate) inference_engine: String,
+    pub(crate) log_path: String,
+    pub(crate) database_path: String,
+    pub(crate) realtime_path: String,
+    pub(crate) selected_model_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct RuntimeVariantRecord {
-    pub runtime_id: String,
-    pub label: String,
-    pub platform: String,
-    pub accelerator: String,
-    pub backend: String,
-    pub ffi_library: String,
-    pub installed: bool,
-    pub hardware_supported: bool,
-    pub selectable: bool,
-    pub selected: bool,
-    pub support_detail: String,
+pub(crate) struct RuntimeVariantRecord {
+    pub(crate) runtime_id: String,
+    pub(crate) label: String,
+    pub(crate) platform: String,
+    pub(crate) accelerator: String,
+    pub(crate) backend: String,
+    pub(crate) ffi_library: String,
+    pub(crate) installed: bool,
+    pub(crate) hardware_supported: bool,
+    pub(crate) selectable: bool,
+    pub(crate) selected: bool,
+    pub(crate) support_detail: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct OcrProfileRecord {
-    pub key: String,
-    pub label: String,
-    pub engine_name: String,
-    pub description: String,
-    pub default_max_tokens: u32,
-    pub ngram_size: u32,
-    pub ngram_window: u32,
-    pub pdf_ngram_window: u32,
-    pub force_prompt_eos: bool,
-    pub no_image_end: bool,
+pub(crate) struct OcrProfileRecord {
+    pub(crate) key: String,
+    pub(crate) label: String,
+    pub(crate) engine_name: String,
+    pub(crate) description: String,
+    pub(crate) default_max_tokens: u32,
+    pub(crate) ngram_size: u32,
+    pub(crate) ngram_window: u32,
+    pub(crate) pdf_ngram_window: u32,
+    pub(crate) force_prompt_eos: bool,
+    pub(crate) no_image_end: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelAssetRecord {
-    pub model_id: String,
-    pub display_name: String,
-    pub status: String,
-    pub repo_id: String,
-    pub revision: String,
-    pub local_path: Option<String>,
-    pub size_bytes: Option<u64>,
-    pub error: Option<String>,
-    pub model_file: String,
-    pub mmproj_file: String,
-    pub current_file: Option<String>,
-    pub status_message: Option<String>,
-    pub downloaded_bytes: u64,
-    pub total_bytes: Option<u64>,
-    pub overall_downloaded_bytes: u64,
-    pub overall_total_bytes: Option<u64>,
-    pub overall_percent: f64,
-    pub bytes_per_second: f64,
-    pub eta_seconds: Option<u64>,
-    pub auth_available: bool,
-    pub auth_source: Option<String>,
-    pub last_event_at: Option<String>,
-    pub files: Vec<ModelDownloadFileRecord>,
-    pub quantization: String,
-    pub bits: u8,
-    pub quality: String,
-    pub hardware_tier: String,
-    pub notes: String,
-    pub recommended: bool,
-    pub selected: bool,
-    pub provider_name: String,
-    pub total_required_bytes: Option<u64>,
-    pub downloaded_file_count: u32,
-    pub total_file_count: u32,
+pub(crate) struct ModelAssetRecord {
+    pub(crate) model_id: String,
+    pub(crate) display_name: String,
+    pub(crate) status: String,
+    pub(crate) repo_id: String,
+    pub(crate) revision: String,
+    pub(crate) local_path: Option<String>,
+    pub(crate) size_bytes: Option<u64>,
+    pub(crate) error: Option<String>,
+    pub(crate) model_file: String,
+    pub(crate) mmproj_file: String,
+    pub(crate) current_file: Option<String>,
+    pub(crate) status_message: Option<String>,
+    pub(crate) downloaded_bytes: u64,
+    pub(crate) total_bytes: Option<u64>,
+    pub(crate) overall_downloaded_bytes: u64,
+    pub(crate) overall_total_bytes: Option<u64>,
+    pub(crate) overall_percent: f64,
+    pub(crate) bytes_per_second: f64,
+    pub(crate) eta_seconds: Option<u64>,
+    pub(crate) auth_available: bool,
+    pub(crate) auth_source: Option<String>,
+    pub(crate) last_event_at: Option<String>,
+    pub(crate) files: Vec<ModelDownloadFileRecord>,
+    pub(crate) quantization: String,
+    pub(crate) bits: u8,
+    pub(crate) quality: String,
+    pub(crate) hardware_tier: String,
+    pub(crate) notes: String,
+    pub(crate) recommended: bool,
+    pub(crate) selected: bool,
+    pub(crate) provider_name: String,
+    pub(crate) total_required_bytes: Option<u64>,
+    pub(crate) downloaded_file_count: u32,
+    pub(crate) total_file_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelDownloadEvent {
+pub(crate) struct ModelDownloadEvent {
     #[serde(flatten)]
     #[schema(value_type = ModelAssetRecord)]
-    pub model: ModelAssetRecord,
-    pub phase: String,
-    pub message: String,
+    pub(crate) model: ModelAssetRecord,
+    pub(crate) phase: String,
+    pub(crate) message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelDownloadFileRecord {
-    pub file_id: String,
-    pub file_name: String,
-    pub status: String,
-    pub local_path: Option<String>,
-    pub downloaded_bytes: u64,
-    pub total_bytes: Option<u64>,
-    pub percent: f64,
-    pub bytes_per_second: f64,
-    pub eta_seconds: Option<u64>,
-    pub error: Option<String>,
+pub(crate) struct ModelDownloadFileRecord {
+    pub(crate) file_id: String,
+    pub(crate) file_name: String,
+    pub(crate) status: String,
+    pub(crate) local_path: Option<String>,
+    pub(crate) downloaded_bytes: u64,
+    pub(crate) total_bytes: Option<u64>,
+    pub(crate) percent: f64,
+    pub(crate) bytes_per_second: f64,
+    pub(crate) eta_seconds: Option<u64>,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelsPayload {
-    pub models: Vec<ModelAssetRecord>,
-    pub profiles: Vec<OcrProfileRecord>,
-    pub selected_model_id: String,
-    pub provider_repo: String,
-    pub provider_label: String,
-    pub shared_mmproj_file: String,
+pub(crate) struct ModelsPayload {
+    pub(crate) models: Vec<ModelAssetRecord>,
+    pub(crate) profiles: Vec<OcrProfileRecord>,
+    pub(crate) selected_model_id: String,
+    pub(crate) provider_repo: String,
+    pub(crate) provider_label: String,
+    pub(crate) shared_mmproj_file: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelDownloadRecord {
-    pub model_id: String,
-    pub status: String,
+pub(crate) struct ModelDownloadRecord {
+    pub(crate) model_id: String,
+    pub(crate) status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ModelSelectRecord {
-    pub model_id: String,
-    pub status: String,
+pub(crate) struct ModelSelectRecord {
+    pub(crate) model_id: String,
+    pub(crate) status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
-pub struct ModelDownloadRequest {
-    pub force: Option<bool>,
+pub(crate) struct ModelDownloadRequest {
+    pub(crate) force: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct SettingsPayload {
-    pub pdf_dpi: u32,
-    pub ocr_concurrency: u32,
-    pub default_profile: String,
-    pub retry_profile: String,
-    pub cache_path: String,
-    pub database_path: String,
-    pub selected_runtime_id: String,
-    pub selected_accelerator: String,
-    pub selected_model_id: String,
-    pub runtime_variants: Vec<RuntimeVariantRecord>,
-    pub workbench_ui: WorkbenchUiSettings,
+pub(crate) struct SettingsPayload {
+    pub(crate) pdf_dpi: u32,
+    pub(crate) ocr_concurrency: u32,
+    pub(crate) default_profile: String,
+    pub(crate) retry_profile: String,
+    pub(crate) cache_path: String,
+    pub(crate) database_path: String,
+    pub(crate) selected_runtime_id: String,
+    pub(crate) selected_accelerator: String,
+    pub(crate) selected_model_id: String,
+    pub(crate) runtime_variants: Vec<RuntimeVariantRecord>,
+    pub(crate) workbench_ui: WorkbenchUiSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
-pub struct SettingsUpdateRequest {
-    pub default_profile: Option<String>,
-    pub selected_runtime_id: Option<String>,
-    pub workbench_ui: Option<WorkbenchUiSettingsPatch>,
+pub(crate) struct SettingsUpdateRequest {
+    pub(crate) default_profile: Option<String>,
+    pub(crate) selected_runtime_id: Option<String>,
+    pub(crate) workbench_ui: Option<WorkbenchUiSettingsPatch>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct WorkbenchUiSettings {
-    pub auto_follow_regions: bool,
-    pub labels_visible: bool,
-    pub overlay_visible: bool,
-    pub panes_collapsed: WorkbenchPaneSettings,
-    pub theme: String,
+pub(crate) struct WorkbenchUiSettings {
+    pub(crate) auto_follow_regions: bool,
+    pub(crate) labels_visible: bool,
+    pub(crate) overlay_visible: bool,
+    pub(crate) panes_collapsed: WorkbenchPaneSettings,
+    pub(crate) theme: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct WorkbenchPaneSettings {
-    pub details: bool,
-    pub diagnostics: bool,
-    pub explorer: bool,
+pub(crate) struct WorkbenchPaneSettings {
+    pub(crate) details: bool,
+    pub(crate) diagnostics: bool,
+    pub(crate) explorer: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
-pub struct WorkbenchUiSettingsPatch {
-    pub auto_follow_regions: Option<bool>,
-    pub labels_visible: Option<bool>,
-    pub overlay_visible: Option<bool>,
-    pub panes_collapsed: Option<WorkbenchPaneSettingsPatch>,
-    pub theme: Option<String>,
+pub(crate) struct WorkbenchUiSettingsPatch {
+    pub(crate) auto_follow_regions: Option<bool>,
+    pub(crate) labels_visible: Option<bool>,
+    pub(crate) overlay_visible: Option<bool>,
+    pub(crate) panes_collapsed: Option<WorkbenchPaneSettingsPatch>,
+    pub(crate) theme: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
-pub struct WorkbenchPaneSettingsPatch {
-    pub details: Option<bool>,
-    pub diagnostics: Option<bool>,
-    pub explorer: Option<bool>,
+pub(crate) struct WorkbenchPaneSettingsPatch {
+    pub(crate) details: Option<bool>,
+    pub(crate) diagnostics: Option<bool>,
+    pub(crate) explorer: Option<bool>,
 }
 
 impl Default for WorkbenchUiSettings {

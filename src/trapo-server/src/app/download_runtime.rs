@@ -1,12 +1,14 @@
+use futures_util::StreamExt;
+use tokio::io::AsyncWriteExt;
+
 impl AppState {
-    async fn model_ready(&self, model_id: &str) -> bool {
+    fn model_ready(&self, model_id: &str) -> bool {
         find_model(model_id)
-            .map(|entry| {
+            .is_some_and(|entry| {
                 model_download_targets(&self.inner.config.model_dir, entry)
                     .iter()
                     .all(|target| file_is_present(&target.target_path))
             })
-            .unwrap_or(false)
     }
 
     async fn model_status(&self, model_id: &str) -> String {
@@ -52,14 +54,14 @@ impl AppState {
                 started = Some(download.clone());
                 break;
             }
-            let event = started
+            let event = started.as_ref().and_then(|download| {
+                download_owner_event(&self.inner.config.model_dir, &state, download)
+            });
+            let next_download_id = started
                 .as_ref()
-                .and_then(|download| download_owner_event(&self.inner.config.model_dir, &state, download));
-            (
-                started.as_ref().map(|download| download.download_id.clone()),
-                event,
-                started,
-            )
+                .map(|download| download.download_id.clone());
+            drop(state);
+            (next_download_id, event, started)
         };
         if let Some(download) = started.as_ref() {
             self.record_download_event(download, "started").await;
@@ -103,8 +105,6 @@ impl AppState {
         let temp = download_temp_path(&download.target_path, &download.file_id);
         let mut file = tokio::fs::File::create(&temp).await?;
         let mut downloaded = 0_u64;
-        use futures_util::StreamExt;
-        use tokio::io::AsyncWriteExt;
         while let Some(chunk) = stream.next().await {
             if self.download_cancelled(&download_id).await {
                 let _ = tokio::fs::remove_file(&temp).await;
@@ -113,7 +113,7 @@ impl AppState {
             }
             let chunk = chunk.map_err(|error| AppError::Internal(error.to_string()))?;
             file.write_all(&chunk).await?;
-            downloaded += chunk.len() as u64;
+            downloaded = downloaded.saturating_add(usize_to_u64_saturating(chunk.len()));
             self.bump_download_progress(&download_id, downloaded, download.total_bytes.unwrap_or(0))
                 .await?;
         }

@@ -1,5 +1,5 @@
 impl Repository {
-    pub async fn upsert_run(&self, run: &StoredRun) -> Result<()> {
+    pub(crate) async fn upsert_run(&self, run: &StoredRun) -> Result<()> {
         let run = run.clone();
         self.with_write(move |conn| {
             conn.execute(
@@ -30,7 +30,7 @@ impl Repository {
         .await
     }
 
-    pub async fn replace_run_documents(&self, run_id: &str, file_hashes: &[String]) -> Result<()> {
+    pub(crate) async fn replace_run_documents(&self, run_id: &str, file_hashes: &[String]) -> Result<()> {
         let run_id = run_id.to_string();
         let file_hashes = file_hashes.to_vec();
         self.with_write(move |conn| {
@@ -51,7 +51,7 @@ impl Repository {
         .await
     }
 
-    pub async fn upsert_document(&self, document: &StoredDocument) -> Result<()> {
+    pub(crate) async fn upsert_document(&self, document: &StoredDocument) -> Result<()> {
         let document = document.clone();
         self.with_write(move |conn| {
             conn.execute(
@@ -64,7 +64,7 @@ impl Repository {
                     document.file_hash.as_str(),
                     document.display_name.as_str(),
                     document.extension.as_str(),
-                    document.size_bytes as i64,
+                    u64_to_i64_saturating(document.size_bytes),
                     i64::from(document.page_count),
                     document.status.as_str(),
                     document.error.as_deref()
@@ -87,7 +87,7 @@ impl Repository {
         .await
     }
 
-    pub async fn upsert_page(&self, page: &StoredPage) -> Result<()> {
+    pub(crate) async fn upsert_page(&self, page: &StoredPage) -> Result<()> {
         let page = page.clone();
         self.with_write(move |conn| {
             conn.execute(
@@ -126,7 +126,7 @@ impl Repository {
         .await
     }
 
-    pub async fn replace_page_ocr(
+    pub(crate) async fn replace_page_ocr(
         &self,
         page: &StoredPage,
         engine_id: &str,
@@ -136,7 +136,6 @@ impl Repository {
         let page = page.clone();
         let engine_id = engine_id.to_string();
         let profile_id = profile_id.to_string();
-        let repository = self.clone();
         self.with_write(move |conn| {
             conn.execute(
                 "INSERT INTO ocr_documents(file_hash, engine_id, profile_id, runtime_metadata, status, updated_at)
@@ -165,10 +164,10 @@ impl Repository {
                     page.cleaned_text.as_str(),
                     page.status.as_str(),
                     page.error.as_deref(),
-                    elapsed_ms as i64
+                    u64_to_i64_saturating(elapsed_ms)
                 ],
             )?;
-            repository.replace_regions(&conn, &page, &engine_id, &profile_id)?;
+            Self::replace_regions(&conn, &page, &engine_id, &profile_id)?;
             Ok(())
         })
         .await

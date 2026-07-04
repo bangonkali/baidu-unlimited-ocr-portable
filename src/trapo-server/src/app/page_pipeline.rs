@@ -3,108 +3,9 @@ impl AppState {
         let started = Instant::now();
         self.mark_page_started(page_work.file_hash, page_work.page_no)
             .await?;
-        let raw_text = self
-            .run_ocr_or_fallback(
-                page_work.image_path,
-                &page_work.stream_context(ocr),
-                ocr.worker,
-            )
-            .await;
-        let mut parsed = crate::ocr::parse_ocr_markers(
-            &raw_text,
-            &crate::ocr::ParseContext {
-                file_hash: page_work.file_hash.to_string(),
-                page_no: page_work.page_no,
-                engine_id: ENGINE_ID.to_string(),
-                profile_id: ocr.profile_id.to_string(),
-            },
-        );
-        crate::ocr::apply_region_content(&mut parsed);
-        self.write_image_region_snippets(
-            page_work.file_hash,
-            page_work.image_path,
-            &mut parsed.boxes,
-        )?;
-        let (stored, page_record, regions_payload, text_payload) = {
-            let mut state = self.inner.state.lock().await;
-            let document = state
-                .documents
-                .get_mut(page_work.file_hash)
-                .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
-            let (stored, width_px, height_px) = {
-                let page = document
-                    .pages
-                    .iter_mut()
-                    .find(|item| item.page_no == page_work.page_no)
-                    .ok_or_else(|| AppError::NotFound("page not found".to_string()))?;
-                page.status = "completed".to_string();
-                page.raw_text = parsed.raw_text;
-                page.cleaned_text = if parsed.cleaned_text.is_empty() {
-                    raw_text
-                } else {
-                    parsed.cleaned_text
-                };
-                page.boxes = parsed.boxes;
-                page.spans = parsed.spans;
-                (
-                    stored_page(page_work.file_hash, page),
-                    page.width_px,
-                    page.height_px,
-                )
-            };
-            let regions = DocumentRegionsPayload {
-                file_hash: page_work.file_hash.to_string(),
-                boxes: document
-                    .pages
-                    .iter()
-                    .flat_map(|page| page.boxes.clone())
-                    .collect(),
-            };
-            let text = DocumentTextPayload {
-                file_hash: page_work.file_hash.to_string(),
-                pages: started_page_text_records(document),
-            };
-            let page_record = json!({
-                "file_hash": page_work.file_hash,
-                "page_no": page_work.page_no,
-                "status": "completed",
-                "width_px": width_px,
-                "height_px": height_px,
-            });
-            (stored, page_record, regions, text)
-        };
-        self.inner
-            .repository
-            .replace_page_ocr(
-                &stored,
-                ENGINE_ID,
-                ocr.profile_id,
-                started.elapsed().as_millis() as u64,
-            )
-            .await?;
-        self.increment_run_page(page_work.run_id, page_work.file_hash)
-            .await?;
-        self.inner.hub.publish("document.page.changed", page_record);
-        self.inner.hub.publish(
-            "document.regions.changed",
-            serde_json::to_value(regions_payload)?,
-        );
-        self.inner
-            .hub
-            .publish("document.text.changed", serde_json::to_value(text_payload)?);
-        self.inner
-            .repository
-            .upsert_page_metrics(&OcrPageMetrics {
-                run_id: page_work.run_id.to_string(),
-                file_hash: page_work.file_hash.to_string(),
-                page_no: page_work.page_no,
-                model_id: ocr.model_id.to_string(),
-                runtime_id: ocr.runtime_id.to_string(),
-                status: "completed".to_string(),
-                token_count: 0,
-                avg_tps: 0.0,
-                elapsed_ms: started.elapsed().as_millis() as u64,
-            })
+        let parsed = self.parse_page_output(&page_work, ocr)?;
+        let completed = self.complete_page_state(&page_work, parsed).await?;
+        self.persist_completed_page(&page_work, ocr, started, completed)
             .await?;
         Ok(())
     }
@@ -130,7 +31,9 @@ impl AppState {
                 "width_px": page.width_px,
                 "height_px": page.height_px,
             });
-            (stored, page_record, document_summary(document))
+            let document_event = document_summary(document);
+            drop(state);
+            (stored, page_record, document_event)
         };
         self.inner.repository.upsert_page(&stored).await?;
         self.inner.hub.publish("document.page.changed", page_record);
@@ -140,7 +43,7 @@ impl AppState {
         Ok(())
     }
 
-    async fn run_ocr_or_fallback(
+    fn run_ocr_or_fallback(
         &self,
         image_path: &Path,
         context: &OcrStreamContext,
@@ -179,6 +82,7 @@ impl AppState {
             let stored = stored_run(run);
             let run_event = run_record(run);
             let document_event = state.documents.get(file_hash).map(document_summary);
+            drop(state);
             (stored, run_event, document_event)
         };
         self.inner.repository.upsert_run(&stored).await?;
@@ -207,7 +111,10 @@ impl AppState {
             };
             document.status = status.to_string();
             document.error = error;
-            (stored_document(document), document_summary(document))
+            let stored = stored_document(document);
+            let event = document_summary(document);
+            drop(state);
+            (stored, event)
         };
         self.inner.repository.upsert_document(&stored).await?;
         self.inner
@@ -221,7 +128,7 @@ impl AppState {
         let _ = self
             .finish_document(run_id, file_hash, "failed", Some(error.clone()))
             .await;
-        self.log_error("ingest", error).await;
+        self.log_error("ingest", error);
     }
 
     async fn mark_run_status(&self, run_id: &str, status: &str, error: Option<String>) {
@@ -234,7 +141,10 @@ impl AppState {
             if error.is_some() {
                 run.error = error;
             }
-            (stored_run(run), run_record(run))
+            let stored = stored_run(run);
+            let event = run_record(run);
+            drop(state);
+            (stored, event)
         };
         if let Err(error) = self.inner.repository.upsert_run(&stored).await {
             tracing::warn!(%error, run_id, "failed to persist run status");
@@ -247,32 +157,33 @@ impl AppState {
 
     async fn run_cancelled(&self, run_id: &str) -> bool {
         let state = self.inner.state.lock().await;
-        state
+        let cancelled = state
             .runs
             .get(run_id)
-            .map(|run| run.cancel_requested || run.status == "cancelled")
-            .unwrap_or(true)
+            .is_none_or(|run| run.cancel_requested || run.status == "cancelled");
+        drop(state);
+        cancelled
     }
 
     async fn run_has_errors(&self, run_id: &str) -> bool {
         let state = self.inner.state.lock().await;
-        state
+        let has_errors = state
             .runs
             .get(run_id)
-            .map(|run| {
+            .is_some_and(|run| {
                 run.file_hashes.iter().any(|hash| {
                     state
                         .documents
                         .get(hash)
                         .is_some_and(|document| document.status == "failed")
                 })
-            })
-            .unwrap_or(false)
+            });
+        drop(state);
+        has_errors
     }
-
 }
 
-impl<'a> PageWork<'a> {
+impl PageWork<'_> {
     fn stream_context(&self, ocr: &OcrRunContext<'_>) -> OcrStreamContext {
         OcrStreamContext {
             run_id: self.run_id.to_string(),

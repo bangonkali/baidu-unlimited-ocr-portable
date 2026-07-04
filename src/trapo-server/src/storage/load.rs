@@ -1,5 +1,5 @@
 impl Repository {
-    fn load_runs(&self, conn: &Connection) -> Result<Vec<StoredRun>> {
+    fn load_runs(conn: &Connection) -> Result<Vec<StoredRun>> {
         let mut statement = conn.prepare(
             "SELECT run_id, root_path, status, profile_id, engine_id, coalesce(model_id, ''),
               coalesce(runtime_id, ''), queued_files, processed_pages, total_pages, error
@@ -23,7 +23,7 @@ impl Repository {
         collect_rows(rows)
     }
 
-    fn load_documents(&self, conn: &Connection) -> Result<Vec<StoredDocument>> {
+    fn load_documents(conn: &Connection) -> Result<Vec<StoredDocument>> {
         let mut statement = conn.prepare(
             "SELECT f.file_hash, f.display_name, f.extension, f.size_bytes, f.page_count, f.status, f.error,
               coalesce(l.root_path, ''), coalesce(l.absolute_path, ''), coalesce(l.relative_path, '')
@@ -36,7 +36,7 @@ impl Repository {
                 file_hash: row.get(0)?,
                 display_name: row.get(1)?,
                 extension: row.get(2)?,
-                size_bytes: row.get::<_, i64>(3)? as u64,
+                size_bytes: i64_to_u64(row.get::<_, i64>(3)?),
                 page_count: i64_to_u32(row.get::<_, i64>(4)?),
                 status: row.get(5)?,
                 error: row.get(6)?,
@@ -48,7 +48,7 @@ impl Repository {
         collect_rows(rows)
     }
 
-    fn load_run_documents(&self, conn: &Connection) -> Result<Vec<StoredRunDocument>> {
+    fn load_run_documents(conn: &Connection) -> Result<Vec<StoredRunDocument>> {
         let mut statement = conn.prepare(
             "SELECT run_id, file_hash, ordinal
              FROM ingest_run_documents
@@ -64,7 +64,7 @@ impl Repository {
         collect_rows(rows)
     }
 
-    fn load_pages(&self, conn: &Connection) -> Result<Vec<StoredPage>> {
+    fn load_pages(conn: &Connection) -> Result<Vec<StoredPage>> {
         let mut statement = conn.prepare(
             "SELECT p.file_hash, p.page_no, coalesce(p.width_px, 0), coalesce(p.height_px, 0),
               p.render_dpi, p.status, p.error, i.path, coalesce(o.cleaned_text, ''),
@@ -93,14 +93,13 @@ impl Repository {
         })?;
         let mut pages = collect_rows(rows)?;
         for page in &mut pages {
-            page.boxes = self.load_page_boxes(conn, &page.file_hash, page.page_no)?;
-            page.spans = self.load_page_spans(conn, &page.file_hash, page.page_no)?;
+            page.boxes = Self::load_page_boxes(conn, &page.file_hash, page.page_no)?;
+            page.spans = Self::load_page_spans(conn, &page.file_hash, page.page_no)?;
         }
         Ok(pages)
     }
 
     fn load_page_boxes(
-        &self,
         conn: &Connection,
         file_hash: &str,
         page_no: u32,
@@ -139,7 +138,6 @@ impl Repository {
     }
 
     fn load_page_spans(
-        &self,
         conn: &Connection,
         file_hash: &str,
         page_no: u32,

@@ -1,5 +1,5 @@
 impl Repository {
-    pub async fn search_document_hashes(&self, query: &str, limit: u32) -> Result<Vec<String>> {
+    pub(crate) async fn search_document_hashes(&self, query: &str, limit: u32) -> Result<Vec<String>> {
         let query = query.to_string();
         self.with_read(move |conn| {
         let pattern = format!("%{}%", query.to_lowercase());
@@ -16,20 +16,19 @@ impl Repository {
         .await
     }
 
-    pub async fn load_snapshot(&self) -> Result<StoredSnapshot> {
-        let repository = self.clone();
+    pub(crate) async fn load_snapshot(&self) -> Result<StoredSnapshot> {
         self.with_read(move |conn| {
             Ok(StoredSnapshot {
-                runs: repository.load_runs(&conn)?,
-                run_documents: repository.load_run_documents(&conn)?,
-                documents: repository.load_documents(&conn)?,
-                pages: repository.load_pages(&conn)?,
+                runs: Self::load_runs(&conn)?,
+                run_documents: Self::load_run_documents(&conn)?,
+                documents: Self::load_documents(&conn)?,
+                pages: Self::load_pages(&conn)?,
             })
         })
         .await
     }
 
-    pub async fn upsert_page_metrics(&self, metrics: &OcrPageMetrics) -> Result<()> {
+    pub(crate) async fn upsert_page_metrics(&self, metrics: &OcrPageMetrics) -> Result<()> {
         let metrics = metrics.clone();
         self.with_write(move |conn| {
         conn.execute(
@@ -46,9 +45,9 @@ impl Repository {
                 metrics.model_id,
                 metrics.runtime_id,
                 metrics.status,
-                metrics.token_count as i64,
+                u64_to_i64_saturating(metrics.token_count),
                 metrics.avg_tps,
-                metrics.elapsed_ms as i64
+                u64_to_i64_saturating(metrics.elapsed_ms)
             ],
         )?;
         Ok(())
@@ -56,7 +55,7 @@ impl Repository {
         .await
     }
 
-    pub async fn list_page_metrics(
+    pub(crate) async fn list_page_metrics(
         &self,
         run_id: Option<&str>,
         limit: u32,

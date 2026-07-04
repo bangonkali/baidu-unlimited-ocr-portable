@@ -1,5 +1,5 @@
 impl Repository {
-    pub async fn diagnostic_runs(&self, limit: u32) -> Result<Vec<DiagnosticRunRow>> {
+    pub(crate) async fn diagnostic_runs(&self, limit: u32) -> Result<Vec<DiagnosticRunRow>> {
         self.with_read(move |conn| {
             let mut statement = conn.prepare(
                 "SELECT r.run_id, r.root_path, r.status, r.started_at::VARCHAR, r.finished_at::VARCHAR,
@@ -21,7 +21,7 @@ impl Repository {
                     status: row.get(2)?,
                     started_at: row.get(3)?,
                     finished_at: row.get(4)?,
-                    duration_ms: row.get::<_, i64>(5)? as f64,
+                    duration_ms: i64_to_f64_lossy(row.get::<_, i64>(5)?),
                     span_count: i64_to_u32(row.get::<_, i64>(6)?),
                     error_count: i64_to_u32(row.get::<_, i64>(7)?),
                     file_count: i64_to_u32(row.get::<_, i64>(8)?),
@@ -33,22 +33,21 @@ impl Repository {
         .await
     }
 
-    pub async fn diagnostic_trace(
+    pub(crate) async fn diagnostic_trace(
         &self,
         filter: &DiagnosticTraceFilter<'_>,
     ) -> Result<(Vec<DiagnosticSpanRow>, Vec<DiagnosticEventRow>)> {
         let filter = OwnedDiagnosticTraceFilter::from(filter);
-        let repository = self.clone();
         self.with_read(move |conn| {
             Ok((
-                repository.diagnostic_spans(&conn, &filter)?,
-                repository.diagnostic_events(&conn, &filter)?,
+                Self::diagnostic_spans(&conn, &filter)?,
+                Self::diagnostic_events(&conn, &filter)?,
             ))
         })
         .await
     }
 
-    pub async fn diagnostic_work_units(
+    pub(crate) async fn diagnostic_work_units(
         &self,
         run_id: Option<&str>,
         limit: u32,
@@ -86,7 +85,7 @@ impl Repository {
         .await
     }
 
-    pub async fn diagnostic_model_leases(
+    pub(crate) async fn diagnostic_model_leases(
         &self,
         run_id: Option<&str>,
         limit: u32,
@@ -117,7 +116,6 @@ impl Repository {
     }
 
     fn diagnostic_spans(
-        &self,
         conn: &Connection,
         filter: &OwnedDiagnosticTraceFilter,
     ) -> Result<Vec<DiagnosticSpanRow>> {
@@ -161,7 +159,6 @@ impl Repository {
     }
 
     fn diagnostic_events(
-        &self,
         conn: &Connection,
         filter: &OwnedDiagnosticTraceFilter,
     ) -> Result<Vec<DiagnosticEventRow>> {
@@ -198,13 +195,13 @@ impl Repository {
     }
 }
 
-pub struct DiagnosticTraceFilter<'a> {
-    pub run_id: Option<&'a str>,
-    pub file_hash: Option<&'a str>,
-    pub page_no: Option<u32>,
-    pub status: Option<&'a str>,
-    pub q: Option<&'a str>,
-    pub limit: u32,
+pub(crate) struct DiagnosticTraceFilter<'a> {
+    pub(crate) run_id: Option<&'a str>,
+    pub(crate) file_hash: Option<&'a str>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) status: Option<&'a str>,
+    pub(crate) q: Option<&'a str>,
+    pub(crate) limit: u32,
 }
 
 struct OwnedDiagnosticTraceFilter {
@@ -233,8 +230,8 @@ fn normalized_like(value: &str) -> String {
     format!("%{}%", value.trim().to_lowercase())
 }
 
-fn json_value(value: String) -> Value {
-    serde_json::from_str(&value).unwrap_or(Value::Null)
+fn json_value(value: &str) -> Value {
+    serde_json::from_str(value).unwrap_or(Value::Null)
 }
 
 fn span_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticSpanRow> {
@@ -253,7 +250,7 @@ fn span_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticSpanRow> {
         started_at: row.get(11)?,
         ended_at: row.get(12)?,
         duration_ms: row.get(13)?,
-        attributes: json_value(row.get(14)?),
+        attributes: json_value(row.get::<_, String>(14)?.as_str()),
         error_type: row.get(15)?,
         error_message: row.get(16)?,
         error_stack: row.get(17)?,
@@ -273,6 +270,6 @@ fn event_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticEventRow> {
         name: row.get(8)?,
         severity: row.get(9)?,
         message: row.get(10)?,
-        attributes: json_value(row.get(11)?),
+        attributes: json_value(row.get::<_, String>(11)?.as_str()),
     })
 }

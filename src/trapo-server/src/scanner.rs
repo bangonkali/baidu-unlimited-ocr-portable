@@ -1,35 +1,34 @@
 use std::{
     fmt::Write as _,
     path::{Component, Path, PathBuf},
-    time::SystemTime,
 };
 
 use walkdir::WalkDir;
 
 use crate::error::{AppError, Result};
 
-pub const SUPPORTED_INPUTS: &[&str] = &["pdf", "png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
+pub(crate) const SUPPORTED_INPUTS: &[&str] =
+    &["pdf", "png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
 
 #[derive(Debug, Clone)]
-pub struct DiscoveredFile {
-    pub absolute_path: PathBuf,
-    pub relative_path: PathBuf,
-    pub size_bytes: u64,
-    pub modified_at: Option<SystemTime>,
+pub(crate) struct DiscoveredFile {
+    pub(crate) absolute_path: PathBuf,
+    pub(crate) relative_path: PathBuf,
+    pub(crate) size_bytes: u64,
 }
 
-pub fn is_supported_document(path: &Path) -> bool {
+#[must_use]
+pub(crate) fn is_supported_document(path: &Path) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
-        .map(|extension| {
+        .is_some_and(|extension| {
             SUPPORTED_INPUTS
                 .iter()
                 .any(|supported| extension.eq_ignore_ascii_case(supported))
         })
-        .unwrap_or(false)
 }
 
-pub fn validate_trusted_root(root: &Path) -> Result<PathBuf> {
+pub(crate) fn validate_trusted_root(root: &Path) -> Result<PathBuf> {
     let metadata = std::fs::symlink_metadata(root)
         .map_err(|_| AppError::BadRequest("folder does not exist".to_string()))?;
     if metadata.file_type().is_symlink() {
@@ -44,10 +43,10 @@ pub fn validate_trusted_root(root: &Path) -> Result<PathBuf> {
         .map_err(|_| AppError::BadRequest("folder cannot be resolved".to_string()))
 }
 
-pub fn discover_supported_files(root: &Path) -> Result<Vec<DiscoveredFile>> {
+pub(crate) fn discover_supported_files(root: &Path) -> Result<Vec<DiscoveredFile>> {
     let safe_root = validate_trusted_root(root)?;
     let mut files = Vec::new();
-    for entry in WalkDir::new(&safe_root).follow_links(false).into_iter() {
+    for entry in WalkDir::new(&safe_root).follow_links(false) {
         let Ok(entry) = entry else {
             continue;
         };
@@ -62,13 +61,11 @@ pub fn discover_supported_files(root: &Path) -> Result<Vec<DiscoveredFile>> {
         };
         let relative_path = absolute_path
             .strip_prefix(&safe_root)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|_| absolute_path.clone());
+            .map_or_else(|_| absolute_path.clone(), Path::to_path_buf);
         files.push(DiscoveredFile {
             absolute_path,
             relative_path,
             size_bytes: metadata.len(),
-            modified_at: metadata.modified().ok(),
         });
     }
     files.sort_by(|left, right| {
@@ -77,14 +74,16 @@ pub fn discover_supported_files(root: &Path) -> Result<Vec<DiscoveredFile>> {
     Ok(files)
 }
 
-pub fn stable_hash(file: &DiscoveredFile) -> String {
+#[must_use]
+pub(crate) fn stable_hash(file: &DiscoveredFile) -> String {
     let mut hash = 1_469_598_103_934_665_603_u64;
     mix_fnv1a(&mut hash, &generic_path(&file.absolute_path));
     mix_fnv1a(&mut hash, &file.size_bytes.to_string());
     format!("{hash:016x}")
 }
 
-pub fn generic_path(path: &Path) -> String {
+#[must_use]
+pub(crate) fn generic_path(path: &Path) -> String {
     let mut out = String::new();
     for component in path.components() {
         match component {
@@ -102,7 +101,7 @@ pub fn generic_path(path: &Path) -> String {
     out
 }
 
-pub fn region_hash_key(parts: impl IntoIterator<Item = String>) -> String {
+pub(crate) fn region_hash_key(parts: impl IntoIterator<Item = String>) -> String {
     let mut hash = 14_695_981_039_346_656_037_u64;
     for part in parts {
         mix_fnv1a(&mut hash, &part);

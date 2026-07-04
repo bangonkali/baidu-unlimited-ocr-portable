@@ -109,8 +109,8 @@ fn diagnostic_trace_summary(
 ) -> DiagnosticTraceSummary {
     DiagnosticTraceSummary {
         run_id,
-        span_count: spans.len() as u32,
-        event_count: events.len() as u32,
+        span_count: usize_to_u32_saturating(spans.len()),
+        event_count: usize_to_u32_saturating(events.len()),
         error_count: diagnostic_error_count(spans, events),
         total_duration_ms: spans.iter().map(|span| span.duration_ms).sum(),
     }
@@ -125,12 +125,12 @@ fn diagnostic_error_count(spans: &[DiagnosticSpanRow], events: &[DiagnosticEvent
         .iter()
         .filter(|event| event.severity == "error" || event.event_type == "error")
         .count();
-    (span_errors + event_errors) as u32
+    usize_to_u32_saturating(span_errors + event_errors)
 }
 
 fn diagnostic_progress_summary(work_units: &[DiagnosticWorkUnitRow]) -> DiagnosticProgressSummary {
     let mut summary = DiagnosticProgressSummary {
-        total_work_units: work_units.len() as u32,
+        total_work_units: usize_to_u32_saturating(work_units.len()),
         queued: 0,
         running: 0,
         completed: 0,

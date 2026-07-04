@@ -1,5 +1,5 @@
 impl AppState {
-    pub async fn ocr_replay(
+    pub(crate) async fn ocr_replay(
         &self,
         run_id: Option<String>,
         file_hash: Option<String>,

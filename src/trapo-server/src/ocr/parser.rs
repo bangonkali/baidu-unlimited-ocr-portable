@@ -1,4 +1,5 @@
-pub fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPage {
+#[must_use]
+pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPage {
     let segments = collect_segments(raw_text);
     let mut parsed = ParsedOcrPage {
         raw_text: raw_text.to_string(),
@@ -11,7 +12,7 @@ pub fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPag
                 .cleaned_text
                 .push_str(&remove_marker_tokens(&raw_text[cursor..segment.start]));
         }
-        let clean_start = parsed.cleaned_text.len() as u64;
+        let clean_start = usize_to_u64_saturating(parsed.cleaned_text.len());
         parsed.cleaned_text.push_str(&segment.label);
         for box_points in &segment.boxes {
             let region_id = region_id_for(context, segment, box_points);
@@ -44,7 +45,7 @@ pub fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> ParsedOcrPag
     parsed
 }
 
-pub fn apply_region_content(parsed: &mut ParsedOcrPage) {
+pub(crate) fn apply_region_content(parsed: &mut ParsedOcrPage) {
     let scope_boundaries = sorted_unique_span_starts(&parsed.spans);
     for item in &mut parsed.boxes {
         if let Some(span) = parsed
@@ -52,7 +53,7 @@ pub fn apply_region_content(parsed: &mut ParsedOcrPage) {
             .iter()
             .find(|span| span.region_id == item.region_id)
         {
-            let start = span.start as usize;
+            let start = u64_to_usize_saturating(span.start);
             let end = next_scope_end(span.start, &scope_boundaries, parsed.cleaned_text.len());
             if start <= end && end <= parsed.cleaned_text.len() {
                 item.content_markdown = parsed.cleaned_text[start..end].trim().to_string();
@@ -73,5 +74,13 @@ fn next_scope_end(current_start: u64, boundaries: &[u64], text_len: usize) -> us
         .iter()
         .copied()
         .find(|start| *start > current_start)
-        .map_or(text_len, |start| start as usize)
+        .map_or(text_len, |start| u64_to_usize_saturating(start).min(text_len))
+}
+
+fn usize_to_u64_saturating(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+fn u64_to_usize_saturating(value: u64) -> usize {
+    usize::try_from(value).unwrap_or(usize::MAX)
 }

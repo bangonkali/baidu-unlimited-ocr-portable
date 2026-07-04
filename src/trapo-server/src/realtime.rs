@@ -21,17 +21,17 @@ const REALTIME_PERSIST_BATCH_LIMIT: usize = 256;
 const REALTIME_PERSIST_FLUSH_MS: u64 = 50;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventEnvelope {
-    pub version: u32,
-    pub sequence: u64,
+pub(crate) struct EventEnvelope {
+    pub(crate) version: u32,
+    pub(crate) sequence: u64,
     #[serde(rename = "type")]
-    pub event_type: String,
-    pub occurred_at: String,
-    pub payload: Value,
+    pub(crate) event_type: String,
+    pub(crate) occurred_at: String,
+    pub(crate) payload: Value,
 }
 
 #[derive(Debug)]
-pub struct RealtimeHub {
+pub(crate) struct RealtimeHub {
     sequence: AtomicU64,
     sender: broadcast::Sender<EventEnvelope>,
     persist_sender: RwLock<Option<mpsc::Sender<StoredRealtimeEvent>>>,
@@ -39,7 +39,8 @@ pub struct RealtimeHub {
 }
 
 impl RealtimeHub {
-    pub fn new() -> Arc<Self> {
+    #[must_use]
+    pub(crate) fn new() -> Arc<Self> {
         let (sender, _) = broadcast::channel(512);
         Arc::new(Self {
             sequence: AtomicU64::new(0),
@@ -49,7 +50,7 @@ impl RealtimeHub {
         })
     }
 
-    pub fn attach_repository(&self, repository: Repository) {
+    pub(crate) fn attach_repository(&self, repository: Repository) {
         let (sender, receiver) = mpsc::channel(REALTIME_PERSIST_QUEUE_LIMIT);
         if let Ok(mut guard) = self.persist_sender.write() {
             *guard = Some(sender);
@@ -57,15 +58,15 @@ impl RealtimeHub {
         tokio::spawn(realtime_persist_worker(repository, receiver));
     }
 
-    pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
+    pub(crate) fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
         self.sender.subscribe()
     }
 
-    pub fn last_sequence(&self) -> u64 {
+    pub(crate) fn last_sequence(&self) -> u64 {
         self.sequence.load(Ordering::SeqCst)
     }
 
-    pub fn publish(&self, event_type: &str, payload: Value) -> EventEnvelope {
+    pub(crate) fn publish(&self, event_type: &str, payload: Value) -> EventEnvelope {
         let envelope = EventEnvelope {
             version: 1,
             sequence: self.sequence.fetch_add(1, Ordering::SeqCst) + 1,
@@ -90,7 +91,7 @@ impl RealtimeHub {
         envelope
     }
 
-    pub fn recent_ocr_events(
+    pub(crate) fn recent_ocr_events(
         &self,
         run_id: Option<&str>,
         file_hash: Option<&str>,
@@ -123,7 +124,7 @@ impl RealtimeHub {
         events.push_back(event);
     }
 
-    pub fn ready_payload(&self) -> Value {
+    pub(crate) fn ready_payload(&self) -> Value {
         json!({
             "path": "/api/events",
             "heartbeat": "native-websocket",
@@ -207,7 +208,7 @@ fn stored_realtime_event(envelope: &EventEnvelope) -> Option<StoredRealtimeEvent
     })
 }
 
-pub async fn websocket(mut socket: WebSocket, hub: Arc<RealtimeHub>) {
+pub(crate) async fn websocket(mut socket: WebSocket, hub: Arc<RealtimeHub>) {
     let mut receiver = hub.subscribe();
     let ready = hub.ready_envelope();
     if send_json(&mut socket, &ready).await.is_err() {

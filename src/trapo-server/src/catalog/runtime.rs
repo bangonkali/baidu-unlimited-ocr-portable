@@ -1,4 +1,5 @@
-pub fn runtime_variants(app_root: &Path) -> Vec<RuntimeVariant> {
+#[must_use]
+pub(crate) fn runtime_variants(app_root: &Path) -> Vec<RuntimeVariant> {
     let probe = detect_hardware();
     runtime_specs()
         .into_iter()
@@ -34,7 +35,8 @@ pub fn runtime_variants(app_root: &Path) -> Vec<RuntimeVariant> {
         .collect()
 }
 
-pub fn choose_runtime_id(variants: &[RuntimeVariant], preferred: &str) -> String {
+#[must_use]
+pub(crate) fn choose_runtime_id(variants: &[RuntimeVariant], preferred: &str) -> String {
     if variants
         .iter()
         .any(|item| item.runtime_id == preferred && item.selectable)
@@ -50,7 +52,8 @@ pub fn choose_runtime_id(variants: &[RuntimeVariant], preferred: &str) -> String
         .unwrap_or_default()
 }
 
-pub fn runtime_record(variant: &RuntimeVariant, selected_runtime_id: &str) -> RuntimeVariantRecord {
+#[must_use]
+pub(crate) fn runtime_record(variant: &RuntimeVariant, selected_runtime_id: &str) -> RuntimeVariantRecord {
     RuntimeVariantRecord {
         runtime_id: variant.runtime_id.clone(),
         label: variant.label.clone(),
@@ -100,6 +103,10 @@ fn support_detail(probe: &HardwareProbe, accelerator: &str) -> String {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "runtime catalog is a low-complexity data table kept together for review"
+)]
 fn runtime_specs() -> Vec<RuntimeSpec> {
     if cfg!(windows) {
         if cfg!(target_arch = "aarch64") {

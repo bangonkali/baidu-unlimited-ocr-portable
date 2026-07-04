@@ -3,11 +3,13 @@ struct LoadedFfiLibrary {
     dependency_libraries: Vec<Library>,
 }
 
-pub fn validate_ffi_library(path: &Path) -> Result<()> {
+pub(super) fn validate_ffi_library(path: &Path) -> Result<()> {
     let LoadedFfiLibrary {
         library,
         dependency_libraries,
     } = load_ffi_library(path)?;
+    // SAFETY: The loaded library is kept alive while the copied function pointer
+    // is used, and the symbol name is the fixed uocr ABI entry point.
     let abi_version = unsafe {
         *library
             .get::<unsafe extern "C" fn() -> u32>(b"uocr_ffi_abi_version")
@@ -15,6 +17,8 @@ pub fn validate_ffi_library(path: &Path) -> Result<()> {
                 AppError::Internal("uocr-ffi is missing symbol: uocr_ffi_abi_version".to_string())
             })?
     };
+    // SAFETY: The function pointer came from the verified ABI symbol above and
+    // takes no arguments.
     if unsafe { abi_version() } != EXPECTED_ABI_VERSION {
         return Err(AppError::Internal(
             "unsupported uocr-ffi ABI version".to_string(),
@@ -26,6 +30,8 @@ pub fn validate_ffi_library(path: &Path) -> Result<()> {
         b"uocr_ffi_run_image".as_slice(),
         b"uocr_ffi_last_error".as_slice(),
     ] {
+        // SAFETY: This only checks that the fixed ABI symbol is present; the
+        // raw pointer is not dereferenced.
         unsafe { library.get::<*const c_void>(symbol) }.map_err(|_| {
             AppError::Internal(format!(
                 "uocr-ffi is missing symbol: {}",
@@ -41,6 +47,8 @@ pub fn validate_ffi_library(path: &Path) -> Result<()> {
 fn load_ffi_library(path: &Path) -> Result<LoadedFfiLibrary> {
     use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
 
+    // SAFETY: Loading is restricted to the user-selected local runtime path;
+    // the resulting handle is owned by LoadedFfiLibrary.
     let library = unsafe { WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) }
         .map_err(|error| {
             AppError::Internal(format!(
@@ -66,6 +74,8 @@ fn load_ffi_library(path: &Path) -> Result<LoadedFfiLibrary> {
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn load_ffi_library(path: &Path) -> Result<LoadedFfiLibrary> {
+    // SAFETY: Loading is restricted to the user-selected local runtime path;
+    // the resulting handle is owned by LoadedFfiLibrary.
     let library = unsafe { Library::new(path) }.map_err(|error| {
         AppError::Internal(format!(
             "failed to load uocr-ffi from {}: {error}",
@@ -132,6 +142,8 @@ fn preload_macos_sibling_dylibs(path: &Path) -> Vec<Library> {
 fn load_macos_library_global(path: &Path) -> Result<Library> {
     use libloading::os::unix::{Library as UnixLibrary, RTLD_GLOBAL, RTLD_NOW};
 
+    // SAFETY: Loading is restricted to the selected local OCR runtime library,
+    // and the handle is returned to keep the library alive.
     unsafe { UnixLibrary::open(Some(path), RTLD_NOW | RTLD_GLOBAL) } // skylos: ignore[SKY-D215] path is a selected local OCR runtime library.
         .map(Into::into)
         .map_err(|error| {
@@ -143,7 +155,7 @@ fn load_macos_library_global(path: &Path) -> Result<Library> {
 }
 
 #[cfg(any(test, target_os = "macos"))]
-fn macos_dylib_preload_rank(name: &str) -> u8 {
+pub(super) fn macos_dylib_preload_rank(name: &str) -> u8 {
     if name.starts_with("libggml-base") {
         0
     } else if name == "libggml.dylib" || name.starts_with("libggml.") {

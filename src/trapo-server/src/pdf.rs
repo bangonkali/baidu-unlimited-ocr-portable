@@ -6,22 +6,26 @@ use pdfium::{PdfiumDocument, PdfiumRenderConfig};
 use crate::error::{AppError, Result};
 
 #[derive(Debug, Clone)]
-pub struct RenderedPage {
-    pub page_no: u32,
-    pub image_path: PathBuf,
-    pub width_px: u32,
-    pub height_px: u32,
+pub(crate) struct RenderedPage {
+    pub(crate) page_no: u32,
+    pub(crate) image_path: PathBuf,
+    pub(crate) width_px: u32,
+    pub(crate) height_px: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct PdfRenderer {
+pub(crate) struct PdfRenderer {
     cache_dir: PathBuf,
     pdfium_dir: Option<PathBuf>,
     dpi: u32,
 }
 
 impl PdfRenderer {
-    pub fn new(cache_dir: impl Into<PathBuf>, pdfium_dir: Option<PathBuf>, dpi: u32) -> Self {
+    pub(crate) fn new(
+        cache_dir: impl Into<PathBuf>,
+        pdfium_dir: Option<PathBuf>,
+        dpi: u32,
+    ) -> Self {
         Self {
             cache_dir: cache_dir.into(),
             pdfium_dir,
@@ -29,7 +33,7 @@ impl PdfRenderer {
         }
     }
 
-    pub fn render_pdf(&self, file_hash: &str, pdf_path: &Path) -> Result<Vec<RenderedPage>> {
+    pub(crate) fn render_pdf(&self, file_hash: &str, pdf_path: &Path) -> Result<Vec<RenderedPage>> {
         let Some(pdfium_dir) = &self.pdfium_dir else {
             return Err(AppError::Internal(
                 "PDFium runtime was not found; set TRAPO_PDFIUM_DIR or run from a packaged Trapo workbench".to_string(),
@@ -49,7 +53,10 @@ impl PdfRenderer {
             })?;
             let width_px = points_to_pixels(page.width(), self.dpi).max(1);
             let bitmap = page
-                .render(&PdfiumRenderConfig::new().with_width(width_px as i32))
+                .render(
+                    &PdfiumRenderConfig::new()
+                        .with_width(i32::try_from(width_px).unwrap_or(i32::MAX)),
+                )
                 .map_err(|error| {
                     AppError::Internal(format!("failed to render PDF page: {error:?}"))
                 })?;
@@ -62,14 +69,14 @@ impl PdfRenderer {
             pages.push(RenderedPage {
                 page_no: u32::try_from(index).unwrap_or(0) + 1,
                 image_path,
-                width_px: bitmap.width() as u32,
-                height_px: bitmap.height() as u32,
+                width_px: i32_to_u32_saturating(bitmap.width()),
+                height_px: i32_to_u32_saturating(bitmap.height()),
             });
         }
         Ok(pages)
     }
 
-    pub fn image_page(&self, image_path: &Path) -> Result<RenderedPage> {
+    pub(crate) fn image_page(image_path: &Path) -> Result<RenderedPage> {
         let image = image::open(native_external_path(image_path)) // skylos: ignore[SKY-D215] image_path is from validated local ingest discovery.
             .map_err(|error| AppError::BadRequest(format!("failed to read image: {error}")))?;
         let (width_px, height_px) = image.dimensions();
@@ -82,8 +89,19 @@ impl PdfRenderer {
     }
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "PDF point sizes are clamped to the supported unsigned pixel range before rounding"
+)]
 fn points_to_pixels(points: f32, dpi: u32) -> u32 {
-    ((points / 72.0) * dpi as f32).round() as u32
+    ((f64::from(points) / 72.0) * f64::from(dpi))
+        .round()
+        .clamp(1.0, f64::from(u32::MAX)) as u32
+}
+
+fn i32_to_u32_saturating(value: i32) -> u32 {
+    u32::try_from(value.max(0)).unwrap_or(u32::MAX)
 }
 
 fn pdfium_library_location(path: &Path) -> String {
@@ -117,11 +135,11 @@ fn strip_windows_verbatim_prefix(_path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn is_pdf(path: &Path) -> bool {
+#[must_use]
+pub(crate) fn is_pdf(path: &Path) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
-        .map(|extension| extension.eq_ignore_ascii_case("pdf"))
-        .unwrap_or(false)
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
 }
 
 #[cfg(test)]

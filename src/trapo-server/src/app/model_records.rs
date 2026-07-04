@@ -7,11 +7,7 @@ fn model_record(
     let status = model_status_from_files(&files);
     let total_required = entry.model_size_bytes + SHARED_MMPROJ_SIZE_BYTES;
     let downloaded_bytes = files.iter().map(|file| file.downloaded_bytes).sum::<u64>();
-    let percent = if total_required > 0 {
-        downloaded_bytes as f64 / total_required as f64 * 100.0
-    } else {
-        0.0
-    };
+    let percent = download_percent(downloaded_bytes, total_required);
     let active_downloads = model_downloads(state, entry.model_id);
     let bytes_per_second = active_downloads
         .iter()
@@ -57,10 +53,12 @@ fn model_record(
         selected: state.selected_model_id == entry.model_id,
         provider_name: PROVIDER_LABEL.to_string(),
         total_required_bytes: Some(total_required),
-        downloaded_file_count: model_download_targets(model_dir, entry)
-            .iter()
-            .filter(|target| file_is_present(&target.target_path))
-            .count() as u32,
+        downloaded_file_count: usize_to_u32_saturating(
+            model_download_targets(model_dir, entry)
+                .iter()
+                .filter(|target| file_is_present(&target.target_path))
+                .count(),
+        ),
         total_file_count: 2,
     }
 }
@@ -79,9 +77,9 @@ fn model_files(
             let downloaded = if exists {
                 target.total_bytes
             } else {
-                download.map(|item| item.downloaded_bytes).unwrap_or(0)
+                download.map_or(0, |item| item.downloaded_bytes)
             };
-            let bytes_per_second = download.map(download_rate).unwrap_or(0.0);
+            let bytes_per_second = download.map_or(0.0, download_rate);
             ModelDownloadFileRecord {
                 file_id: target.file_id,
                 file_name: target.file_name,
@@ -89,7 +87,7 @@ fn model_files(
                 local_path: exists.then(|| target.target_path.to_string_lossy().to_string()),
                 downloaded_bytes: downloaded,
                 total_bytes: Some(target.total_bytes),
-                percent: downloaded as f64 / target.total_bytes as f64 * 100.0,
+                percent: download_percent(downloaded, target.total_bytes),
                 bytes_per_second,
                 eta_seconds: eta_seconds(
                     target.total_bytes.saturating_sub(downloaded),
@@ -117,9 +115,7 @@ fn file_status(exists: bool, download: Option<&DownloadState>) -> String {
         return "downloaded".to_string();
     }
     download
-        .filter(|item| matches!(item.status.as_str(), "failed" | "cancelled"))
-        .map(|item| item.status.clone())
-        .unwrap_or_else(|| "missing".to_string())
+        .filter(|item| matches!(item.status.as_str(), "failed" | "cancelled")).map_or_else(|| "missing".to_string(), |item| item.status.clone())
 }
 
 fn model_status_from_files(files: &[ModelDownloadFileRecord]) -> String {
@@ -141,16 +137,40 @@ fn model_status_from_files(files: &[ModelDownloadFileRecord]) -> String {
     "missing".to_string()
 }
 
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "download progress percentages are approximate UI telemetry"
+)]
+fn download_percent(downloaded_bytes: u64, total_bytes: u64) -> f64 {
+    if total_bytes == 0 {
+        0.0
+    } else {
+        downloaded_bytes as f64 / total_bytes as f64 * 100.0
+    }
+}
+
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "download throughput is approximate UI telemetry"
+)]
 fn download_rate(download: &DownloadState) -> f64 {
     download
         .started_at
         .filter(|_| download.status == "downloading")
-        .map(|started| download.downloaded_bytes as f64 / started.elapsed().as_secs_f64().max(1.0))
-        .unwrap_or(0.0)
+        .map_or(0.0, |started| {
+            download.downloaded_bytes as f64 / started.elapsed().as_secs_f64().max(1.0)
+        })
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "download ETA is an approximate positive second count for UI display"
+)]
 fn eta_seconds(remaining_bytes: u64, bytes_per_second: f64) -> Option<u64> {
-    (bytes_per_second > 0.0).then(|| (remaining_bytes as f64 / bytes_per_second) as u64)
+    (bytes_per_second.is_finite() && bytes_per_second > 0.0)
+        .then(|| (remaining_bytes as f64 / bytes_per_second).ceil() as u64)
 }
 
 fn model_status_message(status: &str) -> &'static str {

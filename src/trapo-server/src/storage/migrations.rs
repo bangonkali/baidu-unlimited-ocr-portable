@@ -1,14 +1,14 @@
-pub struct Migration {
+pub(super) struct Migration {
     pub id: i32,
     pub name: &'static str,
     pub sql: &'static str,
 }
 
-pub const MIGRATIONS: &[Migration] = &[
+pub(super) const MIGRATIONS: &[Migration] = &[
     Migration {
         id: 1,
         name: "initial_workbench_schema",
-        sql: r#"
+        sql: r"
 CREATE TABLE IF NOT EXISTS app_metadata (
   key TEXT PRIMARY KEY, value JSON NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
@@ -102,12 +102,12 @@ CREATE TABLE IF NOT EXISTS ingest_model_leases (
 CREATE INDEX IF NOT EXISTS idx_regions_file_page ON document_regions(file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_terms_term ON document_terms(term);
 CREATE INDEX IF NOT EXISTS idx_work_units_run_status ON ingest_work_units(run_id, status);
-"#,
+",
     },
     Migration {
         id: 2,
         name: "ocr_dashboard_persistence_details",
-        sql: r#"
+        sql: r"
 ALTER TABLE files ADD COLUMN IF NOT EXISTS error TEXT;
 ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS queued_files INTEGER DEFAULT 0;
 ALTER TABLE ingest_runs ADD COLUMN IF NOT EXISTS processed_pages INTEGER DEFAULT 0;
@@ -117,7 +117,7 @@ ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS content_html TEXT;
 CREATE INDEX IF NOT EXISTS idx_files_status_updated ON files(status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_page_ocr_file_page ON document_page_ocr(file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_page_ocr_text ON document_page_ocr(file_hash, cleaned_text);
-"#,
+",
     },
     Migration {
         id: 3,
@@ -168,7 +168,7 @@ ON CONFLICT(key) DO NOTHING;
     Migration {
         id: 6,
         name: "ocr_page_metrics",
-        sql: r#"
+        sql: r"
 CREATE TABLE IF NOT EXISTS ocr_page_metrics (
   run_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
   engine_id TEXT NOT NULL, profile_id TEXT NOT NULL, model_id TEXT NOT NULL,
@@ -183,12 +183,12 @@ CREATE TABLE IF NOT EXISTS ocr_page_metrics (
 );
 CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_run ON ocr_page_metrics(run_id, file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_model_runtime ON ocr_page_metrics(model_id, runtime_id);
-"#,
+",
     },
     Migration {
         id: 7,
         name: "diagnostics_replay_and_download_queue",
-        sql: r#"
+        sql: r"
 CREATE TABLE IF NOT EXISTS ocr_stream_events (
   sequence UBIGINT PRIMARY KEY, event_type TEXT NOT NULL, occurred_at TEXT NOT NULL,
   run_id TEXT, file_hash TEXT, page_no INTEGER, payload_json TEXT NOT NULL
@@ -250,23 +250,23 @@ CREATE INDEX IF NOT EXISTS idx_ingest_diag_events_scope ON ingest_diagnostic_eve
 CREATE INDEX IF NOT EXISTS idx_ingest_work_units_run_status ON ingest_work_units(run_id, status);
 CREATE INDEX IF NOT EXISTS idx_ingest_work_units_scope ON ingest_work_units(run_id, file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_ingest_model_leases_run ON ingest_model_leases(run_id);
-"#,
+",
     },
     Migration {
         id: 8,
         name: "ingest_run_documents",
-        sql: r#"
+        sql: r"
 CREATE TABLE IF NOT EXISTS ingest_run_documents (
   run_id TEXT NOT NULL, file_hash TEXT NOT NULL, ordinal INTEGER NOT NULL,
   PRIMARY KEY (run_id, file_hash)
 );
 CREATE INDEX IF NOT EXISTS idx_ingest_run_documents_run ON ingest_run_documents(run_id, ordinal);
-"#,
+",
     },
     Migration {
         id: 9,
         name: "download_events",
-        sql: r#"
+        sql: r"
 CREATE TABLE IF NOT EXISTS download_events (
   event_id TEXT PRIMARY KEY, download_id TEXT NOT NULL, owner_kind TEXT NOT NULL,
   owner_id TEXT NOT NULL, file_id TEXT NOT NULL, file_name TEXT NOT NULL,
@@ -276,6 +276,6 @@ CREATE TABLE IF NOT EXISTS download_events (
 );
 CREATE INDEX IF NOT EXISTS idx_download_events_download ON download_events(download_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_kind, owner_id, created_at);
-"#,
+",
     },
 ];

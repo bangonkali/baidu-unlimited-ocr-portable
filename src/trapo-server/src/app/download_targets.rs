@@ -38,8 +38,7 @@ fn model_download_id(model_id: &str, file_id: &str) -> String {
 
 fn hf_resolve_url(file_name: &str) -> String {
     format!(
-        "https://huggingface.co/{}/resolve/{}/{}",
-        PROVIDER_REPO_ID, PROVIDER_REVISION, file_name
+        "https://huggingface.co/{PROVIDER_REPO_ID}/resolve/{PROVIDER_REVISION}/{file_name}"
     )
 }
 
@@ -47,8 +46,7 @@ fn file_is_present(path: &Path) -> bool {
     path.is_file()
         && path
             .metadata()
-            .map(|metadata| metadata.len())
-            .unwrap_or(0)
+            .map_or(0, |metadata| metadata.len())
             > 0
 }
 

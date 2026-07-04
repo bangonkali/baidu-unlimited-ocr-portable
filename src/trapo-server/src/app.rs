@@ -18,17 +18,17 @@ use crate::{
     config::ServerConfig,
     error::{AppError, Result},
     logger::AppLogger,
-    pdf::{PdfRenderer, is_pdf},
+    pdf::{PdfRenderer, RenderedPage, is_pdf},
     realtime::RealtimeHub,
     routes,
     scanner::{
         DiscoveredFile, SUPPORTED_INPUTS, discover_supported_files, generic_path, stable_hash,
     },
     storage::{
-        DiagnosticEventInsert, DiagnosticEventRow, DiagnosticModelLeaseRow, DiagnosticRunRow,
-        DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
-        DownloadEventInsert, OcrPageMetrics, Repository, StoredDocument, StoredPage,
-        StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
+        DiagnosticEventInsert, DiagnosticEventRow, DiagnosticModelLeaseInsert,
+        DiagnosticModelLeaseRow, DiagnosticRunRow, DiagnosticSpanInsert, DiagnosticSpanRow,
+        DiagnosticTraceFilter, DiagnosticWorkUnitRow, DownloadEventInsert, OcrPageMetrics,
+        Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
     },
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
@@ -51,6 +51,7 @@ use crate::{
 const ENGINE_ID: &str = "unlimited-ocr-ffi";
 const PDF_DPI: u32 = 200;
 
+/// Shared server state used by the Axum router.
 #[derive(Debug, Clone)]
 pub struct AppState {
     inner: Arc<AppInner>,
@@ -81,51 +82,51 @@ struct WorkbenchState {
 }
 
 #[derive(Debug, Clone)]
-pub struct RunState {
-    pub run_id: String,
-    pub root_path: String,
-    pub status: String,
-    pub queued_files: u32,
-    pub processed_pages: u32,
-    pub total_pages: u32,
-    pub current_page: Option<u32>,
-    pub profile_id: String,
-    pub engine_id: String,
-    pub model_id: String,
-    pub runtime_id: String,
-    pub error: Option<String>,
-    pub cancel_requested: bool,
-    pub file_hashes: Vec<String>,
+pub(crate) struct RunState {
+    pub(crate) run_id: String,
+    pub(crate) root_path: String,
+    pub(crate) status: String,
+    pub(crate) queued_files: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) current_page: Option<u32>,
+    pub(crate) profile_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) error: Option<String>,
+    pub(crate) cancel_requested: bool,
+    pub(crate) file_hashes: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
-pub struct DocumentState {
-    pub file_hash: String,
-    pub display_name: String,
-    pub extension: String,
-    pub size_bytes: u64,
-    pub absolute_path: PathBuf,
-    pub relative_path: PathBuf,
-    pub root_path: PathBuf,
-    pub status: String,
-    pub page_count: u32,
-    pub error: Option<String>,
-    pub pages: Vec<PageState>,
+pub(crate) struct DocumentState {
+    pub(crate) file_hash: String,
+    pub(crate) display_name: String,
+    pub(crate) extension: String,
+    pub(crate) size_bytes: u64,
+    pub(crate) absolute_path: PathBuf,
+    pub(crate) relative_path: PathBuf,
+    pub(crate) root_path: PathBuf,
+    pub(crate) status: String,
+    pub(crate) page_count: u32,
+    pub(crate) error: Option<String>,
+    pub(crate) pages: Vec<PageState>,
 }
 
 #[derive(Debug, Clone)]
-pub struct PageState {
-    pub page_no: u32,
-    pub image_path: PathBuf,
-    pub width_px: u32,
-    pub height_px: u32,
-    pub render_dpi: u32,
-    pub status: String,
-    pub raw_text: String,
-    pub cleaned_text: String,
-    pub boxes: Vec<crate::workbench_types::OverlayBox>,
-    pub spans: Vec<crate::workbench_types::TextRegionSpan>,
-    pub error: Option<String>,
+pub(crate) struct PageState {
+    pub(crate) page_no: u32,
+    pub(crate) image_path: PathBuf,
+    pub(crate) width_px: u32,
+    pub(crate) height_px: u32,
+    pub(crate) render_dpi: u32,
+    pub(crate) status: String,
+    pub(crate) raw_text: String,
+    pub(crate) cleaned_text: String,
+    pub(crate) boxes: Vec<crate::workbench_types::OverlayBox>,
+    pub(crate) spans: Vec<crate::workbench_types::TextRegionSpan>,
+    pub(crate) error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -147,8 +148,25 @@ struct DownloadState {
     last_event_at: Option<String>,
 }
 
+/// Builds the Axum router for the API and static workbench assets.
 pub fn build_router(state: AppState) -> axum::Router {
     routes::router(state)
+}
+
+fn elapsed_millis_u64(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+fn usize_to_u32_saturating(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn usize_to_u64_saturating(value: usize) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+fn u32_to_i32_saturating(value: u32) -> i32 {
+    i32::try_from(value).unwrap_or(i32::MAX)
 }
 
 include!("app/core.rs");
@@ -161,7 +179,9 @@ include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/process_document.rs");
+include!("app/process_document_records.rs");
 include!("app/region_snippets.rs");
+include!("app/page_completion.rs");
 include!("app/page_pipeline.rs");
 include!("app/download_helpers.rs");
 include!("app/logging.rs");

@@ -16,7 +16,9 @@ impl AppState {
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
-            download_owner_event(&self.inner.config.model_dir, &state, &snapshot)
+            let event = download_owner_event(&self.inner.config.model_dir, &state, &snapshot);
+            drop(state);
+            event
         };
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
@@ -37,10 +39,9 @@ impl AppState {
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
-            (
-                download_owner_event(&self.inner.config.model_dir, &state, &completed),
-                completed,
-            )
+            let event = download_owner_event(&self.inner.config.model_dir, &state, &completed);
+            drop(state);
+            (event, completed)
         };
         self.record_download_event(&completed, "completed").await;
         if let Some(event) = event {
@@ -62,10 +63,9 @@ impl AppState {
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
-            (
-                download_owner_event(&self.inner.config.model_dir, &state, &failed),
-                failed,
-            )
+            let event = download_owner_event(&self.inner.config.model_dir, &state, &failed);
+            drop(state);
+            (event, failed)
         };
         self.record_download_event(&failed, "failed").await;
         if let Some(event) = event {
@@ -85,10 +85,9 @@ impl AppState {
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
-            (
-                download_owner_event(&self.inner.config.model_dir, &state, &cancelled),
-                cancelled,
-            )
+            let event = download_owner_event(&self.inner.config.model_dir, &state, &cancelled);
+            drop(state);
+            (event, cancelled)
         };
         self.record_download_event(&cancelled, "cancelled").await;
         if let Some(event) = event {
@@ -99,10 +98,12 @@ impl AppState {
 
     async fn download_cancelled(&self, download_id: &str) -> bool {
         let state = self.inner.state.lock().await;
-        state
+        let cancelled = state
             .downloads
             .get(download_id)
-            .is_some_and(|download| download.cancel_requested)
+            .is_some_and(|download| download.cancel_requested);
+        drop(state);
+        cancelled
     }
 
     async fn record_download_event(&self, download: &DownloadState, event_type: &str) {

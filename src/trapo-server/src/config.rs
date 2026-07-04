@@ -6,28 +6,40 @@ use std::{
 const DEFAULT_PORT: u16 = 8765;
 
 #[derive(Debug, Clone)]
+/// Effective filesystem, network, and runtime settings for the local server.
 pub struct ServerConfig {
+    /// Root directory for packaged or source-mode assets.
     pub app_root: PathBuf,
+    /// Directory containing the built React client.
     pub client_dist: PathBuf,
+    /// Directory for persistent application data.
     pub data_dir: PathBuf,
+    /// Directory for rendered page/image cache files.
     pub cache_dir: PathBuf,
+    /// Directory where server logs are written.
     pub log_dir: PathBuf,
+    /// Directory containing OCR model files.
     pub model_dir: PathBuf,
+    /// `DuckDB` database file path.
     pub database_path: PathBuf,
+    /// Optional directory containing the `PDFium` dynamic library.
     pub pdfium_library_dir: Option<PathBuf>,
+    /// Listen host.
     pub host: String,
+    /// Listen port.
     pub port: u16,
+    /// Whether startup should open the local workbench URL in a browser.
     pub open_browser: bool,
 }
 
 impl ServerConfig {
+    /// Builds configuration from environment variables and CLI arguments.
+    #[must_use]
     pub fn from_env_and_args<I>(args: I) -> Self
     where
         I: IntoIterator<Item = String>,
     {
-        let app_root = env::var_os("TRAPO_APP_ROOT")
-            .map(PathBuf::from)
-            .unwrap_or_else(default_app_root);
+        let app_root = env::var_os("TRAPO_APP_ROOT").map_or_else(default_app_root, PathBuf::from);
         let host = env::var("TRAPO_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
         let mut port = env::var("TRAPO_PORT")
             .ok()
@@ -55,14 +67,12 @@ impl ServerConfig {
 
         let data_dir = app_root.join("data");
         let cache_dir = app_root.join("cache");
-        let log_dir = env::var_os("TRAPO_LOG_DIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| app_root.join("logs"));
+        let log_dir =
+            env::var_os("TRAPO_LOG_DIR").map_or_else(|| app_root.join("logs"), PathBuf::from);
         let model_dir = app_root.join("models");
         let database_path = data_dir.join("trapo.duckdb");
         let client_dist = env::var_os("TRAPO_CLIENT_DIST")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| resolve_client_dist(&app_root));
+            .map_or_else(|| resolve_client_dist(&app_root), PathBuf::from);
         let pdfium_library_dir = env::var_os("TRAPO_PDFIUM_DIR")
             .map(PathBuf::from)
             .or_else(|| resolve_pdfium_dir(&app_root));
@@ -82,6 +92,12 @@ impl ServerConfig {
         }
     }
 
+    /// Creates required runtime directories and migrates legacy database naming.
+    ///
+    /// # Errors
+    ///
+    /// Returns an I/O error when a directory cannot be created or the legacy
+    /// database cannot be copied.
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         for path in [
             &self.data_dir,
@@ -114,8 +130,7 @@ fn source_app_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(Path::parent)
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."))
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf)
 }
 
 fn is_cargo_target_dir(path: &Path) -> bool {
@@ -171,7 +186,7 @@ fn local_dist_pdfium_dirs(app_root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn pdfium_library_name() -> &'static str {
+const fn pdfium_library_name() -> &'static str {
     if cfg!(target_os = "windows") {
         "pdfium.dll"
     } else if cfg!(target_os = "macos") {

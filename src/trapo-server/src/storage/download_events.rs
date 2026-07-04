@@ -1,5 +1,5 @@
 impl Repository {
-    pub async fn insert_download_event(&self, event: &DownloadEventInsert) -> Result<()> {
+    pub(crate) async fn insert_download_event(&self, event: &DownloadEventInsert) -> Result<()> {
         let event = event.clone();
         self.with_write(move |conn| {
             conn.execute(
@@ -19,8 +19,8 @@ impl Repository {
                     event.source_url.as_str(),
                     event.event_type.as_str(),
                     event.status.as_str(),
-                    event.downloaded_bytes as i64,
-                    event.total_bytes.map(|value| value as i64),
+                    u64_to_i64_saturating(event.downloaded_bytes),
+                    event.total_bytes.map(u64_to_i64_saturating),
                     event.error.as_deref(),
                     event.created_at.as_str()
                 ],
@@ -31,7 +31,7 @@ impl Repository {
     }
 
     #[cfg(test)]
-    pub async fn download_event_count(&self, download_id: &str, event_type: &str) -> Result<u64> {
+    pub(crate) async fn download_event_count(&self, download_id: &str, event_type: &str) -> Result<u64> {
         let download_id = download_id.to_string();
         let event_type = event_type.to_string();
         self.with_read(move |conn| {
@@ -40,7 +40,7 @@ impl Repository {
                 params![download_id.as_str(), event_type.as_str()],
                 |row| row.get(0),
             )?;
-            Ok(count as u64)
+            Ok(i64_to_u64(count))
         })
         .await
     }

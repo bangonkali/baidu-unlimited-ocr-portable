@@ -10,13 +10,13 @@ use chrono::Utc;
 use crate::workbench_types::{LogRecord, LogsPayload};
 
 #[derive(Debug)]
-pub struct AppLogger {
+pub(crate) struct AppLogger {
     path: PathBuf,
     file: Mutex<File>,
 }
 
 impl AppLogger {
-    pub fn open(log_dir: &Path) -> std::io::Result<Self> {
+    pub(crate) fn open(log_dir: &Path) -> std::io::Result<Self> {
         std::fs::create_dir_all(log_dir)?;
         let path = log_dir.join("trapo-server.log");
         let file = OpenOptions::new().create(true).append(true).open(&path)?; // skylos: ignore[SKY-D215] log_dir is the app log root configured by startup.
@@ -26,23 +26,23 @@ impl AppLogger {
         })
     }
 
-    pub fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.path
     }
 
-    pub fn info(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
+    pub(crate) fn info(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
         self.append("INFO", component, message)
     }
 
-    pub fn warn(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
+    pub(crate) fn warn(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
         self.append("WARN", component, message)
     }
 
-    pub fn error(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
+    pub(crate) fn error(&self, component: &str, message: impl AsRef<str>) -> LogRecord {
         self.append("ERROR", component, message)
     }
 
-    pub fn recent(&self, limit: usize) -> LogsPayload {
+    pub(crate) fn recent(&self, limit: usize) -> LogsPayload {
         let clamped = limit.clamp(1, 1000);
         let mut records = Vec::new();
         if let Ok(file) = File::open(&self.path) {
@@ -75,7 +75,8 @@ impl AppLogger {
     }
 }
 
-pub fn parse_log_line(line: &str) -> LogRecord {
+#[must_use]
+pub(crate) fn parse_log_line(line: &str) -> LogRecord {
     let mut parts = line.splitn(4, ' ');
     LogRecord {
         timestamp: parts.next().unwrap_or_default().to_string(),

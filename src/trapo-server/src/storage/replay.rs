@@ -1,5 +1,6 @@
 impl Repository {
-    pub async fn persist_realtime_event(
+    #[cfg(test)]
+    pub(crate) async fn persist_realtime_event(
         &self,
         sequence: u64,
         event_type: &str,
@@ -30,7 +31,7 @@ impl Repository {
         .await
     }
 
-    pub async fn persist_realtime_events(&self, events: Vec<StoredRealtimeEvent>) -> Result<()> {
+    pub(crate) async fn persist_realtime_events(&self, events: Vec<StoredRealtimeEvent>) -> Result<()> {
         let records: Vec<_> = events
             .into_iter()
             .filter(|event| event.event_type.starts_with("ocr.page."))
@@ -63,7 +64,7 @@ impl Repository {
         .await
     }
 
-    pub async fn list_ocr_stream_events(
+    pub(crate) async fn list_ocr_stream_events(
         &self,
         run_id: Option<&str>,
         file_hash: Option<&str>,
@@ -75,7 +76,7 @@ impl Repository {
         let file_hash = file_hash.map(str::to_string);
         self.with_read(move |conn| {
             let page_no = page_no.map(i64::from);
-            let since_sequence = since_sequence.map(|value| value as i64).unwrap_or(0);
+            let since_sequence = since_sequence.map_or(0, u64_to_i64_saturating);
             let limit = i64::from(limit.clamp(1, 100_000));
             let mut statement = conn.prepare(
                 "SELECT sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json
@@ -119,7 +120,7 @@ struct RealtimeEventWrite {
 impl From<StoredRealtimeEvent> for RealtimeEventWrite {
     fn from(event: StoredRealtimeEvent) -> Self {
         Self {
-            sequence: event.sequence as i64,
+            sequence: u64_to_i64_saturating(event.sequence),
             event_type: event.event_type,
             occurred_at: event.occurred_at,
             run_id: event.run_id,
@@ -133,7 +134,7 @@ impl From<StoredRealtimeEvent> for RealtimeEventWrite {
 fn realtime_event_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<StoredRealtimeEvent> {
     let payload_json: String = row.get(6)?;
     Ok(StoredRealtimeEvent {
-        sequence: row.get::<_, i64>(0)? as u64,
+        sequence: i64_to_u64(row.get::<_, i64>(0)?),
         event_type: row.get(1)?,
         occurred_at: row.get(2)?,
         run_id: row.get(3)?,

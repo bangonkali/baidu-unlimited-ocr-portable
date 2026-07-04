@@ -13,7 +13,7 @@ enum DialogOutcome {
     Failed(String),
 }
 
-pub async fn open_folder_dialog() -> FolderDialogResponse {
+pub(crate) async fn open_folder_dialog() -> FolderDialogResponse {
     match task::spawn_blocking(show_native_folder_dialog).await {
         Ok(DialogOutcome::Selected(path)) => FolderDialogResponse {
             cancelled: false,
@@ -131,7 +131,7 @@ fn command_failure_detail(status: &std::process::ExitStatus, stderr: &str) -> St
     }
 }
 
-fn cancelled() -> FolderDialogResponse {
+const fn cancelled() -> FolderDialogResponse {
     FolderDialogResponse {
         cancelled: true,
         selected_path: String::new(),
@@ -140,7 +140,7 @@ fn cancelled() -> FolderDialogResponse {
     }
 }
 
-fn cancelled_with_error(error: String) -> FolderDialogResponse {
+const fn cancelled_with_error(error: String) -> FolderDialogResponse {
     FolderDialogResponse {
         cancelled: true,
         selected_path: String::new(),

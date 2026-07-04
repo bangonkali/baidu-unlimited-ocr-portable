@@ -4,6 +4,9 @@ version = "0.1.5"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Local Axum API and static workbench host for the Trapo OCR desktop workflow"
+keywords = ["ocr", "axum", "duckdb", "openapi", "workbench"]
+categories = ["web-programming::http-server", "multimedia::images"]
 build = "build.rs"
 
 [lib]

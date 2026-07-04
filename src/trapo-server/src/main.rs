@@ -1,6 +1,11 @@
+//! Command-line entry point for the local Trapo server.
+// The binary prints user-facing status and startup errors before logging is
+// initialized, while library code remains covered by print_stdout/stderr denies.
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use std::{env, net::SocketAddr, path::Path, process::ExitCode, time::Duration};
 
-use trapo_server::{AppState, ServerConfig, build_router};
+use trapo_server::{AppState, ServerConfig, build_router, validate_ffi_library};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -73,7 +78,7 @@ fn print_help() {
 }
 
 fn check_ocr_runtime(path: &str) -> ExitCode {
-    match trapo_server::ocr::validate_ffi_library(Path::new(path)) {
+    match validate_ffi_library(Path::new(path)) {
         Ok(()) => {
             println!("uocr-ffi runtime loaded: {path}");
             ExitCode::SUCCESS

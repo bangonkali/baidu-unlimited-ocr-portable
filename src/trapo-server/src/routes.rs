@@ -29,7 +29,7 @@ struct SearchQuery {
     q: Option<String>,
 }
 
-pub fn router(state: AppState) -> Router {
+pub(crate) fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/api/health", get(health))
         .route("/api/status", get(status))
@@ -77,16 +77,20 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .merge(api)
-        .fallback_service(spa_service(state.config().client_dist.clone()))
+        .fallback_service(spa_service(&state.config().client_dist))
         .with_state(state)
 }
 
-fn spa_service(client_dist: std::path::PathBuf) -> ServeDir<ServeFile> {
-    ServeDir::new(&client_dist).fallback(ServeFile::new(client_dist.join("index.html")))
+fn spa_service(client_dist: &std::path::Path) -> ServeDir<ServeFile> {
+    ServeDir::new(client_dist).fallback(ServeFile::new(client_dist.join("index.html")))
 }
 
-async fn health(State(state): State<AppState>) -> Json<crate::types::HealthPayload> {
-    Json(state.health().await)
+fn limit_query_u32(value: usize, max: u32) -> u32 {
+    u32::try_from(value).map_or(max, |limit| limit.min(max))
+}
+
+async fn health(State(_state): State<AppState>) -> Json<crate::types::HealthPayload> {
+    Json(AppState::health())
 }
 
 async fn status(State(state): State<AppState>) -> Json<crate::types::StatusPayload> {
@@ -152,7 +156,7 @@ async fn recent_metrics(
 ) -> Result<Json<crate::workbench_types::OcrMetricsTreePayload>> {
     Ok(Json(
         state
-            .run_metrics(None, query.limit.unwrap_or(50) as u32)
+            .run_metrics(None, limit_query_u32(query.limit.unwrap_or(50), 100_000))
             .await?,
     ))
 }
@@ -243,7 +247,7 @@ async fn logs(
     State(state): State<AppState>,
     Query(query): Query<LimitQuery>,
 ) -> Json<crate::workbench_types::LogsPayload> {
-    Json(state.logs(query.limit.unwrap_or(200)).await)
+    Json(state.logs(query.limit.unwrap_or(200)))
 }
 
 async fn websocket(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {

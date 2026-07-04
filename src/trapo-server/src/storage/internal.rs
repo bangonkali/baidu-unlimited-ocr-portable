@@ -69,7 +69,6 @@ impl Repository {
     }
 
     fn replace_regions(
-        &self,
         conn: &Connection,
         page: &StoredPage,
         engine_id: &str,
@@ -107,8 +106,8 @@ impl Repository {
                     box_record.top_percent / 100.0 * 999.0,
                     (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
                     (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
-                    source_span.map(|span| span.start as i64),
-                    source_span.map(|span| span.end as i64),
+                    source_span.map(|span| u64_to_i64_saturating(span.start)),
+                    source_span.map(|span| u64_to_i64_saturating(span.end)),
                     box_record.content_markdown,
                     box_record.content_html
                 ],
@@ -136,8 +135,8 @@ impl Repository {
                     page.file_hash,
                     i64::from(page.page_no),
                     span.region_id,
-                    span.start as i64,
-                    span.end as i64
+                    u64_to_i64_saturating(span.start),
+                    u64_to_i64_saturating(span.end)
                 ],
             )?;
         }

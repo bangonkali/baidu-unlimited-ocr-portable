@@ -53,14 +53,14 @@ async fn diagnostics_trace(
 ) -> Result<Json<crate::workbench_types::DiagnosticTracePayload>> {
     Ok(Json(
         state
-            .diagnostic_trace(
-                query.run_id,
-                query.file_hash,
-                query.page_no,
-                query.status,
-                query.q,
-                query.limit.unwrap_or(5_000),
-            )
+            .diagnostic_trace(crate::app::DiagnosticTraceRequest {
+                run_id: query.run_id,
+                file_hash: query.file_hash,
+                page_no: query.page_no,
+                status: query.status,
+                q: query.q,
+                limit: query.limit.unwrap_or(5_000),
+            })
             .await?,
     ))
 }

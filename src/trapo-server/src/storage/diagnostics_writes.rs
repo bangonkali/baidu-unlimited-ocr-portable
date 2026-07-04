@@ -1,5 +1,5 @@
 impl Repository {
-    pub async fn upsert_work_unit(&self, unit: &WorkUnitUpsert) -> Result<()> {
+    pub(crate) async fn upsert_work_unit(&self, unit: &WorkUnitUpsert) -> Result<()> {
         let unit = unit.clone();
         let metadata = unit.metadata.to_string();
         self.with_write(move |conn| {
@@ -23,7 +23,7 @@ impl Repository {
                     unit.work_unit_id.as_str(),
                     unit.run_id.as_str(),
                     unit.file_hash.as_deref(),
-                    unit.page_no.map(i64::from).unwrap_or(0),
+                    unit.page_no.map_or(0, i64::from),
                     unit.work_key.as_str(),
                     unit.phase.as_str(),
                     unit.engine.as_str(),
@@ -40,7 +40,7 @@ impl Repository {
         .await
     }
 
-    pub async fn start_work_unit(&self, run_id: &str, work_key: &str) -> Result<()> {
+    pub(crate) async fn start_work_unit(&self, run_id: &str, work_key: &str) -> Result<()> {
         let run_id = run_id.to_string();
         let work_key = work_key.to_string();
         self.with_write(move |conn| {
@@ -56,7 +56,7 @@ impl Repository {
         .await
     }
 
-    pub async fn finish_work_unit(
+    pub(crate) async fn finish_work_unit(
         &self,
         run_id: &str,
         work_key: &str,
@@ -92,7 +92,7 @@ impl Repository {
         .await
     }
 
-    pub async fn insert_diagnostic_span(&self, span: &DiagnosticSpanInsert) -> Result<()> {
+    pub(crate) async fn insert_diagnostic_span(&self, span: &DiagnosticSpanInsert) -> Result<()> {
         let span = span.clone();
         let attributes = span.attributes.to_string();
         self.with_write(move |conn| {
@@ -139,7 +139,7 @@ impl Repository {
         .await
     }
 
-    pub async fn insert_diagnostic_event(&self, event: &DiagnosticEventInsert) -> Result<()> {
+    pub(crate) async fn insert_diagnostic_event(&self, event: &DiagnosticEventInsert) -> Result<()> {
         let event = event.clone();
         let attributes = event.attributes.to_string();
         self.with_write(move |conn| {
@@ -172,23 +172,14 @@ impl Repository {
         .await
     }
 
-    pub async fn insert_model_lease(
+    pub(crate) async fn insert_model_lease(
         &self,
-        run_id: &str,
-        execution_key: &str,
-        provider: &str,
-        model: &str,
-        status: &str,
-        metadata: &Value,
+        lease: &DiagnosticModelLeaseInsert,
     ) -> Result<()> {
-        let lease_id = format!("{run_id}:{execution_key}");
-        let run_id = run_id.to_string();
-        let execution_key = execution_key.to_string();
-        let provider = provider.to_string();
-        let model = model.to_string();
-        let status = status.to_string();
+        let lease = lease.clone();
+        let lease_id = format!("{}:{}", lease.run_id, lease.execution_key);
         let started_at = Utc::now().to_rfc3339();
-        let metadata = metadata.to_string();
+        let metadata = lease.metadata.to_string();
         self.with_write(move |conn| {
             conn.execute(
                 "INSERT INTO ingest_model_leases(
@@ -200,12 +191,12 @@ impl Repository {
                     status = excluded.status, metadata_json = excluded.metadata_json",
                 params![
                     lease_id.as_str(),
-                    run_id.as_str(),
-                    model.as_str(),
-                    execution_key.as_str(),
-                    provider.as_str(),
-                    model.as_str(),
-                    status.as_str(),
+                    lease.run_id.as_str(),
+                    lease.model.as_str(),
+                    lease.execution_key.as_str(),
+                    lease.provider.as_str(),
+                    lease.model.as_str(),
+                    lease.status.as_str(),
                     started_at.as_str(),
                     metadata.as_str()
                 ],
