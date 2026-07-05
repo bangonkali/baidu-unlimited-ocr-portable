@@ -42,6 +42,85 @@ Extract the archive into a writable folder, run the launcher, then open:
 http://127.0.0.1:8765/
 ```
 
+## Local Build Releases
+
+Use a local build release when you want to test the current checkout as a
+portable app before tagging or publishing a GitHub release. Run these commands
+from the repository root:
+
+```powershell
+$version = (git describe --tags --dirty --always).Trim()
+cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
+uv run python scripts\package_trapo_workbench.py `
+  --version $version `
+  --platform windows-x64 `
+  --runtime-version $version `
+  --runtime-platform windows-x86_64-cuda13 `
+  --additional-runtime-platforms windows-x86_64-cpu `
+  --pdfium-release chromium/7920
+```
+
+The packager performs the release build, including the React production bundle,
+the Rust `trapo-server` release binary, bundled DuckDB, PDFium, OpenAPI output,
+and native OCR runtime files. It writes both an archive and an unpacked staging
+directory:
+
+```text
+dist/trapo-workbench-windows-x64-<version>.zip
+dist/trapo-workbench-windows-x64-<version>.zip.sha256
+dist/trapo-workbench-windows-x64-<version>/
+```
+
+Launch the staged build directly for local testing:
+
+```powershell
+.\dist\trapo-workbench-windows-x64-$version\trapo-server.exe --port 8765 --no-browser
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/
+```
+
+The staged build is the fastest way to test locally because it is already
+expanded. The zip and checksum are the portable files to hand to another
+Windows x64 machine. Runtime state for the staged build is written inside that
+staged directory:
+
+```text
+data/trapo.duckdb
+logs/trapo-server.log
+models/
+uploads/
+```
+
+Use the same script for other target packages by changing the platform and
+runtime arguments:
+
+| Target | `--platform` | `--runtime-platform` | `--additional-runtime-platforms` |
+| --- | --- | --- | --- |
+| Windows x64 | `windows-x64` | `windows-x86_64-cuda13` | `windows-x86_64-cpu` |
+| Windows arm64 | `windows-arm64` | `windows-arm64-cpu` | empty |
+| macOS Apple Silicon | `macos-arm64` | `macos-arm64-metal` | empty |
+| Ubuntu 24.04 x64 | `linux-x64` | `linux-x86_64-cuda13` | `linux-x86_64-cpu` |
+| Ubuntu 24.04 arm64 | `linux-arm64` | `linux-arm64-cpu` | empty |
+
+For release parity, smoke the launched app before handoff:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/health
+Invoke-RestMethod http://127.0.0.1:8765/api/status
+Invoke-RestMethod http://127.0.0.1:8765/api/openapi.json
+Invoke-WebRequest http://127.0.0.1:8765/ -UseBasicParsing
+```
+
+Finally, run the required quality gate and fix any failures:
+
+```powershell
+uv run python scripts\quality.py --profile ci --parallel
+```
+
 ## Ingest Workflow
 
 1. Click the Start OCR icon in the Workbench activity bar.
