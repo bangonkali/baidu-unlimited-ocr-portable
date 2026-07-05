@@ -1,15 +1,22 @@
 impl Repository {
-    pub(crate) fn persist_discovered_annotation_sync(
+    pub(crate) async fn persist_discovered_annotations(
         &self,
-        draft: &AnnotationIdentityDraft,
-    ) -> Result<String> {
-        let draft = draft.clone();
-        self.with_sync_write(move |conn| {
-            let annotation_id = Self::resolve_annotation_id(&conn, &draft)?;
-            Self::upsert_annotation_identity(&conn, &annotation_id, &draft)?;
-            Self::upsert_discovered_region(&conn, &annotation_id, &draft)?;
-            Ok(annotation_id)
+        drafts: Vec<AnnotationIdentityDraft>,
+    ) -> Result<()> {
+        if drafts.is_empty() {
+            return Ok(());
+        }
+        self.with_write(move |mut conn| {
+            let transaction = conn.transaction()?;
+            for draft in &drafts {
+                let annotation_id = Self::resolve_annotation_id(&transaction, draft)?;
+                Self::upsert_annotation_identity(&transaction, &annotation_id, draft)?;
+                Self::upsert_discovered_region(&transaction, &annotation_id, draft)?;
+            }
+            transaction.commit()?;
+            Ok(())
         })
+        .await
     }
 
     fn resolve_annotation_id(conn: &Connection, draft: &AnnotationIdentityDraft) -> Result<String> {
@@ -28,7 +35,9 @@ impl Repository {
                 |row| row.get(0),
             )
             .optional()?;
-        Ok(existing.unwrap_or_else(new_persistence_id))
+        Ok(existing
+            .or_else(|| draft.annotation_id.clone())
+            .unwrap_or_else(new_persistence_id))
     }
 
     fn upsert_annotation_identity(

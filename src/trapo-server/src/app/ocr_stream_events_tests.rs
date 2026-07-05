@@ -70,6 +70,48 @@ fn region_event_is_emitted_when_box_marker_completes() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn streamed_regions_get_uuid_v7_ids_without_database_write() -> anyhow::Result<()> {
+    let hub = RealtimeHub::new();
+    let identities = AnnotationIdentityRuntime::new_for_tests();
+    let mut receiver = hub.subscribe();
+    let mut telemetry = OcrStreamTelemetry::new();
+    let context = stream_context();
+
+    publish_token_events(
+        &hub,
+        Some(&identities),
+        &context,
+        &mut telemetry,
+        "A <|ref|>Total<|/ref|><|det|>[[0,0,999,100]]<|/det|>",
+        0,
+    );
+
+    assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+    let span = receiver.try_recv()?;
+    let region = receiver.try_recv()?;
+    let span_id = span.payload["span"]["annotation_id"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("span annotation_id missing"))?;
+    let region_id = region.payload["region"]["annotation_id"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("region annotation_id missing"))?;
+    assert_eq!(span.event_type, "ocr.page.span.upsert");
+    assert_eq!(region.event_type, "ocr.page.region.upsert");
+    assert_eq!(span_id, region_id);
+    assert!(crate::ids::is_uuid_v7(span_id));
+
+    let pending_len = {
+        let pending = identities
+            .pending
+            .lock()
+            .map_err(|_| anyhow::anyhow!("pending annotations mutex poisoned"))?;
+        pending.len()
+    };
+    assert_eq!(pending_len, 1);
+    Ok(())
+}
+
 fn stream_context() -> OcrStreamContext {
     OcrStreamContext {
         run_id: "run-a".to_string(),

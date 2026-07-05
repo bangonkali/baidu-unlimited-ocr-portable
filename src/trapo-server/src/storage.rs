@@ -48,6 +48,9 @@ include!("storage/helpers.rs");
 include!("storage/test_fixtures.rs");
 
 #[cfg(test)]
+include!("storage/tests/basic.rs");
+
+#[cfg(test)]
 include!("storage/coverage_tests.rs");
 
 #[cfg(test)]

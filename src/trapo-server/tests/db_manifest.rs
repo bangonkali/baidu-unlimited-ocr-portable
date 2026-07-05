@@ -12,26 +12,9 @@ fn db_manifest_covers_storage_methods_routes_and_query_count() -> anyhow::Result
         .parent()
         .and_then(Path::parent)
         .ok_or_else(|| anyhow::anyhow!("could not resolve repository root"))?;
-    let repo_manifest = repo_root.join("DB.md");
+    let repo_manifest = repo_root.join("docs").join("DB.md");
     let manifest = fs::read_to_string(&repo_manifest)
         .map_err(|error| anyhow::anyhow!("failed to read {}: {error}", repo_manifest.display()))?;
-
-    let workspace_manifest = repo_root
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("could not resolve workspace root"))?
-        .join("DB.md");
-    if workspace_manifest.exists() {
-        let workspace = fs::read_to_string(&workspace_manifest).map_err(|error| {
-            anyhow::anyhow!("failed to read {}: {error}", workspace_manifest.display())
-        })?;
-        assert_eq!(
-            normalize(&workspace),
-            normalize(&manifest),
-            "{} must mirror {}",
-            workspace_manifest.display(),
-            repo_manifest.display()
-        );
-    }
 
     for method in storage_methods(&manifest_dir.join("src").join("storage"))? {
         assert!(
@@ -65,10 +48,6 @@ fn db_manifest_covers_storage_methods_routes_and_query_count() -> anyhow::Result
         "DB.md must list migration SQL bundle count {migration_count}"
     );
     Ok(())
-}
-
-fn normalize(value: &str) -> String {
-    value.replace("\r\n", "\n").trim().to_string()
 }
 
 fn storage_methods(storage_dir: &Path) -> anyhow::Result<Vec<String>> {

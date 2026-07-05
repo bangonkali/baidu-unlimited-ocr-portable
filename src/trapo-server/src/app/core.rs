@@ -11,6 +11,7 @@ impl AppState {
         let logger = AppLogger::open(&config.log_dir)?;
         let hub = RealtimeHub::new();
         hub.attach_repository(repository.clone());
+        let annotation_identities = AnnotationIdentityRuntime::new(repository.clone());
         let variants = runtime_variants(&config.app_root);
         let selected_model_id =
             read_string_setting(&repository, "selected_model_id", DEFAULT_MODEL_ID).await;
@@ -48,6 +49,7 @@ impl AppState {
                 logger,
                 hub,
                 renderer,
+                annotation_identities,
                 state: Mutex::new(state),
             }),
         };

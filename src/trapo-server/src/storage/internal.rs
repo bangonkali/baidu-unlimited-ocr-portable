@@ -15,20 +15,6 @@ impl Repository {
         self.with_lane(self.write_slots.clone(), operation).await
     }
 
-    fn with_sync_write<T, F>(&self, operation: F) -> Result<T>
-    where
-        F: FnOnce(Connection) -> Result<T>,
-    {
-        let conn = {
-            let guard = self
-                .shared_connection
-                .lock()
-                .map_err(|_| AppError::Internal("database connection mutex poisoned".to_string()))?;
-            guard.try_clone()?
-        };
-        operation(conn)
-    }
-
     async fn with_lane<T, F>(&self, lane: Arc<Semaphore>, operation: F) -> Result<T>
     where
         T: Send + 'static,

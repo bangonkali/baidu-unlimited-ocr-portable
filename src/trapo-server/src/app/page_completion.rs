@@ -3,7 +3,7 @@ impl AppState {
         &self,
         page_work: &PageWork<'_>,
         ocr: &OcrRunContext<'_>,
-    ) -> Result<crate::ocr::ParsedOcrPage> {
+    ) -> Result<ParsedPageOutput> {
         let raw_text = self.run_ocr_or_fallback(
             page_work.image_path,
             &page_work.stream_context(ocr),
@@ -19,7 +19,12 @@ impl AppState {
             },
         );
         crate::ocr::apply_region_content(&mut parsed);
-        self.assign_annotation_identities(page_work.run_id, page_work.file_hash, ocr.profile_id, &mut parsed)?;
+        let annotation_drafts = self.assign_annotation_identities(
+            page_work.run_id,
+            page_work.file_hash,
+            ocr.profile_id,
+            &mut parsed,
+        );
         self.write_image_region_snippets(
             page_work.file_hash,
             page_work.image_path,
@@ -28,7 +33,10 @@ impl AppState {
         if parsed.cleaned_text.is_empty() {
             parsed.cleaned_text.clone_from(&raw_text);
         }
-        Ok(parsed)
+        Ok(ParsedPageOutput {
+            annotation_drafts,
+            parsed,
+        })
     }
 
     fn assign_annotation_identities(
@@ -37,8 +45,9 @@ impl AppState {
         file_hash: &str,
         profile_id: &str,
         parsed: &mut crate::ocr::ParsedOcrPage,
-    ) -> Result<()> {
+    ) -> Vec<AnnotationIdentityDraft> {
         let boxes = parsed.boxes.clone();
+        let mut drafts = Vec::with_capacity(boxes.len());
         for (index, box_record) in boxes.iter().enumerate() {
             let span = parsed
                 .spans
@@ -52,17 +61,22 @@ impl AppState {
                 box_record,
                 span,
             );
-            let annotation_id = self.inner.repository.persist_discovered_annotation_sync(&draft)?;
-            apply_annotation_id(parsed, &box_record.source_region_key, &annotation_id);
+            let resolved = self.inner.annotation_identities.resolve_and_enqueue(draft);
+            apply_annotation_id(parsed, &box_record.source_region_key, &resolved.annotation_id);
+            drafts.push(resolved.draft); // skylos: ignore[SKY-D215] annotation drafts store OCR source keys and normalized box data, not filesystem paths.
         }
-        Ok(())
+        drafts
     }
 
     async fn complete_page_state(
         &self,
         page_work: &PageWork<'_>,
-        parsed: crate::ocr::ParsedOcrPage,
+        output: ParsedPageOutput,
     ) -> Result<CompletedPageUpdate> {
+        let ParsedPageOutput {
+            annotation_drafts,
+            parsed,
+        } = output;
         let mut state = self.inner.state.lock().await;
         let document = state
             .documents
@@ -86,6 +100,7 @@ impl AppState {
             )
         };
         let update = CompletedPageUpdate {
+            annotation_drafts,
             stored,
             page_record: completed_page_record(page_work, width_px, height_px),
             regions_payload: DocumentRegionsPayload {
@@ -113,6 +128,10 @@ impl AppState {
         completed: CompletedPageUpdate,
     ) -> Result<()> {
         let elapsed_ms = elapsed_millis_u64(started);
+        self.inner
+            .annotation_identities
+            .persist_now(&self.inner.repository, &completed.annotation_drafts)
+            .await?;
         self.inner
             .repository
             .replace_page_ocr(&completed.stored, ENGINE_ID, ocr.profile_id, elapsed_ms)
@@ -157,6 +176,7 @@ fn annotation_identity_draft(
     span: Option<&crate::workbench_types::TextRegionSpan>,
 ) -> AnnotationIdentityDraft {
     AnnotationIdentityDraft {
+        annotation_id: None,
         run_id: run_id.to_string(),
         file_hash: file_hash.to_string(),
         page_no: box_record.page_no,
@@ -199,7 +219,13 @@ fn apply_annotation_id(
     }
 }
 
+struct ParsedPageOutput {
+    annotation_drafts: Vec<AnnotationIdentityDraft>,
+    parsed: crate::ocr::ParsedOcrPage,
+}
+
 struct CompletedPageUpdate {
+    annotation_drafts: Vec<AnnotationIdentityDraft>,
     stored: StoredPage,
     page_record: Value,
     regions_payload: DocumentRegionsPayload,

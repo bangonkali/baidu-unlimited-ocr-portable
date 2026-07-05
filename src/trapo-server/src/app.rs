@@ -17,7 +17,7 @@ use crate::{
     },
     config::ServerConfig,
     error::{AppError, Result},
-    ids::{is_uuid_v7, new_persistence_id},
+    ids::new_persistence_id,
     logger::AppLogger,
     pdf::{PdfRenderer, RenderedPage, is_pdf},
     realtime::RealtimeHub,
@@ -66,6 +66,7 @@ struct AppInner {
     logger: AppLogger,
     hub: Arc<RealtimeHub>,
     renderer: PdfRenderer,
+    annotation_identities: AnnotationIdentityRuntime,
     state: Mutex<WorkbenchState>,
 }
 
@@ -180,6 +181,7 @@ include!("app/model_methods.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");
 include!("app/download_runtime.rs");
+include!("app/annotation_identity_runtime.rs");
 include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");

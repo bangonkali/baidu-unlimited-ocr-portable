@@ -52,6 +52,7 @@ pub(crate) struct StoredPage {
 
 #[derive(Debug, Clone)]
 pub(crate) struct AnnotationIdentityDraft {
+    pub(crate) annotation_id: Option<String>,
     pub(crate) run_id: String,
     pub(crate) file_hash: String,
     pub(crate) page_no: u32,

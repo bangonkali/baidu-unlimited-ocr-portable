@@ -112,7 +112,7 @@ struct OcrTokenTelemetry {
 
 fn publish_token_events(
     hub: &RealtimeHub,
-    repository: Option<&Repository>,
+    annotation_identities: Option<&AnnotationIdentityRuntime>,
     context: &OcrStreamContext,
     telemetry: &mut OcrStreamTelemetry,
     text: &str,
@@ -130,7 +130,7 @@ fn publish_token_events(
         telemetry.flush_text_patch(hub, context);
     }
 
-    publish_region_events(hub, repository, context, telemetry);
+    publish_region_events(hub, annotation_identities, context, telemetry);
 }
 
 fn finish_token_events(
@@ -143,15 +143,14 @@ fn finish_token_events(
 
 fn publish_region_events(
     hub: &RealtimeHub,
-    repository: Option<&Repository>,
+    annotation_identities: Option<&AnnotationIdentityRuntime>,
     context: &OcrStreamContext,
     telemetry: &mut OcrStreamTelemetry,
 ) {
     let mut parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
     crate::ocr::apply_region_content(&mut parsed);
-    let require_persisted_ids = repository.is_some();
-    if let Some(repository) = repository {
-        apply_stream_annotation_identities(repository, context, &mut parsed);
+    if let Some(annotation_identities) = annotation_identities {
+        apply_stream_annotation_identities(annotation_identities, context, &mut parsed);
     }
     let spans_by_region = parsed
         .spans
@@ -159,9 +158,6 @@ fn publish_region_events(
         .map(|span| (span.region_id.clone(), span.clone()))
         .collect::<std::collections::HashMap<_, _>>();
     for region in parsed.boxes {
-        if require_persisted_ids && !is_uuid_v7(&region.annotation_id) {
-            continue;
-        }
         if !telemetry
             .emitted_region_ids
             .insert(region.region_id.clone())
@@ -180,7 +176,7 @@ fn publish_region_events(
 }
 
 fn apply_stream_annotation_identities(
-    repository: &Repository,
+    annotation_identities: &AnnotationIdentityRuntime,
     context: &OcrStreamContext,
     parsed: &mut crate::ocr::ParsedOcrPage,
 ) {
@@ -198,19 +194,8 @@ fn apply_stream_annotation_identities(
             box_record,
             span,
         );
-        match repository.persist_discovered_annotation_sync(&draft) {
-            Ok(annotation_id) => {
-                apply_annotation_id(parsed, &box_record.source_region_key, &annotation_id);
-            }
-            Err(error) => {
-                tracing::warn!(
-                    %error,
-                    file_hash = %context.file_hash,
-                    page_no = context.page_no,
-                    "failed to persist discovered annotation"
-                );
-            }
-        }
+        let resolved = annotation_identities.resolve_and_enqueue(draft);
+        apply_annotation_id(parsed, &box_record.source_region_key, &resolved.annotation_id);
     }
 }
 
