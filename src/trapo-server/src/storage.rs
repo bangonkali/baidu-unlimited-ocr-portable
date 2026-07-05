@@ -43,3 +43,12 @@ include!("storage/diagnostics_writes.rs");
 include!("storage/diagnostics_queries.rs");
 include!("storage/diagnostics_rows.rs");
 include!("storage/helpers.rs");
+
+#[cfg(test)]
+include!("storage/test_fixtures.rs");
+
+#[cfg(test)]
+include!("storage/coverage_tests.rs");
+
+#[cfg(test)]
+include!("storage/migration_tests.rs");

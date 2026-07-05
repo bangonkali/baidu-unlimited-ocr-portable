@@ -27,3 +27,15 @@
   text-preview anchors, image-snippet anchors, PDF/image overlay boxes, selected
   region state, DOM ids, and `data-annotation-id` attributes. Keep `region_id`
   fallback support only for older payloads and fixtures.
+
+## Database Query Coverage Requirements
+
+- Keep `DB.md` in the repo synchronized with the workspace manifest at
+  `C:\Users\Bangonkali\Desktop\Projects\uocr\DB.md`.
+- Every DuckDB read, write, migration, or storage-backed API route must be
+  listed in `DB.md` with positive, negative, and boundary coverage notes.
+- Every new or changed DuckDB query must have a test that opens a real temporary
+  DuckDB database through `Repository::open` or hits an API route backed by that
+  repository. Do not satisfy database coverage with mocks.
+- Run the database manifest guard (`cargo test -p trapo-server --test
+  db_manifest`) whenever storage methods, routes, or migrations change.

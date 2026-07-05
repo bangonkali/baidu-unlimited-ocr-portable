@@ -250,7 +250,7 @@ impl Repository {
                     annotation_id, run_id, file_hash, page_no, engine_id, profile_id,
                     source_region_key, discovery_index, label, x1, y1, x2, y2, created_at
                  )
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
                  ON CONFLICT(annotation_id) DO NOTHING",
                 params![
                     annotation_id,

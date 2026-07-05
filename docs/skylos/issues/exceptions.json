@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated": "2026-07-04",
+  "updated": "2026-07-06",
   "included_paths": [
     ".github/**",
     "Cargo.toml",
@@ -348,6 +348,13 @@
       "category": "danger",
       "path_glob": "src/trapo-server/src/storage/core.rs",
       "reason": "The repository opens the configured DuckDB file under the app data directory during local server startup; request handlers do not choose this path."
+    },
+    {
+      "id": "server-db-manifest-guard-repo-source-reads",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/tests/db_manifest.rs",
+      "reason": "The manifest guard reads DB.md and repository source files derived from CARGO_MANIFEST_DIR to enforce query coverage; request or network input cannot choose these paths."
     },
     {
       "id": "server-ffi-local-runtime-paths",

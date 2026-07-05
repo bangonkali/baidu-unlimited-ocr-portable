@@ -118,6 +118,88 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn persists_discovered_annotation_identity_before_text_completion() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        let draft = AnnotationIdentityDraft {
+            run_id: new_persistence_id(),
+            file_hash: "file-a".to_string(),
+            page_no: 2,
+            engine_id: "pdfium-unlimited-ocr".to_string(),
+            profile_id: "default".to_string(),
+            source_region_key: "pdfium:file-a:2:0".to_string(),
+            discovery_index: 0,
+            label: "Invoice total".to_string(),
+            x1: 10.0,
+            y1: 20.0,
+            x2: 50.0,
+            y2: 30.0,
+            span_start: 15,
+            span_end: 28,
+            content_markdown: "Invoice total".to_string(),
+            content_html: None,
+        };
+
+        let annotation_id = repo.persist_discovered_annotation_sync(&draft)?;
+        assert!(is_uuid_v7(&annotation_id));
+
+        let mut updated = draft.clone();
+        updated.label = "Invoice total updated".to_string();
+        updated.content_markdown = "Invoice total updated".to_string();
+        updated.x2 = 55.0;
+        let repeated_id = repo.persist_discovered_annotation_sync(&updated)?;
+        assert_eq!(annotation_id, repeated_id);
+
+        let query_annotation_id = annotation_id.clone();
+        let (identity_count, identity_label, created_at, region_count, link_count) = repo
+            .with_read(move |conn| {
+                let identity_count = conn.query_row(
+                    "SELECT count(*) FROM document_annotation_identities
+                     WHERE annotation_id = ? AND source_region_key = ?",
+                    params![query_annotation_id.as_str(), "pdfium:file-a:2:0"],
+                    |row| row.get::<_, i64>(0),
+                )?;
+                let (identity_label, created_at) = conn.query_row(
+                    "SELECT label, CAST(created_at AS VARCHAR)
+                     FROM document_annotation_identities WHERE annotation_id = ?",
+                    params![query_annotation_id.as_str()],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                )?;
+                let region_count = conn.query_row(
+                    "SELECT count(*) FROM document_regions
+                     WHERE region_id = ? AND annotation_id = ? AND content_markdown = ?",
+                    params![
+                        query_annotation_id.as_str(),
+                        query_annotation_id.as_str(),
+                        "Invoice total updated"
+                    ],
+                    |row| row.get::<_, i64>(0),
+                )?;
+                let link_count = conn.query_row(
+                    "SELECT count(*) FROM document_text_region_links
+                     WHERE annotation_id = ? AND text_start = ? AND text_end = ?",
+                    params![query_annotation_id.as_str(), 15_i64, 28_i64],
+                    |row| row.get::<_, i64>(0),
+                )?;
+                Ok((
+                    identity_count,
+                    identity_label,
+                    created_at,
+                    region_count,
+                    link_count,
+                ))
+            })
+            .await?;
+
+        assert_eq!(identity_count, 1);
+        assert_eq!(identity_label, "Invoice total updated");
+        assert!(!created_at.is_empty());
+        assert_eq!(region_count, 1);
+        assert_eq!(link_count, 1);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn persists_and_lists_ocr_stream_events() -> Result<()> {
         let temp = tempfile::tempdir()?;
         let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;

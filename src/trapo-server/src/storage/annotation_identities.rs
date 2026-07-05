@@ -41,10 +41,10 @@ impl Repository {
                 annotation_id, run_id, file_hash, page_no, engine_id, profile_id,
                 source_region_key, discovery_index, label, x1, y1, x2, y2, created_at
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
              ON CONFLICT(run_id, file_hash, page_no, source_region_key) DO UPDATE SET
                 label = excluded.label, x1 = excluded.x1, y1 = excluded.y1,
-                x2 = excluded.x2, y2 = excluded.y2, updated_at = current_timestamp",
+                x2 = excluded.x2, y2 = excluded.y2, updated_at = now()",
             params![
                 annotation_id,
                 draft.run_id,
