@@ -144,6 +144,8 @@ struct DownloadState {
     total_bytes: Option<u64>,
     error: Option<String>,
     started_at: Option<Instant>,
+    last_progress_publish_at: Option<Instant>,
+    last_progress_publish_bytes: u64,
     cancel_requested: bool,
     last_event_at: Option<String>,
 }

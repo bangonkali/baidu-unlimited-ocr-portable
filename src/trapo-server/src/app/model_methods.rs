@@ -95,6 +95,8 @@ impl AppState {
                         total_bytes: Some(target.total_bytes),
                         error: None,
                         started_at: None,
+                        last_progress_publish_at: None,
+                        last_progress_publish_bytes: 0,
                         cancel_requested: false,
                         last_event_at: Some(Utc::now().to_rfc3339()),
                     },

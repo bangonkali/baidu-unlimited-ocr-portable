@@ -65,26 +65,34 @@ export function getWorkbenchSnapshot() {
 }
 
 export function setSelectedRoot(selectedRoot: string) {
-  workbenchStore.setState((state) => ({ ...state, selectedRoot }));
+  workbenchStore.setState((state) =>
+    state.selectedRoot === selectedRoot ? state : { ...state, selectedRoot },
+  );
 }
 
 export function setFolderDialogError(folderDialogError: string) {
-  workbenchStore.setState((state) => ({ ...state, folderDialogError }));
+  workbenchStore.setState((state) =>
+    state.folderDialogError === folderDialogError ? state : { ...state, folderDialogError },
+  );
 }
 
 export function clearFolderDialogError() {
-  workbenchStore.setState((state) => ({ ...state, folderDialogError: undefined }));
+  workbenchStore.setState((state) =>
+    state.folderDialogError === undefined ? state : { ...state, folderDialogError: undefined },
+  );
 }
 
 export function setSelectedProfile(selectedProfile: string) {
-  workbenchStore.setState((state) => ({ ...state, selectedProfile }));
+  workbenchStore.setState((state) =>
+    state.selectedProfile === selectedProfile ? state : { ...state, selectedProfile },
+  );
 }
 
 export function setSelection(selection: Partial<WorkbenchSelection>) {
-  workbenchStore.setState((state) => ({
-    ...state,
-    selection: { ...state.selection, ...selection },
-  }));
+  workbenchStore.setState((state) => {
+    const next = { ...state.selection, ...selection };
+    return sameSelection(state.selection, next) ? state : { ...state, selection: next };
+  });
 }
 
 export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
@@ -92,56 +100,71 @@ export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
   if (!latest || !workbenchStore.state.autoFollowRegions) {
     return;
   }
-  workbenchStore.setState((state) => ({
-    ...state,
-    activeView: 'workbench',
-    selection: {
+  workbenchStore.setState((state) => {
+    const selection = {
       ...state.selection,
       fileHash,
       pageNo: latest.page_no,
       regionId: latest.region_id,
-    },
-  }));
+    };
+    return state.activeView === 'workbench' && sameSelection(state.selection, selection)
+      ? state
+      : { ...state, activeView: 'workbench', selection };
+  });
 }
 
 export function followLatestPage(fileHash: string, pageNo: number) {
   if (!workbenchStore.state.autoFollowRegions) {
     return;
   }
-  workbenchStore.setState((state) => ({
-    ...state,
-    activeView: 'workbench',
-    selection: {
-      ...state.selection,
-      fileHash,
-      pageNo,
-    },
-  }));
+  workbenchStore.setState((state) => {
+    const selection = { ...state.selection, fileHash, pageNo };
+    return state.activeView === 'workbench' && sameSelection(state.selection, selection)
+      ? state
+      : { ...state, activeView: 'workbench', selection };
+  });
 }
 
 export function setOverlayVisible(overlayVisible: boolean) {
-  workbenchStore.setState((state) => ({ ...state, overlayVisible }));
+  workbenchStore.setState((state) =>
+    state.overlayVisible === overlayVisible ? state : { ...state, overlayVisible },
+  );
 }
 
 export function setAutoFollowRegions(autoFollowRegions: boolean) {
-  workbenchStore.setState((state) => ({ ...state, autoFollowRegions }));
+  workbenchStore.setState((state) =>
+    state.autoFollowRegions === autoFollowRegions ? state : { ...state, autoFollowRegions },
+  );
 }
 
 export function setLabelsVisible(labelsVisible: boolean) {
-  workbenchStore.setState((state) => ({ ...state, labelsVisible }));
+  workbenchStore.setState((state) =>
+    state.labelsVisible === labelsVisible ? state : { ...state, labelsVisible },
+  );
 }
 
 export function hydrateWorkbenchUiSettings(settings: WorkbenchUiSettings) {
   applyThemePreference(settings.theme);
   persistThemePreference(settings.theme);
-  workbenchStore.setState((state) => ({
-    ...state,
-    autoFollowRegions: settings.auto_follow_regions,
-    labelsVisible: settings.labels_visible,
-    overlayVisible: settings.overlay_visible,
-    panesCollapsed: settings.panes_collapsed,
-    theme: settings.theme,
-  }));
+  workbenchStore.setState((state) => {
+    const panesCollapsed = settings.panes_collapsed;
+    const unchanged =
+      state.autoFollowRegions === settings.auto_follow_regions &&
+      state.labelsVisible === settings.labels_visible &&
+      state.overlayVisible === settings.overlay_visible &&
+      state.theme === settings.theme &&
+      samePanes(state.panesCollapsed, panesCollapsed);
+    return unchanged
+      ? state
+      : {
+          ...state,
+          autoFollowRegions: settings.auto_follow_regions,
+          labelsVisible: settings.labels_visible,
+          overlayVisible: settings.overlay_visible,
+          panesCollapsed,
+          theme: settings.theme,
+        };
+  });
 }
 
 export function workbenchUiSettingsFromState(
@@ -157,10 +180,14 @@ export function workbenchUiSettingsFromState(
 }
 
 export function setPaneCollapsed(pane: WorkbenchPaneId, collapsed: boolean) {
-  workbenchStore.setState((state) => ({
-    ...state,
-    panesCollapsed: { ...state.panesCollapsed, [pane]: collapsed },
-  }));
+  workbenchStore.setState((state) =>
+    state.panesCollapsed[pane] === collapsed
+      ? state
+      : {
+          ...state,
+          panesCollapsed: { ...state.panesCollapsed, [pane]: collapsed },
+        },
+  );
 }
 
 export function togglePaneCollapsed(pane: WorkbenchPaneId) {
@@ -174,6 +201,9 @@ export function togglePaneCollapsed(pane: WorkbenchPaneId) {
 }
 
 export function setTheme(theme: ThemeMode) {
+  if (workbenchStore.state.theme === theme) {
+    return;
+  }
   persistThemePreference(theme);
   applyThemePreference(theme);
   workbenchStore.setState((state) => ({ ...state, theme }));
@@ -198,7 +228,7 @@ export function readThemePreference(): ThemeMode {
 }
 
 export function setTourRun(tourRun: boolean) {
-  workbenchStore.setState((state) => ({ ...state, tourRun }));
+  workbenchStore.setState((state) => (state.tourRun === tourRun ? state : { ...state, tourRun }));
 }
 
 function persistThemePreference(theme: ThemeMode) {
@@ -206,4 +236,20 @@ function persistThemePreference(theme: ThemeMode) {
     return;
   }
   window.localStorage.setItem(themeStorageKey, theme);
+}
+
+function sameSelection(left: WorkbenchSelection, right: WorkbenchSelection) {
+  return (
+    left.fileHash === right.fileHash &&
+    left.pageNo === right.pageNo &&
+    left.regionId === right.regionId
+  );
+}
+
+function samePanes(left: WorkbenchPaneState, right: WorkbenchPaneState) {
+  return (
+    left.details === right.details &&
+    left.diagnostics === right.diagnostics &&
+    left.explorer === right.explorer
+  );
 }

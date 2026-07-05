@@ -8,6 +8,8 @@ import type {
   IngestRunsPayload,
   LogsPayload,
   ModelsPayload,
+  PreviewImagesPayload,
+  StatusPayload,
 } from '../api/types';
 import { followLatestPage } from '../stores/workbenchStore';
 import {
@@ -42,6 +44,11 @@ function applyModelEvent(
       selected_model_id: incoming.selected ? incoming.model_id : existing.selected_model_id,
     };
   });
+  if (event.payload.selected) {
+    queryClient.setQueryData<StatusPayload>(queryKeys.status, (current) =>
+      current ? { ...current, selected_model_id: event.payload.model_id } : current,
+    );
+  }
 }
 
 function applyRunEvent(
@@ -51,7 +58,21 @@ function applyRunEvent(
   queryClient.setQueryData<IngestRunsPayload>(queryKeys.runs, (current) => ({
     runs: upsertById(current?.runs ?? [], event.payload, (run) => run.run_id),
   }));
-  void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+  queryClient.setQueryData<StatusPayload>(queryKeys.status, (current) => {
+    if (!current) {
+      return current;
+    }
+    const active = isActiveRunStatus(event.payload.status);
+    return {
+      ...current,
+      active_run_id: active
+        ? event.payload.run_id
+        : current.active_run_id === event.payload.run_id
+          ? null
+          : current.active_run_id,
+      state: event.payload.status,
+    };
+  });
 }
 
 function applyDocumentEvent(
@@ -65,7 +86,19 @@ function applyDocumentEvent(
       (document) => document.file_hash,
     ),
   }));
-  void queryClient.invalidateQueries({ queryKey: ['documents'], refetchType: 'active' });
+  for (const [queryKey, payload] of queryClient.getQueriesData<DocumentsPayload>({
+    queryKey: ['documents'],
+  })) {
+    if (!payload || sameQueryKey(queryKey, queryKeys.documents(''))) {
+      continue;
+    }
+    if (!payload.documents.some((document) => document.file_hash === event.payload.file_hash)) {
+      continue;
+    }
+    queryClient.setQueryData<DocumentsPayload>(queryKey, {
+      documents: upsertById(payload.documents, event.payload, (document) => document.file_hash),
+    });
+  }
 }
 
 function applyPageEvent(
@@ -73,8 +106,18 @@ function applyPageEvent(
   event: Extract<RealtimeEvent, { type: 'document.page.changed' }>,
 ) {
   const fileHash = event.payload.file_hash;
-  void queryClient.invalidateQueries({ queryKey: queryKeys.documentPreviewImages(fileHash) });
-  void queryClient.invalidateQueries({ queryKey: ['documents'], refetchType: 'active' });
+  if (event.payload.preview_available) {
+    queryClient.setQueryData<PreviewImagesPayload>(
+      queryKeys.documentPreviewImages(fileHash),
+      (current) =>
+        current
+          ? {
+              ...current,
+              pages: uniqueSortedNumbers([...current.pages, event.payload.page_no]),
+            }
+          : current,
+    );
+  }
 }
 
 function applyLogEvent(
@@ -123,7 +166,6 @@ export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event:
       followLatestPage(event.payload.file_hash, event.payload.page_no);
       return;
     case 'ocr.page.raw.delta':
-      followLatestPage(event.payload.file_hash, event.payload.page_no);
       return;
     case 'ocr.page.text.patch':
       queryClient.setQueryData<DocumentTextPayload>(
@@ -164,4 +206,16 @@ export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event:
       applyLogEvent(queryClient, event);
       return;
   }
+}
+
+function isActiveRunStatus(status: string) {
+  return status === 'queued' || status === 'running';
+}
+
+function sameQueryKey(left: readonly unknown[], right: readonly unknown[]) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function uniqueSortedNumbers(values: number[]) {
+  return [...new Set(values)].sort((left, right) => left - right);
 }

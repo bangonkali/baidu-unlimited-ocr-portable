@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn applies_workbench_patch() -> Result<()> {
@@ -45,6 +46,8 @@ mod tests {
                 total_bytes: Some(256),
                 error: None,
                 started_at: Some(Instant::now()),
+                last_progress_publish_at: None,
+                last_progress_publish_bytes: 0,
                 cancel_requested: false,
                 last_event_at: Some("2026-07-03T00:00:00Z".to_string()),
             },
@@ -86,6 +89,8 @@ mod tests {
                 total_bytes: Some(target.total_bytes),
                 error: None,
                 started_at: Some(Instant::now()),
+                last_progress_publish_at: None,
+                last_progress_publish_bytes: 0,
                 cancel_requested: false,
                 last_event_at: Some("2026-07-03T00:00:00Z".to_string()),
             },
@@ -96,6 +101,54 @@ mod tests {
         assert_eq!(record.status, "missing");
         assert!(record.files.iter().any(|file| file.status == "missing"));
         Ok(())
+    }
+
+    #[test]
+    fn download_progress_publication_is_coalesced_by_time_and_size() {
+        let mut download = DownloadState {
+            download_id: "download-a".to_string(),
+            owner_kind: "model".to_string(),
+            owner_id: DEFAULT_MODEL_ID.to_string(),
+            file_id: "model".to_string(),
+            file_name: "model.gguf".to_string(),
+            source_url: "https://example.test/model.gguf".to_string(),
+            target_path: PathBuf::from("model.gguf"),
+            force: false,
+            status: "downloading".to_string(),
+            downloaded_bytes: 0,
+            total_bytes: Some(10 * 1024 * 1024),
+            error: None,
+            started_at: Some(Instant::now()),
+            last_progress_publish_at: None,
+            last_progress_publish_bytes: 0,
+            cancel_requested: false,
+            last_event_at: None,
+        };
+        let now = Instant::now();
+
+        assert!(should_publish_download_progress(&download, 1024, now));
+        mark_download_progress_published(&mut download, 1024, now, "now".to_string());
+        assert!(!should_publish_download_progress(
+            &download,
+            512 * 1024,
+            now + Duration::from_millis(100)
+        ));
+        assert!(should_publish_download_progress(
+            &download,
+            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 1024,
+            now + Duration::from_millis(100)
+        ));
+        mark_download_progress_published(
+            &mut download,
+            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 1024,
+            now + Duration::from_millis(100),
+            "later".to_string(),
+        );
+        assert!(should_publish_download_progress(
+            &download,
+            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 2048,
+            now + Duration::from_millis(MODEL_DOWNLOAD_PROGRESS_FLUSH_MS + 100)
+        ));
     }
 
     fn test_workbench_state(model_id: &str) -> WorkbenchState {

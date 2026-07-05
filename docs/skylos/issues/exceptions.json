@@ -280,6 +280,27 @@
       "reason": "fileHash/file_hash values are public document identifiers used for UI routing, not secret tokens."
     },
     {
+      "id": "client-public-document-id-realtime",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/realtime/realtimeQueryBridge.ts",
+      "reason": "file_hash values are public document identifiers used for cache projection, not secret tokens."
+    },
+    {
+      "id": "client-public-document-id-store",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/stores/workbenchStore.ts",
+      "reason": "fileHash values are public document identifiers used for UI selection, not secret tokens."
+    },
+    {
+      "id": "client-realtime-sequential-replay",
+      "rule_id": "SKY-Q402",
+      "category": "quality",
+      "path_glob": "src/trapo-client/src/realtime/RealtimeBridge.tsx",
+      "reason": "Replay pages are cursor-dependent; each /api/ocr/events request must wait for next_since_sequence before requesting the next page."
+    },
+    {
       "id": "cargo-build-script-local-paths",
       "rule_id": "SKY-D215",
       "category": "danger",

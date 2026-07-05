@@ -12,14 +12,21 @@ export function useSelectedPageReplay(args: {
   pageNo: number;
   queryClient: QueryClient;
 }) {
-  const replay = useOcrReplay({
+  const replay = useOcrReplay(selectedPageReplayRequest(args));
+  useReplayHydration(args.queryClient, replay.data);
+}
+
+export function selectedPageReplayRequest(args: {
+  enabled: boolean;
+  fileHash?: string;
+  pageNo: number;
+}) {
+  return {
     enabled: args.enabled,
     file_hash: args.fileHash,
     limit: 10_000,
     page_no: args.pageNo,
-    refetchInterval: args.enabled ? 1000 : false,
-  });
-  useReplayHydration(args.queryClient, replay.data);
+  };
 }
 
 function useReplayHydration(queryClient: QueryClient, replay: OcrReplayPayload | undefined) {

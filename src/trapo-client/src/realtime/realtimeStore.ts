@@ -23,14 +23,24 @@ export function setRealtimeConnectionState(
   connectionState: RealtimeConnectionState,
   lastError?: string,
 ) {
-  realtimeStore.setState((state) => ({ ...state, connectionState, lastError }));
+  realtimeStore.setState((state) =>
+    state.connectionState === connectionState && state.lastError === lastError
+      ? state
+      : { ...state, connectionState, lastError },
+  );
 }
 
 export function markRealtimeEvent(event: RealtimeEvent) {
-  realtimeStore.setState((state) => ({
-    ...state,
-    lastError: undefined,
-    lastEventAt: event.occurred_at,
-    lastSequence: event.sequence,
-  }));
+  realtimeStore.setState((state) =>
+    state.lastError === undefined &&
+    state.lastEventAt === event.occurred_at &&
+    state.lastSequence === event.sequence
+      ? state
+      : {
+          ...state,
+          lastError: undefined,
+          lastEventAt: event.occurred_at,
+          lastSequence: event.sequence,
+        },
+  );
 }

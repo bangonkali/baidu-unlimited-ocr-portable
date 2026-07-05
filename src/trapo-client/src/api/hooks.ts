@@ -37,7 +37,6 @@ export function useStatus() {
   return useQuery({
     queryFn: ({ signal }) => getJson<StatusPayload>('/api/status', signal),
     queryKey: queryKeys.status,
-    refetchInterval: 15000,
   });
 }
 

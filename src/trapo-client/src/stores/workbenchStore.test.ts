@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  followLatestPage,
   followLatestRegion,
   getWorkbenchSnapshot,
   hydrateWorkbenchUiSettings,
   setAutoFollowRegions,
+  setLabelsVisible,
+  setOverlayVisible,
   setSelection,
   setTheme,
   workbenchUiSettingsFromState,
@@ -66,6 +69,24 @@ describe('workbenchStore theme', () => {
     expect(getWorkbenchSnapshot().theme).toBe('light');
     setTheme('dark');
     expect(getWorkbenchSnapshot().theme).toBe('dark');
+  });
+});
+
+describe('workbenchStore no-op guards', () => {
+  test('keeps the same state object for no-op realtime selection and visibility updates', () => {
+    setAutoFollowRegions(true);
+    setSelection({ fileHash: 'file-a', pageNo: 3, regionId: undefined });
+
+    const selectionState = getWorkbenchSnapshot();
+    setSelection({ fileHash: 'file-a', pageNo: 3, regionId: undefined });
+    followLatestPage('file-a', 3);
+    expect(getWorkbenchSnapshot()).toBe(selectionState);
+
+    const visibilityState = getWorkbenchSnapshot();
+    setOverlayVisible(visibilityState.overlayVisible);
+    setLabelsVisible(visibilityState.labelsVisible);
+    setAutoFollowRegions(visibilityState.autoFollowRegions);
+    expect(getWorkbenchSnapshot()).toBe(visibilityState);
   });
 });
 

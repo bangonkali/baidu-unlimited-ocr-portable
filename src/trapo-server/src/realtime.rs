@@ -16,6 +16,7 @@ use tokio::sync::{broadcast, mpsc};
 use crate::storage::{Repository, StoredRealtimeEvent};
 
 const RECENT_OCR_EVENT_LIMIT: usize = 50_000;
+const REALTIME_BROADCAST_CHANNEL_LIMIT: usize = 16_384;
 const REALTIME_PERSIST_QUEUE_LIMIT: usize = 16_384;
 const REALTIME_PERSIST_BATCH_LIMIT: usize = 256;
 const REALTIME_PERSIST_FLUSH_MS: u64 = 50;
@@ -41,7 +42,7 @@ pub(crate) struct RealtimeHub {
 impl RealtimeHub {
     #[must_use]
     pub(crate) fn new() -> Arc<Self> {
-        let (sender, _) = broadcast::channel(512);
+        let (sender, _) = broadcast::channel(REALTIME_BROADCAST_CHANNEL_LIMIT);
         Arc::new(Self {
             sequence: AtomicU64::new(0),
             sender,
@@ -222,11 +223,16 @@ pub(crate) async fn websocket(mut socket: WebSocket, hub: Arc<RealtimeHub>) {
                 }
             }
             event = receiver.recv() => {
-                let Ok(event) = event else {
-                    continue;
-                };
-                if send_json(&mut socket, &event).await.is_err() {
-                    break;
+                match event {
+                    Ok(event) => {
+                        if send_json(&mut socket, &event).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        tracing::warn!(skipped, "websocket realtime receiver lagged");
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
         }
@@ -251,7 +257,6 @@ fn supported_event_types() -> Vec<&'static str> {
         "document.regions.changed",
         "document.text.changed",
         "ocr.page.stream.started",
-        "ocr.page.raw.delta",
         "ocr.page.text.patch",
         "ocr.page.region.upsert",
         "ocr.page.region.remove",

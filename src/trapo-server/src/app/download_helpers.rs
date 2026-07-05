@@ -1,3 +1,6 @@
+const MODEL_DOWNLOAD_PROGRESS_FLUSH_MS: u64 = 250;
+const MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES: u64 = 2 * 1024 * 1024;
+
 impl AppState {
     async fn bump_download_progress(
         &self,
@@ -7,13 +10,18 @@ impl AppState {
     ) -> Result<()> {
         let event = {
             let mut state = self.inner.state.lock().await;
+            let now = Instant::now();
+            let occurred_at = Utc::now().to_rfc3339();
             let snapshot = {
                 let Some(download) = state.downloads.get_mut(download_id) else {
                     return Ok(());
                 };
                 download.downloaded_bytes = downloaded;
                 download.total_bytes = Some(total);
-                download.last_event_at = Some(Utc::now().to_rfc3339());
+                if !should_publish_download_progress(download, downloaded, now) {
+                    return Ok(());
+                }
+                mark_download_progress_published(download, downloaded, now, occurred_at);
                 download.clone()
             };
             let event = download_owner_event(&self.inner.config.model_dir, &state, &snapshot);
@@ -127,6 +135,34 @@ impl AppState {
             tracing::warn!(%error, download_id = %download.download_id, "failed to persist download event");
         }
     }
+}
+
+fn should_publish_download_progress(
+    download: &DownloadState,
+    downloaded: u64,
+    now: Instant,
+) -> bool {
+    let Some(last_published_at) = download.last_progress_publish_at else {
+        return true;
+    };
+    if downloaded.saturating_sub(download.last_progress_publish_bytes)
+        >= MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES
+    {
+        return true;
+    }
+    now.checked_duration_since(last_published_at)
+        .is_none_or(|elapsed| elapsed.as_millis() >= u128::from(MODEL_DOWNLOAD_PROGRESS_FLUSH_MS))
+}
+
+fn mark_download_progress_published(
+    download: &mut DownloadState,
+    downloaded: u64,
+    now: Instant,
+    occurred_at: String,
+) {
+    download.last_progress_publish_at = Some(now);
+    download.last_progress_publish_bytes = downloaded;
+    download.last_event_at = Some(occurred_at);
 }
 
 fn download_owner_event(

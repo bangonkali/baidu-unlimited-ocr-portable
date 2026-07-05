@@ -207,11 +207,13 @@ fn recognize_on_worker(
     hub: &RealtimeHub,
 ) -> crate::ocr::OcrResult {
     let mut telemetry = OcrStreamTelemetry::new();
-    engine.recognize_image(image_path, max_tokens, |event| {
+    let result = engine.recognize_image(image_path, max_tokens, |event| {
         if let crate::ocr::OcrEvent::Token { text, index } = event {
             publish_token_events(hub, &request.context, &mut telemetry, &text, index);
         }
-    })
+    });
+    finish_token_events(hub, &request.context, &mut telemetry);
+    result
 }
 
 fn ocr_failure(message: impl Into<String>) -> crate::ocr::OcrResult {

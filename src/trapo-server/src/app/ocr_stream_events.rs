@@ -11,45 +11,103 @@ struct OcrStreamContext {
     accelerator: String,
 }
 
+const TEXT_PATCH_FLUSH_BYTES: usize = 4096;
+const TEXT_PATCH_FLUSH_MS: u64 = 150;
+
 struct OcrStreamTelemetry {
-    started: Instant,
     raw_text: String,
     raw_end: usize,
-    token_count: u64,
     emitted_region_ids: std::collections::HashSet<String>,
+    last_text_patch_at: Instant,
+    last_text_patch_len: usize,
+    pending_append: String,
+    pending_append_start: usize,
+    pending_replace: Option<String>,
 }
 
 impl OcrStreamTelemetry {
     fn new() -> Self {
+        let started = Instant::now();
         Self {
-            started: Instant::now(),
             raw_text: String::new(),
             raw_end: 0,
-            token_count: 0,
             emitted_region_ids: std::collections::HashSet::new(),
+            last_text_patch_at: started
+                .checked_sub(std::time::Duration::from_millis(TEXT_PATCH_FLUSH_MS))
+                .unwrap_or(started),
+            last_text_patch_len: 0,
+            pending_append: String::new(),
+            pending_append_start: 0,
+            pending_replace: None,
         }
     }
 
-    fn record(&mut self, text: &str, index: u64) -> OcrTokenTelemetry {
+    fn record(&mut self, text: &str) -> OcrTokenTelemetry {
         let raw_start = self.raw_end;
         self.raw_text.push_str(text);
         self.raw_end = self.raw_end.saturating_add(text.len());
-        self.token_count = self.token_count.max(index.saturating_add(1));
-        let elapsed_ms = elapsed_millis_u64(self.started);
-        OcrTokenTelemetry {
-            raw_start,
-            raw_end: self.raw_end,
-            elapsed_ms,
-            avg_tps: average_tps(self.token_count, elapsed_ms),
+        OcrTokenTelemetry { raw_start }
+    }
+
+    fn queue_text_patch(&mut self, token_text: &str, token_raw_start: usize, cleaned_text: String) {
+        if cleaned_text != self.raw_text {
+            self.pending_append.clear();
+            self.pending_replace = Some(cleaned_text);
+            return;
         }
+        if self.pending_replace.is_some() {
+            self.pending_replace = Some(cleaned_text);
+            return;
+        }
+        if self.pending_append.is_empty() {
+            self.pending_append_start = token_raw_start;
+        }
+        self.pending_append.push_str(token_text);
+    }
+
+    fn should_flush_text_patch(&self) -> bool {
+        self.pending_text_bytes() >= TEXT_PATCH_FLUSH_BYTES
+            || self.last_text_patch_at.elapsed()
+                >= std::time::Duration::from_millis(TEXT_PATCH_FLUSH_MS)
+    }
+
+    fn flush_text_patch(&mut self, hub: &RealtimeHub, context: &OcrStreamContext) {
+        if let Some(text) = self.pending_replace.take() {
+            let text_len = text.len();
+            let mut patch = stream_context_payload(context);
+            patch["op"] = json!("replace");
+            patch["start"] = json!(0);
+            patch["end"] = json!(self.last_text_patch_len);
+            patch["text"] = json!(text);
+            self.last_text_patch_len = text_len;
+            self.last_text_patch_at = Instant::now();
+            hub.publish("ocr.page.text.patch", patch);
+            return;
+        }
+        if self.pending_append.is_empty() {
+            return;
+        }
+        let text = std::mem::take(&mut self.pending_append);
+        let text_len = text.len();
+        let mut patch = stream_context_payload(context);
+        patch["op"] = json!("append");
+        patch["start"] = json!(self.pending_append_start);
+        patch["end"] = json!(self.pending_append_start);
+        patch["text"] = json!(text);
+        self.last_text_patch_len = self.last_text_patch_len.saturating_add(text_len);
+        self.last_text_patch_at = Instant::now();
+        hub.publish("ocr.page.text.patch", patch);
+    }
+
+    fn pending_text_bytes(&self) -> usize {
+        self.pending_replace
+            .as_ref()
+            .map_or_else(|| self.pending_append.len(), String::len)
     }
 }
 
 struct OcrTokenTelemetry {
     raw_start: usize,
-    raw_end: usize,
-    elapsed_ms: u64,
-    avg_tps: f64,
 }
 
 fn publish_token_events(
@@ -57,40 +115,29 @@ fn publish_token_events(
     context: &OcrStreamContext,
     telemetry: &mut OcrStreamTelemetry,
     text: &str,
-    index: u64,
+    _index: u64,
 ) {
-    let token = telemetry.record(text, index);
-    let mut raw_delta = stream_context_payload(context);
-    raw_delta["token_index"] = json!(index);
-    raw_delta["delta"] = json!(text);
-    raw_delta["raw_start"] = json!(token.raw_start);
-    raw_delta["raw_end"] = json!(token.raw_end);
-    raw_delta["elapsed_ms"] = json!(token.elapsed_ms);
-    raw_delta["avg_tps"] = json!(token.avg_tps);
-    hub.publish("ocr.page.raw.delta", raw_delta);
-
+    let token = telemetry.record(text);
     let parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
     let cleaned_text = if parsed.cleaned_text.is_empty() {
         telemetry.raw_text.clone()
     } else {
         parsed.cleaned_text
     };
-    let has_marker_cleanup = cleaned_text != telemetry.raw_text;
-    let mut text_patch = stream_context_payload(context);
-    if has_marker_cleanup {
-        text_patch["op"] = json!("replace");
-        text_patch["start"] = json!(0);
-        text_patch["end"] = json!(token.raw_end);
-        text_patch["text"] = json!(cleaned_text);
-    } else {
-        text_patch["op"] = json!("append");
-        text_patch["start"] = json!(token.raw_start);
-        text_patch["end"] = json!(token.raw_start);
-        text_patch["text"] = json!(text);
+    telemetry.queue_text_patch(text, token.raw_start, cleaned_text);
+    if telemetry.should_flush_text_patch() {
+        telemetry.flush_text_patch(hub, context);
     }
-    hub.publish("ocr.page.text.patch", text_patch);
 
     publish_region_events(hub, context, telemetry);
+}
+
+fn finish_token_events(
+    hub: &RealtimeHub,
+    context: &OcrStreamContext,
+    telemetry: &mut OcrStreamTelemetry,
+) {
+    telemetry.flush_text_patch(hub, context);
 }
 
 fn publish_region_events(
@@ -157,17 +204,6 @@ fn stream_terminal_payload(
     payload
 }
 
-#[allow(
-    clippy::cast_precision_loss,
-    reason = "telemetry rate is approximate and exported as f64"
-)]
-fn average_tps(token_count: u64, elapsed_ms: u64) -> f64 {
-    if token_count == 0 || elapsed_ms == 0 {
-        return 0.0;
-    }
-    token_count as f64 / (elapsed_ms as f64 / 1000.0)
-}
-
 #[cfg(test)]
 mod ocr_stream_events_tests {
     use super::*;
@@ -180,22 +216,16 @@ mod ocr_stream_events_tests {
 
         publish_token_events(&hub, &stream_context(), &mut telemetry, "Invoice", 0);
 
-        let raw = receiver.try_recv()?;
-        assert_eq!(raw.event_type, "ocr.page.raw.delta");
-        assert_eq!(raw.payload["run_id"], "run-a");
-        assert_eq!(raw.payload["file_hash"], "file-a");
-        assert_eq!(raw.payload["page_no"], 1);
-        assert_eq!(raw.payload["token_index"], 0);
-        assert_eq!(raw.payload["delta"], "Invoice");
-        assert_eq!(raw.payload["raw_start"], 0);
-        assert_eq!(raw.payload["raw_end"], 7);
-
         let patch = receiver.try_recv()?;
         assert_eq!(patch.event_type, "ocr.page.text.patch");
+        assert_eq!(patch.payload["run_id"], "run-a");
+        assert_eq!(patch.payload["file_hash"], "file-a");
+        assert_eq!(patch.payload["page_no"], 1);
         assert_eq!(patch.payload["op"], "append");
         assert_eq!(patch.payload["start"], 0);
         assert_eq!(patch.payload["end"], 0);
         assert_eq!(patch.payload["text"], "Invoice");
+        assert!(receiver.try_recv().is_err());
         Ok(())
     }
 
@@ -213,7 +243,6 @@ mod ocr_stream_events_tests {
             "A <|ref|>Total<|/ref|>",
             0,
         );
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
         let patch = receiver.try_recv()?;
         assert_eq!(patch.event_type, "ocr.page.text.patch");
         assert_eq!(patch.payload["op"], "replace");
@@ -227,8 +256,6 @@ mod ocr_stream_events_tests {
             "<|det|>[[0,0,999,100]]<|/det|>",
             1,
         );
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
         let span = receiver.try_recv()?;
         assert_eq!(span.event_type, "ocr.page.span.upsert");
         assert_eq!(span.payload["span"]["start"], 2);
@@ -239,8 +266,12 @@ mod ocr_stream_events_tests {
         assert_eq!(region.payload["region"]["page_no"], 1);
 
         publish_token_events(&hub, &context, &mut telemetry, " tail", 2);
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.raw.delta");
-        assert_eq!(receiver.try_recv()?.event_type, "ocr.page.text.patch");
+        assert!(receiver.try_recv().is_err());
+        finish_token_events(&hub, &context, &mut telemetry);
+        let patch = receiver.try_recv()?;
+        assert_eq!(patch.event_type, "ocr.page.text.patch");
+        assert_eq!(patch.payload["op"], "replace");
+        assert_eq!(patch.payload["text"], "A Total tail");
         assert!(receiver.try_recv().is_err());
         Ok(())
     }
