@@ -131,6 +131,29 @@ describe('realtime events', () => {
       ],
     });
   });
+
+  test('seeds preview image cache from page readiness events', () => {
+    const client = new QueryClient();
+
+    applyRealtimeEventToQueryClient(client, {
+      occurred_at: '2026-06-30T00:00:05Z',
+      payload: {
+        file_hash: 'abc',
+        page_no: 1,
+        preview_available: true,
+        status: 'queued',
+      },
+      sequence: 12,
+      type: 'document.page.changed',
+      version: 1,
+    });
+
+    expect(client.getQueryData(queryKeys.documentPreviewImages('abc'))).toEqual({
+      file_hash: 'abc',
+      pages: [1],
+      variants: ['source'],
+    });
+  });
 });
 
 describe('realtime OCR stream events', () => {

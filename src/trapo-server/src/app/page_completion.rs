@@ -134,5 +134,6 @@ fn completed_page_record(page_work: &PageWork<'_>, width_px: u32, height_px: u32
         "status": "completed",
         "width_px": width_px,
         "height_px": height_px,
+        "preview_available": true,
     })
 }

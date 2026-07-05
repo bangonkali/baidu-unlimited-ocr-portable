@@ -109,13 +109,11 @@ function applyPageEvent(
   if (event.payload.preview_available) {
     queryClient.setQueryData<PreviewImagesPayload>(
       queryKeys.documentPreviewImages(fileHash),
-      (current) =>
-        current
-          ? {
-              ...current,
-              pages: uniqueSortedNumbers([...current.pages, event.payload.page_no]),
-            }
-          : current,
+      (current) => ({
+        file_hash: fileHash,
+        variants: uniqueStrings([...(current?.variants ?? []), 'source']),
+        pages: uniqueSortedNumbers([...(current?.pages ?? []), event.payload.page_no]),
+      }),
     );
   }
 }
@@ -218,4 +216,8 @@ function sameQueryKey(left: readonly unknown[], right: readonly unknown[]) {
 
 function uniqueSortedNumbers(values: number[]) {
   return [...new Set(values)].sort((left, right) => left - right);
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }

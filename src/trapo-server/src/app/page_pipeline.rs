@@ -30,6 +30,8 @@ impl AppState {
                 "status": "running",
                 "width_px": page.width_px,
                 "height_px": page.height_px,
+                "dpi": page.render_dpi,
+                "preview_available": true,
             });
             let document_event = document_summary(document);
             drop(state);

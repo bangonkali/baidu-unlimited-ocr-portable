@@ -157,6 +157,11 @@ impl AppState {
         for page in &pages {
             self.inner.repository.upsert_page(page).await?;
         }
+        for page in &pages {
+            self.inner
+                .hub
+                .publish("document.page.changed", rendered_page_record(page));
+        }
         for (page_no, metadata) in page_diagnostics {
             self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
                 run_id,
