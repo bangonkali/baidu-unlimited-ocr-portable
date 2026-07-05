@@ -30,10 +30,12 @@ mod tests {
             return Err(AppError::Internal("model target is missing".to_string()));
         };
         let mut state = test_workbench_state(entry.model_id);
+        let download_id = new_persistence_id();
         state.downloads.insert(
-            target.download_id.clone(),
+            download_id.clone(),
             DownloadState {
-                download_id: target.download_id,
+                download_id,
+                download_key: target.download_key,
                 owner_kind: target.owner_kind,
                 owner_id: target.owner_id,
                 file_id: target.file_id,
@@ -73,10 +75,12 @@ mod tests {
             return Err(AppError::Internal("model target is missing".to_string()));
         };
         let mut state = test_workbench_state(entry.model_id);
+        let download_id = new_persistence_id();
         state.downloads.insert(
-            target.download_id.clone(),
+            download_id.clone(),
             DownloadState {
-                download_id: target.download_id,
+                download_id,
+                download_key: target.download_key,
                 owner_kind: target.owner_kind,
                 owner_id: target.owner_id,
                 file_id: target.file_id,
@@ -107,6 +111,7 @@ mod tests {
     fn download_progress_publication_is_coalesced_by_time_and_size() {
         let mut download = DownloadState {
             download_id: "download-a".to_string(),
+            download_key: "model:model-a:model".to_string(),
             owner_kind: "model".to_string(),
             owner_id: DEFAULT_MODEL_ID.to_string(),
             file_id: "model".to_string(),

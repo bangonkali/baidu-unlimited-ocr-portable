@@ -37,6 +37,7 @@ import type {
 } from '../../routeSearch';
 import type { ActiveView } from '../../stores/workbenchStore';
 import { useWorkbenchState } from '../../stores/workbenchStore';
+import { useDownloadModelWithPane } from './downloadsPaneContext';
 import { startOcrEntry } from './startOcrEntry';
 import { visibleTextPages } from './textPreviewPages';
 import { useModelRouteActions } from './useModelRouteActions';
@@ -219,9 +220,10 @@ function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContentActions
     searchText: args.searchText,
     workbench: args.workbench,
   });
+  const downloadModel = useDownloadModelWithPane(args.data.downloadModel);
   const commandController = useWorkbenchCommands({
     cancelModelDownload: args.data.cancelModelDownload,
-    downloadModel: args.data.downloadModel,
+    downloadModel,
     models: args.data.models.data,
     navigate: args.navigate,
     selectModel: args.data.selectModel,
@@ -237,7 +239,7 @@ function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContentActions
     cancelModelDownload: args.data.cancelModelDownload,
     changeProfile,
     commandController,
-    downloadModel: args.data.downloadModel,
+    downloadModel,
     ingestBusy: args.data.startIngest.isPending || args.data.folderDialog.isPending,
     modelBusy:
       args.data.downloadModel.isPending ||

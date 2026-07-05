@@ -21,6 +21,35 @@ describe('TraceableMarkdown', () => {
     expect(html).not.toContain('>Title B</button>');
   });
 
+  test('uses annotation ids for text anchor DOM identity', () => {
+    const annotationId = '019086c9-8b0d-79af-9c3d-95c0c221b7e2';
+    const html = renderToString(
+      <TraceableMarkdown
+        onRegionSelect={() => undefined}
+        page={{
+          page_no: 1,
+          spans: [
+            {
+              annotation_id: annotationId,
+              end: 7,
+              page_no: 1,
+              region_id: 'src_title',
+              start: 2,
+            },
+          ],
+          text: 'A Title B',
+        }}
+        regions={[region('src_title', { annotation_id: annotationId })]}
+        selectedRegionId={annotationId}
+      />,
+    );
+
+    expect(html).toContain(`data-annotation-id="${annotationId}"`);
+    expect(html).toContain(`id="annotation-text-${annotationId}"`);
+    expect(html).toContain('data-region-id="src_title"');
+    expect(html).toContain('data-active="true"');
+  });
+
   test('renders trusted OCR table markup as table elements without raw html injection', () => {
     const html = renderToString(
       <TraceableMarkdown

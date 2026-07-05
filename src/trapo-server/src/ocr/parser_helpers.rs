@@ -81,7 +81,7 @@ fn parse_box_points(raw: &str) -> Vec<BoxPoints> {
         .collect()
 }
 
-fn region_id_for(
+fn region_source_key_for(
     context: &ParseContext,
     segment: &MarkerSegment,
     box_points: &BoxPoints,
@@ -100,7 +100,7 @@ fn region_id_for(
         box_points.x2,
         box_points.y2
     );
-    region_hash_key([key])
+    format!("src_{}", &region_hash_key([key])[4..])
 }
 
 fn span_is_inside(start: usize, end: usize, segments: &[MarkerSegment]) -> bool {

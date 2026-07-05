@@ -31,6 +31,21 @@ region anchor, or at the end of the page text. This keeps bounding boxes,
 details-pane content, and text-preview navigation aligned even when the OCR text
 around a marker changes.
 
+## Annotation Identity Contract
+
+OCR region discovery assigns a persisted UUID v7 `annotation_id` as soon as a
+bounding box exists. This id is independent from geometry and later text content:
+the server can discover a box first, stream text later, and still attach every
+future text span, cropped snippet, overlay box, and persisted row to the same
+annotation identity.
+
+`source_region_key` is an internal deterministic lookup key used only to recover
+the same annotation identity during writes and migration. API payloads expose
+`annotation_id`, and the React workbench uses that value for text hashtag
+anchors, image-snippet anchors, PDF/image overlay boxes, selected-region state,
+DOM ids, and `data-annotation-id` attributes. `region_id` fallback support exists
+only for older payloads and local fixtures.
+
 Live OCR emits incremental events while a page runs:
 
 ```text

@@ -1,6 +1,8 @@
 import type { useNavigate } from '@tanstack/react-router';
 
-import type { ModelRouteSearch } from '../../routeSearch';
+import type { ModelRouteSearch, RootRouteSearch } from '../../routeSearch';
+
+type ModelSearchWithRoot = ModelRouteSearch & RootRouteSearch;
 
 export function useModelRouteActions(
   navigate: ReturnType<typeof useNavigate>,
@@ -8,7 +10,7 @@ export function useModelRouteActions(
   modelSearch?: ModelRouteSearch,
 ) {
   const updateModelRouteSearch = (patch: Partial<ModelRouteSearch>) => {
-    const nextSearch: ModelRouteSearch = { ...modelSearch, ...patch };
+    const nextSearch: ModelSearchWithRoot = { ...modelSearch, ...patch };
     if (modelScope === 'downloads') {
       void navigate({ search: nextSearch, to: '/models/downloads' });
       return;
@@ -16,8 +18,12 @@ export function useModelRouteActions(
     void navigate({ search: nextSearch, to: '/models' });
   };
   const changeModelScope = (scope: 'library' | 'downloads') => {
+    const nextSearch: ModelSearchWithRoot = {
+      ...modelSearch,
+      downloads: scope === 'downloads' ? true : undefined,
+    };
     void navigate({
-      search: modelSearch ?? {},
+      search: nextSearch,
       to: scope === 'downloads' ? '/models/downloads' : '/models',
     });
   };

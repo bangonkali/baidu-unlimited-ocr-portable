@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouterContextProvider } from '@tanstack/react-router';
 
 import { DetailsPane } from '../features/workbench/DetailsPane';
 import { DiagnosticsPanel } from '../features/workbench/DiagnosticsPanel';
@@ -11,6 +12,7 @@ import { PreviewPane } from '../features/workbench/PreviewPane';
 import { SettingsPanel } from '../features/workbench/SettingsPanel';
 import { StartHere } from '../features/workbench/StartHere';
 import { TextPane } from '../features/workbench/TextPane';
+import { router } from '../router';
 import {
   fixtureBoxes,
   fixtureDocuments,
@@ -24,6 +26,13 @@ import {
 import './storybook.css';
 
 const meta = {
+  decorators: [
+    (Story) => (
+      <RouterContextProvider router={router}>
+        <Story />
+      </RouterContextProvider>
+    ),
+  ],
   title: 'Workbench/Surfaces',
 } satisfies Meta;
 

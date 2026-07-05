@@ -7,6 +7,7 @@
  */
 
 export interface TextRegionSpan {
+  annotation_id: string;
   /** @minimum 0 */
   end: number;
   /** @minimum 0 */

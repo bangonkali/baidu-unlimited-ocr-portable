@@ -1,5 +1,6 @@
 import { Store, useStore } from '@tanstack/react-store';
 
+import { annotationIdOf } from '../api/annotationIdentity';
 import type { OverlayBox, WorkbenchUiSettings, WorkbenchUiSettingsPatch } from '../api/types';
 
 interface WorkbenchSelection {
@@ -110,7 +111,7 @@ export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
       ...state.selection,
       fileHash,
       pageNo: latest.page_no,
-      regionId: latest.region_id,
+      regionId: annotationIdOf(latest),
     };
     return state.activeView === 'workbench' && sameSelection(state.selection, selection)
       ? state

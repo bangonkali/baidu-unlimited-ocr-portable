@@ -71,7 +71,11 @@ fn model_files(
     model_download_targets(model_dir, entry)
         .into_iter()
         .map(|target| {
-            let download = state.downloads.get(&target.download_id);
+            let download = state
+                .downloads
+                .values()
+                .filter(|item| item.download_key == target.download_key)
+                .max_by_key(|item| item.last_event_at.clone());
             let exists = file_is_present(&target.target_path);
             let status = file_status(exists, download);
             let downloaded = if exists {

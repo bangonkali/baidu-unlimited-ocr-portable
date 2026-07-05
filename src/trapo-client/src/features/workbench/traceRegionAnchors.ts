@@ -1,3 +1,4 @@
+import { annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox, PageTextRecord, TextRegionSpan } from '../../api/types';
 
 export interface RegionAnchor {
@@ -36,8 +37,9 @@ export function regionAnchors(page: PageTextRecord): RegionAnchor[] {
   const byteLength = utf8ByteLength(page.text);
   const unique = new Map<string, RegionAnchor>();
   for (const span of sortedSpans(page.spans)) {
-    if (span.start <= byteLength && !unique.has(span.region_id)) {
-      unique.set(span.region_id, spanAnchor(span));
+    const annotationId = annotationIdOf(span);
+    if (span.start <= byteLength && !unique.has(annotationId)) {
+      unique.set(annotationId, spanAnchor(span));
     }
   }
   return [...unique.values()];
@@ -53,7 +55,7 @@ export function indexedRegionAnchors(text: string, anchors: RegionAnchor[]): Ind
 }
 
 export function overlayRegionMap(regions: OverlayBox[]) {
-  return new Map(regions.map((region) => [region.region_id, region]));
+  return new Map(regions.map((region) => [annotationIdOf(region), region]));
 }
 
 export function regionIdFromHref(href?: string) {
@@ -76,7 +78,7 @@ export function snippetFromRegion(region?: OverlayBox) {
 
 export function scopedRegionText(pages: PageTextRecord[], regionId: string) {
   for (const page of pages) {
-    const span = page.spans.find((item) => item.region_id === regionId);
+    const span = page.spans.find((item) => annotationIdOf(item) === regionId);
     if (!span || span.start > utf8ByteLength(page.text)) {
       continue;
     }
@@ -98,7 +100,7 @@ function nextSpanStart(spans: TextRegionSpan[], currentStart: number) {
 function spanAnchor(span: TextRegionSpan): RegionAnchor {
   return {
     pageNo: span.page_no,
-    regionId: span.region_id,
+    regionId: annotationIdOf(span),
     start: span.start,
   };
 }

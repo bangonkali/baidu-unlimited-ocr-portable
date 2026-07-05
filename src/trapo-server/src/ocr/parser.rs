@@ -15,15 +15,19 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
         let clean_start = usize_to_u64_saturating(parsed.cleaned_text.len());
         parsed.cleaned_text.push_str(&segment.label);
         for box_points in &segment.boxes {
-            let region_id = region_id_for(context, segment, box_points);
+            let source_region_key = region_source_key_for(context, segment, box_points);
             parsed.spans.push(TextRegionSpan {
-                region_id: region_id.clone(),
+                annotation_id: source_region_key.clone(),
+                region_id: source_region_key.clone(),
+                source_region_key: source_region_key.clone(),
                 page_no: context.page_no,
                 start: clean_start,
                 end: clean_start,
             });
             parsed.boxes.push(OverlayBox {
-                region_id,
+                annotation_id: source_region_key.clone(),
+                region_id: source_region_key.clone(),
+                source_region_key,
                 label: segment.label.clone(),
                 content_markdown: segment.label.clone(),
                 content_html: None,
@@ -51,7 +55,7 @@ pub(crate) fn apply_region_content(parsed: &mut ParsedOcrPage) {
         if let Some(span) = parsed
             .spans
             .iter()
-            .find(|span| span.region_id == item.region_id)
+            .find(|span| span.source_region_key == item.source_region_key)
         {
             let start = u64_to_usize_saturating(span.start);
             let end = next_scope_end(span.start, &scope_boundaries, parsed.cleaned_text.len());

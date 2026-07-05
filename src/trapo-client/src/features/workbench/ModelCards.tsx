@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { ShieldCheck, ShieldOff, Star } from 'lucide-react';
 
 import type { ModelAssetRecord } from '../../api/types';
@@ -56,7 +57,9 @@ function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAs
             ) : null}
           </div>
           <h3>
-            <a href={`/models/${encodeURIComponent(model.model_id)}`}>{model.display_name}</a>
+            <Link params={{ modelId: model.model_id }} to="/models/$modelId">
+              {model.display_name}
+            </Link>
           </h3>
           <p>{model.quality ?? model.status_message ?? statusText(model.status)}</p>
         </div>

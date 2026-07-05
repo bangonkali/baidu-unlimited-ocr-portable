@@ -3,6 +3,7 @@ import type {
   DiagnosticsRouteSearch,
   IngestRouteSearch,
   ModelRouteSearch,
+  RootRouteSearch,
   SettingsRouteSearch,
   WorkbenchRouteSearch,
 } from '../../routeSearch';
@@ -18,14 +19,20 @@ export type CommandIconName =
   | 'settings'
   | 'theme';
 
+type RouteSearchWithRoot<TSearch> = TSearch & RootRouteSearch;
+
 export type CommandRouteTarget =
-  | { to: '/diagnostics'; search?: DiagnosticsRouteSearch }
-  | { to: '/ingest/start'; search?: IngestRouteSearch }
-  | { to: '/models'; search?: ModelRouteSearch }
-  | { to: '/models/$modelId'; params: { modelId: string }; search?: ModelRouteSearch }
-  | { to: '/models/downloads'; search?: ModelRouteSearch }
-  | { to: '/settings'; search?: SettingsRouteSearch }
-  | { to: '/workbench'; search?: WorkbenchRouteSearch };
+  | { to: '/diagnostics'; search?: RouteSearchWithRoot<DiagnosticsRouteSearch> }
+  | { to: '/ingest/start'; search?: RouteSearchWithRoot<IngestRouteSearch> }
+  | { to: '/models'; search?: RouteSearchWithRoot<ModelRouteSearch> }
+  | {
+      to: '/models/$modelId';
+      params: { modelId: string };
+      search?: RouteSearchWithRoot<ModelRouteSearch>;
+    }
+  | { to: '/models/downloads'; search?: RouteSearchWithRoot<ModelRouteSearch> }
+  | { to: '/settings'; search?: RouteSearchWithRoot<SettingsRouteSearch> }
+  | { to: '/workbench'; search?: RouteSearchWithRoot<WorkbenchRouteSearch> };
 
 export type AppCommandAction =
   | { kind: 'cancelModelDownload'; modelId: string }
@@ -93,7 +100,7 @@ function navigationCommands(): AppCommand[] {
       to: '/models',
     }),
     nav('nav.downloads', 'Active Downloads', 'Show queued and in-progress file downloads.', {
-      search: { status: 'all' },
+      search: { downloads: true, status: 'all' },
       to: '/models/downloads',
     }),
     nav('nav.ingest', 'Start Ingest', 'Configure a folder scan and OCR run.', {

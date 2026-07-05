@@ -59,11 +59,22 @@ future file download operations. The model manager starts, cancels, re-downloads
 or selects a model, while the separate Download Manager shows only queued or
 in-progress files.
 
-`/models/downloads` is the active-downloads route. It opens the Models surface in
-a queue-focused scope and automatically opens the Download Manager. Missing,
-failed, cancelled, or already downloaded files stay in the main `/models`
-library, similar to Chrome's split between the active download tray and the full
-downloads list.
+The Download Manager is root-level UI, not a child of the Models page. The
+global `downloads=true` query parameter controls whether the pane is visible and
+must be retained across every TanStack route. The status bar owns the always
+visible toggle, so users can open or close download progress from `/workbench`,
+`/ingest/start`, `/models`, `/settings`, `/diagnostics`, or any future page.
+
+Starting a model download or re-download opens `?downloads=true` immediately so
+progress is visible while the server queues files and realtime model updates
+arrive. Realtime or refetched model data also opens the pane when the active file
+count increases, which covers downloads started outside the current component.
+
+`/models/downloads` remains the active-downloads route. It opens the Models
+surface in a queue-focused scope and sets `downloads=true`, but it does not own
+the pane. Missing, failed, cancelled, or already downloaded files stay in the
+main `/models` library, similar to Chrome's split between the active download
+tray and the full downloads list.
 
 Download start, completion, cancellation, and failure events are recorded in
 DuckDB `download_events`. Runtime status still comes from the filesystem first:

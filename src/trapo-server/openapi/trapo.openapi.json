@@ -2848,6 +2848,7 @@
         "type": "object",
         "required": [
           "region_id",
+          "annotation_id",
           "label",
           "content_markdown",
           "page_no",
@@ -2858,6 +2859,9 @@
           "hidden"
         ],
         "properties": {
+          "annotation_id": {
+            "type": "string"
+          },
           "content_html": {
             "type": [
               "string",
@@ -2953,12 +2957,16 @@
       "RealtimeEventRecord": {
         "type": "object",
         "required": [
+          "event_id",
           "sequence",
           "type",
           "occurred_at",
           "payload"
         ],
         "properties": {
+          "event_id": {
+            "type": "string"
+          },
           "file_hash": {
             "type": [
               "string",
@@ -3222,11 +3230,15 @@
         "type": "object",
         "required": [
           "region_id",
+          "annotation_id",
           "page_no",
           "start",
           "end"
         ],
         "properties": {
+          "annotation_id": {
+            "type": "string"
+          },
           "end": {
             "type": "integer",
             "format": "int64",

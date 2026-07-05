@@ -179,8 +179,8 @@ function useTextAutoScroll(
 }
 
 function findTraceElement(root: HTMLElement, regionId: string) {
-  return [...root.querySelectorAll<HTMLElement>('[data-region-id]')].find(
-    (element) => element.dataset.regionId === regionId,
+  return [...root.querySelectorAll<HTMLElement>('[data-annotation-id], [data-region-id]')].find(
+    (element) => element.dataset.annotationId === regionId || element.dataset.regionId === regionId,
   );
 }
 

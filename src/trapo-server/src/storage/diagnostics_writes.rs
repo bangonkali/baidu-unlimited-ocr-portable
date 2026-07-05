@@ -9,7 +9,7 @@ impl Repository {
                     engine, provider, model, profile, execution_key, artifact_variant, metadata_json
                  )
                  VALUES (?, ?, ?, ?, 'planned', current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(work_unit_id) DO UPDATE SET
+                 ON CONFLICT(run_id, work_key) DO UPDATE SET
                     file_hash = excluded.file_hash, page_no = excluded.page_no,
                     work_key = excluded.work_key, phase = excluded.phase, engine = excluded.engine,
                     provider = excluded.provider, model = excluded.model, profile = excluded.profile,
@@ -177,7 +177,7 @@ impl Repository {
         lease: &DiagnosticModelLeaseInsert,
     ) -> Result<()> {
         let lease = lease.clone();
-        let lease_id = format!("{}:{}", lease.run_id, lease.execution_key);
+        let lease_id = new_persistence_id();
         let started_at = Utc::now().to_rfc3339();
         let metadata = lease.metadata.to_string();
         self.with_write(move |conn| {
@@ -187,7 +187,7 @@ impl Repository {
                     status, started_at, metadata_json
                  )
                  VALUES (?, ?, ?, current_timestamp, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(lease_id) DO UPDATE SET
+                 ON CONFLICT(run_id, execution_key) DO UPDATE SET
                     status = excluded.status, metadata_json = excluded.metadata_json",
                 params![
                     lease_id.as_str(),

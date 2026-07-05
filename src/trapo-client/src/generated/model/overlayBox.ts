@@ -7,6 +7,7 @@
  */
 
 export interface OverlayBox {
+  annotation_id: string;
   /** @nullable */
   content_html?: string | null;
   content_markdown: string;

@@ -1,6 +1,6 @@
 import type { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
-
+import { annotationIdOf } from '../../api/annotationIdentity';
 import { queryKeys } from '../../api/hooks';
 import type {
   DocumentRegionsPayload,
@@ -16,6 +16,7 @@ import {
   hydrateWorkbenchUiSettings,
   setSelectedProfile,
 } from '../../stores/workbenchStore';
+import { useDownloadsPane } from './downloadsPaneContext';
 import { StatusBar } from './StatusBar';
 
 export function selectedModel(models?: ModelsPayload) {
@@ -50,7 +51,7 @@ export function useAutoFollowLatestRegion(
     if (!enabled || !regions || !latestRegion) {
       return;
     }
-    if (workbench.selection.regionId === latestRegion.region_id) {
+    if (workbench.selection.regionId === annotationIdOf(latestRegion)) {
       return;
     }
     followLatestRegion(regions.file_hash, regions.boxes);
@@ -66,11 +67,15 @@ export function WorkbenchFooter(props: {
   runtimePlatform?: string;
   selectedRoot: string;
 }) {
+  const downloadsPane = useDownloadsPane();
   return (
     <StatusBar
+      downloadsActiveCount={downloadsPane.activeFileCount}
+      downloadsOpen={downloadsPane.isOpen}
       documentCount={props.documentCount}
       host={window.location.host}
       logPath={props.logPath}
+      onDownloadsToggle={downloadsPane.toggle}
       realtimeState={props.realtimeState}
       runState={props.runState}
       runtime={`${props.runtimePlatform ?? 'windows-x86_64-cuda13'} / ${

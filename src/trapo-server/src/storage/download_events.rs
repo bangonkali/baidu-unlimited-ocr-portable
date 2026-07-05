@@ -3,14 +3,15 @@ impl Repository {
         let event = event.clone();
         self.with_write(move |conn| {
             conn.execute(
-                "INSERT INTO download_events(event_id, download_id, owner_kind, owner_id, file_id,
+                "INSERT INTO download_events(event_id, download_id, download_key, owner_kind, owner_id, file_id,
                   file_name, target_path, source_url, event_type, status, downloaded_bytes,
                   total_bytes, error, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(event_id) DO NOTHING",
                 params![
                     event.event_id.as_str(),
                     event.download_id.as_str(),
+                    event.download_key.as_str(),
                     event.owner_kind.as_str(),
                     event.owner_id.as_str(),
                     event.file_id.as_str(),

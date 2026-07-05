@@ -7,7 +7,7 @@ struct DiagnosticSpanScope {
 impl DiagnosticSpanScope {
     fn start() -> Self {
         Self {
-            span_id: uuid::Uuid::new_v4().to_string(),
+            span_id: new_persistence_id(),
             started_at: Utc::now().to_rfc3339(),
             started: Instant::now(),
         }
@@ -78,7 +78,7 @@ impl AppState {
     ) {
         let repository = self.inner.repository.clone();
         let event = DiagnosticEventInsert {
-            event_id: uuid::Uuid::new_v4().to_string(),
+            event_id: new_persistence_id(),
             trace_id: run_id.to_string(),
             span_id: None,
             run_id: Some(run_id.to_string()),
@@ -99,13 +99,13 @@ impl AppState {
     }
 
     fn upsert_diagnostic_work_unit(&self, draft: DiagnosticWorkUnitDraft<'_>) -> String {
-        let work_unit_id =
-            diagnostic_work_unit_id(draft.run_id, draft.file_hash, draft.page_no, draft.phase);
+        let work_key =
+            diagnostic_work_key(draft.run_id, draft.file_hash, draft.page_no, draft.phase);
         let repository = self.inner.repository.clone();
         let unit = WorkUnitUpsert {
-            work_unit_id: work_unit_id.clone(),
+            work_unit_id: new_persistence_id(),
             run_id: draft.run_id.to_string(),
-            work_key: work_unit_id.clone(),
+            work_key: work_key.clone(),
             file_hash: Some(draft.file_hash.to_string()),
             page_no: draft.page_no,
             phase: draft.phase.to_string(),
@@ -122,7 +122,7 @@ impl AppState {
                 tracing::warn!(%error, "failed to persist diagnostic work unit");
             }
         });
-        work_unit_id
+        work_key
     }
 
     fn start_diagnostic_work_unit(&self, run_id: &str, work_key: &str) {
@@ -194,7 +194,7 @@ struct ModelLeaseDiagnostic<'a> {
     error: Option<&'a str>,
 }
 
-fn diagnostic_work_unit_id(
+fn diagnostic_work_key(
     run_id: &str,
     file_hash: &str,
     page_no: Option<u32>,

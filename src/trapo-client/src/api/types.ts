@@ -235,6 +235,7 @@ export interface DocumentRegionsPayload {
 }
 
 export interface OverlayBox {
+  annotation_id?: string;
   region_id: string;
   label: string;
   content_markdown?: string;
@@ -248,6 +249,7 @@ export interface OverlayBox {
 }
 
 export interface TextRegionSpan {
+  annotation_id?: string;
   region_id: string;
   page_no: number;
   start: number;
@@ -270,13 +272,6 @@ export interface FolderDialogResponse {
   selected_path: string;
   manual_path_supported: boolean;
   error?: string;
-}
-
-export interface AnnotationSettingsPayload {
-  show_boxes: boolean;
-  show_labels: boolean;
-  box_color: string;
-  active_box_color: string;
 }
 
 export interface PreviewImagesPayload {

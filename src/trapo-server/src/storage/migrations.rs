@@ -190,56 +190,37 @@ CREATE INDEX IF NOT EXISTS idx_ocr_page_metrics_model_runtime ON ocr_page_metric
         name: "diagnostics_replay_and_download_queue",
         sql: r"
 CREATE TABLE IF NOT EXISTS ocr_stream_events (
-  sequence UBIGINT PRIMARY KEY, event_type TEXT NOT NULL, occurred_at TEXT NOT NULL,
+  event_id TEXT PRIMARY KEY, sequence UBIGINT NOT NULL UNIQUE,
+  event_type TEXT NOT NULL, occurred_at TEXT NOT NULL,
   run_id TEXT, file_hash TEXT, page_no INTEGER, payload_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ocr_stream_events_scope ON ocr_stream_events(run_id, file_hash, page_no, sequence);
 CREATE INDEX IF NOT EXISTS idx_ocr_stream_events_file_page ON ocr_stream_events(file_hash, page_no, sequence);
-
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS trace_id TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS file_hash TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS page_no INTEGER;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS pipeline_step TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS category TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS annotation_engine TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok';
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS ended_at TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS duration_ms DOUBLE DEFAULT 0;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS attributes_json TEXT DEFAULT '{}';
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_type TEXT;
-ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_message TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS trace_id TEXT; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS file_hash TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS page_no INTEGER; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS pipeline_step TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS category TEXT; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS annotation_engine TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok'; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS ended_at TEXT;
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS duration_ms DOUBLE DEFAULT 0; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS attributes_json TEXT DEFAULT '{}';
+ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_type TEXT; ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_message TEXT;
 ALTER TABLE ingest_diagnostic_spans ADD COLUMN IF NOT EXISTS error_stack TEXT;
-
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS trace_id TEXT;
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS file_hash TEXT;
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS page_no INTEGER;
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS timestamp TEXT;
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'log';
-ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS trace_id TEXT; ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS file_hash TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS page_no INTEGER; ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS timestamp TEXT;
+ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'log'; ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS severity TEXT;
 ALTER TABLE ingest_diagnostic_events ADD COLUMN IF NOT EXISTS attributes_json TEXT DEFAULT '{}';
 
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS work_key TEXT;
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'ocr';
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS engine TEXT DEFAULT 'unlimited-ocr-ffi';
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS model TEXT DEFAULT '';
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS profile TEXT;
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT '';
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS artifact_variant TEXT;
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS attempt_count INTEGER DEFAULT 0;
-ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS duration_ms DOUBLE;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS work_key TEXT; ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS phase TEXT DEFAULT 'ocr';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS engine TEXT DEFAULT 'unlimited-ocr-ffi'; ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS model TEXT DEFAULT ''; ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS profile TEXT;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT ''; ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS artifact_variant TEXT;
+ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS attempt_count INTEGER DEFAULT 0; ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS duration_ms DOUBLE;
 ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS result_json TEXT DEFAULT '{}';
 ALTER TABLE ingest_work_units ADD COLUMN IF NOT EXISTS metadata_json TEXT DEFAULT '{}';
 
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT '';
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS model TEXT DEFAULT '';
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS requested_context_tokens INTEGER;
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS verified_context_tokens INTEGER;
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok';
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS started_at TEXT;
-ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS finished_at TEXT;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS execution_key TEXT DEFAULT ''; ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'local';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS model TEXT DEFAULT ''; ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS requested_context_tokens INTEGER;
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS verified_context_tokens INTEGER; ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'ok';
+ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS started_at TEXT; ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS finished_at TEXT;
 ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS duration_ms DOUBLE;
 ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS error TEXT;
 ALTER TABLE ingest_model_leases ADD COLUMN IF NOT EXISTS metadata_json TEXT DEFAULT '{}';
@@ -268,14 +249,52 @@ CREATE INDEX IF NOT EXISTS idx_ingest_run_documents_run ON ingest_run_documents(
         name: "download_events",
         sql: r"
 CREATE TABLE IF NOT EXISTS download_events (
-  event_id TEXT PRIMARY KEY, download_id TEXT NOT NULL, owner_kind TEXT NOT NULL,
-  owner_id TEXT NOT NULL, file_id TEXT NOT NULL, file_name TEXT NOT NULL,
-  target_path TEXT NOT NULL, source_url TEXT NOT NULL, event_type TEXT NOT NULL,
-  status TEXT NOT NULL, downloaded_bytes UBIGINT NOT NULL DEFAULT 0,
-  total_bytes UBIGINT, error TEXT, created_at TEXT NOT NULL
+  event_id TEXT PRIMARY KEY, download_id TEXT NOT NULL, download_key TEXT NOT NULL DEFAULT '', owner_kind TEXT NOT NULL,
+  owner_id TEXT NOT NULL, file_id TEXT NOT NULL, file_name TEXT NOT NULL, target_path TEXT NOT NULL,
+  source_url TEXT NOT NULL, event_type TEXT NOT NULL, status TEXT NOT NULL,
+  downloaded_bytes UBIGINT NOT NULL DEFAULT 0, total_bytes UBIGINT, error TEXT, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_download_events_download ON download_events(download_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_kind, owner_id, created_at);
+",
+    },
+    Migration {
+        id: 10,
+        name: "uuid_v7_identity_and_annotations",
+        sql: r"
+CREATE TABLE IF NOT EXISTS persistence_id_migrations (
+  id_kind TEXT NOT NULL, old_id TEXT NOT NULL, new_id TEXT NOT NULL, migrated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+  PRIMARY KEY (id_kind, old_id)
+);
+
+CREATE TABLE IF NOT EXISTS document_annotation_identities (
+  annotation_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  engine_id TEXT NOT NULL, profile_id TEXT NOT NULL, source_region_key TEXT NOT NULL, discovery_index INTEGER NOT NULL,
+  label TEXT NOT NULL, bbox_kind TEXT NOT NULL DEFAULT 'TOPLEFT_NORMALIZED_0_999',
+  x1 DOUBLE NOT NULL, y1 DOUBLE NOT NULL, x2 DOUBLE NOT NULL, y2 DOUBLE NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp, updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_annotation_identity_source ON document_annotation_identities(run_id, file_hash, page_no, source_region_key);
+CREATE INDEX IF NOT EXISTS idx_annotation_identity_file_page ON document_annotation_identities(file_hash, page_no);
+
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS annotation_id TEXT;
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS source_region_key TEXT;
+UPDATE document_regions SET annotation_id = region_id WHERE annotation_id IS NULL OR annotation_id = '';
+UPDATE document_regions SET source_region_key = region_id WHERE source_region_key IS NULL OR source_region_key = '';
+
+ALTER TABLE document_text_region_links ADD COLUMN IF NOT EXISTS annotation_id TEXT;
+UPDATE document_text_region_links SET annotation_id = region_id WHERE annotation_id IS NULL OR annotation_id = '';
+
+ALTER TABLE download_events ADD COLUMN IF NOT EXISTS download_key TEXT DEFAULT '';
+UPDATE download_events SET download_key = download_id WHERE download_key IS NULL OR download_key = '';
+
+ALTER TABLE ocr_stream_events ADD COLUMN IF NOT EXISTS event_id TEXT;
+UPDATE ocr_stream_events SET event_id = CAST(sequence AS VARCHAR)
+WHERE event_id IS NULL OR event_id = '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ocr_stream_events_event_id ON ocr_stream_events(event_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_work_units_run_work_key ON ingest_work_units(run_id, work_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_model_leases_run_execution_key ON ingest_model_leases(run_id, execution_key);
 ",
     },
 ];

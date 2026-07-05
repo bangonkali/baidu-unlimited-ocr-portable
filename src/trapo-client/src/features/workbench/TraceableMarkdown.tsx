@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import type { Components } from 'react-markdown';
 
+import { annotationDomId } from '../../api/annotationIdentity';
 import type { OverlayBox, PageTextRecord } from '../../api/types';
 import { MarkdownWithHtmlTables } from './HtmlTableMarkdown';
 import styles from './TextPane.module.css';
@@ -141,13 +142,16 @@ function regionAnchorButton({
   selectedRegionId?: string;
 }) {
   const snippet = snippetFromRegion(region);
+  const sourceRegionId = region?.region_id ?? regionId;
   return (
     <span className={styles.anchorBundle} key={key}>
       <button
         aria-label={`Region ${region?.label || regionId}`}
         className={styles.regionAnchor}
         data-active={selectedRegionId === regionId}
-        data-region-id={regionId}
+        data-annotation-id={regionId}
+        data-region-id={sourceRegionId}
+        id={annotationDomId('annotation-text', regionId)}
         onClick={() => onRegionSelect(pageNo, regionId)}
         title={region?.label || regionId}
         type="button"
@@ -155,12 +159,21 @@ function regionAnchorButton({
         {REGION_MARKER}
       </button>
       {snippet ? (
-        <img
-          alt={snippet.alt || region?.label || 'Region snippet'}
-          className={styles.regionSnippet}
-          loading="lazy"
-          src={snippet.src}
-        />
+        <button
+          aria-label={`Focus region image ${region?.label || regionId}`}
+          className={styles.regionSnippetButton}
+          data-annotation-id={regionId}
+          data-region-id={sourceRegionId}
+          onClick={() => onRegionSelect(pageNo, regionId)}
+          type="button"
+        >
+          <img
+            alt={snippet.alt || region?.label || 'Region snippet'}
+            className={styles.regionSnippet}
+            loading="lazy"
+            src={snippet.src}
+          />
+        </button>
       ) : null}
     </span>
   );

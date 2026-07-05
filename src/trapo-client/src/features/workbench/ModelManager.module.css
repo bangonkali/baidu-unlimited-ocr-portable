@@ -121,8 +121,7 @@
 
 .segmented button,
 .directionButton,
-.routeLink,
-.iconButton {
+.routeLink {
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -140,15 +139,9 @@
 
 .segmented button[aria-pressed="true"],
 .directionButton:hover,
-.routeLink:hover,
-.iconButton:hover {
+.routeLink:hover {
   background: var(--panel-3);
   border-color: var(--border);
-}
-
-.iconButton {
-  width: 28px;
-  padding: 0;
 }
 
 .actions,

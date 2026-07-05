@@ -158,11 +158,26 @@
   display: block;
   max-width: min(100%, 420px);
   max-height: 260px;
-  margin: 6px 0 10px;
+  margin: 0;
   object-fit: contain;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+.regionSnippetButton {
+  display: block;
+  max-width: min(100%, 420px);
+  padding: 0;
+  margin: 6px 0 10px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.regionSnippetButton:hover .regionSnippet,
+.regionSnippetButton:focus-visible .regionSnippet {
+  border-color: var(--accent);
 }
 
 .headerIcon,

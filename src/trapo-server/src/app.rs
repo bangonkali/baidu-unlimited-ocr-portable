@@ -2,7 +2,7 @@ use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::Instant,
 };
 
 use chrono::Utc;
@@ -17,6 +17,7 @@ use crate::{
     },
     config::ServerConfig,
     error::{AppError, Result},
+    ids::{is_uuid_v7, new_persistence_id},
     logger::AppLogger,
     pdf::{PdfRenderer, RenderedPage, is_pdf},
     realtime::RealtimeHub,
@@ -25,10 +26,11 @@ use crate::{
         DiscoveredFile, SUPPORTED_INPUTS, discover_supported_files, generic_path, stable_hash,
     },
     storage::{
-        DiagnosticEventInsert, DiagnosticEventRow, DiagnosticModelLeaseInsert,
-        DiagnosticModelLeaseRow, DiagnosticRunRow, DiagnosticSpanInsert, DiagnosticSpanRow,
-        DiagnosticTraceFilter, DiagnosticWorkUnitRow, DownloadEventInsert, OcrPageMetrics,
-        Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
+        AnnotationIdentityDraft, DiagnosticEventInsert, DiagnosticEventRow,
+        DiagnosticModelLeaseInsert, DiagnosticModelLeaseRow, DiagnosticRunRow,
+        DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
+        DownloadEventInsert, OcrPageMetrics, Repository, StoredDocument, StoredPage,
+        StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
     },
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
@@ -132,6 +134,7 @@ pub(crate) struct PageState {
 #[derive(Debug, Clone)]
 struct DownloadState {
     download_id: String,
+    download_key: String,
     owner_kind: String,
     owner_id: String,
     file_id: String,

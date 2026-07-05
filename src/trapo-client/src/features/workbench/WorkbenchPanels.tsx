@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-
+import { annotationIdOf } from '../../api/annotationIdentity';
 import type {
   DocumentSummary,
   IngestRunRecord,
@@ -44,10 +44,10 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
   const explorerRef = useRef<ImperativePanelHandle>(null);
   const detailsRef = useRef<ImperativePanelHandle>(null);
   const selectedRegion = props.regions.find(
-    (region) => region.region_id === props.workbench.selection.regionId,
+    (region) => annotationIdOf(region) === props.workbench.selection.regionId,
   );
   const selectedRegionContent = selectedRegion
-    ? scopedRegionText(props.textPages, selectedRegion.region_id)
+    ? scopedRegionText(props.textPages, annotationIdOf(selectedRegion))
     : undefined;
   usePanelCollapseSync(explorerRef, props.workbench.panesCollapsed.explorer);
   usePanelCollapseSync(detailsRef, props.workbench.panesCollapsed.details);

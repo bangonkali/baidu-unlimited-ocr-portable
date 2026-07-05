@@ -63,6 +63,8 @@ mod tests {
     async fn reloads_page_regions_and_spans() -> Result<()> {
         let temp = tempfile::tempdir()?;
         let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        let annotation_id = crate::ids::new_persistence_id();
+        let region_id = "src_region-a".to_string();
         let page = StoredPage {
             file_hash: "file-a".to_string(),
             page_no: 1,
@@ -75,7 +77,9 @@ mod tests {
             cleaned_text: "Total".to_string(),
             raw_text: "Total".to_string(),
             boxes: vec![OverlayBox {
-                region_id: "region-a".to_string(),
+                annotation_id: annotation_id.clone(),
+                region_id: region_id.clone(),
+                source_region_key: "source-a".to_string(),
                 label: "Total".to_string(),
                 content_markdown: "Total".to_string(),
                 content_html: None,
@@ -87,7 +91,9 @@ mod tests {
                 hidden: false,
             }],
             spans: vec![TextRegionSpan {
-                region_id: "region-a".to_string(),
+                annotation_id: annotation_id.clone(),
+                region_id: region_id.clone(),
+                source_region_key: "source-a".to_string(),
                 page_no: 1,
                 start: 0,
                 end: 5,
@@ -103,7 +109,11 @@ mod tests {
         let loaded = &snapshot.pages[0];
         assert_eq!(loaded.boxes.len(), 1);
         assert_eq!(loaded.spans.len(), 1);
-        assert_eq!(loaded.spans[0].region_id, "region-a");
+        assert!(crate::ids::is_uuid_v7(&loaded.boxes[0].annotation_id));
+        assert_eq!(loaded.boxes[0].annotation_id, annotation_id);
+        assert_eq!(loaded.boxes[0].region_id, region_id);
+        assert_eq!(loaded.spans[0].annotation_id, annotation_id);
+        assert_eq!(loaded.spans[0].region_id, region_id);
         Ok(())
     }
 
@@ -140,6 +150,7 @@ mod tests {
         let event = DownloadEventInsert {
             event_id: "event-a".to_string(),
             download_id: "model:model-a:model".to_string(),
+            download_key: "model:model-a:model".to_string(),
             owner_kind: "model".to_string(),
             owner_id: "model-a".to_string(),
             file_id: "model".to_string(),

@@ -1,6 +1,7 @@
 import * as Checkbox from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
 
+import { annotationIdOf } from '../../api/annotationIdentity';
 import type { DocumentSummary, OverlayBox } from '../../api/types';
 import { setLabelsVisible, setOverlayVisible } from '../../stores/workbenchStore';
 import styles from './DetailsPane.module.css';
@@ -65,7 +66,9 @@ function RegionDetails({ content, region }: { content?: string; region?: Overlay
         <dt>Label</dt>
         <dd>{region.label}</dd>
       </dl>
-      <pre className={styles.regionContent}>{content || region.label || region.region_id}</pre>
+      <pre className={styles.regionContent}>
+        {content || region.label || annotationIdOf(region)}
+      </pre>
     </div>
   );
 }

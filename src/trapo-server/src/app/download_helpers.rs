@@ -116,8 +116,9 @@ impl AppState {
 
     async fn record_download_event(&self, download: &DownloadState, event_type: &str) {
         let event = DownloadEventInsert {
-            event_id: uuid::Uuid::new_v4().to_string(),
+            event_id: new_persistence_id(),
             download_id: download.download_id.clone(),
+            download_key: download.download_key.clone(),
             owner_kind: download.owner_kind.clone(),
             owner_id: download.owner_id.clone(),
             file_id: download.file_id.clone(),

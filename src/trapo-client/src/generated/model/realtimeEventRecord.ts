@@ -8,6 +8,7 @@
 import type { RealtimeEventRecordPayload } from './realtimeEventRecordPayload';
 
 export interface RealtimeEventRecord {
+  event_id: string;
   /** @nullable */
   file_hash?: string | null;
   occurred_at: string;

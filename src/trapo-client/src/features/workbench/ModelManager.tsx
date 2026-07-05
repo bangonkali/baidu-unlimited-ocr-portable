@@ -1,12 +1,4 @@
-import {
-  ArrowDownAZ,
-  ArrowUpAZ,
-  Cpu,
-  DownloadCloud,
-  HardDriveDownload,
-  Library,
-} from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownAZ, ArrowUpAZ, Cpu, HardDriveDownload, Library } from 'lucide-react';
 
 import type { ModelsPayload, StatusPayload } from '../../api/types';
 import type {
@@ -16,7 +8,6 @@ import type {
   ModelViewMode,
   SortDirection,
 } from '../../routeSearch';
-import { DownloadManager } from './DownloadManager';
 import { ModelCards } from './ModelCards';
 import { ModelDataGrid } from './ModelDataGrid';
 import styles from './ModelManager.module.css';
@@ -49,7 +40,6 @@ export function ModelManager(props: ModelManagerProps) {
   const statusFilter = props.routeSearch?.status ?? 'all';
   const shown = visibleModels(library, { dir, scope, sort, status: statusFilter });
   const updateSearch = props.onRouteSearchChange ?? (() => undefined);
-  const [downloadsOpen, setDownloadsOpen] = useState(scope === 'downloads');
   const changeSort = (nextSort: ModelSortKey) =>
     updateSearch({ dir: nextSort === sort && dir === 'asc' ? 'desc' : 'asc', sort: nextSort });
 
@@ -74,21 +64,12 @@ export function ModelManager(props: ModelManagerProps) {
         onStatusChange={(nextStatus) => updateSearch({ status: nextStatus })}
         onViewChange={(nextView) => updateSearch({ view: nextView })}
         onScopeChange={props.onScopeChange ?? (() => undefined)}
-        onDownloadsOpen={() => setDownloadsOpen(true)}
       />
       {view === 'cards' ? (
         <ModelCards {...props} models={shown} />
       ) : (
         <ModelDataGrid {...props} dir={dir} models={shown} sort={sort} onSortChange={changeSort} />
       )}
-      {downloadsOpen ? (
-        <DownloadManager
-          busy={props.busy}
-          models={library}
-          onCancelModel={props.onCancelModel}
-          onClose={() => setDownloadsOpen(false)}
-        />
-      ) : null}
     </section>
   );
 }
@@ -131,7 +112,6 @@ function ModelToolbar(props: {
   onSortChange: (sort: ModelSortKey) => void;
   onScopeChange: (scope: 'library' | 'downloads') => void;
   onStatusChange: (status: DownloadStatusFilter) => void;
-  onDownloadsOpen: () => void;
   onViewChange: (view: ModelViewMode) => void;
 }) {
   const DirectionIcon = props.dir === 'desc' ? ArrowDownAZ : ArrowUpAZ;
@@ -196,14 +176,6 @@ function ModelToolbar(props: {
         type="button"
       >
         {props.scope === 'downloads' ? 'Library' : 'Active Downloads'}
-      </button>
-      <button
-        className={styles.iconButton}
-        onClick={props.onDownloadsOpen}
-        title="Downloads"
-        type="button"
-      >
-        <DownloadCloud size={15} strokeWidth={1.9} />
       </button>
     </div>
   );

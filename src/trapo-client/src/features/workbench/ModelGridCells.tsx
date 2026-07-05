@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { Star } from 'lucide-react';
 
 import type { ModelAssetRecord } from '../../api/types';
@@ -8,7 +9,9 @@ import { modelDownloadedBytes, modelPercent, modelRequiredBytes } from './modelL
 export function ModelCell({ model }: { model: ModelAssetRecord }) {
   return (
     <div className={styles.gridModelCell}>
-      <a href={`/models/${encodeURIComponent(model.model_id)}`}>{model.display_name}</a>
+      <Link params={{ modelId: model.model_id }} to="/models/$modelId">
+        {model.display_name}
+      </Link>
       <span>{model.quantization ?? model.provider_name ?? 'GGUF'}</span>
       <small>
         {model.selected ? 'Selected' : model.recommended ? 'Recommended' : model.quality}

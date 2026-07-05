@@ -4,11 +4,18 @@ import {
   validateDiagnosticsSearch,
   validateIngestSearch,
   validateModelSearch,
+  validateRootSearch,
   validateSettingsSearch,
   validateWorkbenchSearch,
 } from './routeSearch';
 
 describe('route search validators', () => {
+  test('keeps global downloads pane state at the root route', () => {
+    expect(validateRootSearch({ downloads: 'true' })).toEqual({ downloads: true });
+    expect(validateRootSearch({ downloads: '0' })).toEqual({ downloads: false });
+    expect(validateRootSearch({ downloads: 'later' })).toEqual({ downloads: undefined });
+  });
+
   test('keeps shareable workbench state and drops invalid values', () => {
     expect(
       validateWorkbenchSearch({

@@ -38,4 +38,42 @@ describe('PreviewPane', () => {
     expect(html).toContain('data-active="true"');
     expect(html).toContain('Invoice total');
   });
+
+  test('uses annotation ids for overlay DOM identity', () => {
+    const annotationId = '019086c9-8b0d-79af-9c3d-95c0c221b7e2';
+    const html = renderToString(
+      <PreviewPane
+        autoFollowRegions
+        boxes={[
+          {
+            annotation_id: annotationId,
+            content_html: null,
+            content_markdown: 'Invoice total',
+            height_percent: 10,
+            hidden: false,
+            label: 'Invoice total',
+            left_percent: 5,
+            page_no: 1,
+            region_id: 'src_invoice-total',
+            top_percent: 6,
+            width_percent: 20,
+          },
+        ]}
+        fileHash="hash-invoice-014"
+        getImageUrl={() => 'data:image/png;base64,'}
+        labelsVisible
+        overlayVisible
+        pages={[1]}
+        selectedPageNo={1}
+        selectedRegionId={annotationId}
+        onAutoFollowChange={() => undefined}
+        onSelectRegion={() => undefined}
+      />,
+    );
+
+    expect(html).toContain(`data-annotation-id="${annotationId}"`);
+    expect(html).toContain(`id="annotation-box-${annotationId}"`);
+    expect(html).toContain('data-region-id="src_invoice-total"');
+    expect(html).toContain('data-active="true"');
+  });
 });

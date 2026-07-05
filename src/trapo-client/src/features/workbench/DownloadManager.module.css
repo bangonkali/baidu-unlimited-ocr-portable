@@ -1,9 +1,9 @@
 .overlay {
-  position: absolute;
-  top: 35px;
+  position: fixed;
+  top: 0;
   right: 0;
-  bottom: 0;
-  z-index: 30;
+  bottom: 24px;
+  z-index: 80;
   display: grid;
   grid-template-rows: 34px auto minmax(0, 1fr);
   width: min(420px, 100%);

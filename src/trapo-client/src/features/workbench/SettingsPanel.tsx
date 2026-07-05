@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { Cpu, Gauge, Moon, Settings2, Sun } from 'lucide-react';
 
 import type { ModelsPayload, OcrProfileRecord, SettingsPayload } from '../../api/types';
@@ -33,14 +34,15 @@ export function SettingsPanel(props: SettingsPanelProps) {
       <div className={styles.settingsLayout}>
         <nav className={styles.nav} aria-label="Settings sections">
           {settingsSections.map((section) => (
-            <a
+            <Link
               className={styles.navLink}
               data-active={activeSection === section.id}
-              href={`/settings?section=${section.id}`}
               key={section.id}
+              search={{ section: section.id }}
+              to="/settings"
             >
               {section.label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className={styles.content}>

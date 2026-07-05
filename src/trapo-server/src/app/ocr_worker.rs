@@ -50,6 +50,7 @@ impl OcrRunWorker {
         paths: crate::ocr::OcrRuntimePaths,
         profile: crate::types::OcrProfileRecord,
         hub: Arc<RealtimeHub>,
+        repository: Repository,
     ) -> Self {
         let (ready_sender, ready_receiver) = mpsc::channel();
         let (sender, receiver) = mpsc::channel();
@@ -65,7 +66,7 @@ impl OcrRunWorker {
                     }
                 };
                 let _ = ready_sender.send(Ok(()));
-                run_worker_loop(&mut engine, receiver, max_tokens, &hub);
+                run_worker_loop(&mut engine, receiver, max_tokens, &hub, &repository);
             }) {
             Ok(join) => join,
             Err(error) => {
@@ -169,7 +170,7 @@ impl AppState {
         if !paths.model.is_file() || !paths.mmproj.is_file() || !paths.ffi_library.is_file() {
             return OcrRunWorker::fallback("native OCR assets are not installed");
         }
-        OcrRunWorker::spawn(paths, profile, self.inner.hub.clone())
+        OcrRunWorker::spawn(paths, profile, self.inner.hub.clone(), self.inner.repository.clone())
     }
 
     async fn runtime_stream_metadata(&self, runtime_id: &str) -> (String, String) {
@@ -186,12 +187,13 @@ fn run_worker_loop(
     receiver: mpsc::Receiver<OcrWorkerMessage>,
     max_tokens: i32,
     hub: &RealtimeHub,
+    repository: &Repository,
 ) {
     for message in receiver {
         match message {
             OcrWorkerMessage::Recognize(request) => {
                 let result =
-                    recognize_on_worker(engine, request.image_path.as_path(), &request, max_tokens, hub);
+                    recognize_on_worker(engine, request.image_path.as_path(), &request, max_tokens, hub, repository);
                 let _ = request.response.send(result);
             }
             OcrWorkerMessage::Shutdown => break,
@@ -205,11 +207,12 @@ fn recognize_on_worker(
     request: &OcrWorkerRequest,
     max_tokens: i32,
     hub: &RealtimeHub,
+    repository: &Repository,
 ) -> crate::ocr::OcrResult {
     let mut telemetry = OcrStreamTelemetry::new();
     let result = engine.recognize_image(image_path, max_tokens, |event| {
         if let crate::ocr::OcrEvent::Token { text, index } = event {
-            publish_token_events(hub, &request.context, &mut telemetry, &text, index);
+            publish_token_events(hub, Some(repository), &request.context, &mut telemetry, &text, index);
         }
     });
     finish_token_events(hub, &request.context, &mut telemetry);

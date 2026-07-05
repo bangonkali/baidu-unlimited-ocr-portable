@@ -112,6 +112,7 @@ struct OcrTokenTelemetry {
 
 fn publish_token_events(
     hub: &RealtimeHub,
+    repository: Option<&Repository>,
     context: &OcrStreamContext,
     telemetry: &mut OcrStreamTelemetry,
     text: &str,
@@ -129,7 +130,7 @@ fn publish_token_events(
         telemetry.flush_text_patch(hub, context);
     }
 
-    publish_region_events(hub, context, telemetry);
+    publish_region_events(hub, repository, context, telemetry);
 }
 
 fn finish_token_events(
@@ -142,17 +143,25 @@ fn finish_token_events(
 
 fn publish_region_events(
     hub: &RealtimeHub,
+    repository: Option<&Repository>,
     context: &OcrStreamContext,
     telemetry: &mut OcrStreamTelemetry,
 ) {
     let mut parsed = crate::ocr::parse_ocr_markers(&telemetry.raw_text, &stream_parse_context(context));
     crate::ocr::apply_region_content(&mut parsed);
+    let require_persisted_ids = repository.is_some();
+    if let Some(repository) = repository {
+        apply_stream_annotation_identities(repository, context, &mut parsed);
+    }
     let spans_by_region = parsed
         .spans
         .iter()
         .map(|span| (span.region_id.clone(), span.clone()))
         .collect::<std::collections::HashMap<_, _>>();
     for region in parsed.boxes {
+        if require_persisted_ids && !is_uuid_v7(&region.annotation_id) {
+            continue;
+        }
         if !telemetry
             .emitted_region_ids
             .insert(region.region_id.clone())
@@ -167,6 +176,41 @@ fn publish_region_events(
         let mut payload = stream_context_payload(context);
         payload["region"] = json!(region);
         hub.publish("ocr.page.region.upsert", payload);
+    }
+}
+
+fn apply_stream_annotation_identities(
+    repository: &Repository,
+    context: &OcrStreamContext,
+    parsed: &mut crate::ocr::ParsedOcrPage,
+) {
+    let boxes = parsed.boxes.clone();
+    for (index, box_record) in boxes.iter().enumerate() {
+        let span = parsed
+            .spans
+            .iter()
+            .find(|item| item.source_region_key == box_record.source_region_key);
+        let draft = annotation_identity_draft(
+            &context.run_id,
+            &context.file_hash,
+            &context.profile_id,
+            index,
+            box_record,
+            span,
+        );
+        match repository.persist_discovered_annotation_sync(&draft) {
+            Ok(annotation_id) => {
+                apply_annotation_id(parsed, &box_record.source_region_key, &annotation_id);
+            }
+            Err(error) => {
+                tracing::warn!(
+                    %error,
+                    file_hash = %context.file_hash,
+                    page_no = context.page_no,
+                    "failed to persist discovered annotation"
+                );
+            }
+        }
     }
 }
 
@@ -205,88 +249,5 @@ fn stream_terminal_payload(
 }
 
 #[cfg(test)]
-mod ocr_stream_events_tests {
-    use super::*;
-
-    #[test]
-    fn token_events_match_client_stream_contract() -> anyhow::Result<()> {
-        let hub = RealtimeHub::new();
-        let mut receiver = hub.subscribe();
-        let mut telemetry = OcrStreamTelemetry::new();
-
-        publish_token_events(&hub, &stream_context(), &mut telemetry, "Invoice", 0);
-
-        let patch = receiver.try_recv()?;
-        assert_eq!(patch.event_type, "ocr.page.text.patch");
-        assert_eq!(patch.payload["run_id"], "run-a");
-        assert_eq!(patch.payload["file_hash"], "file-a");
-        assert_eq!(patch.payload["page_no"], 1);
-        assert_eq!(patch.payload["op"], "append");
-        assert_eq!(patch.payload["start"], 0);
-        assert_eq!(patch.payload["end"], 0);
-        assert_eq!(patch.payload["text"], "Invoice");
-        assert!(receiver.try_recv().is_err());
-        Ok(())
-    }
-
-    #[test]
-    fn region_event_is_emitted_when_box_marker_completes() -> anyhow::Result<()> {
-        let hub = RealtimeHub::new();
-        let mut receiver = hub.subscribe();
-        let mut telemetry = OcrStreamTelemetry::new();
-        let context = stream_context();
-
-        publish_token_events(
-            &hub,
-            &context,
-            &mut telemetry,
-            "A <|ref|>Total<|/ref|>",
-            0,
-        );
-        let patch = receiver.try_recv()?;
-        assert_eq!(patch.event_type, "ocr.page.text.patch");
-        assert_eq!(patch.payload["op"], "replace");
-        assert_eq!(patch.payload["text"], "A Total");
-        assert!(receiver.try_recv().is_err());
-
-        publish_token_events(
-            &hub,
-            &context,
-            &mut telemetry,
-            "<|det|>[[0,0,999,100]]<|/det|>",
-            1,
-        );
-        let span = receiver.try_recv()?;
-        assert_eq!(span.event_type, "ocr.page.span.upsert");
-        assert_eq!(span.payload["span"]["start"], 2);
-        assert_eq!(span.payload["span"]["end"], 2);
-        let region = receiver.try_recv()?;
-        assert_eq!(region.event_type, "ocr.page.region.upsert");
-        assert_eq!(region.payload["region"]["label"], "Total");
-        assert_eq!(region.payload["region"]["page_no"], 1);
-
-        publish_token_events(&hub, &context, &mut telemetry, " tail", 2);
-        assert!(receiver.try_recv().is_err());
-        finish_token_events(&hub, &context, &mut telemetry);
-        let patch = receiver.try_recv()?;
-        assert_eq!(patch.event_type, "ocr.page.text.patch");
-        assert_eq!(patch.payload["op"], "replace");
-        assert_eq!(patch.payload["text"], "A Total tail");
-        assert!(receiver.try_recv().is_err());
-        Ok(())
-    }
-
-    fn stream_context() -> OcrStreamContext {
-        OcrStreamContext {
-            run_id: "run-a".to_string(),
-            file_hash: "file-a".to_string(),
-            page_no: 1,
-            engine_id: ENGINE_ID.to_string(),
-            profile_id: "experimental-exact-prefill-q4".to_string(),
-            model_id: "unlimited-ocr-q4-k-m".to_string(),
-            runtime_id: "windows-x86_64-cuda13".to_string(),
-            runtime_platform: "windows-x86_64-cuda13".to_string(),
-            accelerator: "cuda".to_string(),
-        }
-    }
-}
+#[path = "ocr_stream_events_tests.rs"]
+mod ocr_stream_events_tests;

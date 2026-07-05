@@ -15,6 +15,20 @@ impl Repository {
         self.with_lane(self.write_slots.clone(), operation).await
     }
 
+    fn with_sync_write<T, F>(&self, operation: F) -> Result<T>
+    where
+        F: FnOnce(Connection) -> Result<T>,
+    {
+        let conn = {
+            let guard = self
+                .shared_connection
+                .lock()
+                .map_err(|_| AppError::Internal("database connection mutex poisoned".to_string()))?;
+            guard.try_clone()?
+        };
+        operation(conn)
+    }
+
     async fn with_lane<T, F>(&self, lane: Arc<Semaphore>, operation: F) -> Result<T>
     where
         T: Send + 'static,
@@ -63,6 +77,7 @@ impl Repository {
                 params![migration.id, migration.name],
             )?;
         }
+        Self::migrate_generated_ids_to_uuid_v7(&conn)?;
         Ok(())
         })
         .await
@@ -90,13 +105,16 @@ impl Repository {
             let source_span = page
                 .spans
                 .iter()
-                .find(|span| span.region_id == box_record.region_id);
+                .find(|span| span.annotation_id == box_record.annotation_id);
             conn.execute(
-                "INSERT INTO document_regions(region_id, file_hash, page_no, engine_id, profile_id, label,
+                "INSERT INTO document_regions(region_id, annotation_id, source_region_key,
+                  file_hash, page_no, engine_id, profile_id, label,
                   x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     box_record.region_id,
+                    box_record.annotation_id,
+                    box_record.source_region_key,
                     page.file_hash,
                     i64::from(page.page_no),
                     engine_id,
@@ -118,7 +136,7 @@ impl Repository {
                  ON CONFLICT(region_id) DO UPDATE SET content_markdown = excluded.content_markdown,
                   content_html = excluded.content_html, updated_at = now()",
                 params![
-                    box_record.region_id,
+                    box_record.annotation_id,
                     page.file_hash,
                     i64::from(page.page_no),
                     box_record.content_markdown,
@@ -128,13 +146,15 @@ impl Repository {
         }
         for span in &page.spans {
             conn.execute(
-                "INSERT INTO document_text_region_links(file_hash, page_no, region_id, text_start, text_end)
-                 VALUES (?, ?, ?, ?, ?)
-                 ON CONFLICT(file_hash, page_no, region_id, text_start, text_end) DO NOTHING",
+                "INSERT INTO document_text_region_links(file_hash, page_no, region_id, annotation_id, text_start, text_end)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(file_hash, page_no, region_id, text_start, text_end) DO UPDATE SET
+                    annotation_id = excluded.annotation_id",
                 params![
                     page.file_hash,
                     i64::from(page.page_no),
                     span.region_id,
+                    span.annotation_id,
                     u64_to_i64_saturating(span.start),
                     u64_to_i64_saturating(span.end)
                 ],

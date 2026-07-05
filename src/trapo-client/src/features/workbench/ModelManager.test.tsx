@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
+import { createMemoryHistory, createRouter, RouterContextProvider } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 
+import { routeTree } from '../../routeTree.gen';
 import { fixtureDownloadingModels, fixtureModels } from '../../stories/fixtures/workbenchFixtures';
 import { activeDownloadItems, DownloadManager } from './DownloadManager';
 import { ModelDetailPanel } from './ModelDetailPanel';
@@ -19,7 +22,7 @@ describe('model download formatting', () => {
 
 describe('ModelManager', () => {
   test('renders downloaded model state', () => {
-    const html = renderToString(
+    const html = renderWithRouter(
       <ModelManager
         models={fixtureModels}
         onCancelModel={() => undefined}
@@ -36,7 +39,7 @@ describe('ModelManager', () => {
   });
 
   test('renders live download state', () => {
-    const html = renderToString(
+    const html = renderWithRouter(
       <ModelManager
         models={fixtureDownloadingModels}
         onCancelModel={() => undefined}
@@ -65,7 +68,7 @@ describe('ModelManager', () => {
   });
 
   test('renders compact grid headers by default', () => {
-    const html = renderToString(
+    const html = renderWithRouter(
       <ModelManager
         models={fixtureModels}
         onCancelModel={() => undefined}
@@ -102,3 +105,11 @@ describe('ModelManager', () => {
     expect(html).toContain('Download Progress');
   });
 });
+
+function renderWithRouter(node: ReactNode) {
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ['/models'] }),
+    routeTree,
+  });
+  return renderToString(<RouterContextProvider router={router}>{node}</RouterContextProvider>);
+}

@@ -19,6 +19,7 @@ impl AppState {
             },
         );
         crate::ocr::apply_region_content(&mut parsed);
+        self.assign_annotation_identities(page_work.run_id, page_work.file_hash, ocr.profile_id, &mut parsed)?;
         self.write_image_region_snippets(
             page_work.file_hash,
             page_work.image_path,
@@ -28,6 +29,33 @@ impl AppState {
             parsed.cleaned_text.clone_from(&raw_text);
         }
         Ok(parsed)
+    }
+
+    fn assign_annotation_identities(
+        &self,
+        run_id: &str,
+        file_hash: &str,
+        profile_id: &str,
+        parsed: &mut crate::ocr::ParsedOcrPage,
+    ) -> Result<()> {
+        let boxes = parsed.boxes.clone();
+        for (index, box_record) in boxes.iter().enumerate() {
+            let span = parsed
+                .spans
+                .iter()
+                .find(|item| item.source_region_key == box_record.source_region_key);
+            let draft = annotation_identity_draft(
+                run_id,
+                file_hash,
+                profile_id,
+                index,
+                box_record,
+                span,
+            );
+            let annotation_id = self.inner.repository.persist_discovered_annotation_sync(&draft)?;
+            apply_annotation_id(parsed, &box_record.source_region_key, &annotation_id);
+        }
+        Ok(())
     }
 
     async fn complete_page_state(
@@ -117,6 +145,57 @@ impl AppState {
             })
             .await?;
         Ok(())
+    }
+}
+
+fn annotation_identity_draft(
+    run_id: &str,
+    file_hash: &str,
+    profile_id: &str,
+    index: usize,
+    box_record: &crate::workbench_types::OverlayBox,
+    span: Option<&crate::workbench_types::TextRegionSpan>,
+) -> AnnotationIdentityDraft {
+    AnnotationIdentityDraft {
+        run_id: run_id.to_string(),
+        file_hash: file_hash.to_string(),
+        page_no: box_record.page_no,
+        engine_id: ENGINE_ID.to_string(),
+        profile_id: profile_id.to_string(),
+        source_region_key: box_record.source_region_key.clone(),
+        discovery_index: u32::try_from(index).unwrap_or(u32::MAX),
+        label: box_record.label.clone(),
+        x1: box_record.left_percent / 100.0 * 999.0,
+        y1: box_record.top_percent / 100.0 * 999.0,
+        x2: (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
+        y2: (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
+        span_start: span.map_or(0, |item| item.start),
+        span_end: span.map_or(0, |item| item.end),
+        content_markdown: box_record.content_markdown.clone(),
+        content_html: box_record.content_html.clone(),
+    }
+}
+
+fn apply_annotation_id(
+    parsed: &mut crate::ocr::ParsedOcrPage,
+    source_region_key: &str,
+    annotation_id: &str,
+) {
+    for span in parsed
+        .spans
+        .iter_mut()
+        .filter(|item| item.source_region_key == source_region_key)
+    {
+        span.annotation_id = annotation_id.to_string();
+        span.region_id = annotation_id.to_string();
+    }
+    for box_record in parsed
+        .boxes
+        .iter_mut()
+        .filter(|item| item.source_region_key == source_region_key)
+    {
+        box_record.annotation_id = annotation_id.to_string();
+        box_record.region_id = annotation_id.to_string();
     }
 }
 

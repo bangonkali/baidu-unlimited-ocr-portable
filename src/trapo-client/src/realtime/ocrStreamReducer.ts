@@ -1,3 +1,4 @@
+import { annotationIdOf } from '../api/annotationIdentity';
 import type {
   DocumentRegionsPayload,
   DocumentTextPayload,
@@ -73,7 +74,10 @@ export function applySpanRemove(
     ...textPayload,
     pages: textPayload.pages.map((page) =>
       page.page_no === payload.page_no
-        ? { ...page, spans: page.spans.filter((span) => span.region_id !== payload.region_id) }
+        ? {
+            ...page,
+            spans: page.spans.filter((span) => annotationIdOf(span) !== payload.region_id),
+          }
         : page,
     ),
   };
@@ -84,10 +88,9 @@ export function applyRegionUpsert(
   payload: OcrPageRegionUpsertPayload,
 ): DocumentRegionsPayload {
   const existing = current ?? { boxes: [], file_hash: payload.file_hash };
-  const boxes = existing.boxes.some((box) => box.region_id === payload.region.region_id)
-    ? existing.boxes.map((box) =>
-        box.region_id === payload.region.region_id ? payload.region : box,
-      )
+  const incomingId = annotationIdOf(payload.region);
+  const boxes = existing.boxes.some((box) => annotationIdOf(box) === incomingId)
+    ? existing.boxes.map((box) => (annotationIdOf(box) === incomingId ? payload.region : box))
     : [...existing.boxes, payload.region];
   return { boxes, file_hash: payload.file_hash };
 }
@@ -98,7 +101,7 @@ export function applyRegionRemove(
 ): DocumentRegionsPayload {
   const existing = current ?? { boxes: [], file_hash: payload.file_hash };
   return {
-    boxes: existing.boxes.filter((box) => box.region_id !== payload.region_id),
+    boxes: existing.boxes.filter((box) => annotationIdOf(box) !== payload.region_id),
     file_hash: payload.file_hash,
   };
 }
@@ -114,8 +117,9 @@ function replaceRange(value: string, start: number, end: number, text: string) {
 }
 
 function upsertSpan(spans: TextRegionSpan[], span: TextRegionSpan) {
-  const next = spans.some((item) => item.region_id === span.region_id)
-    ? spans.map((item) => (item.region_id === span.region_id ? span : item))
+  const spanId = annotationIdOf(span);
+  const next = spans.some((item) => annotationIdOf(item) === spanId)
+    ? spans.map((item) => (annotationIdOf(item) === spanId ? span : item))
     : [...spans, span];
   return next.sort((left, right) => left.start - right.start || left.end - right.end);
 }

@@ -105,6 +105,8 @@ pub(crate) struct DocumentRegionsPayload {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct OverlayBox {
     pub(crate) region_id: String,
+    #[schema(value_type = String)]
+    pub(crate) annotation_id: String,
     pub(crate) label: String,
     pub(crate) content_markdown: String,
     pub(crate) content_html: Option<String>,
@@ -114,14 +116,22 @@ pub(crate) struct OverlayBox {
     pub(crate) width_percent: f64,
     pub(crate) height_percent: f64,
     pub(crate) hidden: bool,
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub(crate) source_region_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct TextRegionSpan {
     pub(crate) region_id: String,
+    #[schema(value_type = String)]
+    pub(crate) annotation_id: String,
     pub(crate) page_no: u32,
     pub(crate) start: u64,
     pub(crate) end: u64,
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub(crate) source_region_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -2,6 +2,7 @@ import { Crosshair } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
+import { annotationDomId, annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox } from '../../api/types';
 import styles from './PreviewPane.module.css';
 
@@ -151,24 +152,30 @@ function PagePreview(props: {
       <div className={styles.page}>
         <img alt={`Page ${props.pageNo}`} className={styles.image} src={imageUrl} />
         {props.overlayVisible
-          ? props.boxes.map((box) => (
-              <button
-                className={styles.box}
-                data-active={box.region_id === props.selectedRegionId}
-                key={box.region_id}
-                onClick={() => props.onSelectRegion(box.page_no, box.region_id)}
-                ref={box.region_id === props.selectedRegionId ? activeBoxRef : undefined}
-                style={{
-                  height: `${box.height_percent}%`,
-                  left: `${box.left_percent}%`,
-                  top: `${box.top_percent}%`,
-                  width: `${box.width_percent}%`,
-                }}
-                type="button"
-              >
-                {props.labelsVisible ? <span>{box.label}</span> : null}
-              </button>
-            ))
+          ? props.boxes.map((box) => {
+              const annotationId = annotationIdOf(box);
+              return (
+                <button
+                  className={styles.box}
+                  data-active={annotationId === props.selectedRegionId}
+                  data-annotation-id={annotationId}
+                  data-region-id={box.region_id}
+                  id={annotationDomId('annotation-box', annotationId)}
+                  key={annotationId}
+                  onClick={() => props.onSelectRegion(box.page_no, annotationId)}
+                  ref={annotationId === props.selectedRegionId ? activeBoxRef : undefined}
+                  style={{
+                    height: `${box.height_percent}%`,
+                    left: `${box.left_percent}%`,
+                    top: `${box.top_percent}%`,
+                    width: `${box.width_percent}%`,
+                  }}
+                  type="button"
+                >
+                  {props.labelsVisible ? <span>{box.label}</span> : null}
+                </button>
+              );
+            })
           : null}
       </div>
     </article>

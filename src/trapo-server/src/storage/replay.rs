@@ -20,6 +20,7 @@ impl Repository {
             .map(str::to_string);
         let page_no = payload.get("page_no").and_then(Value::as_u64);
         self.persist_realtime_events(vec![StoredRealtimeEvent {
+            event_id: new_persistence_id(),
             sequence,
             event_type: event_type.to_string(),
             occurred_at: occurred_at.to_string(),
@@ -44,10 +45,11 @@ impl Repository {
             let transaction = conn.transaction()?;
             for record in &records {
                 transaction.execute(
-                    "INSERT INTO ocr_stream_events(sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)
+                    "INSERT INTO ocr_stream_events(event_id, sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                      ON CONFLICT(sequence) DO NOTHING",
                     params![
+                        record.event_id.as_str(),
                         record.sequence,
                         record.event_type.as_str(),
                         record.occurred_at.as_str(),
@@ -79,7 +81,8 @@ impl Repository {
             let since_sequence = since_sequence.map_or(0, u64_to_i64_saturating);
             let limit = i64::from(limit.clamp(1, 100_000));
             let mut statement = conn.prepare(
-                "SELECT sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json
+                "SELECT coalesce(event_id, CAST(sequence AS VARCHAR)), sequence, event_type,
+                   occurred_at, run_id, file_hash, page_no, payload_json
                  FROM ocr_stream_events
                  WHERE sequence > ?
                    AND (? IS NULL OR run_id = ?)
@@ -109,6 +112,7 @@ impl Repository {
 
 struct RealtimeEventWrite {
     sequence: i64,
+    event_id: String,
     event_type: String,
     occurred_at: String,
     run_id: Option<String>,
@@ -121,6 +125,7 @@ impl From<StoredRealtimeEvent> for RealtimeEventWrite {
     fn from(event: StoredRealtimeEvent) -> Self {
         Self {
             sequence: u64_to_i64_saturating(event.sequence),
+            event_id: event.event_id,
             event_type: event.event_type,
             occurred_at: event.occurred_at,
             run_id: event.run_id,
@@ -132,14 +137,15 @@ impl From<StoredRealtimeEvent> for RealtimeEventWrite {
 }
 
 fn realtime_event_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<StoredRealtimeEvent> {
-    let payload_json: String = row.get(6)?;
+    let payload_json: String = row.get(7)?;
     Ok(StoredRealtimeEvent {
-        sequence: i64_to_u64(row.get::<_, i64>(0)?),
-        event_type: row.get(1)?,
-        occurred_at: row.get(2)?,
-        run_id: row.get(3)?,
-        file_hash: row.get(4)?,
-        page_no: row.get::<_, Option<i64>>(5)?.map(i64_to_u32),
+        event_id: row.get(0)?,
+        sequence: i64_to_u64(row.get::<_, i64>(1)?),
+        event_type: row.get(2)?,
+        occurred_at: row.get(3)?,
+        run_id: row.get(4)?,
+        file_hash: row.get(5)?,
+        page_no: row.get::<_, Option<i64>>(6)?.map(i64_to_u32),
         payload: serde_json::from_str(&payload_json).unwrap_or(Value::Null),
     })
 }

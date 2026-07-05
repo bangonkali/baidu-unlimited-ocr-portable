@@ -39,6 +39,7 @@ impl AppState {
 
 fn realtime_event_record(row: StoredRealtimeEvent) -> RealtimeEventRecord {
     RealtimeEventRecord {
+        event_id: row.event_id,
         sequence: row.sequence,
         event_type: row.event_type,
         occurred_at: row.occurred_at,

@@ -1,6 +1,6 @@
 #[derive(Debug, Clone)]
 struct DownloadTarget {
-    download_id: String,
+    download_key: String,
     owner_kind: String,
     owner_id: String,
     file_id: String,
@@ -20,7 +20,7 @@ fn model_download_targets(
     ]
     .into_iter()
     .map(|(file_id, file_name, total_bytes)| DownloadTarget {
-        download_id: model_download_id(entry.model_id, file_id),
+        download_key: model_download_key(entry.model_id, file_id),
         owner_kind: "model".to_string(),
         owner_id: entry.model_id.to_string(),
         file_id: file_id.to_string(),
@@ -32,7 +32,7 @@ fn model_download_targets(
     .collect()
 }
 
-fn model_download_id(model_id: &str, file_id: &str) -> String {
+fn model_download_key(model_id: &str, file_id: &str) -> String {
     format!("model:{model_id}:{file_id}")
 }
 

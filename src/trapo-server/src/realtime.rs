@@ -187,6 +187,7 @@ fn stored_realtime_event(envelope: &EventEnvelope) -> Option<StoredRealtimeEvent
         return None;
     }
     Some(StoredRealtimeEvent {
+        event_id: crate::ids::new_persistence_id(),
         sequence: envelope.sequence,
         event_type: envelope.event_type.clone(),
         occurred_at: envelope.occurred_at.clone(),

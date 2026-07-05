@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use utoipa::{Modify, OpenApi};
+#[path = "openapi_modifiers.rs"]
+mod openapi_modifiers;
+
+use openapi_modifiers::BinaryImageResponse;
+use utoipa::OpenApi;
 
 use crate::{
     error::ErrorPayload,
@@ -132,50 +136,6 @@ use crate::{
 )]
 /// `OpenAPI` document generator for the Trapo server API.
 pub struct ApiDoc;
-
-struct BinaryImageResponse;
-
-impl Modify for BinaryImageResponse {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        for (path_key, content_types) in [
-            (
-                "/api/documents/{file_hash}/preview-images/{variant}/{page_no}",
-                &["image/png", "image/jpeg"][..],
-            ),
-            (
-                "/api/documents/{file_hash}/regions/{region_id}/snippet",
-                &["image/png"][..],
-            ),
-        ] {
-            let Some(path) = openapi.paths.paths.get_mut(path_key) else {
-                continue;
-            };
-            let Some(operation) = path.get.as_mut() else {
-                continue;
-            };
-            let Some(utoipa::openapi::RefOr::T(response)) =
-                operation.responses.responses.get_mut("200")
-            else {
-                continue;
-            };
-            for content_type in content_types {
-                if let Some(content) = response.content.get_mut(*content_type) {
-                    content.schema = Some(binary_schema());
-                }
-            }
-        }
-    }
-}
-
-fn binary_schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
-    use utoipa::openapi::schema::{KnownFormat, ObjectBuilder, Schema, SchemaFormat, Type};
-    utoipa::openapi::RefOr::T(Schema::Object(
-        ObjectBuilder::new()
-            .schema_type(Type::String)
-            .format(Some(SchemaFormat::KnownFormat(KnownFormat::Binary)))
-            .build(),
-    ))
-}
 
 #[utoipa::path(get, path = "/api/health", tag = "system", responses((status = 200, body = HealthPayload)))]
 const fn health_doc() {}

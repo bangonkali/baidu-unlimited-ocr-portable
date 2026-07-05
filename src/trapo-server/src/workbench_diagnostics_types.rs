@@ -4,6 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct RealtimeEventRecord {
+    pub(crate) event_id: String,
     pub(crate) sequence: u64,
     #[serde(rename = "type")]
     pub(crate) event_type: String,

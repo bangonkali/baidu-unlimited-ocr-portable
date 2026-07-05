@@ -245,10 +245,7 @@ fn percent(done: u32, total: u32) -> f64 {
 }
 
 fn now_id() -> String {
-    let millis = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_millis());
-    format!("run-{millis}")
+    new_persistence_id()
 }
 
 fn hf_token() -> Option<String> {

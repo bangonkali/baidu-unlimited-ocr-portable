@@ -232,7 +232,7 @@ impl AppState {
         page: &RenderedPage,
         ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
-        let work_unit_id = diagnostic_work_unit_id(run_id, file_hash, Some(page.page_no), "ocr");
+        let work_unit_id = diagnostic_work_key(run_id, file_hash, Some(page.page_no), "ocr");
         self.start_diagnostic_work_unit(run_id, &work_unit_id);
         let span = DiagnosticSpanScope::start();
         let result = self

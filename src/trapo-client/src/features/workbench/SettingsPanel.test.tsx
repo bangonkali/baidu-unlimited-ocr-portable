@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { createMemoryHistory, createRouter, RouterContextProvider } from '@tanstack/react-router';
 import { renderToString } from 'react-dom/server';
 
+import { routeTree } from '../../routeTree.gen';
 import { fixtureModels, fixtureSettings } from '../../stories/fixtures/workbenchFixtures';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -21,18 +23,24 @@ describe('SettingsPanel', () => {
 });
 
 function renderSettingsPanel(activeSection?: 'runtime' | 'ocr') {
+  const router = createRouter({
+    history: createMemoryHistory({ initialEntries: ['/settings'] }),
+    routeTree,
+  });
   return renderToString(
-    <SettingsPanel
-      activeSection={activeSection}
-      models={fixtureModels}
-      onModelChange={() => undefined}
-      onProfileChange={() => undefined}
-      onRuntimeChange={() => undefined}
-      onThemeChange={() => undefined}
-      profiles={fixtureModels.profiles}
-      selectedProfile="experimental-exact-prefill-q4"
-      settings={fixtureSettings}
-      theme="dark"
-    />,
+    <RouterContextProvider router={router}>
+      <SettingsPanel
+        activeSection={activeSection}
+        models={fixtureModels}
+        onModelChange={() => undefined}
+        onProfileChange={() => undefined}
+        onRuntimeChange={() => undefined}
+        onThemeChange={() => undefined}
+        profiles={fixtureModels.profiles}
+        selectedProfile="experimental-exact-prefill-q4"
+        settings={fixtureSettings}
+        theme="dark"
+      />
+    </RouterContextProvider>,
   );
 }

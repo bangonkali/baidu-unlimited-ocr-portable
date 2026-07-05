@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-
+import { annotationIdOf } from '../api/annotationIdentity';
 import { queryKeys } from '../api/queryKeys';
 import type { DocumentRegionsPayload, DocumentTextPayload } from '../api/types';
 import {
@@ -130,7 +130,7 @@ function mergeRegionPayload(
   return {
     boxes: [...retained, ...projected.payload.boxes].sort(
       (left, right) =>
-        left.page_no - right.page_no || left.region_id.localeCompare(right.region_id),
+        left.page_no - right.page_no || annotationIdOf(left).localeCompare(annotationIdOf(right)),
     ),
     file_hash: projected.payload.file_hash,
   };

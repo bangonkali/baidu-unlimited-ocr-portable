@@ -105,7 +105,8 @@ impl Repository {
         page_no: u32,
     ) -> Result<Vec<OverlayBox>> {
         let mut statement = conn.prepare(
-            "SELECT r.region_id, r.label,
+            "SELECT coalesce(r.annotation_id, r.region_id), r.region_id,
+              coalesce(r.source_region_key, ''), r.label,
               coalesce(a.content_markdown, r.content_markdown, ''),
               coalesce(a.content_html, r.content_html), r.page_no, r.x1, r.y1, r.x2, r.y2,
               coalesce(v.hidden, false)
@@ -117,21 +118,23 @@ impl Repository {
              ORDER BY r.region_id",
         )?;
         let rows = statement.query_map(params![file_hash, i64::from(page_no)], |row| {
-            let x1 = row.get::<_, f64>(5)?;
-            let y1 = row.get::<_, f64>(6)?;
-            let x2 = row.get::<_, f64>(7)?;
-            let y2 = row.get::<_, f64>(8)?;
+            let x1 = row.get::<_, f64>(7)?;
+            let y1 = row.get::<_, f64>(8)?;
+            let x2 = row.get::<_, f64>(9)?;
+            let y2 = row.get::<_, f64>(10)?;
             Ok(OverlayBox {
-                region_id: row.get(0)?,
-                label: row.get(1)?,
-                content_markdown: row.get(2)?,
-                content_html: row.get(3)?,
-                page_no: i64_to_u32(row.get::<_, i64>(4)?),
+                annotation_id: row.get(0)?,
+                region_id: row.get(1)?,
+                source_region_key: row.get(2)?,
+                label: row.get(3)?,
+                content_markdown: row.get(4)?,
+                content_html: row.get(5)?,
+                page_no: i64_to_u32(row.get::<_, i64>(6)?),
                 left_percent: normalized_to_percent(x1),
                 top_percent: normalized_to_percent(y1),
                 width_percent: normalized_to_percent(x2 - x1),
                 height_percent: normalized_to_percent(y2 - y1),
-                hidden: row.get(9)?,
+                hidden: row.get(11)?,
             })
         })?;
         collect_rows(rows)
@@ -143,17 +146,19 @@ impl Repository {
         page_no: u32,
     ) -> Result<Vec<TextRegionSpan>> {
         let mut statement = conn.prepare(
-            "SELECT region_id, page_no, text_start, text_end
+            "SELECT coalesce(annotation_id, region_id), region_id, page_no, text_start, text_end
              FROM document_text_region_links
              WHERE file_hash = ? AND page_no = ?
              ORDER BY text_start, region_id",
         )?;
         let rows = statement.query_map(params![file_hash, i64::from(page_no)], |row| {
             Ok(TextRegionSpan {
-                region_id: row.get(0)?,
-                page_no: i64_to_u32(row.get::<_, i64>(1)?),
-                start: i64_to_u64(row.get::<_, i64>(2)?),
-                end: i64_to_u64(row.get::<_, i64>(3)?),
+                annotation_id: row.get(0)?,
+                region_id: row.get(1)?,
+                source_region_key: String::new(),
+                page_no: i64_to_u32(row.get::<_, i64>(2)?),
+                start: i64_to_u64(row.get::<_, i64>(3)?),
+                end: i64_to_u64(row.get::<_, i64>(4)?),
             })
         })?;
         collect_rows(rows)

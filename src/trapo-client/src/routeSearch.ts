@@ -1,3 +1,7 @@
+export interface RootRouteSearch {
+  downloads?: boolean;
+}
+
 export interface WorkbenchRouteSearch {
   file?: string;
   follow?: boolean;
@@ -48,6 +52,12 @@ export interface IngestRouteSearch {
   model?: string;
   profile?: string;
   reprocess?: boolean;
+}
+
+export function validateRootSearch(search: Record<string, unknown>): RootRouteSearch {
+  return {
+    downloads: booleanValue(search.downloads),
+  };
 }
 
 export function validateWorkbenchSearch(search: Record<string, unknown>): WorkbenchRouteSearch {
