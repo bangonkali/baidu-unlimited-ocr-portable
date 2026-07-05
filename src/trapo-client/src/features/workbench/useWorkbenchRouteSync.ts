@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { DiagnosticsRouteSearch, WorkbenchRouteSearch } from '../../routeSearch';
 import type { ActiveView, useWorkbenchState, WorkbenchState } from '../../stores/workbenchStore';
@@ -34,24 +34,22 @@ export function useRouteSearchSync(args: {
   workbenchSearch?: WorkbenchRouteSearch;
 }) {
   const { activeView, workbench, workbenchSearch } = args;
+  const seededFollowFileRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (activeView !== 'workbench') {
       return;
     }
     const desiredAutoFollow = routeAutoFollowValue(activeView, workbenchSearch);
-    const routeSelection = {
-      fileHash: workbenchSearch?.file,
-      pageNo: workbenchSearch?.page ?? workbench.selection.pageNo,
-      regionId: workbenchSearch?.region,
-    };
-    if (
-      routeSelection.fileHash !== undefined &&
-      (routeSelection.fileHash !== workbench.selection.fileHash || // skylos: ignore[SKY-D253] fileHash is route UI state, not a secret token.
-        routeSelection.pageNo !== workbench.selection.pageNo ||
-        routeSelection.regionId !== workbench.selection.regionId)
-    ) {
+    const routeSelection = routeSelectionPatchForSync(
+      activeView,
+      workbench,
+      workbenchSearch,
+      seededFollowFileRef.current,
+    );
+    if (routeSelection) {
       setSelection(routeSelection);
     }
+    seededFollowFileRef.current = desiredAutoFollow === true ? workbenchSearch?.file : undefined;
     if (desiredAutoFollow !== undefined && desiredAutoFollow !== workbench.autoFollowRegions) {
       setAutoFollowRegions(desiredAutoFollow);
     }
@@ -76,6 +74,31 @@ export function autoFollowEnabledForRoute(
   workbenchSearch?: WorkbenchRouteSearch,
 ) {
   return routeAutoFollowValue(activeView, workbenchSearch) ?? workbench.autoFollowRegions;
+}
+
+export function routeSelectionPatchForSync(
+  activeView: ActiveView,
+  workbench: Pick<WorkbenchState, 'selection'>,
+  workbenchSearch?: WorkbenchRouteSearch,
+  seededFollowFile?: string,
+) {
+  if (activeView !== 'workbench' || workbenchSearch?.file === undefined) {
+    return undefined;
+  }
+  const follow = routeAutoFollowValue(activeView, workbenchSearch) === true;
+  if (follow && seededFollowFile === workbenchSearch.file) {
+    return undefined;
+  }
+  const routeSelection = {
+    fileHash: workbenchSearch.file,
+    pageNo: workbenchSearch.page ?? workbench.selection.pageNo,
+    regionId: follow ? undefined : workbenchSearch.region,
+  };
+  return routeSelection.fileHash !== workbench.selection.fileHash || // skylos: ignore[SKY-D253] fileHash is route UI state, not a secret token.
+    routeSelection.pageNo !== workbench.selection.pageNo ||
+    routeSelection.regionId !== workbench.selection.regionId
+    ? routeSelection
+    : undefined;
 }
 
 function routeAutoFollowValue(

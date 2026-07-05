@@ -18,5 +18,15 @@ export default defineConfig({
     },
   },
   plugins: [tanstackRouter({ autoCodeSplitting: true, target: 'react' }), react()],
-  server: apiProxyTarget ? { proxy: { '/api': apiProxyTarget } } : undefined,
+  server: apiProxyTarget
+    ? {
+        proxy: {
+          '/api': {
+            changeOrigin: true,
+            target: apiProxyTarget,
+            ws: true,
+          },
+        },
+      }
+    : undefined,
 });

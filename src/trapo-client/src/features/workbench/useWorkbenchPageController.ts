@@ -87,7 +87,9 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const profiles = profileOptions(data.models.data?.profiles, workbench.selectedProfile);
   const selectedDocument = selectedDocumentFrom(data.documents.data?.documents, workbench);
   useSelectedPageReplay({
-    enabled: selectedDocument ? isActiveDocumentStatus(selectedDocument.status) : false,
+    enabled:
+      workbench.selectionSource === 'manual' &&
+      (selectedDocument ? isActiveDocumentStatus(selectedDocument.status) : false),
     fileHash: workbench.selection.fileHash,
     pageNo: workbench.selection.pageNo,
     queryClient,

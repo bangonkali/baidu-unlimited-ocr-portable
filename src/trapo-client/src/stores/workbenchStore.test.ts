@@ -61,6 +61,22 @@ describe('workbenchStore auto-follow', () => {
     expect(getWorkbenchSnapshot().selection.regionId).toBe('reg-latest');
     setAutoFollowRegions(true);
   });
+
+  test('marks realtime and manual selection sources', () => {
+    setAutoFollowRegions(true);
+    setSelection({ fileHash: 'manual-doc', pageNo: 1, regionId: undefined });
+    expect(getWorkbenchSnapshot().selectionSource).toBe('manual');
+
+    followLatestPage('live-doc', 4);
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      fileHash: 'live-doc',
+      pageNo: 4,
+    });
+    expect(getWorkbenchSnapshot().selectionSource).toBe('realtime');
+
+    setSelection({ pageNo: 2 });
+    expect(getWorkbenchSnapshot().selectionSource).toBe('manual');
+  });
 });
 
 describe('workbenchStore theme', () => {

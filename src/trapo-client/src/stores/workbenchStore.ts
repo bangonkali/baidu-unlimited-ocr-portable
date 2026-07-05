@@ -9,6 +9,7 @@ interface WorkbenchSelection {
 }
 
 export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics' | 'ingest';
+export type WorkbenchSelectionSource = 'manual' | 'realtime';
 export type ThemeMode = 'dark' | 'light';
 export type WorkbenchPaneId = 'details' | 'diagnostics' | 'explorer';
 
@@ -24,6 +25,7 @@ export interface WorkbenchState {
   selectedRoot: string;
   selectedProfile: string;
   selection: WorkbenchSelection;
+  selectionSource: WorkbenchSelectionSource;
   autoFollowRegions: boolean;
   overlayVisible: boolean;
   labelsVisible: boolean;
@@ -50,6 +52,7 @@ const initialState: WorkbenchState = {
   selection: {
     pageNo: 1,
   },
+  selectionSource: 'manual',
   theme: readThemePreference(),
   tourRun: false,
 };
@@ -91,7 +94,9 @@ export function setSelectedProfile(selectedProfile: string) {
 export function setSelection(selection: Partial<WorkbenchSelection>) {
   workbenchStore.setState((state) => {
     const next = { ...state.selection, ...selection };
-    return sameSelection(state.selection, next) ? state : { ...state, selection: next };
+    return sameSelection(state.selection, next) && state.selectionSource === 'manual'
+      ? state
+      : { ...state, selection: next, selectionSource: 'manual' };
   });
 }
 
@@ -109,7 +114,7 @@ export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
     };
     return state.activeView === 'workbench' && sameSelection(state.selection, selection)
       ? state
-      : { ...state, activeView: 'workbench', selection };
+      : { ...state, activeView: 'workbench', selection, selectionSource: 'realtime' };
   });
 }
 
@@ -121,7 +126,7 @@ export function followLatestPage(fileHash: string, pageNo: number) {
     const selection = { ...state.selection, fileHash, pageNo };
     return state.activeView === 'workbench' && sameSelection(state.selection, selection)
       ? state
-      : { ...state, activeView: 'workbench', selection };
+      : { ...state, activeView: 'workbench', selection, selectionSource: 'realtime' };
   });
 }
 

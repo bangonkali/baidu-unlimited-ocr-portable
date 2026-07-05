@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { ActiveView, WorkbenchState } from '../../stores/workbenchStore';
-import { autoFollowEnabledForRoute } from './useWorkbenchRouteSync';
+import { autoFollowEnabledForRoute, routeSelectionPatchForSync } from './useWorkbenchRouteSync';
 import { routeSearchFromSelection } from './useWorkbenchSelectionActions';
 
 describe('autoFollowEnabledForRoute', () => {
@@ -35,6 +35,97 @@ describe('autoFollowEnabledForRoute', () => {
     expect(
       autoFollowEnabledForRoute('models', { autoFollowRegions: false }, { follow: true }),
     ).toBe(false);
+  });
+});
+
+describe('routeSelectionPatchForSync', () => {
+  test('does not fight realtime auto-follow after a follow route is seeded', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 6,
+        regionId: 'reg-live',
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync(
+        'workbench',
+        state,
+        {
+          file: 'hash-doc',
+          follow: true,
+          page: 1,
+        },
+        'hash-doc',
+      ),
+    ).toBeUndefined();
+  });
+
+  test('seeds explicit follow route selection once', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'other-doc',
+        pageNo: 6,
+        regionId: 'reg-live',
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync('workbench', state, {
+        file: 'hash-doc',
+        follow: true,
+        page: 1,
+      }),
+    ).toEqual({
+      fileHash: 'hash-doc',
+      pageNo: 1,
+      regionId: undefined,
+    });
+  });
+
+  test('does not re-anchor follow route after realtime advances documents', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'live-doc',
+        pageNo: 3,
+        regionId: undefined,
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync(
+        'workbench',
+        state,
+        {
+          file: 'hash-doc',
+          follow: true,
+          page: 1,
+        },
+        'hash-doc',
+      ),
+    ).toBeUndefined();
+  });
+
+  test('still applies route selection for manual deep links', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 6,
+        regionId: 'reg-live',
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync('workbench', state, {
+        file: 'hash-doc',
+        page: 1,
+      }),
+    ).toEqual({
+      fileHash: 'hash-doc',
+      pageNo: 1,
+      regionId: undefined,
+    });
   });
 });
 
@@ -74,6 +165,7 @@ function workbenchState(patch: Partial<WorkbenchState>): WorkbenchState {
       pageNo: 2,
       regionId: 'reg-a',
     },
+    selectionSource: 'manual',
     theme: 'dark',
     tourRun: false,
     ...patch,
