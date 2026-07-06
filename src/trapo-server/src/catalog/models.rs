@@ -243,7 +243,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":768,"n_ubatch":256,"pooling":"last","truncate_dimension":2560,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":1024,"n_ubatch":512,"pooling":"last","truncate_dimension":2560,"normalize":true}"#,
         10.0,
     ),
     ModelCatalogEntry::embedding(
@@ -265,7 +265,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery: ",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":128,"pooling":"last","truncate_dimension":4096,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":512,"pooling":"last","truncate_dimension":4096,"normalize":true}"#,
         18.0,
     ),
     ModelCatalogEntry::embedding(
@@ -287,7 +287,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":256,"pooling":"cls","truncate_dimension":1024,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":512,"pooling":"cls","truncate_dimension":1024,"normalize":true}"#,
         8.0,
     ),
     ModelCatalogEntry::embedding(
@@ -309,7 +309,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "Represent this sentence for searching relevant passages: ",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":256,"n_ubatch":128,"pooling":"cls","truncate_dimension":1024,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":512,"pooling":"cls","truncate_dimension":1024,"normalize":true}"#,
         4.0,
     ),
     ModelCatalogEntry::embedding(
@@ -331,7 +331,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "Represent this sentence for searching relevant passages: ",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":256,"n_ubatch":128,"pooling":"cls","truncate_dimension":768,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":512,"pooling":"cls","truncate_dimension":768,"normalize":true}"#,
         4.0,
     ),
     ModelCatalogEntry::embedding(
@@ -353,7 +353,7 @@ const EMBEDDING_MODEL_CATALOG: [ModelCatalogEntry; 9] = [
         true,
         "Instruct: Given a question, retrieve passages that answer the question\nQuery: ",
         "",
-        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":128,"pooling":"last","truncate_dimension":4096,"normalize":true}"#,
+        r#"{"n_gpu_layers":99,"n_batch":512,"n_ubatch":512,"pooling":"last","truncate_dimension":4096,"normalize":true}"#,
         18.0,
     ),
 ];

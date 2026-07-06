@@ -73,8 +73,9 @@ impl LlamaEmbeddingSession {
             (api.llama_context_default_params)()
         };
         context_params.n_ctx = profile.context_tokens;
-        context_params.n_batch = profile.n_batch;
-        context_params.n_ubatch = profile.n_ubatch;
+        let batch_tokens = profile.effective_batch_tokens();
+        context_params.n_batch = batch_tokens;
+        context_params.n_ubatch = batch_tokens;
         context_params.n_seq_max = 1;
         context_params.pooling_type = profile.pooling.ffi_value();
         context_params.attention_type = 1;
@@ -100,6 +101,15 @@ impl LlamaEmbeddingSession {
         let tokens = self.tokenize(&input)?;
         if tokens.is_empty() {
             return Err(AppError::BadRequest("cannot embed empty text".to_string()));
+        }
+        let max_tokens =
+            usize::try_from(self.profile.effective_batch_tokens()).unwrap_or(usize::MAX);
+        if tokens.len() > max_tokens {
+            return Err(AppError::BadRequest(format!(
+                "embedding text for {} produced {} tokens, above the safe llama.cpp encoder batch limit of {max_tokens}; rerun Text Index to rebuild smaller RAG chunks",
+                self.profile.model_id,
+                tokens.len()
+            )));
         }
         let mut batch = unsafe {
             // SAFETY: allocation size is derived from token count and seq count is one.

@@ -8,6 +8,7 @@ use duckdb::params;
 use tower::ServiceExt;
 use trapo_server::{ApiDoc, AppState, Repository, ServerConfig, build_router};
 use utoipa::OpenApi;
+use uuid::Uuid;
 
 #[tokio::test]
 async fn health_and_openapi_are_served() -> anyhow::Result<()> {
@@ -175,6 +176,45 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn text_index_route_chunks_long_cjk_pages_for_embedding_safety() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    seed_completed_text_run(
+        &config,
+        &run_id,
+        "file-long-cjk",
+        &"饮用水卫生标准".repeat(180),
+    )?;
+    let state = AppState::new(config).await?;
+    let app = build_router(state.clone());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/rag/text-index")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "source_run_id": run_id }).to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    assert!(
+        payload["segments_indexed"].as_u64().unwrap_or_default() > 1,
+        "long CJK page should be chunked before FTS/embedding: {payload}"
+    );
+    Ok(())
+}
+
 #[test]
 fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
     let value = serde_json::to_value(ApiDoc::openapi())?;
@@ -329,15 +369,70 @@ fn column_type(conn: &duckdb::Connection, table: &str, column: &str) -> anyhow::
     )?)
 }
 
+fn seed_completed_text_run(
+    config: &ServerConfig,
+    run_id: &str,
+    file_hash: &str,
+    text: &str,
+) -> anyhow::Result<()> {
+    let conn = duckdb::Connection::open(&config.database_path)?;
+    let root_path = config.app_root.to_string_lossy().to_string();
+    let absolute_path = config
+        .app_root
+        .join("long-cjk.pdf")
+        .to_string_lossy()
+        .to_string();
+    conn.execute(
+        "INSERT INTO ingest_runs(
+            run_id, root_path, status, profile_id, engine_id, queued_files,
+            processed_pages, total_pages, model_id, runtime_id
+         )
+         VALUES (?, ?, 'completed', 'test-profile', 'test-engine', 1, 1, 1, 'test-model', 'test-runtime')",
+        params![run_id, root_path.as_str()],
+    )?;
+    conn.execute(
+        "INSERT INTO files(file_hash, display_name, extension, size_bytes, page_count, status)
+         VALUES (?, 'long-cjk.pdf', 'pdf', 10, 1, 'completed')",
+        params![file_hash],
+    )?;
+    conn.execute(
+        "INSERT INTO file_locations(file_hash, root_path, absolute_path, relative_path)
+         VALUES (?, ?, ?, 'long-cjk.pdf')",
+        params![file_hash, root_path.as_str(), absolute_path.as_str()],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_run_documents(run_id, file_hash, ordinal) VALUES (?, ?, 0)",
+        params![run_id, file_hash],
+    )?;
+    conn.execute(
+        "INSERT INTO document_pages(file_hash, page_no, width_px, height_px, render_dpi, status)
+         VALUES (?, 1, 100, 100, 200, 'completed')",
+        params![file_hash],
+    )?;
+    conn.execute(
+        "INSERT INTO document_run_page_ocr(
+            run_id, file_hash, page_no, engine_id, profile_id, raw_text, cleaned_text,
+            status, attempts, elapsed_ms, options
+         )
+         VALUES (?, ?, 1, 'test-engine', 'test-profile', ?, ?, 'completed', 1, 1, '{}'::JSON)",
+        params![run_id, file_hash, text, text],
+    )?;
+    Ok(())
+}
+
 async fn test_state() -> anyhow::Result<AppState> {
     let temp = tempfile::tempdir()?;
     let root = temp.keep();
+    AppState::new(test_config(&root)?).await.map_err(Into::into)
+}
+
+fn test_config(root: &std::path::Path) -> anyhow::Result<ServerConfig> {
     let client_dist = root.join("src").join("trapo-client").join("dist");
     std::fs::create_dir_all(&client_dist)?;
     std::fs::write(client_dist.join("index.html"), "<!doctype html>")?;
-    install_placeholder_cpu_runtime(&root)?;
-    Ok(AppState::new(ServerConfig {
-        app_root: root.clone(),
+    install_placeholder_cpu_runtime(root)?;
+    Ok(ServerConfig {
+        app_root: root.to_path_buf(),
         client_dist,
         data_dir: root.join("data"),
         cache_dir: root.join("cache"),
@@ -349,7 +444,6 @@ async fn test_state() -> anyhow::Result<AppState> {
         port: 0,
         open_browser: false,
     })
-    .await?)
 }
 
 fn install_placeholder_cpu_runtime(root: &std::path::Path) -> anyhow::Result<()> {

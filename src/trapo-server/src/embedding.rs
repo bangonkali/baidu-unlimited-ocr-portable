@@ -44,6 +44,14 @@ pub(crate) struct LlamaEmbeddingProfile {
     pub(crate) n_ubatch: u32,
 }
 
+impl LlamaEmbeddingProfile {
+    pub(crate) fn effective_batch_tokens(&self) -> u32 {
+        self.context_tokens
+            .min(self.n_batch.max(self.n_ubatch))
+            .max(1)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(crate) enum PoolingType {
     Mean,

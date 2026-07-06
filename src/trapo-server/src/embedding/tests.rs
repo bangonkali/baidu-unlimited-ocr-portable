@@ -1,6 +1,7 @@
 use serde_json::json;
 
 use super::*;
+use crate::catalog::embedding_model_catalog;
 
 #[test]
 fn profile_uses_catalog_tuned_parameters() -> Result<()> {
@@ -80,6 +81,38 @@ fn l2_normalization_handles_zero_vector() {
     let mut vector = vec![0.0, 0.0, 0.0];
     normalize_l2(&mut vector);
     assert_eq!(vector, vec![0.0, 0.0, 0.0]);
+}
+
+#[test]
+fn catalog_embedding_profiles_have_safe_encoder_batch_ceiling() -> Result<()> {
+    for entry in embedding_model_catalog() {
+        let params: serde_json::Value = serde_json::from_str(entry.llama_params_json)?;
+        let n_batch = json_u32(&params, "n_batch").unwrap_or(512);
+        let n_ubatch = json_u32(&params, "n_ubatch").unwrap_or(512);
+        let context_tokens = entry.context_tokens.unwrap_or_default();
+        let profile = LlamaEmbeddingProfile {
+            model_id: entry.model_id.to_string(),
+            model_path: PathBuf::from(entry.model_file),
+            library_path: PathBuf::from(llama_library_name()),
+            dimension: entry.embedding_dimension.unwrap_or_default(),
+            context_tokens,
+            pooling: PoolingType::from_catalog(entry.pooling)?,
+            normalize: entry.normalize_embeddings,
+            query_prefix: entry.query_prefix.to_string(),
+            document_prefix: entry.document_prefix.to_string(),
+            n_gpu_layers: json_i32(&params, "n_gpu_layers").unwrap_or(99),
+            n_batch,
+            n_ubatch,
+        };
+
+        assert!(
+            profile.effective_batch_tokens() >= 512,
+            "{} has an unsafe llama.cpp encoder batch ceiling: {:?}",
+            entry.model_id,
+            entry.llama_params_json
+        );
+    }
+    Ok(())
 }
 
 fn install_runtime_library(root: &Path, runtime_id: &str) -> Result<PathBuf> {
