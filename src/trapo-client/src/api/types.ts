@@ -231,6 +231,7 @@ export interface DocumentsPayload {
 
 export interface DocumentRegionsPayload {
   file_hash: string;
+  run_id?: string | null;
   boxes: OverlayBox[];
 }
 
@@ -264,6 +265,7 @@ export interface PageTextRecord {
 
 export interface DocumentTextPayload {
   file_hash: string;
+  run_id?: string | null;
   pages: PageTextRecord[];
 }
 
@@ -293,3 +295,4 @@ export interface LogsPayload {
 }
 
 export type * from './diagnosticsTypes';
+export type * from './systemTypes';

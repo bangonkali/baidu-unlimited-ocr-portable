@@ -21,6 +21,7 @@ mod tests {
         let annotation_id = crate::ids::new_persistence_id();
         let region_id = "src_region-a".to_string();
         let page = StoredPage {
+            run_id: None,
             file_hash: "file-a".to_string(),
             page_no: 1,
             width_px: 100,
@@ -56,7 +57,7 @@ mod tests {
         };
 
         repo.upsert_page(&page).await?;
-        repo.replace_page_ocr(&page, "engine", "profile", 42)
+        repo.replace_page_ocr("run-a", &page, "engine", "profile", 42)
             .await?;
 
         let snapshot = repo.load_snapshot().await?;
@@ -69,6 +70,46 @@ mod tests {
         assert_eq!(loaded.boxes[0].region_id, region_id);
         assert_eq!(loaded.spans[0].annotation_id, annotation_id);
         assert_eq!(loaded.spans[0].region_id, region_id);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn run_scoped_document_reads_do_not_mix_ocr_outputs() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        let first = stored_test_page("first total", "run-a-total", 0, 11);
+        let second = stored_test_page("second total", "run-b-total", 0, 12);
+
+        repo.upsert_page(&first).await?;
+        repo.replace_page_ocr("run-a", &first, "engine", "profile", 10)
+            .await?;
+        repo.replace_page_ocr("run-b", &second, "engine", "profile", 12)
+            .await?;
+
+        let first_text = repo.load_document_text_for_run("file-a", "run-a").await?;
+        let second_text = repo.load_document_text_for_run("file-a", "run-b").await?;
+        let missing_text = repo
+            .load_document_text_for_run("file-a", "missing-run")
+            .await?;
+        assert_eq!(first_text[0].text, "first total");
+        assert_eq!(second_text[0].text, "second total");
+        assert!(missing_text.is_empty());
+
+        let first_regions = repo
+            .load_document_regions_for_run("file-a", "run-a")
+            .await?;
+        let second_regions = repo
+            .load_document_regions_for_run("file-a", "run-b")
+            .await?;
+        assert_eq!(first_regions.len(), 1);
+        assert_eq!(second_regions.len(), 1);
+        assert_eq!(first_regions[0].label, "run-a-total");
+        assert_eq!(second_regions[0].label, "run-b-total");
+        assert_ne!(first_regions[0].annotation_id, second_regions[0].annotation_id);
+
+        let snapshot = repo.load_snapshot().await?;
+        assert_eq!(snapshot.pages.len(), 1);
+        assert_eq!(snapshot.pages[0].boxes.len(), 1);
         Ok(())
     }
 
@@ -298,6 +339,45 @@ mod tests {
             span_end: 28,
             content_markdown: "Invoice total".to_string(),
             content_html: None,
+        }
+    }
+
+    fn stored_test_page(text: &str, label: &str, span_start: u64, span_end: u64) -> StoredPage {
+        let annotation_id = new_persistence_id();
+        StoredPage {
+            run_id: None,
+            file_hash: "file-a".to_string(),
+            page_no: 1,
+            width_px: 100,
+            height_px: 200,
+            render_dpi: 200,
+            status: "completed".to_string(),
+            error: None,
+            preview_path: Some("page.png".to_string()),
+            cleaned_text: text.to_string(),
+            raw_text: text.to_string(),
+            boxes: vec![OverlayBox {
+                annotation_id: annotation_id.clone(),
+                region_id: annotation_id.clone(),
+                source_region_key: format!("source-{label}"),
+                label: label.to_string(),
+                content_markdown: text.to_string(),
+                content_html: None,
+                page_no: 1,
+                left_percent: 10.0,
+                top_percent: 20.0,
+                width_percent: 30.0,
+                height_percent: 40.0,
+                hidden: false,
+            }],
+            spans: vec![TextRegionSpan {
+                annotation_id: annotation_id.clone(),
+                region_id: annotation_id,
+                source_region_key: format!("source-{label}"),
+                page_no: 1,
+                start: span_start,
+                end: span_end,
+            }],
         }
     }
 }

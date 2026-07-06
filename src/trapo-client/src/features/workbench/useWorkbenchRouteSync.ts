@@ -34,7 +34,7 @@ export function useRouteSearchSync(args: {
   workbenchSearch?: WorkbenchRouteSearch;
 }) {
   const { activeView, workbench, workbenchSearch } = args;
-  const seededFollowFileRef = useRef<string | undefined>(undefined);
+  const seededFollowScopeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (activeView !== 'workbench') {
       return;
@@ -44,12 +44,13 @@ export function useRouteSearchSync(args: {
       activeView,
       workbench,
       workbenchSearch,
-      seededFollowFileRef.current,
+      seededFollowScopeRef.current,
     );
     if (routeSelection) {
       setSelection(routeSelection);
     }
-    seededFollowFileRef.current = desiredAutoFollow === true ? workbenchSearch?.file : undefined;
+    seededFollowScopeRef.current =
+      desiredAutoFollow === true ? followScopeKey(workbenchSearch) : undefined;
     if (desiredAutoFollow !== undefined && desiredAutoFollow !== workbench.autoFollowRegions) {
       setAutoFollowRegions(desiredAutoFollow);
     }
@@ -80,23 +81,25 @@ export function routeSelectionPatchForSync(
   activeView: ActiveView,
   workbench: Pick<WorkbenchState, 'selection'>,
   workbenchSearch?: WorkbenchRouteSearch,
-  seededFollowFile?: string,
+  seededFollowScope?: string,
 ) {
   if (activeView !== 'workbench' || workbenchSearch?.file === undefined) {
     return undefined;
   }
   const follow = routeAutoFollowValue(activeView, workbenchSearch) === true;
-  if (follow && seededFollowFile === workbenchSearch.file) {
+  if (follow && seededFollowScope === followScopeKey(workbenchSearch)) {
     return undefined;
   }
   const routeSelection = {
     fileHash: workbenchSearch.file,
     pageNo: workbenchSearch.page ?? workbench.selection.pageNo,
     regionId: follow ? undefined : workbenchSearch.region,
+    runId: workbenchSearch.run,
   };
   return routeSelection.fileHash !== workbench.selection.fileHash || // skylos: ignore[SKY-D253] fileHash is route UI state, not a secret token.
     routeSelection.pageNo !== workbench.selection.pageNo ||
-    routeSelection.regionId !== workbench.selection.regionId
+    routeSelection.regionId !== workbench.selection.regionId ||
+    routeSelection.runId !== workbench.selection.runId
     ? routeSelection
     : undefined;
 }
@@ -118,6 +121,11 @@ function routeHasManualFocus(workbenchSearch?: WorkbenchRouteSearch) {
   return (
     workbenchSearch?.file !== undefined ||
     workbenchSearch?.page !== undefined ||
-    workbenchSearch?.region !== undefined
+    workbenchSearch?.region !== undefined ||
+    workbenchSearch?.run !== undefined
   );
+}
+
+function followScopeKey(workbenchSearch?: WorkbenchRouteSearch) {
+  return [workbenchSearch?.run ?? '', workbenchSearch?.file ?? ''].join(':');
 }

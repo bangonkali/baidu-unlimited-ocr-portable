@@ -71,21 +71,25 @@ impl Repository {
 
     fn replace_regions(
         conn: &Connection,
+        run_id: &str,
         page: &StoredPage,
         engine_id: &str,
         profile_id: &str,
     ) -> Result<()> {
         conn.execute(
-            "DELETE FROM document_text_region_links WHERE file_hash = ? AND page_no = ?",
-            params![page.file_hash, i64::from(page.page_no)],
+            "DELETE FROM document_text_region_links WHERE run_id = ? AND file_hash = ? AND page_no = ?",
+            params![run_id, page.file_hash, i64::from(page.page_no)],
         )?;
         conn.execute(
-            "DELETE FROM document_region_annotations WHERE file_hash = ? AND page_no = ?",
-            params![page.file_hash, i64::from(page.page_no)],
-        )?;
-        conn.execute(
-            "DELETE FROM document_regions WHERE file_hash = ? AND page_no = ? AND engine_id = ? AND profile_id = ?",
-            params![page.file_hash, i64::from(page.page_no), engine_id, profile_id],
+            "DELETE FROM document_regions
+             WHERE run_id = ? AND file_hash = ? AND page_no = ? AND engine_id = ? AND profile_id = ?",
+            params![
+                run_id,
+                page.file_hash,
+                i64::from(page.page_no),
+                engine_id,
+                profile_id
+            ],
         )?;
         for box_record in &page.boxes {
             let source_span = page
@@ -93,11 +97,12 @@ impl Repository {
                 .iter()
                 .find(|span| span.annotation_id == box_record.annotation_id);
             conn.execute(
-                "INSERT INTO document_regions(region_id, annotation_id, source_region_key,
+                "INSERT INTO document_regions(run_id, region_id, annotation_id, source_region_key,
                   file_hash, page_no, engine_id, profile_id, label,
                   x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
+                    run_id,
                     box_record.region_id,
                     box_record.annotation_id,
                     box_record.source_region_key,
@@ -132,11 +137,13 @@ impl Repository {
         }
         for span in &page.spans {
             conn.execute(
-                "INSERT INTO document_text_region_links(file_hash, page_no, region_id, annotation_id, text_start, text_end)
-                 VALUES (?, ?, ?, ?, ?, ?)
+                "INSERT INTO document_text_region_links(run_id, file_hash, page_no, region_id, annotation_id, text_start, text_end)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(file_hash, page_no, region_id, text_start, text_end) DO UPDATE SET
+                    run_id = excluded.run_id,
                     annotation_id = excluded.annotation_id",
                 params![
+                    run_id,
                     page.file_hash,
                     i64::from(page.page_no),
                     span.region_id,

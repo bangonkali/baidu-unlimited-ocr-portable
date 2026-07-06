@@ -23,10 +23,19 @@ export async function postJson<TResponse, TBody>(
   body: TBody,
   signal?: AbortSignal,
 ): Promise<TResponse> {
+  return postJsonWithHeaders(url, body, {}, signal);
+}
+
+export async function postJsonWithHeaders<TResponse, TBody>(
+  url: string,
+  body: TBody,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<TResponse> {
   const response = await fetch(toApiPath(url), {
     // skylos: ignore[SKY-D216] toApiPath only allows same-origin /api/ paths.
     body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     method: 'POST',
     signal,
   });

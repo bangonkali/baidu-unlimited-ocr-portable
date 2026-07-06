@@ -10,4 +10,6 @@ import type { OverlayBox } from './overlayBox';
 export interface DocumentRegionsPayload {
   boxes: OverlayBox[];
   file_hash: string;
+  /** @nullable */
+  run_id?: string | null;
 }

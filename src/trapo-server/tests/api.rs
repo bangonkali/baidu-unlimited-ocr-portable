@@ -51,6 +51,59 @@ async fn invalid_profile_update_is_rejected() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn shutdown_route_requires_confirmation_and_blocks_new_work() -> anyhow::Result<()> {
+    let state = test_state().await?;
+    let app = build_router(state.clone());
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/system/shutdown")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"confirm":"shutdown"}"#))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/system/shutdown")
+                .header("content-type", "application/json")
+                .header("x-trapo-intent", "shutdown")
+                .body(Body::from(r#"{"confirm":"shutdown"}"#))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    assert_eq!(payload["state"], "shutting_down");
+    assert_eq!(payload["source"], "api");
+
+    let scan_root = state.config().app_root.join("scan-after-shutdown");
+    std::fs::create_dir_all(&scan_root)?;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/ingest/start")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "root_path": scan_root.to_string_lossy().to_string() })
+                        .to_string(),
+                ))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    state.complete_shutdown().await;
+    Ok(())
+}
+
+#[tokio::test]
 async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
     let state = test_state().await?;
     let app = build_router(state.clone());
@@ -125,6 +178,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/health",
         "/api/status",
         "/api/search",
+        "/api/system/shutdown",
         "/api/ingest/start",
         "/api/ingest/runs/{run_id}/events",
         "/api/models/{model_id}/events",
@@ -214,6 +268,7 @@ async fn duckdb_page_columns_remain_integer() -> anyhow::Result<()> {
         ("document_pages", "page_no"),
         ("document_preview_images", "page_no"),
         ("document_page_ocr", "page_no"),
+        ("document_run_page_ocr", "page_no"),
         ("document_regions", "page_no"),
         ("document_text_region_links", "page_no"),
         ("document_terms", "page_no"),

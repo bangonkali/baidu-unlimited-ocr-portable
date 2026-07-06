@@ -125,8 +125,14 @@
   border: 1px solid var(--border);
 }
 
-.anchorBundle {
+.regionScope {
   display: inline;
+}
+
+.regionScopeText {
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .regionAnchor {
@@ -154,6 +160,11 @@
   border-color: var(--accent);
 }
 
+.regionScope[data-glow="true"] .regionAnchor,
+.regionScope[data-glow="true"] .regionScopeText {
+  animation: region-scope-glow 1.6s ease-out;
+}
+
 .regionSnippet {
   display: block;
   max-width: min(100%, 420px);
@@ -178,6 +189,22 @@
 .regionSnippetButton:hover .regionSnippet,
 .regionSnippetButton:focus-visible .regionSnippet {
   border-color: var(--accent);
+}
+
+@keyframes region-scope-glow {
+  0% {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+    box-shadow:
+      0 0 0 1px var(--accent),
+      0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  100% {
+    background: transparent;
+    box-shadow:
+      0 0 0 1px transparent,
+      0 0 0 0 transparent;
+  }
 }
 
 .headerIcon,

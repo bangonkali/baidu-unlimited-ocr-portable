@@ -99,6 +99,8 @@ pub(crate) struct DocumentsPayload {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct DocumentRegionsPayload {
     pub(crate) file_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) run_id: Option<String>,
     pub(crate) boxes: Vec<OverlayBox>,
 }
 
@@ -144,6 +146,8 @@ pub(crate) struct PageTextRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct DocumentTextPayload {
     pub(crate) file_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) run_id: Option<String>,
     pub(crate) pages: Vec<PageTextRecord>,
 }
 

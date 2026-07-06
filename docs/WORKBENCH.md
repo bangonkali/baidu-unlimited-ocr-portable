@@ -24,11 +24,27 @@ the accepted run, ordered file hashes, discovered document summaries, and the
 OCR replay sequence to resume from. The React client seeds the run and document
 caches from that response, turns auto-follow on for the new run, selects the
 first discovered document, and then navigates to `/workbench` with explicit
-`file`, `page`, and `follow` route state. The preview Auto Follow button updates
-the route's `follow` value as well as the local store, so manual focus links can
-turn following off without preventing the user from turning it back on. This
-keeps the preview and text panes reliable even when the websocket connects
-during the route transition.
+`run`, `file`, `page`, and `follow` route state. The preview Auto Follow button
+updates the route's `follow` value as well as the local store, so manual focus
+links can turn following off without preventing the user from turning it back
+on. This keeps the preview and text panes reliable even when the websocket
+connects during the route transition.
+
+## Run-Scoped OCR Results
+
+OCR text, text spans, annotation ids, and overlay regions are scoped by ingest
+run. The workbench URL must include `run=<run_id>` whenever it displays OCR
+outputs, and document text/region API reads must pass the same value as
+`run_id`. Preview images remain file/page assets, but overlays and text must
+come only from the selected run.
+
+This isolation is required because scanning the same file again creates a new
+set of annotations. A fresh run must start with empty run-scoped text and
+regions, then populate from websocket events and run-scoped DuckDB rows. It
+must never show stale annotations from an older run for the same `file_hash`.
+
+See [OCR Data Model](OCR-DATA-MODEL.md) for the canonical DuckDB and React
+naming contract for folders, files, pages, runs, and annotations.
 
 ## File Explorer
 
@@ -81,6 +97,25 @@ DuckDB `download_events`. Runtime status still comes from the filesystem first:
 if a GGUF file was previously downloaded but is no longer present under
 `models/`, the model appears as a neutral missing state and offers download
 again instead of trusting stale history.
+
+## Clean Shutdown
+
+The status bar owns the always-visible Trapo shutdown control. The button opens
+a confirmation prompt and then calls `POST /api/system/shutdown` with the
+explicit shutdown confirmation body and intent header. This route is idempotent:
+repeated clicks keep the same shutdown in progress instead of starting competing
+shutdown flows.
+
+Shutdown stops new ingest and model-download work, cancels active runs and
+downloads, drains realtime and annotation persistence queues, checkpoints
+DuckDB, flushes logs, and then lets the server process exit so native GPU and
+database handles are released. Ctrl+C and supported OS console close/shutdown
+signals use the same cleanup path.
+
+The already-loaded React app switches to a friendly offline page after the
+shutdown request or after status probes fail. A cold browser reload cannot be
+served while the backend process is stopped; restart `trapo-server` first, then
+use Retry or reload the browser.
 
 ## Onboarding And Tooltips
 

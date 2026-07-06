@@ -18,10 +18,11 @@ export function ensureTextPage(
   current: DocumentTextPayload | undefined,
   context: OcrPageStreamContext,
 ): DocumentTextPayload {
-  const payload = current ?? { file_hash: context.file_hash, pages: [] };
+  const payload = current ?? { file_hash: context.file_hash, pages: [], run_id: context.run_id };
   return {
     ...payload,
     file_hash: context.file_hash,
+    run_id: context.run_id,
     pages: upsertPage(payload.pages, { page_no: context.page_no, spans: [], text: '' }),
   };
 }
@@ -87,22 +88,31 @@ export function applyRegionUpsert(
   current: DocumentRegionsPayload | undefined,
   payload: OcrPageRegionUpsertPayload,
 ): DocumentRegionsPayload {
-  const existing = current ?? { boxes: [], file_hash: payload.file_hash };
+  const existing = current ?? {
+    boxes: [],
+    file_hash: payload.file_hash,
+    run_id: payload.run_id,
+  };
   const incomingId = annotationIdOf(payload.region);
   const boxes = existing.boxes.some((box) => annotationIdOf(box) === incomingId)
     ? existing.boxes.map((box) => (annotationIdOf(box) === incomingId ? payload.region : box))
     : [...existing.boxes, payload.region];
-  return { boxes, file_hash: payload.file_hash };
+  return { boxes, file_hash: payload.file_hash, run_id: payload.run_id };
 }
 
 export function applyRegionRemove(
   current: DocumentRegionsPayload | undefined,
   payload: OcrPageRegionRemovePayload,
 ): DocumentRegionsPayload {
-  const existing = current ?? { boxes: [], file_hash: payload.file_hash };
+  const existing = current ?? {
+    boxes: [],
+    file_hash: payload.file_hash,
+    run_id: payload.run_id,
+  };
   return {
     boxes: existing.boxes.filter((box) => annotationIdOf(box) !== payload.region_id),
     file_hash: payload.file_hash,
+    run_id: payload.run_id,
   };
 }
 

@@ -61,10 +61,11 @@ describe('useWorkbenchIngestActions', () => {
       },
     ]);
     expect(navigateCalls).toEqual([
-      { search: { file: 'file-a', follow: true, page: 1 }, to: '/workbench' },
+      { search: { file: 'file-a', follow: true, page: 1, run: 'run-a' }, to: '/workbench' },
     ]);
     expect(getWorkbenchSnapshot().autoFollowRegions).toBe(true);
     expect(getWorkbenchSnapshot().selection.fileHash).toBe('file-a');
+    expect(getWorkbenchSnapshot().selection.runId).toBe('run-a');
   });
 
   test('stores manual path fallback when folder picker reports an error', async () => {

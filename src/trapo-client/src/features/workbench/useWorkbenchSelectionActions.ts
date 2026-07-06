@@ -9,12 +9,14 @@ interface WorkbenchSelectionPatch {
   fileHash?: string;
   pageNo?: number;
   regionId?: string;
+  runId?: string;
 }
 
 interface WorkbenchSelectionValue {
   fileHash?: string;
   pageNo: number;
   regionId?: string;
+  runId?: string;
 }
 
 interface UseWorkbenchSelectionActionsArgs {
@@ -81,15 +83,17 @@ export function useWorkbenchSelectionActions({
 function selectionFromPatch(state: WorkbenchState, patch: WorkbenchSelectionPatch) {
   const fileChanged = patch.fileHash !== undefined && patch.fileHash !== state.selection.fileHash; // skylos: ignore[SKY-D253] fileHash is public route state, not a secret token.
   const pageChanged = patch.pageNo !== undefined && patch.pageNo !== state.selection.pageNo;
+  const runChanged = patch.runId !== undefined && patch.runId !== state.selection.runId;
   return {
     fileHash: patch.fileHash ?? state.selection.fileHash,
     pageNo: patch.pageNo ?? state.selection.pageNo,
     regionId:
       patch.regionId !== undefined
         ? patch.regionId
-        : fileChanged || pageChanged
+        : fileChanged || pageChanged || runChanged
           ? undefined
           : state.selection.regionId,
+    runId: patch.runId ?? state.selection.runId,
   };
 }
 
@@ -106,5 +110,6 @@ export function routeSearchFromSelection(
     page: selection.fileHash ? selection.pageNo : undefined,
     q: searchText.trim() || undefined,
     region: selection.regionId,
+    run: selection.fileHash ? selection.runId : undefined,
   };
 }

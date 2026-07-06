@@ -25,6 +25,7 @@ use crate::{
     scanner::{
         DiscoveredFile, SUPPORTED_INPUTS, discover_supported_files, generic_path, stable_hash,
     },
+    shutdown::{BackgroundTasks, ShutdownCoordinator},
     storage::{
         AnnotationIdentityDraft, DiagnosticEventInsert, DiagnosticEventRow,
         DiagnosticModelLeaseInsert, DiagnosticModelLeaseRow, DiagnosticRunRow,
@@ -35,7 +36,8 @@ use crate::{
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
         ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
-        SettingsPayload, SettingsUpdateRequest, StatusPayload, WorkbenchUiSettings,
+        SettingsPayload, SettingsUpdateRequest, ShutdownPayload, StatusPayload,
+        WorkbenchUiSettings,
     },
     workbench_types::{
         DiagnosticAnalyticsPayload, DiagnosticAnalyticsSummary, DiagnosticBreakdownRecord,
@@ -67,6 +69,8 @@ struct AppInner {
     hub: Arc<RealtimeHub>,
     renderer: PdfRenderer,
     annotation_identities: AnnotationIdentityRuntime,
+    background_tasks: BackgroundTasks,
+    shutdown: ShutdownCoordinator,
     state: Mutex<WorkbenchState>,
 }
 
@@ -187,10 +191,12 @@ include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/process_document.rs");
 include!("app/process_document_records.rs");
+include!("app/page_diagnostics.rs");
 include!("app/region_snippets.rs");
 include!("app/page_completion.rs");
 include!("app/page_pipeline.rs");
 include!("app/download_helpers.rs");
+include!("app/shutdown.rs");
 include!("app/logging.rs");
 include!("app/diagnostics_recording.rs");
 include!("app/diagnostics_methods.rs");

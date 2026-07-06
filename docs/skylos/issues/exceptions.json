@@ -280,6 +280,13 @@
       "reason": "fileHash/file_hash values are public document identifiers used for UI routing, not secret tokens."
     },
     {
+      "id": "client-public-document-id-workbench-support",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/features/workbench/WorkbenchPageSupport.tsx",
+      "reason": "fileHash/file_hash values are public document identifiers used for UI auto-follow state, not secret tokens."
+    },
+    {
       "id": "client-public-document-id-realtime",
       "rule_id": "SKY-D253",
       "category": "danger",
@@ -292,6 +299,13 @@
       "category": "danger",
       "path_glob": "src/trapo-client/src/stores/workbenchStore.ts",
       "reason": "fileHash values are public document identifiers used for UI selection, not secret tokens."
+    },
+    {
+      "id": "client-public-document-id-realtime-focus",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/stores/workbenchRealtimeFocus.ts",
+      "reason": "fileHash values are public document identifiers used for OCR focus state, not secret tokens."
     },
     {
       "id": "client-realtime-sequential-replay",
@@ -426,6 +440,14 @@
       "category": "unused_functions",
       "path_glob": "src/trapo-server/src/app*.rs",
       "reason": "Small app helpers are referenced from Rust include fragments; cargo clippy is authoritative for actual dead code."
+    },
+    {
+      "id": "rust-shutdown-task-registry",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/shutdown.rs",
+      "name_glob": "BackgroundTasks.*",
+      "reason": "The shutdown task registry is called from AppState include fragments that Skylos does not resolve; cargo clippy and shutdown route tests validate reachability."
     },
     {
       "id": "rust-ocr-ffi-include-helpers",

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
 import { fixtureBoxes } from '../../stories/fixtures/workbenchFixtures';
-import { centeredScrollOffset, PreviewPane } from './PreviewPane';
+import { centeredScrollOffset, nearestScrollOffset, PreviewPane } from './PreviewPane';
 
 describe('PreviewPane', () => {
   test('centers selected overlay inside the preview scroll root', () => {
@@ -15,6 +15,30 @@ describe('PreviewPane', () => {
         targetStart: 420,
       }),
     ).toBe(270);
+  });
+
+  test('reveals whole page transitions without centering tall pages', () => {
+    expect(
+      nearestScrollOffset({
+        rootScroll: 100,
+        rootSize: 500,
+        rootStart: 20,
+        targetSize: 900,
+        targetStart: 650,
+      }),
+    ).toBe(730);
+  });
+
+  test('uses nearest edge when revealing smaller pages', () => {
+    expect(
+      nearestScrollOffset({
+        rootScroll: 100,
+        rootSize: 500,
+        rootStart: 20,
+        targetSize: 120,
+        targetStart: 520,
+      }),
+    ).toBe(220);
   });
 
   test('renders visible auto-follow state and active box', () => {
@@ -71,9 +95,14 @@ describe('PreviewPane', () => {
       />,
     );
 
-    expect(html).toContain(`data-annotation-id="${annotationId}"`);
     expect(html).toContain(`id="annotation-box-${annotationId}"`);
-    expect(html).toContain('data-region-id="src_invoice-total"');
+    expect(html).not.toContain(`data-annotation-id="${annotationId}"`);
+    expect(html).not.toContain('data-region-id="src_invoice-total"');
     expect(html).toContain('data-active="true"');
+    expect(countOccurrences(html, annotationId)).toBe(1);
   });
 });
+
+function countOccurrences(value: string, pattern: string) {
+  return value.split(pattern).length - 1;
+}

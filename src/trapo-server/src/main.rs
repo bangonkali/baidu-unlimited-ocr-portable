@@ -64,10 +64,15 @@ async fn main() -> ExitCode {
     if config.open_browser {
         tokio::spawn(open_browser_later(url.clone()));
     }
-    if let Err(error) = axum::serve(listener, build_router(state)).await {
+    let shutdown_state = state.clone();
+    if let Err(error) = axum::serve(listener, build_router(state.clone()))
+        .with_graceful_shutdown(shutdown_signal(shutdown_state))
+        .await
+    {
         eprintln!("trapo-server failed: {error}");
         return ExitCode::from(1);
     }
+    state.complete_shutdown().await;
     ExitCode::SUCCESS
 }
 
@@ -101,4 +106,107 @@ async fn open_browser_later(url: String) {
     let _ = std::process::Command::new(command.0)
         .args(command.1.into_iter().filter(|arg| !arg.is_empty()))
         .spawn(); // skylos: ignore[SKY-D212] command is a fixed OS opener and url is local server origin.
+}
+
+async fn shutdown_signal(state: AppState) {
+    let token = state.shutdown_token();
+    tokio::select! {
+        () = token.cancelled() => {}
+        source = wait_for_shutdown_signal() => {
+            state.request_signal_shutdown(source).await;
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn wait_for_shutdown_signal() -> &'static str {
+    let mut ctrl_c = tokio::signal::windows::ctrl_c().ok();
+    let mut ctrl_break = tokio::signal::windows::ctrl_break().ok();
+    let mut ctrl_close = tokio::signal::windows::ctrl_close().ok();
+    let mut ctrl_logoff = tokio::signal::windows::ctrl_logoff().ok();
+    let mut ctrl_shutdown = tokio::signal::windows::ctrl_shutdown().ok();
+    tokio::select! {
+        () = recv_windows_ctrl_c(&mut ctrl_c) => "ctrl_c",
+        () = recv_windows_ctrl_break(&mut ctrl_break) => "ctrl_break",
+        () = recv_windows_ctrl_close(&mut ctrl_close) => "ctrl_close",
+        () = recv_windows_ctrl_logoff(&mut ctrl_logoff) => "ctrl_logoff",
+        () = recv_windows_ctrl_shutdown(&mut ctrl_shutdown) => "ctrl_shutdown",
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn recv_windows_ctrl_c(signal: &mut Option<tokio::signal::windows::CtrlC>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn recv_windows_ctrl_break(signal: &mut Option<tokio::signal::windows::CtrlBreak>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn recv_windows_ctrl_close(signal: &mut Option<tokio::signal::windows::CtrlClose>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn recv_windows_ctrl_logoff(signal: &mut Option<tokio::signal::windows::CtrlLogoff>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(target_os = "windows")]
+async fn recv_windows_ctrl_shutdown(signal: &mut Option<tokio::signal::windows::CtrlShutdown>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(all(unix, not(target_os = "windows")))]
+async fn wait_for_shutdown_signal() -> &'static str {
+    let mut terminate =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
+    tokio::select! {
+        result = tokio::signal::ctrl_c() => {
+            if let Err(error) = result {
+                eprintln!("failed to listen for Ctrl+C: {error}");
+            }
+            "ctrl_c"
+        }
+        () = recv_unix_signal(&mut terminate) => "sigterm",
+    }
+}
+
+#[cfg(all(unix, not(target_os = "windows")))]
+async fn recv_unix_signal(signal: &mut Option<tokio::signal::unix::Signal>) {
+    if let Some(signal) = signal {
+        signal.recv().await;
+    } else {
+        std::future::pending::<()>().await;
+    }
+}
+
+#[cfg(not(any(unix, target_os = "windows")))]
+async fn wait_for_shutdown_signal() -> &'static str {
+    if let Err(error) = tokio::signal::ctrl_c().await {
+        eprintln!("failed to listen for Ctrl+C: {error}");
+    }
+    "ctrl_c"
 }

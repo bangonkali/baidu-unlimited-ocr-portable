@@ -1,10 +1,11 @@
-import { describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 
 import {
   followLatestPage,
   followLatestRegion,
   getWorkbenchSnapshot,
   hydrateWorkbenchUiSettings,
+  resetRealtimeFocusThrottleForTest,
   setAutoFollowRegions,
   setLabelsVisible,
   setOverlayVisible,
@@ -13,7 +14,12 @@ import {
   workbenchUiSettingsFromState,
 } from './workbenchStore';
 
-describe('workbenchStore auto-follow', () => {
+beforeEach(() => {
+  setAutoFollowRegions(true);
+  resetRealtimeFocusThrottleForTest();
+});
+
+describe('workbenchStore auto-follow basics', () => {
   test('selects the newest region only when auto-follow is enabled', () => {
     setAutoFollowRegions(true);
     setSelection({ fileHash: 'initial', pageNo: 1, regionId: 'old' });
@@ -76,6 +82,47 @@ describe('workbenchStore auto-follow', () => {
 
     setSelection({ pageNo: 2 });
     expect(getWorkbenchSnapshot().selectionSource).toBe('manual');
+  });
+
+  test('increments focus revision for repeated manual region focus', () => {
+    setSelection({ fileHash: 'manual-doc', pageNo: 1, regionId: 'reg-title' });
+    const firstRevision = getWorkbenchSnapshot().focusRevision;
+
+    setSelection({ fileHash: 'manual-doc', pageNo: 1, regionId: 'reg-title' });
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      fileHash: 'manual-doc',
+      pageNo: 1,
+      regionId: 'reg-title',
+    });
+    expect(getWorkbenchSnapshot().focusRevision).toBe(firstRevision + 1);
+  });
+
+  test('clears stale selected regions when realtime advances to another page', () => {
+    setAutoFollowRegions(true);
+    setSelection({ fileHash: 'live-doc', pageNo: 1, regionId: 'page-1-region' });
+
+    followLatestPage('live-doc', 2);
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      fileHash: 'live-doc',
+      pageNo: 2,
+      regionId: undefined,
+    });
+  });
+
+  test('carries realtime run ids and clears stale regions when the run changes', () => {
+    setAutoFollowRegions(true);
+    setSelection({ fileHash: 'live-doc', pageNo: 2, regionId: 'old-run-region', runId: 'run-a' });
+
+    followLatestPage('live-doc', 2, 'run-b');
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      fileHash: 'live-doc',
+      pageNo: 2,
+      regionId: undefined,
+      runId: 'run-b',
+    });
   });
 });
 

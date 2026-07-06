@@ -415,6 +415,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -491,6 +507,22 @@
             "name": "file_hash",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -1196,6 +1228,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FolderDialogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/shutdown": {
+      "post": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "shutdown_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShutdownRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Clean shutdown requested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShutdownPayload"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
                 }
               }
             }
@@ -2008,6 +2080,12 @@
           },
           "file_hash": {
             "type": "string"
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2092,6 +2170,12 @@
             "items": {
               "$ref": "#/components/schemas/PageTextRecord"
             }
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3136,6 +3220,55 @@
                 "$ref": "#/components/schemas/WorkbenchUiSettingsPatch"
               }
             ]
+          }
+        }
+      },
+      "ShutdownPayload": {
+        "type": "object",
+        "required": [
+          "state",
+          "source",
+          "message",
+          "active_run_ids",
+          "active_download_count",
+          "grace_ms"
+        ],
+        "properties": {
+          "active_download_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "active_run_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grace_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "ShutdownRequest": {
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "properties": {
+          "confirm": {
+            "type": "string"
           }
         }
       },

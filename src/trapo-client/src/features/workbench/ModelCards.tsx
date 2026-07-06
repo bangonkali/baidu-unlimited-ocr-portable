@@ -12,6 +12,7 @@ import { statusIcon, statusText } from './modelStatus';
 interface ModelCardsProps extends ModelActionHandlers {
   busy?: boolean;
   models: ModelAssetRecord[];
+  providerRepo?: string;
 }
 
 export function ModelCards({
@@ -20,6 +21,7 @@ export function ModelCards({
   onCancelModel,
   onDownloadModel,
   onSelectModel,
+  providerRepo,
 }: ModelCardsProps) {
   return (
     <div className={styles.cardBody}>
@@ -31,14 +33,18 @@ export function ModelCards({
           onCancelModel={onCancelModel}
           onDownloadModel={onDownloadModel}
           onSelectModel={onSelectModel}
+          providerRepo={providerRepo}
         />
       ))}
     </div>
   );
 }
 
-function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAssetRecord }) {
+function ModelCard(
+  props: ModelActionHandlers & { busy?: boolean; model: ModelAssetRecord; providerRepo?: string },
+) {
   const { model } = props;
+  const repoId = model.repo_id ?? props.providerRepo ?? 'Unavailable';
   return (
     <article className={styles.model} data-selected={model.selected === true}>
       <div className={styles.titleRow}>
@@ -66,6 +72,7 @@ function ModelCard(props: ModelActionHandlers & { busy?: boolean; model: ModelAs
         <ModelActions {...props} />
       </div>
       <div className={styles.specGrid}>
+        <span title={repoId}>{repoId}</span>
         <span>{model.quantization ?? 'GGUF'}</span>
         <span>{model.bits ? `${model.bits}-bit` : 'mixed'}</span>
         <span>{model.hardware_tier ?? 'Runtime default'}</span>

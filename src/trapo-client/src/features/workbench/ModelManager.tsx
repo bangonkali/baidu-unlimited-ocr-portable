@@ -50,7 +50,6 @@ export function ModelManager(props: ModelManagerProps) {
           <Library size={16} />
           <span>{scope === 'downloads' ? 'Active Downloads' : 'Model Library'}</span>
         </div>
-        <span className={styles.provider}>{props.models?.provider_repo ?? selected?.repo_id}</span>
       </header>
       <ModelSummary selected={selected} status={props.status} />
       <ModelToolbar
@@ -66,9 +65,16 @@ export function ModelManager(props: ModelManagerProps) {
         onScopeChange={props.onScopeChange ?? (() => undefined)}
       />
       {view === 'cards' ? (
-        <ModelCards {...props} models={shown} />
+        <ModelCards {...props} models={shown} providerRepo={props.models?.provider_repo} />
       ) : (
-        <ModelDataGrid {...props} dir={dir} models={shown} sort={sort} onSortChange={changeSort} />
+        <ModelDataGrid
+          {...props}
+          dir={dir}
+          models={shown}
+          providerRepo={props.models?.provider_repo}
+          sort={sort}
+          onSortChange={changeSort}
+        />
       )}
     </section>
   );

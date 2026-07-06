@@ -8,6 +8,7 @@ describe('selected page OCR replay hydration', () => {
       enabled: true,
       fileHash: 'file-a',
       pageNo: 3,
+      runId: 'run-a',
     });
 
     expect(request).toEqual({
@@ -15,6 +16,7 @@ describe('selected page OCR replay hydration', () => {
       file_hash: 'file-a',
       limit: 10_000,
       page_no: 3,
+      run_id: 'run-a',
     });
     expect('refetchInterval' in request).toBe(false);
   });

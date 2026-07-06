@@ -1,28 +1,28 @@
 .host {
-  position: fixed;
-  right: 10px;
-  bottom: 28px;
+  position: relative;
   z-index: 80;
+  display: inline-grid;
+  justify-self: end;
 }
 
 .button {
   position: relative;
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 20px;
   place-items: center;
   padding: 0;
-  color: var(--muted);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  color: var(--status-foreground);
+  background: transparent;
+  border: 1px solid var(--status-border);
+  border-radius: 3px;
   cursor: pointer;
 }
 
 .button:hover,
 .button[aria-expanded="true"] {
-  color: var(--text);
-  background: var(--panel-3);
+  color: var(--status-foreground);
+  background: var(--status-hover);
 }
 
 .count {
@@ -44,7 +44,7 @@
 .panel {
   position: absolute;
   right: 0;
-  bottom: 36px;
+  bottom: 28px;
   display: grid;
   grid-template-rows: 30px minmax(0, 1fr);
   width: min(360px, calc(100vw - 20px));

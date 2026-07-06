@@ -110,6 +110,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
               autoFollowRegions={props.workbench.autoFollowRegions}
               boxes={props.regions}
               fileHash={props.workbench.selection.fileHash}
+              focusRevision={props.workbench.focusRevision}
               labelsVisible={props.workbench.labelsVisible}
               overlayVisible={props.workbench.overlayVisible}
               pages={props.previewPages}
@@ -124,6 +125,7 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
             <TextPane
               autoFollowRegions={props.workbench.autoFollowRegions}
               document={props.selectedDocument}
+              focusRevision={props.workbench.focusRevision}
               onSelectRegion={props.onSelectRegion}
               pages={props.textPages}
               regions={props.regions}

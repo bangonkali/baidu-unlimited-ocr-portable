@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-import { buildApiUrl, getJson, postJson, putJson } from './http';
+import { markShutdownRequested } from '../stores/serviceShutdownStore';
+import { buildApiUrl, getJson, postJson, postJsonWithHeaders, putJson } from './http';
 import { queryKeys } from './queryKeys';
 import type {
   DocumentRegionsPayload,
@@ -20,6 +20,8 @@ import type {
   PreviewImagesPayload,
   SettingsPayload,
   SettingsUpdateRequest,
+  ShutdownPayload,
+  ShutdownRequest,
   StatusPayload,
 } from './types';
 
@@ -49,29 +51,33 @@ export function useDocuments(q: string) {
   });
 }
 
-export function useDocumentRegions(fileHash?: string) {
+export function useDocumentRegions(fileHash?: string, runId?: string) {
   return useQuery({
     enabled: Boolean(fileHash),
-    placeholderData: { boxes: [], file_hash: fileHash ?? '' },
+    placeholderData: { boxes: [], file_hash: fileHash ?? '', run_id: runId },
     queryFn: ({ signal }) =>
       getJson<DocumentRegionsPayload>(
-        `/api/documents/${encodeURIComponent(fileHash ?? '')}/regions`,
+        buildApiUrl(`/api/documents/${encodeURIComponent(fileHash ?? '')}/regions`, {
+          run_id: runId,
+        }),
         signal,
       ),
-    queryKey: queryKeys.documentRegions(fileHash),
+    queryKey: queryKeys.documentRegions(fileHash, runId),
   });
 }
 
-export function useDocumentText(fileHash?: string) {
+export function useDocumentText(fileHash?: string, runId?: string) {
   return useQuery({
     enabled: Boolean(fileHash),
-    placeholderData: { file_hash: fileHash ?? '', pages: [] },
+    placeholderData: { file_hash: fileHash ?? '', pages: [], run_id: runId },
     queryFn: ({ signal }) =>
       getJson<DocumentTextPayload>(
-        `/api/documents/${encodeURIComponent(fileHash ?? '')}/text`,
+        buildApiUrl(`/api/documents/${encodeURIComponent(fileHash ?? '')}/text`, {
+          run_id: runId,
+        }),
         signal,
       ),
-    queryKey: queryKeys.documentText(fileHash),
+    queryKey: queryKeys.documentText(fileHash, runId),
   });
 }
 
@@ -182,6 +188,18 @@ export function useOpenFolderDialog() {
   });
 }
 
+export function useShutdownServer() {
+  return useMutation({
+    mutationFn: () =>
+      postJsonWithHeaders<ShutdownPayload, ShutdownRequest>(
+        '/api/system/shutdown',
+        { confirm: 'shutdown' },
+        { 'x-trapo-intent': 'shutdown' },
+      ),
+    onSuccess: markShutdownRequested,
+  });
+}
+
 export function useStartIngest() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -208,6 +226,16 @@ function seedIngestStartResponse(queryClient: QueryClient, response: IngestStart
       (document) => document.file_hash,
     ),
   }));
+  for (const document of response.documents) {
+    queryClient.setQueryData<DocumentRegionsPayload>(
+      queryKeys.documentRegions(document.file_hash, response.run.run_id),
+      { boxes: [], file_hash: document.file_hash, run_id: response.run.run_id },
+    );
+    queryClient.setQueryData<DocumentTextPayload>(
+      queryKeys.documentText(document.file_hash, response.run.run_id),
+      { file_hash: document.file_hash, pages: [], run_id: response.run.run_id },
+    );
+  }
   queryClient.setQueryData<StatusPayload>(queryKeys.status, (current) =>
     current
       ? {

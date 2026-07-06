@@ -12,8 +12,8 @@ use crate::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
         ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
         OcrProfileRecord, RuntimeVariantRecord, SettingsPayload, SettingsUpdateRequest,
-        StatusPayload, WorkbenchPaneSettings, WorkbenchPaneSettingsPatch, WorkbenchUiSettings,
-        WorkbenchUiSettingsPatch,
+        ShutdownPayload, ShutdownRequest, StatusPayload, WorkbenchPaneSettings,
+        WorkbenchPaneSettingsPatch, WorkbenchUiSettings, WorkbenchUiSettingsPatch,
     },
     workbench_types::{
         DiagnosticAnalyticsPayload, DiagnosticAnalyticsSummary, DiagnosticBreakdownRecord,
@@ -37,6 +37,7 @@ use crate::{
         status_doc,
         openapi_doc,
         folder_dialog_doc,
+        shutdown_doc,
         start_ingest_doc,
         list_runs_doc,
         get_run_doc,
@@ -70,6 +71,8 @@ use crate::{
     components(schemas(
         ErrorPayload,
         HealthPayload,
+        ShutdownRequest,
+        ShutdownPayload,
         StatusPayload,
         RuntimeVariantRecord,
         OcrProfileRecord,
@@ -149,6 +152,9 @@ const fn openapi_doc() {}
 #[utoipa::path(post, path = "/api/system/folder-dialog", tag = "system", responses((status = 200, body = FolderDialogResponse)))]
 const fn folder_dialog_doc() {}
 
+#[utoipa::path(post, path = "/api/system/shutdown", tag = "system", request_body = ShutdownRequest, responses((status = 202, description = "Clean shutdown requested", body = ShutdownPayload), (status = 400, body = ErrorPayload)))]
+const fn shutdown_doc() {}
+
 #[utoipa::path(post, path = "/api/ingest/start", tag = "ingest", request_body = IngestStartRequest, responses((status = 202, description = "Ingest run queued", body = IngestStartResponse), (status = 400, body = ErrorPayload)))]
 const fn start_ingest_doc() {}
 
@@ -197,13 +203,13 @@ const fn search_documents_doc() {}
 #[utoipa::path(get, path = "/api/documents/{file_hash}", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentDetail), (status = 404, body = ErrorPayload)))]
 const fn get_document_doc() {}
 
-#[utoipa::path(get, path = "/api/documents/{file_hash}/regions", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentRegionsPayload)))]
+#[utoipa::path(get, path = "/api/documents/{file_hash}/regions", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query)), responses((status = 200, body = DocumentRegionsPayload)))]
 const fn document_regions_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/regions/{region_id}/snippet", tag = "documents", params(("file_hash" = String, Path), ("region_id" = String, Path)), responses((status = 200, description = "Region image snippet bytes", content((String = "image/png"))), (status = 404, body = ErrorPayload)))]
 const fn region_snippet_doc() {}
 
-#[utoipa::path(get, path = "/api/documents/{file_hash}/text", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentTextPayload)))]
+#[utoipa::path(get, path = "/api/documents/{file_hash}/text", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query)), responses((status = 200, body = DocumentTextPayload)))]
 const fn document_text_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/preview-images", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = PreviewImagesPayload)))]

@@ -67,16 +67,31 @@ impl Repository {
     fn load_pages(conn: &Connection) -> Result<Vec<StoredPage>> {
         let mut statement = conn.prepare(
             "SELECT p.file_hash, p.page_no, coalesce(p.width_px, 0), coalesce(p.height_px, 0),
-              p.render_dpi, p.status, p.error, i.path, coalesce(o.cleaned_text, ''),
-              coalesce(o.raw_text, '')
+              p.render_dpi, p.status, p.error, i.path, coalesce(ro.run_id, ''),
+              coalesce(ro.cleaned_text, lo.cleaned_text, ''), coalesce(ro.raw_text, lo.raw_text, '')
              FROM document_pages p
              LEFT JOIN document_preview_images i ON i.file_hash = p.file_hash AND i.page_no = p.page_no
               AND i.variant = 'source'
-             LEFT JOIN document_page_ocr o ON o.file_hash = p.file_hash AND o.page_no = p.page_no
+             LEFT JOIN (
+               SELECT run_id, file_hash, page_no, cleaned_text, raw_text
+               FROM document_run_page_ocr
+               QUALIFY row_number() OVER (
+                 PARTITION BY file_hash, page_no ORDER BY updated_at DESC, created_at DESC
+               ) = 1
+             ) ro ON ro.file_hash = p.file_hash AND ro.page_no = p.page_no
+             LEFT JOIN (
+               SELECT file_hash, page_no, cleaned_text, raw_text
+               FROM document_page_ocr
+               QUALIFY row_number() OVER (
+                 PARTITION BY file_hash, page_no ORDER BY created_at DESC
+               ) = 1
+             ) lo ON lo.file_hash = p.file_hash AND lo.page_no = p.page_no
              ORDER BY p.file_hash, p.page_no",
         )?;
         let rows = statement.query_map([], |row| {
+            let run_id = row.get::<_, String>(8)?;
             Ok(StoredPage {
+                run_id: if run_id.is_empty() { None } else { Some(run_id) },
                 file_hash: row.get(0)?,
                 page_no: i64_to_u32(row.get::<_, i64>(1)?),
                 width_px: i64_to_u32(row.get::<_, i64>(2)?),
@@ -85,16 +100,26 @@ impl Repository {
                 status: row.get(5)?,
                 error: row.get(6)?,
                 preview_path: row.get(7)?,
-                cleaned_text: row.get(8)?,
-                raw_text: row.get(9)?,
+                cleaned_text: row.get(9)?,
+                raw_text: row.get(10)?,
                 boxes: Vec::new(),
                 spans: Vec::new(),
             })
         })?;
         let mut pages = collect_rows(rows)?;
         for page in &mut pages {
-            page.boxes = Self::load_page_boxes(conn, &page.file_hash, page.page_no)?;
-            page.spans = Self::load_page_spans(conn, &page.file_hash, page.page_no)?;
+            page.boxes = Self::load_page_boxes(
+                conn,
+                &page.file_hash,
+                page.page_no,
+                page.run_id.as_deref(),
+            )?;
+            page.spans = Self::load_page_spans(
+                conn,
+                &page.file_hash,
+                page.page_no,
+                page.run_id.as_deref(),
+            )?;
         }
         Ok(pages)
     }
@@ -103,6 +128,7 @@ impl Repository {
         conn: &Connection,
         file_hash: &str,
         page_no: u32,
+        run_id: Option<&str>,
     ) -> Result<Vec<OverlayBox>> {
         let mut statement = conn.prepare(
             "SELECT coalesce(r.annotation_id, r.region_id), r.region_id,
@@ -111,13 +137,14 @@ impl Repository {
               coalesce(a.content_html, r.content_html), r.page_no, r.x1, r.y1, r.x2, r.y2,
               coalesce(v.hidden, false)
              FROM document_regions r
-             LEFT JOIN document_region_annotations a ON a.region_id = r.region_id
+             LEFT JOIN document_region_annotations a ON a.region_id = coalesce(r.annotation_id, r.region_id)
              LEFT JOIN annotation_visibility_overrides v ON v.file_hash = r.file_hash
               AND v.page_no = r.page_no AND v.region_id = r.region_id
-             WHERE r.file_hash = ? AND r.page_no = ?
+             WHERE r.file_hash = ? AND r.page_no = ? AND (? = '' OR r.run_id = ?)
              ORDER BY r.region_id",
         )?;
-        let rows = statement.query_map(params![file_hash, i64::from(page_no)], |row| {
+        let run_id = run_id.unwrap_or("");
+        let rows = statement.query_map(params![file_hash, i64::from(page_no), run_id, run_id], |row| {
             let x1 = row.get::<_, f64>(7)?;
             let y1 = row.get::<_, f64>(8)?;
             let x2 = row.get::<_, f64>(9)?;
@@ -144,14 +171,16 @@ impl Repository {
         conn: &Connection,
         file_hash: &str,
         page_no: u32,
+        run_id: Option<&str>,
     ) -> Result<Vec<TextRegionSpan>> {
         let mut statement = conn.prepare(
             "SELECT coalesce(annotation_id, region_id), region_id, page_no, text_start, text_end
              FROM document_text_region_links
-             WHERE file_hash = ? AND page_no = ?
+             WHERE file_hash = ? AND page_no = ? AND (? = '' OR run_id = ?)
              ORDER BY text_start, region_id",
         )?;
-        let rows = statement.query_map(params![file_hash, i64::from(page_no)], |row| {
+        let run_id = run_id.unwrap_or("");
+        let rows = statement.query_map(params![file_hash, i64::from(page_no), run_id, run_id], |row| {
             Ok(TextRegionSpan {
                 annotation_id: row.get(0)?,
                 region_id: row.get(1)?,

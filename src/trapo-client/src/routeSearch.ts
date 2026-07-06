@@ -10,6 +10,7 @@ export interface WorkbenchRouteSearch {
   page?: number;
   q?: string;
   region?: string;
+  run?: string;
 }
 
 export type ModelViewMode = 'grid' | 'cards';
@@ -60,6 +61,16 @@ export function validateRootSearch(search: Record<string, unknown>): RootRouteSe
   };
 }
 
+export function withDownloadsPaneSearch<TSearch extends RootRouteSearch>(
+  search: TSearch,
+  open: boolean,
+): TSearch {
+  return {
+    ...search,
+    downloads: open ? true : undefined,
+  };
+}
+
 export function validateWorkbenchSearch(search: Record<string, unknown>): WorkbenchRouteSearch {
   return {
     file: stringValue(search.file) ?? stringValue(search.file_hash),
@@ -69,6 +80,7 @@ export function validateWorkbenchSearch(search: Record<string, unknown>): Workbe
     page: positiveIntegerValue(search.page) ?? positiveIntegerValue(search.page_no),
     q: stringValue(search.q),
     region: stringValue(search.region) ?? stringValue(search.region_id),
+    run: stringValue(search.run) ?? stringValue(search.run_id),
   };
 }
 

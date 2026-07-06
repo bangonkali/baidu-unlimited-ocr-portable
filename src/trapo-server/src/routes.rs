@@ -29,12 +29,28 @@ struct SearchQuery {
     q: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct RunScopeQuery {
+    run_id: Option<String>,
+    run: Option<String>,
+}
+
+impl RunScopeQuery {
+    fn run_id(&self) -> Option<&str> {
+        self.run_id
+            .as_deref()
+            .or(self.run.as_deref())
+            .filter(|value| !value.is_empty())
+    }
+}
+
 pub(crate) fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/api/health", get(health))
         .route("/api/status", get(status))
         .route("/api/openapi.json", get(openapi_json))
         .route("/api/system/folder-dialog", post(folder_dialog))
+        .route("/api/system/shutdown", post(shutdown))
         .route("/api/ingest/start", post(start_ingest))
         .route("/api/ingest/runs", get(list_runs))
         .route("/api/ingest/metrics/recent", get(recent_metrics))
@@ -185,8 +201,11 @@ async fn get_document(
 async fn document_regions(
     State(state): State<AppState>,
     Path(file_hash): Path<String>,
-) -> Json<crate::workbench_types::DocumentRegionsPayload> {
-    Json(state.document_regions(&file_hash).await)
+    Query(query): Query<RunScopeQuery>,
+) -> Result<Json<crate::workbench_types::DocumentRegionsPayload>> {
+    Ok(Json(
+        state.document_regions(&file_hash, query.run_id()).await?,
+    ))
 }
 
 async fn region_snippet(
@@ -206,8 +225,9 @@ async fn region_snippet(
 async fn document_text(
     State(state): State<AppState>,
     Path(file_hash): Path<String>,
-) -> Json<crate::workbench_types::DocumentTextPayload> {
-    Json(state.document_text(&file_hash).await)
+    Query(query): Query<RunScopeQuery>,
+) -> Result<Json<crate::workbench_types::DocumentTextPayload>> {
+    Ok(Json(state.document_text(&file_hash, query.run_id()).await?))
 }
 
 async fn preview_images(
@@ -257,3 +277,4 @@ async fn websocket(State(state): State<AppState>, ws: WebSocketUpgrade) -> Respo
 
 include!("routes_diagnostics.rs");
 include!("routes_models.rs");
+include!("routes_system.rs");

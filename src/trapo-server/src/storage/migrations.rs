@@ -1,3 +1,5 @@
+use super::migration_sql;
+
 pub(super) struct Migration {
     pub id: i32,
     pub name: &'static str,
@@ -261,40 +263,11 @@ CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_ki
     Migration {
         id: 10,
         name: "uuid_v7_identity_and_annotations",
-        sql: r"
-CREATE TABLE IF NOT EXISTS persistence_id_migrations (
-  id_kind TEXT NOT NULL, old_id TEXT NOT NULL, new_id TEXT NOT NULL, migrated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-  PRIMARY KEY (id_kind, old_id)
-);
-
-CREATE TABLE IF NOT EXISTS document_annotation_identities (
-  annotation_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
-  engine_id TEXT NOT NULL, profile_id TEXT NOT NULL, source_region_key TEXT NOT NULL, discovery_index INTEGER NOT NULL,
-  label TEXT NOT NULL, bbox_kind TEXT NOT NULL DEFAULT 'TOPLEFT_NORMALIZED_0_999',
-  x1 DOUBLE NOT NULL, y1 DOUBLE NOT NULL, x2 DOUBLE NOT NULL, y2 DOUBLE NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT current_timestamp, updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_annotation_identity_source ON document_annotation_identities(run_id, file_hash, page_no, source_region_key);
-CREATE INDEX IF NOT EXISTS idx_annotation_identity_file_page ON document_annotation_identities(file_hash, page_no);
-
-ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS annotation_id TEXT;
-ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS source_region_key TEXT;
-UPDATE document_regions SET annotation_id = region_id WHERE annotation_id IS NULL OR annotation_id = '';
-UPDATE document_regions SET source_region_key = region_id WHERE source_region_key IS NULL OR source_region_key = '';
-
-ALTER TABLE document_text_region_links ADD COLUMN IF NOT EXISTS annotation_id TEXT;
-UPDATE document_text_region_links SET annotation_id = region_id WHERE annotation_id IS NULL OR annotation_id = '';
-
-ALTER TABLE download_events ADD COLUMN IF NOT EXISTS download_key TEXT DEFAULT '';
-UPDATE download_events SET download_key = download_id WHERE download_key IS NULL OR download_key = '';
-
-ALTER TABLE ocr_stream_events ADD COLUMN IF NOT EXISTS event_id TEXT;
-UPDATE ocr_stream_events SET event_id = CAST(sequence AS VARCHAR)
-WHERE event_id IS NULL OR event_id = '';
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ocr_stream_events_event_id ON ocr_stream_events(event_id);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_work_units_run_work_key ON ingest_work_units(run_id, work_key);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_ingest_model_leases_run_execution_key ON ingest_model_leases(run_id, execution_key);
-",
+        sql: migration_sql::UUID_V7_IDENTITY_AND_ANNOTATIONS,
+    },
+    Migration {
+        id: 11,
+        name: "run_scoped_ocr_outputs",
+        sql: migration_sql::RUN_SCOPED_OCR_OUTPUTS,
     },
 ];

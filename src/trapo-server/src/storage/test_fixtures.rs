@@ -40,6 +40,7 @@ mod test_fixtures {
     ) -> StoredPage {
         let annotation_id = new_persistence_id();
         StoredPage {
+            run_id: None,
             file_hash: file_hash.to_string(),
             page_no,
             width_px: 100,

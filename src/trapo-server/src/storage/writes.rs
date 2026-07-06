@@ -128,11 +128,13 @@ impl Repository {
 
     pub(crate) async fn replace_page_ocr(
         &self,
+        run_id: &str,
         page: &StoredPage,
         engine_id: &str,
         profile_id: &str,
         elapsed_ms: u64,
     ) -> Result<()> {
+        let run_id = run_id.to_string();
         let page = page.clone();
         let engine_id = engine_id.to_string();
         let profile_id = profile_id.to_string();
@@ -167,7 +169,28 @@ impl Repository {
                     u64_to_i64_saturating(elapsed_ms)
                 ],
             )?;
-            Self::replace_regions(&conn, &page, &engine_id, &profile_id)?;
+            conn.execute(
+                "INSERT INTO document_run_page_ocr(run_id, file_hash, page_no, engine_id, profile_id,
+                  raw_text, cleaned_text, status, attempts, error, elapsed_ms, options, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, '{}'::JSON, current_timestamp)
+                 ON CONFLICT(run_id, file_hash, page_no, engine_id, profile_id) DO UPDATE SET
+                  raw_text = excluded.raw_text, cleaned_text = excluded.cleaned_text,
+                  status = excluded.status, error = excluded.error, elapsed_ms = excluded.elapsed_ms,
+                  updated_at = now()",
+                params![
+                    run_id.as_str(),
+                    page.file_hash.as_str(),
+                    i64::from(page.page_no),
+                    engine_id.as_str(),
+                    profile_id.as_str(),
+                    page.raw_text.as_str(),
+                    page.cleaned_text.as_str(),
+                    page.status.as_str(),
+                    page.error.as_deref(),
+                    u64_to_i64_saturating(elapsed_ms)
+                ],
+            )?;
+            Self::replace_regions(&conn, &run_id, &page, &engine_id, &profile_id)?;
             Ok(())
         })
         .await

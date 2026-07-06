@@ -43,6 +43,7 @@ impl AppState {
         model_id: &str,
         request: ModelDownloadRequest,
     ) -> Result<ModelDownloadRecord> {
+        self.ensure_not_shutting_down()?;
         let entry = find_model(model_id)
             .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
         let force = request.force == Some(true);

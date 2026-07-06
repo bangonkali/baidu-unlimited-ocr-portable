@@ -3,6 +3,7 @@ impl AppState {
         &self,
         request: IngestStartRequest,
     ) -> Result<IngestStartResponse> {
+        self.ensure_not_shutting_down()?;
         let root = PathBuf::from(&request.root_path);
         let files = discover_supported_files(&root)?;
         let run_id = now_id();

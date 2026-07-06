@@ -226,6 +226,7 @@ The report is written to `.logs/quality/quality-report.md`. See
 - [macOS portable app](docs/MACOS.md)
 - [Ubuntu 24.04 portable app](docs/LINUX.md)
 - [Workbench flow](docs/WORKBENCH.md)
+- [OCR data model](docs/OCR-DATA-MODEL.md)
 - [Diagnostics and replay](docs/DIAGNOSTICS.md)
 - [Text preview behavior](docs/TEXT-PREVIEW.md)
 - [Release process](docs/RELEASES.md)

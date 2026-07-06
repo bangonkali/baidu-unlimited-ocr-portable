@@ -7,6 +7,7 @@ import {
   validateRootSearch,
   validateSettingsSearch,
   validateWorkbenchSearch,
+  withDownloadsPaneSearch,
 } from './routeSearch';
 
 describe('route search validators', () => {
@@ -14,6 +15,17 @@ describe('route search validators', () => {
     expect(validateRootSearch({ downloads: 'true' })).toEqual({ downloads: true });
     expect(validateRootSearch({ downloads: '0' })).toEqual({ downloads: false });
     expect(validateRootSearch({ downloads: 'later' })).toEqual({ downloads: undefined });
+  });
+
+  test('closes the downloads pane without dropping route-local search state', () => {
+    expect(withDownloadsPaneSearch({ downloads: true, section: 'models' }, false)).toEqual({
+      downloads: undefined,
+      section: 'models',
+    });
+    expect(withDownloadsPaneSearch({ q: 'invoice' }, true)).toEqual({
+      downloads: true,
+      q: 'invoice',
+    });
   });
 
   test('keeps shareable workbench state and drops invalid values', () => {
@@ -26,6 +38,7 @@ describe('route search validators', () => {
         page: '3',
         q: 'invoice',
         region: 'r1',
+        run: 'run-a',
       }),
     ).toEqual({
       file: 'abc',
@@ -35,6 +48,7 @@ describe('route search validators', () => {
       page: 3,
       q: 'invoice',
       region: 'r1',
+      run: 'run-a',
     });
     expect(validateWorkbenchSearch({ page: '-2' }).page).toBeUndefined();
     expect(
@@ -42,11 +56,13 @@ describe('route search validators', () => {
         file_hash: 'legacy-hash',
         page_no: '2',
         region_id: 'legacy-region',
+        run_id: 'legacy-run',
       }),
     ).toMatchObject({
       file: 'legacy-hash',
       page: 2,
       region: 'legacy-region',
+      run: 'legacy-run',
     });
   });
 

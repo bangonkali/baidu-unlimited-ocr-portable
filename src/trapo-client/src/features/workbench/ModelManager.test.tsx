@@ -77,7 +77,23 @@ describe('ModelManager', () => {
       />,
     );
     expect(html).toContain('VRAM / Tier');
+    expect(html).toContain('Repository');
     expect(html).toContain('Downloads');
+  });
+
+  test('renders repository as model metadata instead of a top header label', () => {
+    const html = renderWithRouter(
+      <ModelManager
+        models={fixtureModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
+        onSelectModel={() => undefined}
+      />,
+    );
+    const headerMarkup = html.slice(0, html.indexOf('Selected model'));
+
+    expect(headerMarkup).not.toContain('sahilchachra/Unlimited-OCR-GGUF');
+    expect(html).toContain('sahilchachra/Unlimited-OCR-GGUF');
   });
 
   test('filters active downloads and sorts by size', () => {

@@ -56,8 +56,9 @@ describe('routeSelectionPatchForSync', () => {
           file: 'hash-doc',
           follow: true,
           page: 1,
+          run: 'run-live',
         },
-        'hash-doc',
+        'run-live:hash-doc',
       ),
     ).toBeUndefined();
   });
@@ -76,11 +77,13 @@ describe('routeSelectionPatchForSync', () => {
         file: 'hash-doc',
         follow: true,
         page: 1,
+        run: 'run-a',
       }),
     ).toEqual({
       fileHash: 'hash-doc',
       pageNo: 1,
       regionId: undefined,
+      runId: 'run-a',
     });
   });
 
@@ -101,8 +104,9 @@ describe('routeSelectionPatchForSync', () => {
           file: 'hash-doc',
           follow: true,
           page: 1,
+          run: 'run-a',
         },
-        'hash-doc',
+        'run-a:hash-doc',
       ),
     ).toBeUndefined();
   });
@@ -120,11 +124,37 @@ describe('routeSelectionPatchForSync', () => {
       routeSelectionPatchForSync('workbench', state, {
         file: 'hash-doc',
         page: 1,
+        run: 'run-manual',
       }),
     ).toEqual({
       fileHash: 'hash-doc',
       pageNo: 1,
       regionId: undefined,
+      runId: 'run-manual',
+    });
+  });
+
+  test('clears stale region focus when the route changes runs for the same file and page', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 2,
+        regionId: 'old-run-region',
+        runId: 'run-old',
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync('workbench', state, {
+        file: 'hash-doc',
+        page: 2,
+        run: 'run-new',
+      }),
+    ).toEqual({
+      fileHash: 'hash-doc',
+      pageNo: 2,
+      regionId: undefined,
+      runId: 'run-new',
     });
   });
 });
@@ -136,6 +166,7 @@ describe('routeSearchFromSelection', () => {
       file: 'hash-doc',
       follow: true,
       page: 2,
+      run: 'run-a',
     });
 
     const disabled = workbenchState({ autoFollowRegions: false });
@@ -143,6 +174,7 @@ describe('routeSearchFromSelection', () => {
       file: 'hash-doc',
       follow: false,
       page: 2,
+      run: 'run-a',
     });
   });
 });
@@ -164,6 +196,7 @@ function workbenchState(patch: Partial<WorkbenchState>): WorkbenchState {
       fileHash: 'hash-doc',
       pageNo: 2,
       regionId: 'reg-a',
+      runId: 'run-a',
     },
     selectionSource: 'manual',
     theme: 'dark',

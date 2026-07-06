@@ -50,6 +50,8 @@ impl AppState {
                 hub,
                 renderer,
                 annotation_identities,
+                background_tasks: BackgroundTasks::default(),
+                shutdown: ShutdownCoordinator::new(),
                 state: Mutex::new(state),
             }),
         };
@@ -79,7 +81,9 @@ impl AppState {
         let state = self.inner.state.lock().await;
         let runtime = selected_runtime(&state);
         StatusPayload {
-            state: if state.active_run_id.is_some() {
+            state: if self.inner.shutdown.is_requested() {
+                "shutting_down".to_string()
+            } else if state.active_run_id.is_some() {
                 "running".to_string()
             } else {
                 "idle".to_string()

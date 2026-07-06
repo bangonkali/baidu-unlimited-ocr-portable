@@ -21,12 +21,7 @@ import {
   useStatus,
   useUpdateSettings,
 } from '../../api/hooks';
-import type {
-  DocumentSummary,
-  IngestRunRecord,
-  ModelAssetRecord,
-  OcrProfileRecord,
-} from '../../api/types';
+import type { DocumentSummary, ModelAssetRecord, OcrProfileRecord } from '../../api/types';
 import { useRealtimeState } from '../../realtime/realtimeStore';
 import type {
   DiagnosticsRouteSearch,
@@ -60,6 +55,7 @@ import {
 } from './WorkbenchPageSupport';
 import type { WorkbenchContentActions, WorkbenchViewData } from './workbenchContentProps';
 import { buildContentProps } from './workbenchContentProps';
+import { activeRunIdFromRuns, isActiveDocumentStatus, routeSearchText } from './workbenchRunState';
 
 export interface WorkbenchPageProps {
   activeView?: ActiveView;
@@ -81,7 +77,11 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const realtime = useRealtimeState();
   const [searchText, setSearchText] = useState(routeSearchText(props));
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
-  const data = useWorkbenchData(workbench.selection.fileHash, debouncedSearch);
+  const data = useWorkbenchData(
+    workbench.selection.fileHash,
+    workbench.selection.runId,
+    debouncedSearch,
+  );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
   const model = selectedModel(data.models.data);
@@ -94,6 +94,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     fileHash: workbench.selection.fileHash,
     pageNo: workbench.selection.pageNo,
     queryClient,
+    runId: workbench.selection.runId,
   });
 
   useThemeSync(workbench.theme);
@@ -163,7 +164,11 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   };
 }
 
-function useWorkbenchData(fileHash: string | undefined, debouncedSearch: string) {
+function useWorkbenchData(
+  fileHash: string | undefined,
+  runId: string | undefined,
+  debouncedSearch: string,
+) {
   return {
     cancelModelDownload: useCancelModelDownload(),
     documents: useDocuments(debouncedSearch),
@@ -172,14 +177,14 @@ function useWorkbenchData(fileHash: string | undefined, debouncedSearch: string)
     logs: useLogs(220),
     models: useModels(),
     previewImages: useDocumentPreviewImages(fileHash),
-    regions: useDocumentRegions(fileHash),
+    regions: useDocumentRegions(fileHash, runId),
     runs: useIngestRuns(),
     selectModel: useSelectModel(),
     settings: useSettings(),
     startIngest: useStartIngest(),
     status: useStatus(),
     stopRun: useRunCommand('stop'),
-    text: useDocumentText(fileHash),
+    text: useDocumentText(fileHash, runId),
     updateSettings: useUpdateSettings(),
   };
 }
@@ -280,16 +285,4 @@ function selectedDocumentFrom(
   workbench: ReturnType<typeof useWorkbenchState>,
 ) {
   return documents?.find((document) => document.file_hash === workbench.selection.fileHash); // skylos: ignore[SKY-D253] file_hash is a public document identifier, not a secret token.
-}
-
-function activeRunIdFromRuns(runs: IngestRunRecord[] | undefined) {
-  return runs?.find((run) => ['queued', 'running'].includes(String(run.status)))?.run_id ?? null;
-}
-
-function isActiveDocumentStatus(status: string) {
-  return status === 'queued' || status === 'rendering' || status === 'running';
-}
-
-function routeSearchText(props: WorkbenchPageProps) {
-  return props.workbenchSearch?.q ?? props.diagnosticsSearch?.q ?? '';
 }

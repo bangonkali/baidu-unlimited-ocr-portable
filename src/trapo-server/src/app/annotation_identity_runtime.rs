@@ -20,7 +20,8 @@ struct ResolvedAnnotationIdentityDraft {
 struct AnnotationIdentityRuntime {
     cache: Arc<std::sync::Mutex<HashMap<AnnotationIdentityKey, String>>>,
     pending: Arc<std::sync::Mutex<HashMap<AnnotationIdentityKey, AnnotationIdentityDraft>>>,
-    signal: tokio::sync::mpsc::Sender<()>,
+    signal: Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<()>>>>,
+    worker: Arc<std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 impl AnnotationIdentityRuntime {
@@ -29,13 +30,17 @@ impl AnnotationIdentityRuntime {
         let runtime = Self {
             cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
             pending: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            signal,
+            signal: Arc::new(std::sync::Mutex::new(Some(signal))),
+            worker: Arc::new(std::sync::Mutex::new(None)),
         };
-        tokio::spawn(annotation_identity_worker(
+        let worker = tokio::spawn(annotation_identity_worker(
             repository,
             runtime.pending.clone(),
             receiver,
         ));
+        if let Ok(mut guard) = runtime.worker.lock() {
+            *guard = Some(worker);
+        }
         runtime
     }
 
@@ -45,7 +50,8 @@ impl AnnotationIdentityRuntime {
         Self {
             cache: Arc::new(std::sync::Mutex::new(HashMap::new())),
             pending: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            signal,
+            signal: Arc::new(std::sync::Mutex::new(Some(signal))),
+            worker: Arc::new(std::sync::Mutex::new(None)),
         }
     }
 
@@ -94,11 +100,42 @@ impl AnnotationIdentityRuntime {
         };
         pending.insert(key, draft);
         drop(pending);
-        if let Err(error) = self.signal.try_send(()) {
+        let signal = self
+            .signal
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().cloned());
+        let Some(signal) = signal else {
+            return;
+        };
+        if let Err(error) = signal.try_send(()) {
             tracing::debug!(
                 %error,
                 "annotation identity persistence signal skipped; page completion will flush"
             );
+        }
+    }
+
+    async fn shutdown(&self, repository: &Repository, duration: std::time::Duration) {
+        flush_all_annotation_batches(repository, &self.pending).await;
+        let signal = self.signal.lock().ok().and_then(|mut guard| guard.take());
+        drop(signal);
+        let handle = self.worker.lock().ok().and_then(|mut guard| guard.take());
+        let Some(mut handle) = handle else {
+            return;
+        };
+        let timeout = tokio::time::sleep(duration);
+        tokio::pin!(timeout);
+        tokio::select! {
+            result = &mut handle => {
+                if let Err(error) = result {
+                    tracing::warn!(%error, "annotation identity worker failed during shutdown");
+                }
+            }
+            () = &mut timeout => {
+                handle.abort();
+                tracing::warn!("annotation identity worker did not drain before shutdown timeout");
+            }
         }
     }
 

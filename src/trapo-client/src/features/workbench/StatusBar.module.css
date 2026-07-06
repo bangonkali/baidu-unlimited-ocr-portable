@@ -1,17 +1,41 @@
 .statusBar {
+  position: relative;
   display: grid;
-  grid-template-columns: auto auto auto auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto auto auto auto auto minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   height: 24px;
   padding: 0 10px;
   font-size: 12px;
-  color: #eafff4;
+  color: var(--status-foreground);
   background: var(--status);
 }
 
 .realtime {
   text-transform: capitalize;
+}
+
+.shutdownButton {
+  display: inline-grid;
+  width: 22px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--status-border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.shutdownButton:hover {
+  color: var(--danger);
+  background: var(--status-hover);
+}
+
+.shutdownButton:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .downloadsButton {
@@ -24,14 +48,14 @@
   padding: 0 7px;
   color: inherit;
   background: transparent;
-  border: 1px solid rgb(255 255 255 / 18%);
+  border: 1px solid var(--status-border);
   border-radius: 3px;
   cursor: pointer;
 }
 
 .downloadsButton:hover,
 .downloadsButton[data-open="true"] {
-  background: rgb(255 255 255 / 14%);
+  background: var(--status-hover);
 }
 
 .downloadsButton:focus-visible {
@@ -58,4 +82,50 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shutdownConfirm {
+  position: absolute;
+  right: 10px;
+  bottom: 30px;
+  z-index: 20;
+  display: grid;
+  width: 330px;
+  gap: 8px;
+  padding: 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+}
+
+.shutdownConfirm strong {
+  font-size: 13px;
+}
+
+.shutdownConfirm span {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.shutdownActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.shutdownActions button {
+  height: 26px;
+  padding: 0 10px;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.shutdownActions button[data-danger="true"] {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
 }

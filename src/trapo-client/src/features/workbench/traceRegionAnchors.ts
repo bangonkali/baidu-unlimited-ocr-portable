@@ -14,25 +14,6 @@ export interface IndexedRegionAnchor extends RegionAnchor {
 export const REGION_MARKER = '#';
 const REGION_SCHEME = '#trapo-region=';
 
-export function injectRegionAnchors(text: string, anchors: RegionAnchor[]) {
-  if (anchors.length === 0) {
-    return text;
-  }
-  const parts: string[] = [];
-  let cursor = 0;
-  for (const anchor of indexedRegionAnchors(text, anchors)) {
-    if (anchor.index > cursor) {
-      parts.push(text.slice(cursor, anchor.index));
-    }
-    parts.push(`[${REGION_MARKER}](${REGION_SCHEME}${encodeURIComponent(anchor.regionId)})`);
-    cursor = anchor.index;
-  }
-  if (cursor < text.length) {
-    parts.push(text.slice(cursor));
-  }
-  return parts.join('');
-}
-
 export function regionAnchors(page: PageTextRecord): RegionAnchor[] {
   const byteLength = utf8ByteLength(page.text);
   const unique = new Map<string, RegionAnchor>();

@@ -1,12 +1,18 @@
 import { Store, useStore } from '@tanstack/react-store';
 
-import { annotationIdOf } from '../api/annotationIdentity';
 import type { OverlayBox, WorkbenchUiSettings, WorkbenchUiSettingsPatch } from '../api/types';
+import {
+  createRealtimeFocusScheduler,
+  latestRegionFocusTarget,
+  pageFocusTarget,
+  stateAfterRealtimeFocus,
+} from './workbenchRealtimeFocus';
 
 interface WorkbenchSelection {
   fileHash?: string;
   pageNo: number;
   regionId?: string;
+  runId?: string;
 }
 
 export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics' | 'ingest';
@@ -22,6 +28,7 @@ export interface WorkbenchPaneState {
 
 export interface WorkbenchState {
   activeView: ActiveView;
+  focusRevision: number;
   folderDialogError?: string;
   selectedRoot: string;
   selectedProfile: string;
@@ -40,6 +47,7 @@ const themeStorageKey = 'trapo.theme';
 const initialState: WorkbenchState = {
   activeView: 'workbench',
   autoFollowRegions: true,
+  focusRevision: 0,
   folderDialogError: undefined,
   labelsVisible: true,
   overlayVisible: true,
@@ -59,6 +67,9 @@ const initialState: WorkbenchState = {
 };
 
 const workbenchStore = new Store(initialState);
+const realtimeFocus = createRealtimeFocusScheduler((target) => {
+  workbenchStore.setState((state) => stateAfterRealtimeFocus(state, target));
+});
 
 export function useWorkbenchState() {
   return useStore(workbenchStore, (state) => state);
@@ -93,42 +104,37 @@ export function setSelectedProfile(selectedProfile: string) {
 }
 
 export function setSelection(selection: Partial<WorkbenchSelection>) {
+  realtimeFocus.cancel();
   workbenchStore.setState((state) => {
     const next = { ...state.selection, ...selection };
-    return sameSelection(state.selection, next) && state.selectionSource === 'manual'
+    const nextFocusRevision =
+      selection.regionId !== undefined ? state.focusRevision + 1 : state.focusRevision;
+    return sameSelection(state.selection, next) &&
+      state.selectionSource === 'manual' &&
+      nextFocusRevision === state.focusRevision
       ? state
-      : { ...state, selection: next, selectionSource: 'manual' };
+      : {
+          ...state,
+          focusRevision: nextFocusRevision,
+          selection: next,
+          selectionSource: 'manual',
+        };
   });
 }
 
-export function followLatestRegion(fileHash: string, boxes: OverlayBox[]) {
-  const latest = boxes.at(-1);
-  if (!latest || !workbenchStore.state.autoFollowRegions) {
+export function followLatestRegion(fileHash: string, boxes: OverlayBox[], runId?: string | null) {
+  const target = latestRegionFocusTarget(fileHash, boxes, runId);
+  if (!target || !workbenchStore.state.autoFollowRegions) {
     return;
   }
-  workbenchStore.setState((state) => {
-    const selection = {
-      ...state.selection,
-      fileHash,
-      pageNo: latest.page_no,
-      regionId: annotationIdOf(latest),
-    };
-    return state.activeView === 'workbench' && sameSelection(state.selection, selection)
-      ? state
-      : { ...state, activeView: 'workbench', selection, selectionSource: 'realtime' };
-  });
+  realtimeFocus.schedule(target);
 }
 
-export function followLatestPage(fileHash: string, pageNo: number) {
+export function followLatestPage(fileHash: string, pageNo: number, runId?: string | null) {
   if (!workbenchStore.state.autoFollowRegions) {
     return;
   }
-  workbenchStore.setState((state) => {
-    const selection = { ...state.selection, fileHash, pageNo };
-    return state.activeView === 'workbench' && sameSelection(state.selection, selection)
-      ? state
-      : { ...state, activeView: 'workbench', selection, selectionSource: 'realtime' };
-  });
+  realtimeFocus.schedule(pageFocusTarget(fileHash, pageNo, runId));
 }
 
 export function setOverlayVisible(overlayVisible: boolean) {
@@ -138,6 +144,9 @@ export function setOverlayVisible(overlayVisible: boolean) {
 }
 
 export function setAutoFollowRegions(autoFollowRegions: boolean) {
+  if (!autoFollowRegions) {
+    realtimeFocus.cancel();
+  }
   workbenchStore.setState((state) =>
     state.autoFollowRegions === autoFollowRegions ? state : { ...state, autoFollowRegions },
   );
@@ -150,6 +159,9 @@ export function setLabelsVisible(labelsVisible: boolean) {
 }
 
 export function hydrateWorkbenchUiSettings(settings: WorkbenchUiSettings) {
+  if (!settings.auto_follow_regions) {
+    realtimeFocus.cancel();
+  }
   applyThemePreference(settings.theme);
   persistThemePreference(settings.theme);
   workbenchStore.setState((state) => {
@@ -237,6 +249,14 @@ export function setTourRun(tourRun: boolean) {
   workbenchStore.setState((state) => (state.tourRun === tourRun ? state : { ...state, tourRun }));
 }
 
+export function flushRealtimeFocusForTest() {
+  realtimeFocus.flush();
+}
+
+export function resetRealtimeFocusThrottleForTest() {
+  realtimeFocus.reset();
+}
+
 function persistThemePreference(theme: ThemeMode) {
   if (typeof window === 'undefined') {
     return;
@@ -248,7 +268,8 @@ function sameSelection(left: WorkbenchSelection, right: WorkbenchSelection) {
   return (
     left.fileHash === right.fileHash &&
     left.pageNo === right.pageNo &&
-    left.regionId === right.regionId
+    left.regionId === right.regionId &&
+    left.runId === right.runId
   );
 }
 

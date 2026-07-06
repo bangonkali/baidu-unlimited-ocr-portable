@@ -8,7 +8,7 @@ impl AppState {
         runtime_id: String,
     ) {
         let state = self.clone();
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             state
                 .run_ingest(run_id, files, profile_id, model_id, runtime_id)
                 .await;

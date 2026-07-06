@@ -2,7 +2,7 @@ import { Crosshair } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
-import { annotationDomId, annotationIdOf } from '../../api/annotationIdentity';
+import { annotationBoxDomId, annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox } from '../../api/types';
 import styles from './PreviewPane.module.css';
 import { needsRevealScroll } from './scrollVisibility';
@@ -25,10 +25,23 @@ export function centeredScrollOffset(geometry: ScrollGeometry) {
   );
 }
 
+export function nearestScrollOffset(geometry: ScrollGeometry) {
+  const rootEnd = geometry.rootStart + geometry.rootSize;
+  const targetEnd = geometry.targetStart + geometry.targetSize;
+  if (geometry.targetStart < geometry.rootStart || geometry.targetSize > geometry.rootSize) {
+    return geometry.rootScroll + geometry.targetStart - geometry.rootStart;
+  }
+  if (targetEnd > rootEnd) {
+    return geometry.rootScroll + targetEnd - rootEnd;
+  }
+  return geometry.rootScroll;
+}
+
 interface PreviewPaneProps {
   autoFollowRegions: boolean;
   boxes: OverlayBox[];
   fileHash?: string;
+  focusRevision?: number;
   getImageUrl?: (fileHash: string, pageNo: number) => string;
   labelsVisible: boolean;
   overlayVisible: boolean;
@@ -43,6 +56,7 @@ export function PreviewPane({
   autoFollowRegions,
   boxes,
   fileHash,
+  focusRevision = 0,
   getImageUrl,
   labelsVisible,
   overlayVisible,
@@ -76,6 +90,7 @@ export function PreviewPane({
               <PagePreview
                 boxes={boxes.filter((box) => box.page_no === pageNo)}
                 fileHash={fileHash}
+                focusRevision={focusRevision}
                 getImageUrl={getImageUrl}
                 key={pageNo}
                 labelsVisible={labelsVisible}
@@ -96,6 +111,7 @@ export function PreviewPane({
 function PagePreview(props: {
   boxes: OverlayBox[];
   fileHash: string;
+  focusRevision: number;
   getImageUrl?: (fileHash: string, pageNo: number) => string;
   labelsVisible: boolean;
   overlayVisible: boolean;
@@ -117,8 +133,13 @@ function PagePreview(props: {
     if (props.pageNo !== props.selectedPageNo) {
       return;
     }
-    const target = selectedRegionId ? (activeBoxRef.current ?? pageRef.current) : pageRef.current;
+    const revealGeneration = props.focusRevision;
     const root = scrollRootRef.current;
+    const activeBox =
+      root && selectedRegionId && revealGeneration >= 0
+        ? findAnnotationBox(root, selectedRegionId)
+        : null;
+    const target = activeBox ?? activeBoxRef.current ?? pageRef.current;
     if (!target || !root) {
       return;
     }
@@ -127,16 +148,17 @@ function PagePreview(props: {
     if (!needsRevealScroll(rootRect, targetRect)) {
       return;
     }
+    const scrollOffset = activeBox ? centeredScrollOffset : nearestScrollOffset;
     root.scrollTo({
       behavior: 'smooth',
-      left: centeredScrollOffset({
+      left: scrollOffset({
         rootScroll: root.scrollLeft,
         rootSize: rootRect.width,
         rootStart: rootRect.left,
         targetSize: targetRect.width,
         targetStart: targetRect.left,
       }),
-      top: centeredScrollOffset({
+      top: scrollOffset({
         rootScroll: root.scrollTop,
         rootSize: rootRect.height,
         rootStart: rootRect.top,
@@ -144,7 +166,7 @@ function PagePreview(props: {
         targetStart: targetRect.top,
       }),
     });
-  }, [props.pageNo, props.selectedPageNo, scrollRootRef, selectedRegionId]);
+  }, [props.focusRevision, props.pageNo, props.selectedPageNo, scrollRootRef, selectedRegionId]);
 
   return (
     <article
@@ -162,9 +184,7 @@ function PagePreview(props: {
                 <button
                   className={styles.box}
                   data-active={annotationId === props.selectedRegionId}
-                  data-annotation-id={annotationId}
-                  data-region-id={box.region_id}
-                  id={annotationDomId('annotation-box', annotationId)}
+                  id={annotationBoxDomId(annotationId)}
                   key={annotationId}
                   onClick={() => props.onSelectRegion(box.page_no, annotationId)}
                   ref={annotationId === props.selectedRegionId ? activeBoxRef : undefined}
@@ -184,4 +204,9 @@ function PagePreview(props: {
       </div>
     </article>
   );
+}
+
+export function findAnnotationBox(root: HTMLElement, annotationId: string) {
+  const element = root.ownerDocument.getElementById(annotationBoxDomId(annotationId));
+  return element instanceof HTMLElement && root.contains(element) ? element : null;
 }

@@ -41,6 +41,7 @@ export interface ConnectionReadyPayload {
 
 export interface DocumentPageEventPayload {
   file_hash: string;
+  run_id?: string;
   page_no: number;
   status: string;
   error?: string | null;

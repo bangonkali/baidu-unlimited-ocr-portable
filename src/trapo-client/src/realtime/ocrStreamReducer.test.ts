@@ -37,8 +37,10 @@ describe('ocr stream reducer', () => {
     });
 
     expect(text.pages[0]?.text).toBe('Invoice total');
+    expect(text.run_id).toBe('run-a');
     expect(text.pages[0]?.spans).toHaveLength(1);
     expect(regions.boxes).toHaveLength(1);
+    expect(regions.run_id).toBe('run-a');
 
     text = applySpanRemove(text, { ...context, region_id: 'reg-total' });
     regions = applyRegionRemove(regions, { ...context, region_id: 'reg-total' });

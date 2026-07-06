@@ -8,6 +8,21 @@ pub(crate) struct HealthPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct ShutdownRequest {
+    pub(crate) confirm: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct ShutdownPayload {
+    pub(crate) state: String,
+    pub(crate) source: String,
+    pub(crate) message: String,
+    pub(crate) active_run_ids: Vec<String>,
+    pub(crate) active_download_count: u32,
+    pub(crate) grace_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct StatusPayload {
     pub(crate) state: String,
     pub(crate) host: String,

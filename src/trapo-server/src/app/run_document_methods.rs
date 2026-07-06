@@ -104,7 +104,22 @@ impl AppState {
         Ok(detail)
     }
 
-    pub(crate) async fn document_regions(&self, file_hash: &str) -> DocumentRegionsPayload {
+    pub(crate) async fn document_regions(
+        &self,
+        file_hash: &str,
+        run_id: Option<&str>,
+    ) -> Result<DocumentRegionsPayload> {
+        if let Some(run_id) = run_id.filter(|value| !value.is_empty()) {
+            return Ok(DocumentRegionsPayload {
+                file_hash: file_hash.to_string(),
+                run_id: Some(run_id.to_string()),
+                boxes: self
+                    .inner
+                    .repository
+                    .load_document_regions_for_run(file_hash, run_id)
+                    .await?,
+            });
+        }
         let state = self.inner.state.lock().await;
         let boxes = state
             .documents
@@ -118,13 +133,29 @@ impl AppState {
             })
             .unwrap_or_default();
         drop(state);
-        DocumentRegionsPayload {
+        Ok(DocumentRegionsPayload {
             file_hash: file_hash.to_string(),
+            run_id: None,
             boxes,
-        }
+        })
     }
 
-    pub(crate) async fn document_text(&self, file_hash: &str) -> DocumentTextPayload {
+    pub(crate) async fn document_text(
+        &self,
+        file_hash: &str,
+        run_id: Option<&str>,
+    ) -> Result<DocumentTextPayload> {
+        if let Some(run_id) = run_id.filter(|value| !value.is_empty()) {
+            return Ok(DocumentTextPayload {
+                file_hash: file_hash.to_string(),
+                run_id: Some(run_id.to_string()),
+                pages: self
+                    .inner
+                    .repository
+                    .load_document_text_for_run(file_hash, run_id)
+                    .await?,
+            });
+        }
         let state = self.inner.state.lock().await;
         let pages = state
             .documents
@@ -132,10 +163,11 @@ impl AppState {
             .map(started_page_text_records)
             .unwrap_or_default();
         drop(state);
-        DocumentTextPayload {
+        Ok(DocumentTextPayload {
             file_hash: file_hash.to_string(),
+            run_id: None,
             pages,
-        }
+        })
     }
 
     pub(crate) async fn preview_images(&self, file_hash: &str) -> PreviewImagesPayload {

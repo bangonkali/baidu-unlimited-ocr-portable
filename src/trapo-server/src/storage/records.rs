@@ -36,6 +36,7 @@ pub(crate) struct StoredRunDocument {
 
 #[derive(Debug, Clone)]
 pub(crate) struct StoredPage {
+    pub(crate) run_id: Option<String>,
     pub(crate) file_hash: String,
     pub(crate) page_no: u32,
     pub(crate) width_px: u32,

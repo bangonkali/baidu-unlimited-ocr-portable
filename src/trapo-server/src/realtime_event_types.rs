@@ -1,0 +1,22 @@
+pub(crate) fn supported_event_types() -> Vec<&'static str> {
+    vec![
+        "connection.ready",
+        "status.changed",
+        "model.changed",
+        "run.changed",
+        "document.changed",
+        "document.page.changed",
+        "document.regions.changed",
+        "document.text.changed",
+        "ocr.page.stream.started",
+        "ocr.page.text.patch",
+        "ocr.page.region.upsert",
+        "ocr.page.region.remove",
+        "ocr.page.span.upsert",
+        "ocr.page.span.remove",
+        "ocr.page.metrics.changed",
+        "ocr.page.stream.completed",
+        "ocr.page.stream.failed",
+        "log.appended",
+    ]
+}

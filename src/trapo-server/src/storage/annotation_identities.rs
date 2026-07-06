@@ -80,19 +80,21 @@ impl Repository {
     ) -> Result<()> {
         conn.execute(
             "INSERT INTO document_regions(
-                region_id, annotation_id, source_region_key, file_hash, page_no, engine_id,
+                run_id, region_id, annotation_id, source_region_key, file_hash, page_no, engine_id,
                 profile_id, label, x1, y1, x2, y2, source_span_start, source_span_end,
                 content_markdown, content_html
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(region_id) DO UPDATE SET
                 label = excluded.label, x1 = excluded.x1, y1 = excluded.y1,
                 x2 = excluded.x2, y2 = excluded.y2,
+                run_id = excluded.run_id,
                 source_span_start = excluded.source_span_start,
                 source_span_end = excluded.source_span_end,
                 content_markdown = excluded.content_markdown,
                 content_html = excluded.content_html",
             params![
+                draft.run_id,
                 annotation_id,
                 annotation_id,
                 draft.source_region_key,
@@ -113,12 +115,14 @@ impl Repository {
         )?;
         conn.execute(
             "INSERT INTO document_text_region_links(
-                file_hash, page_no, region_id, annotation_id, text_start, text_end
+                run_id, file_hash, page_no, region_id, annotation_id, text_start, text_end
              )
-             VALUES (?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(file_hash, page_no, region_id, text_start, text_end) DO UPDATE SET
+                run_id = excluded.run_id,
                 annotation_id = excluded.annotation_id",
             params![
+                draft.run_id,
                 draft.file_hash,
                 i64::from(draft.page_no),
                 annotation_id,

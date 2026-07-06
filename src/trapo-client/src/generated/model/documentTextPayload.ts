@@ -10,4 +10,6 @@ import type { PageTextRecord } from './pageTextRecord';
 export interface DocumentTextPayload {
   file_hash: string;
   pages: PageTextRecord[];
+  /** @nullable */
+  run_id?: string | null;
 }

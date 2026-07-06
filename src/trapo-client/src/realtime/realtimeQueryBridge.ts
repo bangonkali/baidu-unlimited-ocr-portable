@@ -151,48 +151,54 @@ export function applyRealtimeEventToQueryClient(queryClient: QueryClient, event:
       applyPageEvent(queryClient, event);
       return;
     case 'document.regions.changed':
-      queryClient.setQueryData(queryKeys.documentRegions(event.payload.file_hash), event.payload);
+      queryClient.setQueryData(
+        queryKeys.documentRegions(event.payload.file_hash, event.payload.run_id ?? undefined),
+        event.payload,
+      );
       return;
     case 'document.text.changed':
-      queryClient.setQueryData(queryKeys.documentText(event.payload.file_hash), event.payload);
+      queryClient.setQueryData(
+        queryKeys.documentText(event.payload.file_hash, event.payload.run_id ?? undefined),
+        event.payload,
+      );
       return;
     case 'ocr.page.stream.started':
       queryClient.setQueryData<DocumentTextPayload>(
-        queryKeys.documentText(event.payload.file_hash),
+        queryKeys.documentText(event.payload.file_hash, event.payload.run_id),
         (current) => ensureTextPage(current, event.payload),
       );
-      followLatestPage(event.payload.file_hash, event.payload.page_no);
+      followLatestPage(event.payload.file_hash, event.payload.page_no, event.payload.run_id);
       return;
     case 'ocr.page.raw.delta':
       return;
     case 'ocr.page.text.patch':
       queryClient.setQueryData<DocumentTextPayload>(
-        queryKeys.documentText(event.payload.file_hash),
+        queryKeys.documentText(event.payload.file_hash, event.payload.run_id),
         (current) => applyTextPatch(current, event.payload),
       );
-      followLatestPage(event.payload.file_hash, event.payload.page_no);
+      followLatestPage(event.payload.file_hash, event.payload.page_no, event.payload.run_id);
       return;
     case 'ocr.page.region.upsert':
       queryClient.setQueryData<DocumentRegionsPayload>(
-        queryKeys.documentRegions(event.payload.file_hash),
+        queryKeys.documentRegions(event.payload.file_hash, event.payload.run_id),
         (current) => applyRegionUpsert(current, event.payload),
       );
       return;
     case 'ocr.page.region.remove':
       queryClient.setQueryData<DocumentRegionsPayload>(
-        queryKeys.documentRegions(event.payload.file_hash),
+        queryKeys.documentRegions(event.payload.file_hash, event.payload.run_id),
         (current) => applyRegionRemove(current, event.payload),
       );
       return;
     case 'ocr.page.span.upsert':
       queryClient.setQueryData<DocumentTextPayload>(
-        queryKeys.documentText(event.payload.file_hash),
+        queryKeys.documentText(event.payload.file_hash, event.payload.run_id),
         (current) => applySpanUpsert(current, event.payload),
       );
       return;
     case 'ocr.page.span.remove':
       queryClient.setQueryData<DocumentTextPayload>(
-        queryKeys.documentText(event.payload.file_hash),
+        queryKeys.documentText(event.payload.file_hash, event.payload.run_id),
         (current) => applySpanRemove(current, event.payload),
       );
       return;

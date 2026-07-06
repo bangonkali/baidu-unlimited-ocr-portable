@@ -21,7 +21,7 @@ impl AppState {
 
     fn spawn_download(&self, download_id: String) {
         let state = self.clone();
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = state.download_file(download_id.clone()).await {
                 state
                     .set_download_error(&download_id, format!("download failed: {error}"))
@@ -31,6 +31,9 @@ impl AppState {
     }
 
     async fn spawn_next_download(&self) {
+        if self.inner.shutdown.is_requested() {
+            return;
+        }
         let (next_download_id, event, started) = {
             let mut state = self.inner.state.lock().await;
             let active = state

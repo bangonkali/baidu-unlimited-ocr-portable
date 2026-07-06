@@ -1,7 +1,6 @@
 import { CommandPalette } from '../commands/CommandPalette';
 import { ActivityBar } from './ActivityBar';
 import { GuidedTour } from './GuidedTour';
-import { NotificationBell } from './NotificationBell';
 import type { WorkbenchPageProps } from './useWorkbenchPageController';
 import { useWorkbenchPageController } from './useWorkbenchPageController';
 import styles from './WorkbenchPage.module.css';
@@ -29,7 +28,6 @@ export function WorkbenchPage(props: WorkbenchPageProps) {
         </div>
         <PageFooter {...controller.footerProps} />
       </main>
-      <NotificationBell />
     </div>
   );
 }

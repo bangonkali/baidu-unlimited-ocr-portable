@@ -152,7 +152,7 @@ impl AppState {
         ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
         let (stored, pages, event, page_diagnostics) =
-            self.update_document_pages(file_hash, rendered).await?;
+            self.update_document_pages(run_id, file_hash, rendered).await?;
         self.inner.repository.upsert_document(&stored).await?;
         for page in &pages {
             self.inner.repository.upsert_page(page).await?;
@@ -181,6 +181,7 @@ impl AppState {
 
     async fn update_document_pages(
         &self,
+        run_id: &str,
         file_hash: &str,
         rendered: &[RenderedPage],
     ) -> Result<(StoredDocument, Vec<StoredPage>, DocumentSummary, Vec<(u32, Value)>)> {
@@ -195,7 +196,11 @@ impl AppState {
         let pages = document
             .pages
             .iter()
-            .map(|page| stored_page(file_hash, page))
+            .map(|page| {
+                let mut stored = stored_page(file_hash, page);
+                stored.run_id = Some(run_id.to_string());
+                stored
+            })
             .collect();
         let diagnostics = document
             .pages
@@ -259,39 +264,4 @@ impl AppState {
         result
     }
 
-    fn finish_page_diagnostics(&self, finish: PageDiagnosticFinish<'_>, span: DiagnosticSpanScope) {
-        let (status, error) = match finish.result {
-            Ok(()) => ("ok", None),
-            Err(error) => ("failed", Some(error.to_string())),
-        };
-        let error_ref = error.as_deref();
-        self.record_span(
-            span,
-            SpanFinish {
-                run_id: finish.run_id,
-                file_hash: Some(finish.file_hash),
-                page_no: Some(finish.page.page_no),
-                name: "OCR page",
-                pipeline_step: "ocr",
-                category: "page",
-                engine: Some(ENGINE_ID),
-                status,
-                error: error_ref,
-                attributes: json!({
-                    "image_path": finish.page.image_path.to_string_lossy().to_string()
-                }),
-            },
-        );
-        self.finish_diagnostic_work_unit(
-            finish.run_id,
-            finish.work_unit_id,
-            if finish.result.is_ok() {
-                "completed"
-            } else {
-                "failed"
-            },
-            error_ref,
-            json!({ "page_no": finish.page.page_no }),
-        );
-    }
 }

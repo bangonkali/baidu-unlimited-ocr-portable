@@ -62,4 +62,12 @@ impl Repository {
         })
         .await
     }
+
+    pub(crate) async fn checkpoint(&self) -> Result<()> {
+        self.with_write(|conn| {
+            conn.execute_batch("CHECKPOINT;")?;
+            Ok(())
+        })
+        .await
+    }
 }

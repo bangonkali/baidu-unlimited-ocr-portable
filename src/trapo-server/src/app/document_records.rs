@@ -71,6 +71,7 @@ fn stored_document(document: &DocumentState) -> StoredDocument {
 
 fn stored_page(file_hash: &str, page: &PageState) -> StoredPage {
     StoredPage {
+        run_id: None,
         file_hash: file_hash.to_string(),
         page_no: page.page_no,
         width_px: page.width_px,

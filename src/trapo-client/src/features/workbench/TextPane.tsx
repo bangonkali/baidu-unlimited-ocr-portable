@@ -1,9 +1,12 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { useThrottledValue } from '@tanstack/react-pacer';
 import { ChevronDown, Copy } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { annotationTextDomId } from '../../api/annotationIdentity';
 import type { DocumentSummary, OverlayBox, PageTextRecord } from '../../api/types';
+import { OCR_FOCUS_THROTTLE_MS } from '../../stores/workbenchRealtimeFocus';
 import { isScrolledToBottom, needsRevealScroll } from './scrollVisibility';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
@@ -12,6 +15,7 @@ import { fileMarkdown, filePlainText, isPageTextComplete, pageMarkdown } from '.
 interface TextPaneProps {
   autoFollowRegions: boolean;
   document?: DocumentSummary;
+  focusRevision?: number;
   pages: PageTextRecord[];
   regions: OverlayBox[];
   selectedRegionId?: string;
@@ -21,6 +25,7 @@ interface TextPaneProps {
 export function TextPane({
   autoFollowRegions,
   document,
+  focusRevision = 0,
   onSelectRegion,
   pages,
   regions,
@@ -28,12 +33,19 @@ export function TextPane({
 }: TextPaneProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [copyStatus, setCopyStatus] = useState('');
+  const glowRegionId = useRegionFocusGlow(selectedRegionId, focusRevision);
   const fingerprint = useMemo(
     () => pages.map((page) => `${page.page_no}:${page.text.length}:${page.spans.length}`).join('|'),
     [pages],
   );
+  const [scrollFingerprint] = useThrottledValue(fingerprint, {
+    key: 'workbench-text-live-scroll',
+    leading: true,
+    trailing: true,
+    wait: OCR_FOCUS_THROTTLE_MS,
+  });
 
-  useTextAutoScroll(bodyRef, autoFollowRegions, selectedRegionId, fingerprint);
+  useTextAutoScroll(bodyRef, autoFollowRegions, selectedRegionId, scrollFingerprint, focusRevision);
 
   const copy = (value: string, label: string) => {
     void copyToClipboard(value).then(() => {
@@ -65,6 +77,7 @@ export function TextPane({
             onRegionSelect={onSelectRegion}
             page={page}
             regions={regions}
+            glowRegionId={glowRegionId}
             selectedRegionId={selectedRegionId}
           />
         ))}
@@ -110,9 +123,11 @@ function PageText({
   onRegionSelect,
   page,
   regions,
+  glowRegionId,
   selectedRegionId,
 }: {
   complete: boolean;
+  glowRegionId?: string;
   onCopyMarkdown: () => void;
   onRegionSelect: (pageNo: number, regionId: string) => void;
   page: PageTextRecord;
@@ -138,6 +153,7 @@ function PageText({
           onRegionSelect={onRegionSelect}
           page={page}
           regions={regions}
+          glowRegionId={glowRegionId}
           selectedRegionId={selectedRegionId}
         />
       ) : (
@@ -145,6 +161,7 @@ function PageText({
           onRegionSelect={onRegionSelect}
           page={page}
           regions={regions}
+          glowRegionId={glowRegionId}
           selectedRegionId={selectedRegionId}
         />
       )}
@@ -158,37 +175,51 @@ function useTextAutoScroll(
   autoFollowRegions: boolean,
   selectedRegionId: string | undefined,
   fingerprint: string,
+  focusRevision: number,
 ) {
   useEffect(() => {
-    if (!autoFollowRegions) {
-      return;
-    }
     const root = bodyRef.current;
     if (!root) {
       return;
     }
-    if (!fingerprint && !selectedRegionId) {
-      return;
-    }
-    const selected = selectedRegionId ? findTraceElement(root, selectedRegionId) : null;
-    if (selected) {
-      if (!needsRevealScroll(root.getBoundingClientRect(), selected.getBoundingClientRect())) {
+    const revealGeneration = focusRevision;
+    if (selectedRegionId && revealGeneration >= 0) {
+      const selected = findAnnotationTextElement(root, selectedRegionId);
+      if (!selected) {
         return;
       }
-      selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      if (needsRevealScroll(root.getBoundingClientRect(), selected.getBoundingClientRect())) {
+        selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      }
+      return;
+    }
+    if (!autoFollowRegions || !fingerprint) {
       return;
     }
     if (isScrolledToBottom(root)) {
       return;
     }
     root.scrollTo({ behavior: 'smooth', top: root.scrollHeight });
-  }, [autoFollowRegions, bodyRef, fingerprint, selectedRegionId]);
+  }, [autoFollowRegions, bodyRef, fingerprint, focusRevision, selectedRegionId]);
 }
 
-function findTraceElement(root: HTMLElement, regionId: string) {
-  return [...root.querySelectorAll<HTMLElement>('[data-annotation-id], [data-region-id]')].find(
-    (element) => element.dataset.annotationId === regionId || element.dataset.regionId === regionId,
-  );
+function useRegionFocusGlow(selectedRegionId: string | undefined, focusRevision: number) {
+  const [glowRegionId, setGlowRegionId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedRegionId || focusRevision <= 0) {
+      setGlowRegionId(undefined);
+      return;
+    }
+    setGlowRegionId(selectedRegionId);
+    const timeoutId = window.setTimeout(() => setGlowRegionId(undefined), 1600);
+    return () => window.clearTimeout(timeoutId);
+  }, [focusRevision, selectedRegionId]);
+  return glowRegionId;
+}
+
+export function findAnnotationTextElement(root: HTMLElement, annotationId: string) {
+  const element = root.ownerDocument.getElementById(annotationTextDomId(annotationId));
+  return element instanceof HTMLElement && root.contains(element) ? element : null;
 }
 
 async function copyToClipboard(value: string) {

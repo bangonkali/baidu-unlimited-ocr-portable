@@ -35,7 +35,7 @@ fn page_diagnostic_metadata(page: &PageState) -> (u32, Value) {
 }
 
 fn rendered_page_record(page: &StoredPage) -> Value {
-    json!({
+    let mut record = json!({
         "file_hash": page.file_hash,
         "page_no": page.page_no,
         "status": page.status,
@@ -43,7 +43,11 @@ fn rendered_page_record(page: &StoredPage) -> Value {
         "height_px": page.height_px,
         "dpi": page.render_dpi,
         "preview_available": true,
-    })
+    });
+    if let Some(run_id) = &page.run_id {
+        record["run_id"] = json!(run_id);
+    }
+    record
 }
 
 #[cfg(test)]
@@ -62,6 +66,7 @@ mod process_document_records_tests {
             preview_path: Some("page-1.png".to_string()),
             raw_text: String::new(),
             render_dpi: 200,
+            run_id: None,
             spans: Vec::new(),
             status: "queued".to_string(),
             width_px: 100,

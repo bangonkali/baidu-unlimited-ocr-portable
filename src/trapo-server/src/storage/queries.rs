@@ -28,6 +28,73 @@ impl Repository {
         .await
     }
 
+    pub(crate) async fn load_document_regions_for_run(
+        &self,
+        file_hash: &str,
+        run_id: &str,
+    ) -> Result<Vec<OverlayBox>> {
+        let file_hash = file_hash.to_string();
+        let run_id = run_id.to_string();
+        self.with_read(move |conn| {
+            let mut statement = conn.prepare(
+                "SELECT DISTINCT page_no
+                 FROM document_regions
+                 WHERE run_id = ? AND file_hash = ?
+                 ORDER BY page_no",
+            )?;
+            let rows = statement.query_map(params![run_id.as_str(), file_hash.as_str()], |row| {
+                Ok(i64_to_u32(row.get::<_, i64>(0)?))
+            })?;
+            let page_numbers = collect_rows(rows)?;
+            let mut boxes = Vec::new();
+            for page_no in page_numbers {
+                boxes.extend(Self::load_page_boxes(
+                    &conn,
+                    &file_hash,
+                    page_no,
+                    Some(run_id.as_str()),
+                )?);
+            }
+            Ok(boxes)
+        })
+        .await
+    }
+
+    pub(crate) async fn load_document_text_for_run(
+        &self,
+        file_hash: &str,
+        run_id: &str,
+    ) -> Result<Vec<PageTextRecord>> {
+        let file_hash = file_hash.to_string();
+        let run_id = run_id.to_string();
+        self.with_read(move |conn| {
+            let mut statement = conn.prepare(
+                "SELECT page_no, cleaned_text
+                 FROM document_run_page_ocr
+                 WHERE run_id = ? AND file_hash = ?
+                 ORDER BY page_no",
+            )?;
+            let rows = statement.query_map(params![run_id.as_str(), file_hash.as_str()], |row| {
+                Ok(PageTextRecord {
+                    page_no: i64_to_u32(row.get::<_, i64>(0)?),
+                    text: row.get(1)?,
+                    spans: Vec::new(),
+                })
+            })?;
+            let mut pages = collect_rows(rows)?;
+            for page in &mut pages {
+                page.spans = Self::load_page_spans(
+                    &conn,
+                    &file_hash,
+                    page.page_no,
+                    Some(run_id.as_str()),
+                )?;
+            }
+            Ok(pages)
+        })
+        .await
+    }
+
     pub(crate) async fn upsert_page_metrics(&self, metrics: &OcrPageMetrics) -> Result<()> {
         let metrics = metrics.clone();
         self.with_write(move |conn| {

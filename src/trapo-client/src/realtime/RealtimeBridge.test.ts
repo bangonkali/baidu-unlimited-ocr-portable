@@ -25,9 +25,12 @@ describe('RealtimeBridge dispatcher recovery', () => {
 
     expect(replayCalls).toEqual([1]);
     expect(invalidations).toEqual([]);
-    expect(client.getQueryData<DocumentTextPayload>(queryKeys.documentText('file-a'))).toEqual({
+    expect(
+      client.getQueryData<DocumentTextPayload>(queryKeys.documentText('file-a', 'run-a')),
+    ).toEqual({
       file_hash: 'file-a',
       pages: [{ page_no: 1, spans: [], text: 'ABC' }],
+      run_id: 'run-a',
     });
     expect(dispatcher.getSequenceState().lastAppliedSequence).toBe(4);
     expect(dispatcher.getSequenceState().lastAppliedOcrSequence).toBe(4);

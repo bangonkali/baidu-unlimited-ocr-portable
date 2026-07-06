@@ -56,9 +56,12 @@ export function useWorkbenchIngestActions(args: {
           fileHash: firstFileHash,
           pageNo,
           regionId: undefined,
+          runId: response.run.run_id,
         });
         void args.navigate({
-          search: firstFileHash ? { file: firstFileHash, follow: true, page: pageNo } : {},
+          search: firstFileHash
+            ? { file: firstFileHash, follow: true, page: pageNo, run: response.run.run_id }
+            : {},
           to: '/workbench',
         });
       })

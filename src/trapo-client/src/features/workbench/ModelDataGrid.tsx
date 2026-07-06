@@ -17,6 +17,7 @@ interface ModelDataGridProps extends ModelActionHandlers {
   busy?: boolean;
   dir: SortDirection;
   models: ModelAssetRecord[];
+  providerRepo?: string;
   sort: ModelSortKey;
   onSortChange: (sort: ModelSortKey) => void;
 }
@@ -29,6 +30,7 @@ export function ModelDataGrid({
   onDownloadModel,
   onSelectModel,
   onSortChange,
+  providerRepo,
   sort,
 }: ModelDataGridProps) {
   const columns = useMemo(
@@ -38,8 +40,9 @@ export function ModelDataGrid({
         onCancelModel,
         onDownloadModel,
         onSelectModel,
+        providerRepo,
       }),
-    [busy, onCancelModel, onDownloadModel, onSelectModel],
+    [busy, onCancelModel, onDownloadModel, onSelectModel, providerRepo],
   );
   const table = useReactTable({
     columns,
@@ -86,7 +89,7 @@ export function ModelDataGrid({
   );
 }
 
-function modelColumns(handlers: ModelActionHandlers & { busy?: boolean }) {
+function modelColumns(handlers: ModelActionHandlers & { busy?: boolean; providerRepo?: string }) {
   return [
     {
       accessorKey: 'display_name',
@@ -112,6 +115,11 @@ function modelColumns(handlers: ModelActionHandlers & { busy?: boolean }) {
       accessorKey: 'hardware_tier',
       header: 'VRAM / Tier',
       cell: ({ row }) => row.original.hardware_tier ?? 'Runtime default',
+    },
+    {
+      id: 'repo',
+      header: 'Repository',
+      cell: ({ row }) => row.original.repo_id ?? handlers.providerRepo ?? 'Unavailable',
     },
     {
       id: 'size',

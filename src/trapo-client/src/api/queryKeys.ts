@@ -1,8 +1,10 @@
 export const queryKeys = {
   documents: (q: string) => ['documents', q] as const,
   documentPreviewImages: (fileHash?: string) => ['document-preview-images', fileHash] as const,
-  documentRegions: (fileHash?: string) => ['document-regions', fileHash] as const,
-  documentText: (fileHash?: string) => ['document-text', fileHash] as const,
+  documentRegions: (fileHash?: string, runId?: string) =>
+    ['document-regions', fileHash, runId ?? 'latest'] as const,
+  documentText: (fileHash?: string, runId?: string) =>
+    ['document-text', fileHash, runId ?? 'latest'] as const,
   logs: ['logs'] as const,
   models: ['models'] as const,
   ocrReplay: (params: Record<string, unknown>) => ['ocr-replay', params] as const,

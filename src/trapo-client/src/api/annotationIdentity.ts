@@ -10,3 +10,11 @@ export function annotationIdOf(value: AnnotationIdentity) {
 export function annotationDomId(prefix: string, value: string) {
   return `${prefix}-${value}`;
 }
+
+export function annotationBoxDomId(annotationId: string) {
+  return annotationDomId('annotation-box', annotationId);
+}
+
+export function annotationTextDomId(annotationId: string) {
+  return annotationDomId('annotation-text', annotationId);
+}

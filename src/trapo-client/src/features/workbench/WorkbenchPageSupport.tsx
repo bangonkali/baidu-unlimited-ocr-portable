@@ -1,7 +1,7 @@
 import type { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { annotationIdOf } from '../../api/annotationIdentity';
-import { queryKeys } from '../../api/hooks';
+import { queryKeys, useShutdownServer } from '../../api/hooks';
 import type {
   DocumentRegionsPayload,
   ModelsPayload,
@@ -46,16 +46,32 @@ export function useAutoFollowLatestRegion(
   regions?: DocumentRegionsPayload,
   enabled = workbench.autoFollowRegions,
 ) {
-  const latestRegion = regions?.boxes.at(-1);
   useEffect(() => {
-    if (!enabled || !regions || !latestRegion) {
+    if (!enabled || !regions || !shouldFollowLatestRegion(workbench.selection, regions)) {
       return;
     }
-    if (workbench.selection.regionId === annotationIdOf(latestRegion)) {
-      return;
-    }
-    followLatestRegion(regions.file_hash, regions.boxes);
-  }, [enabled, latestRegion, regions, workbench.selection.regionId]);
+    followLatestRegion(regions.file_hash, regions.boxes, regions.run_id);
+  }, [enabled, regions, workbench.selection]);
+}
+
+export function shouldFollowLatestRegion(
+  selection: { fileHash?: string; pageNo: number; regionId?: string; runId?: string },
+  regions?: DocumentRegionsPayload,
+) {
+  const latestRegion = regions?.boxes.at(-1);
+  if (!regions || !latestRegion) {
+    return false;
+  }
+  if (selection.regionId === annotationIdOf(latestRegion)) {
+    return false;
+  }
+  if (selection.runId && regions.run_id && selection.runId !== regions.run_id) {
+    return false;
+  }
+  if (selection.fileHash === regions.file_hash && latestRegion.page_no < selection.pageNo) {
+    return false;
+  }
+  return true;
 }
 
 export function WorkbenchFooter(props: {
@@ -68,6 +84,7 @@ export function WorkbenchFooter(props: {
   selectedRoot: string;
 }) {
   const downloadsPane = useDownloadsPane();
+  const shutdown = useShutdownServer();
   return (
     <StatusBar
       downloadsActiveCount={downloadsPane.activeFileCount}
@@ -76,12 +93,14 @@ export function WorkbenchFooter(props: {
       host={window.location.host}
       logPath={props.logPath}
       onDownloadsToggle={downloadsPane.toggle}
+      onShutdown={() => shutdown.mutate()}
       realtimeState={props.realtimeState}
       runState={props.runState}
       runtime={`${props.runtimePlatform ?? 'windows-x86_64-cuda13'} / ${
         props.accelerator ?? 'cuda'
       }`}
       selectedRoot={props.selectedRoot}
+      shutdownPending={shutdown.isPending}
     />
   );
 }

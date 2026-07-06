@@ -1,5 +1,7 @@
-import { DownloadCloud } from 'lucide-react';
+import { DownloadCloud, Power } from 'lucide-react';
+import { useState } from 'react';
 
+import { NotificationBell } from './NotificationBell';
 import styles from './StatusBar.module.css';
 
 interface StatusBarProps {
@@ -13,6 +15,8 @@ interface StatusBarProps {
   runtime: string;
   selectedRoot: string;
   onDownloadsToggle: () => void;
+  onShutdown: () => void;
+  shutdownPending?: boolean;
 }
 
 export function StatusBar({
@@ -22,15 +26,32 @@ export function StatusBar({
   host,
   logPath,
   onDownloadsToggle,
+  onShutdown,
   realtimeState,
   runState,
   runtime,
   selectedRoot,
+  shutdownPending,
 }: StatusBarProps) {
+  const [confirmingShutdown, setConfirmingShutdown] = useState(false);
+  const confirmShutdown = () => {
+    setConfirmingShutdown(false);
+    onShutdown();
+  };
   return (
     <footer className={styles.statusBar}>
       <span>{runState}</span>
       <span className={styles.realtime}>{realtimeState}</span>
+      <button
+        aria-label="Shut down Trapo"
+        className={styles.shutdownButton}
+        disabled={shutdownPending}
+        onClick={() => setConfirmingShutdown(true)}
+        title="Shut down Trapo"
+        type="button"
+      >
+        <Power size={13} strokeWidth={1.9} />
+      </button>
       <button
         aria-label={downloadsOpen ? 'Hide downloads' : 'Show downloads'}
         aria-pressed={downloadsOpen}
@@ -50,6 +71,21 @@ export function StatusBar({
       <span>{host}</span>
       <span>{runtime}</span>
       <span className={styles.path}>{selectedRoot || logPath || 'No folder'}</span>
+      <NotificationBell />
+      {confirmingShutdown ? (
+        <section className={styles.shutdownConfirm} aria-label="Confirm shutdown" role="dialog">
+          <strong>Shut down Trapo?</strong>
+          <span>OCR, downloads, and local database writes will be cancelled and flushed.</span>
+          <div className={styles.shutdownActions}>
+            <button onClick={() => setConfirmingShutdown(false)} type="button">
+              Cancel
+            </button>
+            <button data-danger="true" onClick={confirmShutdown} type="button">
+              Shut down
+            </button>
+          </div>
+        </section>
+      ) : null}
     </footer>
   );
 }

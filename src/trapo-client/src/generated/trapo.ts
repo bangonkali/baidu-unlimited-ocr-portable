@@ -17,7 +17,9 @@ import type {
   DiagnosticsRunsDocParams,
   DiagnosticsTraceDocParams,
   DocumentDetail,
+  DocumentRegionsDocParams,
   DocumentRegionsPayload,
+  DocumentTextDocParams,
   DocumentTextPayload,
   DocumentsPayload,
   ErrorPayload,
@@ -42,6 +44,8 @@ import type {
   SearchDocumentsDocParams,
   SettingsPayload,
   SettingsUpdateRequest,
+  ShutdownPayload,
+  ShutdownRequest,
   StatusPayload
 } from './model';
 
@@ -481,17 +485,26 @@ export type documentRegionsDocResponseSuccess = (documentRegionsDocResponse200) 
 
 export type documentRegionsDocResponse = (documentRegionsDocResponseSuccess)
 
-export const getDocumentRegionsDocUrl = (fileHash: string,) => {
+export const getDocumentRegionsDocUrl = (fileHash: string,
+    params?: DocumentRegionsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/documents/${fileHash}/regions`
+  return stringifiedParams.length > 0 ? `/api/documents/${fileHash}/regions?${stringifiedParams}` : `/api/documents/${fileHash}/regions`
 }
 
-export const documentRegionsDoc = async (fileHash: string, options?: RequestInit): Promise<documentRegionsDocResponse> => {
+export const documentRegionsDoc = async (fileHash: string,
+    params?: DocumentRegionsDocParams, options?: RequestInit): Promise<documentRegionsDocResponse> => {
 
-  const res = await fetch(getDocumentRegionsDocUrl(fileHash),
+  const res = await fetch(getDocumentRegionsDocUrl(fileHash,params),
   {
     ...options,
     method: 'GET'
@@ -569,17 +582,26 @@ export type documentTextDocResponseSuccess = (documentTextDocResponse200) & {
 
 export type documentTextDocResponse = (documentTextDocResponseSuccess)
 
-export const getDocumentTextDocUrl = (fileHash: string,) => {
+export const getDocumentTextDocUrl = (fileHash: string,
+    params?: DocumentTextDocParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/documents/${fileHash}/text`
+  return stringifiedParams.length > 0 ? `/api/documents/${fileHash}/text?${stringifiedParams}` : `/api/documents/${fileHash}/text`
 }
 
-export const documentTextDoc = async (fileHash: string, options?: RequestInit): Promise<documentTextDocResponse> => {
+export const documentTextDoc = async (fileHash: string,
+    params?: DocumentTextDocParams, options?: RequestInit): Promise<documentTextDocResponse> => {
 
-  const res = await fetch(getDocumentTextDocUrl(fileHash),
+  const res = await fetch(getDocumentTextDocUrl(fileHash,params),
   {
     ...options,
     method: 'GET'
@@ -1525,4 +1547,51 @@ export const folderDialogDoc = async ( options?: RequestInit): Promise<folderDia
 
   const data: folderDialogDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as folderDialogDocResponse
+}
+
+
+
+export type shutdownDocResponse202 = {
+  data: ShutdownPayload
+  status: 202
+}
+
+export type shutdownDocResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type shutdownDocResponseSuccess = (shutdownDocResponse202) & {
+  headers: Headers;
+};
+export type shutdownDocResponseError = (shutdownDocResponse400) & {
+  headers: Headers;
+};
+
+export type shutdownDocResponse = (shutdownDocResponseSuccess | shutdownDocResponseError)
+
+export const getShutdownDocUrl = () => {
+
+
+
+
+  return `/api/system/shutdown`
+}
+
+export const shutdownDoc = async (shutdownRequest: ShutdownRequest, options?: RequestInit): Promise<shutdownDocResponse> => {
+
+  const res = await fetch(getShutdownDocUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(shutdownRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: shutdownDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as shutdownDocResponse
 }

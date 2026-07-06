@@ -43,8 +43,19 @@ annotation identity.
 the same annotation identity during writes and migration. API payloads expose
 `annotation_id`, and the React workbench uses that value for text hashtag
 anchors, image-snippet anchors, PDF/image overlay boxes, selected-region state,
-DOM ids, and `data-annotation-id` attributes. `region_id` fallback support exists
-only for older payloads and local fixtures.
+and DOM ids. `region_id` fallback support exists only for older payloads and
+local fixtures.
+
+The annotation UUID appears once in each primary DOM element:
+
+```text
+id="annotation-box-{annotation_id}"
+id="annotation-text-{annotation_id}"
+```
+
+Do not duplicate the UUID in `data-annotation-id`, `data-region-id`, title text,
+or accessible labels. See [OCR Data Model](OCR-DATA-MODEL.md) for the canonical
+folder, file, page, run, and annotation naming rules.
 
 Live OCR emits incremental events while a page runs:
 
@@ -86,6 +97,11 @@ queries.
 Region anchors render as compact `#` controls instead of wrapping a text span.
 Clicking a PDF annotation focuses the matching text anchor. Clicking a text
 anchor focuses the matching PDF annotation.
+
+Manual cross-focus is immediate and deterministic. It is separate from realtime
+OCR auto-follow throttling, and a repeated click on the same annotation still
+replays the reveal behavior. When an overlay focuses text, the matching text
+scope briefly highlights from its `#` anchor until before the next `#` anchor.
 
 Auto-follow scrolls to the currently active text anchor or region instead of the
 last page placeholder.

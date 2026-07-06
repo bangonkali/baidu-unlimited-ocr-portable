@@ -21,6 +21,9 @@
   --danger: #ff6b6b;
   --focus: #8bd5ff;
   --status: #185c37;
+  --status-foreground: #eafff4;
+  --status-border: rgb(255 255 255 / 18%);
+  --status-hover: rgb(255 255 255 / 14%);
   --accent-foreground: #111;
   --control-bg: #1b1b1c;
   --control-strong: #111;
@@ -50,7 +53,10 @@
   --warning: #9a6700;
   --danger: #cf222e;
   --focus: #0969da;
-  --status: #dff7e7;
+  --status: #0969da;
+  --status-foreground: #ffffff;
+  --status-border: rgb(255 255 255 / 32%);
+  --status-hover: rgb(255 255 255 / 18%);
   --accent-foreground: #ffffff;
   --control-bg: #ffffff;
   --control-strong: #eaeef2;

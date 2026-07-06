@@ -1,3 +1,4 @@
+mod migration_sql;
 mod migrations;
 
 use std::{
@@ -13,7 +14,7 @@ use tokio::sync::Semaphore;
 use crate::{
     error::{AppError, Result},
     ids::{is_uuid_v7, new_persistence_id},
-    workbench_types::{OverlayBox, TextRegionSpan},
+    workbench_types::{OverlayBox, PageTextRecord, TextRegionSpan},
 };
 
 const DB_READ_CONCURRENCY: usize = 8;

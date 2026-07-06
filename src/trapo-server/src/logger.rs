@@ -57,6 +57,12 @@ impl AppLogger {
         }
     }
 
+    pub(crate) fn flush(&self) {
+        if let Ok(mut file) = self.file.lock() {
+            let _ = file.flush();
+        }
+    }
+
     fn append(&self, level: &str, component: &str, message: impl AsRef<str>) -> LogRecord {
         let record = LogRecord {
             timestamp: Utc::now().to_rfc3339(),

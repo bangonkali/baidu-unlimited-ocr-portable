@@ -38,7 +38,8 @@ mod coverage_tests {
 
         let page = page_record("file-a", 1, Some("cache/file-a/page-1.png"));
         repo.upsert_page(&page).await?;
-        repo.replace_page_ocr(&page, "engine", "profile", 42).await?;
+        repo.replace_page_ocr("run-a", &page, "engine", "profile", 42)
+            .await?;
 
         assert_eq!(
             repo.search_document_hashes("total", 10).await?,
@@ -62,7 +63,7 @@ mod coverage_tests {
             ..page_record("file-a", 1, None)
         };
         repo.upsert_page(&empty_page).await?;
-        repo.replace_page_ocr(&empty_page, "engine", "profile", 0)
+        repo.replace_page_ocr("run-a", &empty_page, "engine", "profile", 0)
             .await?;
         snapshot = repo.load_snapshot().await?;
         assert_eq!(snapshot.pages[0].preview_path, Some("cache/file-a/page-1.png".to_string()));

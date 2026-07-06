@@ -105,6 +105,7 @@ impl AppState {
             page_record: completed_page_record(page_work, width_px, height_px),
             regions_payload: DocumentRegionsPayload {
                 file_hash: page_work.file_hash.to_string(),
+                run_id: Some(page_work.run_id.to_string()),
                 boxes: document
                     .pages
                     .iter()
@@ -113,6 +114,7 @@ impl AppState {
             },
             text_payload: DocumentTextPayload {
                 file_hash: page_work.file_hash.to_string(),
+                run_id: Some(page_work.run_id.to_string()),
                 pages: started_page_text_records(document),
             },
         };
@@ -134,7 +136,13 @@ impl AppState {
             .await?;
         self.inner
             .repository
-            .replace_page_ocr(&completed.stored, ENGINE_ID, ocr.profile_id, elapsed_ms)
+            .replace_page_ocr(
+                page_work.run_id,
+                &completed.stored,
+                ENGINE_ID,
+                ocr.profile_id,
+                elapsed_ms,
+            )
             .await?;
         self.increment_run_page(page_work.run_id, page_work.file_hash)
             .await?;
@@ -234,6 +242,7 @@ struct CompletedPageUpdate {
 
 fn completed_page_record(page_work: &PageWork<'_>, width_px: u32, height_px: u32) -> Value {
     json!({
+        "run_id": page_work.run_id,
         "file_hash": page_work.file_hash,
         "page_no": page_work.page_no,
         "status": "completed",

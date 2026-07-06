@@ -12,8 +12,12 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::sync::{broadcast, mpsc};
+use tokio::task::JoinHandle;
 
-use crate::storage::{Repository, StoredRealtimeEvent};
+use crate::{
+    realtime_event_types::supported_event_types,
+    storage::{Repository, StoredRealtimeEvent},
+};
 
 const RECENT_OCR_EVENT_LIMIT: usize = 50_000;
 const REALTIME_BROADCAST_CHANNEL_LIMIT: usize = 16_384;
@@ -36,6 +40,7 @@ pub(crate) struct RealtimeHub {
     sequence: AtomicU64,
     sender: broadcast::Sender<EventEnvelope>,
     persist_sender: RwLock<Option<mpsc::Sender<StoredRealtimeEvent>>>,
+    persist_worker: Mutex<Option<JoinHandle<()>>>,
     recent_ocr_events: Mutex<VecDeque<StoredRealtimeEvent>>,
 }
 
@@ -47,6 +52,7 @@ impl RealtimeHub {
             sequence: AtomicU64::new(0),
             sender,
             persist_sender: RwLock::new(None),
+            persist_worker: Mutex::new(None),
             recent_ocr_events: Mutex::new(VecDeque::with_capacity(RECENT_OCR_EVENT_LIMIT)),
         })
     }
@@ -56,7 +62,42 @@ impl RealtimeHub {
         if let Ok(mut guard) = self.persist_sender.write() {
             *guard = Some(sender);
         }
-        tokio::spawn(realtime_persist_worker(repository, receiver));
+        let handle = tokio::spawn(realtime_persist_worker(repository, receiver));
+        if let Ok(mut guard) = self.persist_worker.lock()
+            && let Some(previous) = guard.replace(handle)
+        {
+            previous.abort();
+        }
+    }
+
+    pub(crate) async fn shutdown_persistence(&self, duration: Duration) {
+        let sender = self
+            .persist_sender
+            .write()
+            .ok()
+            .and_then(|mut guard| guard.take());
+        drop(sender);
+        let handle = self
+            .persist_worker
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.take());
+        let Some(mut handle) = handle else {
+            return;
+        };
+        let timeout = tokio::time::sleep(duration);
+        tokio::pin!(timeout);
+        tokio::select! {
+            result = &mut handle => {
+                if let Err(error) = result {
+                    tracing::warn!(%error, "realtime persistence worker failed during shutdown");
+                }
+            }
+            () = &mut timeout => {
+                handle.abort();
+                tracing::warn!("realtime persistence worker did not drain before shutdown timeout");
+            }
+        }
     }
 
     pub(crate) fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
@@ -247,52 +288,6 @@ async fn send_json(socket: &mut WebSocket, event: &EventEnvelope) -> Result<(), 
     socket.send(Message::Text(payload.into())).await
 }
 
-fn supported_event_types() -> Vec<&'static str> {
-    vec![
-        "connection.ready",
-        "status.changed",
-        "model.changed",
-        "run.changed",
-        "document.changed",
-        "document.page.changed",
-        "document.regions.changed",
-        "document.text.changed",
-        "ocr.page.stream.started",
-        "ocr.page.text.patch",
-        "ocr.page.region.upsert",
-        "ocr.page.region.remove",
-        "ocr.page.span.upsert",
-        "ocr.page.span.remove",
-        "ocr.page.metrics.changed",
-        "ocr.page.stream.completed",
-        "ocr.page.stream.failed",
-        "log.appended",
-    ]
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::sync::broadcast::error::TryRecvError;
-
-    #[test]
-    fn ready_envelope_does_not_broadcast_or_increment_sequence() {
-        let hub = RealtimeHub::new();
-        let mut receiver = hub.subscribe();
-
-        let ready = hub.ready_envelope();
-
-        assert_eq!(ready.event_type, "connection.ready");
-        assert_eq!(ready.sequence, 0);
-        assert_eq!(hub.last_sequence(), 0);
-        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
-
-        hub.publish("status.changed", json!({ "state": "running" }));
-        let event = receiver.try_recv();
-        assert!(event.is_ok(), "status event should broadcast: {event:?}");
-        if let Ok(event) = event {
-            assert_eq!(event.sequence, 1);
-            assert_eq!(event.event_type, "status.changed");
-        }
-    }
-}
+#[path = "realtime_tests.rs"]
+mod tests;

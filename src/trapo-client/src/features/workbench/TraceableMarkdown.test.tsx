@@ -15,10 +15,11 @@ describe('TraceableMarkdown', () => {
       />,
     );
 
-    expect(html).toContain('data-region-id="reg-title"');
+    expect(html).toContain('id="annotation-text-reg-title"');
     expect(html).toContain('data-active="true"');
-    expect(html).toContain('</span>Title B');
+    expect(html).toContain('Title B</span>');
     expect(html).not.toContain('>Title B</button>');
+    expect(html).not.toContain('data-region-id="reg-title"');
   });
 
   test('uses annotation ids for text anchor DOM identity', () => {
@@ -44,10 +45,35 @@ describe('TraceableMarkdown', () => {
       />,
     );
 
-    expect(html).toContain(`data-annotation-id="${annotationId}"`);
     expect(html).toContain(`id="annotation-text-${annotationId}"`);
-    expect(html).toContain('data-region-id="src_title"');
+    expect(html).not.toContain(`data-annotation-id="${annotationId}"`);
+    expect(html).not.toContain('data-region-id="src_title"');
     expect(html).toContain('data-active="true"');
+    expect(countOccurrences(html, annotationId)).toBe(1);
+  });
+
+  test('marks the selected text scope for focus glow without marking adjacent scopes', () => {
+    const html = renderToString(
+      <TraceableMarkdown
+        glowRegionId="reg-first"
+        onRegionSelect={() => undefined}
+        page={{
+          page_no: 1,
+          spans: [
+            { end: 5, page_no: 1, region_id: 'reg-first', start: 0 },
+            { end: 16, page_no: 1, region_id: 'reg-second', start: 6 },
+          ],
+          text: 'First Second',
+        }}
+        regions={[region('reg-first'), region('reg-second')]}
+        selectedRegionId="reg-first"
+      />,
+    );
+
+    expect(html).toContain('data-glow="true"');
+    expect(html).toContain('First');
+    expect(html).toContain('Second');
+    expect(countOccurrences(html, 'data-glow="true"')).toBe(1);
   });
 
   test('renders trusted OCR table markup as table elements without raw html injection', () => {
@@ -111,4 +137,8 @@ function region(regionId: string, overrides: Partial<OverlayBox> = {}): OverlayB
     width_percent: 10,
     ...overrides,
   };
+}
+
+function countOccurrences(value: string, pattern: string) {
+  return value.split(pattern).length - 1;
 }

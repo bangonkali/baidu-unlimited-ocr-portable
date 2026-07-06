@@ -61,7 +61,7 @@ impl AppState {
             error_message: finish.error.map(ToString::to_string),
             error_stack: None,
         };
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository.insert_diagnostic_span(&span).await {
                 tracing::warn!(%error, "failed to persist diagnostic span");
             }
@@ -91,7 +91,7 @@ impl AppState {
             message: message.to_string(),
             attributes: json!({}),
         };
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository.insert_diagnostic_event(&event).await {
                 tracing::warn!(%error, "failed to persist diagnostic event");
             }
@@ -117,7 +117,7 @@ impl AppState {
             artifact_variant: None,
             metadata: draft.metadata,
         };
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository.upsert_work_unit(&unit).await {
                 tracing::warn!(%error, "failed to persist diagnostic work unit");
             }
@@ -129,7 +129,7 @@ impl AppState {
         let repository = self.inner.repository.clone();
         let run_id = run_id.to_string();
         let work_key = work_key.to_string();
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository.start_work_unit(&run_id, &work_key).await {
                 tracing::warn!(%error, "failed to mark diagnostic work unit started");
             }
@@ -149,7 +149,7 @@ impl AppState {
         let work_key = work_key.to_string();
         let status = status.to_string();
         let error = error.map(str::to_string);
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository
                 .finish_work_unit(&run_id, &work_key, &status, &result, error.as_deref())
                 .await
@@ -177,7 +177,7 @@ impl AppState {
             status,
             metadata,
         };
-        tokio::spawn(async move {
+        self.spawn_background(async move {
             if let Err(error) = repository.insert_model_lease(&record).await {
                 tracing::warn!(%error, "failed to persist model lease");
             }
