@@ -152,11 +152,7 @@ impl AppState {
             .repository
             .load_rag_text_segments(source_run_id)
             .await?;
-        if !existing.is_empty()
-            && existing
-                .iter()
-                .all(|segment| segment.source_kind == "page_chunk")
-        {
+        if rag_text_segments_are_current(&existing) {
             return Ok(existing);
         }
         let segments = self.materialize_rag_text_segments(source_run_id).await?;

@@ -12,4 +12,4 @@ The task table is designed as a queue (`pipeline_tasks`) with runner identity an
 
 Embedding generation uses local GGUF files through llama.cpp. Each supported embedding model stores its tuned pooling, context, batch, GPU-layer, normalization, prefix, and dimension metadata in `rag_embedding_models`; each embedding run records the model and dimension used so the search UI can query only against compatible generated vectors.
 
-Text indexing materializes page OCR into bounded `page_chunk` RAG segments before FTS or embedding work. Chunks use conservative token estimates, including CJK-aware counting for no-whitespace OCR output, and embedding execution rejects stale oversized inputs before entering llama.cpp native decode.
+Text indexing materializes page OCR into bounded `page_chunk` RAG segments before FTS or embedding work. Chunks use conservative token estimates, including CJK-aware counting for no-whitespace OCR output. Embedding execution also checks actual llama.cpp token counts and splits oversized document segments into sub-embeddings before native decode, so tokenizer-specific surprises do not fail the whole embedding run.

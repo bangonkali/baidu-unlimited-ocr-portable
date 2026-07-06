@@ -6,6 +6,7 @@ use super::{
     EmbeddingPurpose, LlamaEmbeddingProfile,
     ffi::{LlamaApi, LlamaContext, LlamaModel, LlamaToken, cstring_path, fill_batch},
     normalize_l2,
+    split::{mean_embedding_vectors, split_text_near_middle, too_many_tokens_error},
 };
 
 pub(super) struct LlamaEmbeddingSession {
@@ -105,17 +106,78 @@ impl LlamaEmbeddingSession {
         let max_tokens =
             usize::try_from(self.profile.effective_batch_tokens()).unwrap_or(usize::MAX);
         if tokens.len() > max_tokens {
-            return Err(AppError::BadRequest(format!(
-                "embedding text for {} produced {} tokens, above the safe llama.cpp encoder batch limit of {max_tokens}; rerun Text Index to rebuild smaller RAG chunks",
-                self.profile.model_id,
-                tokens.len()
-            )));
+            if matches!(purpose, EmbeddingPurpose::Document) {
+                return self.embed_split_document(text, max_tokens);
+            }
+            return Err(too_many_tokens_error(
+                &self.profile.model_id,
+                tokens.len(),
+                max_tokens,
+            ));
         }
+        self.embed_tokens(&tokens)
+    }
+
+    fn embed_split_document(&mut self, text: &str, max_tokens: usize) -> Result<Vec<f32>> {
+        let parts = self.split_document_text(text, max_tokens)?;
+        let mut vectors = Vec::with_capacity(parts.len());
+        for part in parts {
+            let input = self.input_text(&part, EmbeddingPurpose::Document);
+            let tokens = self.tokenize(&input)?;
+            if tokens.len() > max_tokens {
+                return Err(too_many_tokens_error(
+                    &self.profile.model_id,
+                    tokens.len(),
+                    max_tokens,
+                ));
+            }
+            vectors.push(self.embed_tokens(&tokens)?);
+        }
+        mean_embedding_vectors(&vectors, self.profile.normalize)
+    }
+
+    fn split_document_text(&self, text: &str, max_tokens: usize) -> Result<Vec<String>> {
+        let mut parts = Vec::new();
+        self.push_document_part(text.trim(), max_tokens, &mut parts)?;
+        if parts.is_empty() {
+            return Err(AppError::BadRequest("cannot embed empty text".to_string()));
+        }
+        Ok(parts)
+    }
+
+    fn push_document_part(
+        &self,
+        text: &str,
+        max_tokens: usize,
+        parts: &mut Vec<String>,
+    ) -> Result<()> {
+        if text.is_empty() {
+            return Ok(());
+        }
+        let input = self.input_text(text, EmbeddingPurpose::Document);
+        let tokens = self.tokenize(&input)?;
+        if tokens.len() <= max_tokens {
+            parts.push(text.to_string());
+            return Ok(());
+        }
+        let Some(split_at) = split_text_near_middle(text) else {
+            return Err(too_many_tokens_error(
+                &self.profile.model_id,
+                tokens.len(),
+                max_tokens,
+            ));
+        };
+        let (left, right) = text.split_at(split_at);
+        self.push_document_part(left.trim(), max_tokens, parts)?;
+        self.push_document_part(right.trim(), max_tokens, parts)
+    }
+
+    fn embed_tokens(&mut self, tokens: &[LlamaToken]) -> Result<Vec<f32>> {
         let mut batch = unsafe {
             // SAFETY: allocation size is derived from token count and seq count is one.
             (self.api.llama_batch_init)(c_int::try_from(tokens.len()).unwrap_or(c_int::MAX), 0, 1)
         };
-        fill_batch(&mut batch, &tokens);
+        fill_batch(&mut batch, tokens);
         unsafe {
             // SAFETY: context is live; clearing memory before each embedding mirrors llama.cpp examples.
             (self.api.llama_memory_clear)((self.api.llama_get_memory)(self.context), true);

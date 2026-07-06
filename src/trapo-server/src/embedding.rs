@@ -2,6 +2,7 @@
 
 mod ffi;
 mod session;
+mod split;
 #[cfg(test)]
 mod tests;
 mod worker;

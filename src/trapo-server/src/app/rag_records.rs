@@ -81,9 +81,17 @@ fn append_page_segments(
     }
 }
 
-const RAG_SEGMENT_TARGET_TOKENS: u32 = 384;
-const RAG_SEGMENT_OVERLAP_TOKENS: u32 = 48;
+const RAG_SEGMENT_TARGET_TOKENS: u32 = 192;
+const RAG_SEGMENT_OVERLAP_TOKENS: u32 = 32;
 const TOKEN_UNITS_PER_TOKEN: u32 = 4;
+
+fn rag_text_segments_are_current(segments: &[RagTextSegmentRow]) -> bool {
+    !segments.is_empty()
+        && segments.iter().all(|segment| {
+            segment.source_kind == "page_chunk"
+                && segment.token_estimate <= RAG_SEGMENT_TARGET_TOKENS
+        })
+}
 
 fn rag_text_chunks(text: &str) -> Vec<(usize, usize)> {
     let mut chunks = Vec::new();
@@ -224,5 +232,27 @@ mod rag_chunk_tests {
         assert!(segments
             .iter()
             .all(|segment| segment.token_estimate <= RAG_SEGMENT_TARGET_TOKENS));
+    }
+
+    #[test]
+    fn stale_or_oversized_text_segments_are_rebuilt() {
+        let mut segments = Vec::new();
+        append_page_segments(
+            "run-a",
+            "file-a",
+            vec![PageTextRecord {
+                page_no: 1,
+                text: "short text".to_string(),
+                spans: Vec::new(),
+            }],
+            &mut segments,
+        );
+
+        assert!(rag_text_segments_are_current(&segments));
+        segments[0].source_kind = "page".to_string();
+        assert!(!rag_text_segments_are_current(&segments));
+        segments[0].source_kind = "page_chunk".to_string();
+        segments[0].token_estimate = RAG_SEGMENT_TARGET_TOKENS + 1;
+        assert!(!rag_text_segments_are_current(&segments));
     }
 }
