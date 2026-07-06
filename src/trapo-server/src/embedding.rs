@@ -4,6 +4,7 @@ mod ffi;
 mod session;
 #[cfg(test)]
 mod tests;
+mod worker;
 
 use std::{
     collections::BTreeSet,
@@ -12,6 +13,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use session::LlamaEmbeddingSession;
 
@@ -20,13 +22,13 @@ use crate::{
     storage::RagEmbeddingModelRow,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(crate) enum EmbeddingPurpose {
     Document,
     Query,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct LlamaEmbeddingProfile {
     pub(crate) model_id: String,
     pub(crate) model_path: PathBuf,
@@ -42,7 +44,7 @@ pub(crate) struct LlamaEmbeddingProfile {
     pub(crate) n_ubatch: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub(crate) enum PoolingType {
     Mean,
     Cls,
@@ -98,15 +100,29 @@ pub(crate) async fn generate_embeddings(
     purpose: EmbeddingPurpose,
     texts: Vec<String>,
 ) -> Result<Vec<Vec<f32>>> {
-    tokio::task::spawn_blocking(move || {
-        let mut session = LlamaEmbeddingSession::open(&profile)?;
-        texts
-            .iter()
-            .map(|text| session.embed_text(text, purpose))
-            .collect()
-    })
-    .await
-    .map_err(|error| AppError::Internal(format!("embedding worker failed: {error}")))?
+    worker::generate_embeddings_with_worker(profile, purpose, texts).await
+}
+
+/// Runs an embedding worker request in the current process.
+///
+/// # Errors
+///
+/// Returns an error when request/response JSON cannot be read or written, or
+/// when llama.cpp embedding generation fails.
+pub fn run_embedding_worker(request_path: &Path, response_path: &Path) -> Result<()> {
+    worker::run_embedding_worker(request_path, response_path)
+}
+
+pub(super) fn generate_embeddings_in_process(
+    profile: &LlamaEmbeddingProfile,
+    purpose: EmbeddingPurpose,
+    texts: &[String],
+) -> Result<Vec<Vec<f32>>> {
+    let mut session = LlamaEmbeddingSession::open(profile)?;
+    texts
+        .iter()
+        .map(|text| session.embed_text(text, purpose))
+        .collect()
 }
 
 impl PoolingType {

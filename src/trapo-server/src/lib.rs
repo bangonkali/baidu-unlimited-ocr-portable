@@ -23,8 +23,9 @@ pub(crate) mod workbench_types;
 
 pub use app::{AppState, build_router};
 pub use config::ServerConfig;
-pub use embedding::validate_llama_library;
+pub use embedding::{run_embedding_worker, validate_llama_library};
 pub use error::{AppError, Result};
+pub use logger::{ProcessLogGuards, install_process_logging};
 pub use ocr::validate_ffi_library;
 pub use openapi::ApiDoc;
 pub use storage::Repository;

@@ -23,6 +23,7 @@ axum = { version = "0.8.9", features = ["macros", "multipart", "ws"] }
 chrono = { version = "0.4", features = ["serde"] }
 duckdb = "1.5.4"
 futures-util = "0.3"
+gag = "1"
 hex = "0.4"
 image = { version = "0.25", default-features = false, features = ["bmp", "jpeg", "png", "tiff", "webp"] }
 libloading = "0.9"

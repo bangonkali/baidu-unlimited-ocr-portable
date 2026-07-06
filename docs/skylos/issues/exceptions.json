@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated": "2026-07-06",
+  "updated": "2026-07-07",
   "included_paths": [
     ".github/**",
     "Cargo.toml",
@@ -413,6 +413,13 @@
       "reason": "FFI paths are selected from local runtime/model configuration before the unsafe loader boundary."
     },
     {
+      "id": "server-embedding-worker-ipc-files",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/embedding/worker.rs",
+      "reason": "Embedding worker request and response JSON files are hidden internal IPC paths generated under a canonical temp worker directory or canonicalized before child-worker read/write."
+    },
+    {
       "id": "server-pdf-validated-local-ingest",
       "rule_id": "SKY-D215",
       "category": "danger",
@@ -491,6 +498,14 @@
       "path_glob": "src/trapo-server/src/embedding/ffi.rs",
       "name_glob": "validate_llama_library",
       "reason": "The packaged runtime smoke command reaches the validator through the parent embedding module re-export; cargo clippy validates actual Rust reachability."
+    },
+    {
+      "id": "rust-embedding-worker-cli-entrypoint",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/embedding/worker.rs",
+      "name_glob": "run_embedding_worker",
+      "reason": "The hidden --embedding-worker CLI reaches this function through embedding and library re-exports; process_logging integration tests validate the child process path."
     },
     {
       "id": "rust-storage-repository-methods",
