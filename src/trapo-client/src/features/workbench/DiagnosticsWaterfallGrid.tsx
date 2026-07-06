@@ -2,24 +2,25 @@ import { ChevronDown, ChevronRight, Minimize2 } from 'lucide-react';
 import type { CSSProperties, PointerEvent, ReactNode } from 'react';
 import { useState } from 'react';
 
-import type { TreeGridNode } from '../../components/workbench';
 import styles from './DiagnosticsWaterfall.module.css';
+import type { DiagnosticWaterfallNode } from './DiagnosticsWaterfallTree';
 
 interface DiagnosticsWaterfallGridProps {
   expandedIds: Set<string>;
-  nodes: TreeGridNode[];
+  nodes: DiagnosticWaterfallNode[];
   onCollapseAll: () => void;
   onToggle: (id: string) => void;
 }
 
 interface WaterfallColumns {
   name: number;
+  timespan: number;
   timestamp: number;
 }
 
 interface VisibleWaterfallNode {
   level: number;
-  node: TreeGridNode;
+  node: DiagnosticWaterfallNode;
 }
 
 export function DiagnosticsWaterfallGrid({
@@ -28,10 +29,15 @@ export function DiagnosticsWaterfallGrid({
   onCollapseAll,
   onToggle,
 }: DiagnosticsWaterfallGridProps) {
-  const [columns, setColumns] = useState<WaterfallColumns>({ name: 380, timestamp: 190 });
+  const [columns, setColumns] = useState<WaterfallColumns>({
+    name: 420,
+    timespan: 92,
+    timestamp: 190,
+  });
   const rows = visibleWaterfallRows(nodes, expandedIds);
   const style = {
     '--waterfall-name-column': `${columns.name}px`,
+    '--waterfall-timespan-column': `${columns.timespan}px`,
     '--waterfall-timestamp-column': `${columns.timestamp}px`,
   } as CSSProperties;
   const beginResize = (column: keyof WaterfallColumns, event: PointerEvent<HTMLButtonElement>) => {
@@ -55,15 +61,20 @@ export function DiagnosticsWaterfallGrid({
         <section aria-label="Waterfall metadata columns" className={styles.waterfallLeftPane}>
           <div className={styles.waterfallLeftContent}>
             <div className={styles.waterfallLeftHeader}>
+              <span>Name</span>
+              <ResizeHandle
+                label="Resize name column"
+                onPointerDown={(event) => beginResize('name', event)}
+              />
               <span>Timestamp</span>
               <ResizeHandle
                 label="Resize timestamp column"
                 onPointerDown={(event) => beginResize('timestamp', event)}
               />
-              <span>Name</span>
+              <span>Timespan</span>
               <ResizeHandle
-                label="Resize name column"
-                onPointerDown={(event) => beginResize('name', event)}
+                label="Resize timespan column"
+                onPointerDown={(event) => beginResize('timespan', event)}
               />
             </div>
             <div className={styles.waterfallLeftRows}>
@@ -122,7 +133,7 @@ function WaterfallLeftRow({
   active: boolean;
   expandedIds: Set<string>;
   level: number;
-  node: TreeGridNode;
+  node: DiagnosticWaterfallNode;
   onToggle: (id: string) => void;
 }) {
   const childCount = node.children?.length ?? 0;
@@ -141,8 +152,6 @@ function WaterfallLeftRow({
       id={node.id}
       style={{ '--tree-level': String(level) } as CSSProperties}
     >
-      <span className={styles.waterfallTimeCell}>{node.badge}</span>
-      <span aria-hidden="true" className={styles.waterfallRowDivider} />
       <span className={styles.waterfallNameCell}>
         <span className={styles.waterfallNameContent}>
           <WaterfallTwisty
@@ -154,6 +163,10 @@ function WaterfallLeftRow({
           <WaterfallNameButton icon={node.icon} label={node.label} onSelect={node.onSelect} />
         </span>
       </span>
+      <span aria-hidden="true" className={styles.waterfallRowDivider} />
+      <span className={styles.waterfallTimestampCell}>{node.timestamp}</span>
+      <span aria-hidden="true" className={styles.waterfallRowDivider} />
+      <span className={styles.waterfallTimespanCell}>{node.timespan}</span>
       <span aria-hidden="true" className={styles.waterfallRowDivider} />
     </div>
   );
@@ -222,12 +235,15 @@ function clampColumnWidth(column: keyof WaterfallColumns, width: number) {
   if (column === 'timestamp') {
     return clamp(width, 150, 280);
   }
+  if (column === 'timespan') {
+    return clamp(width, 72, 160);
+  }
   return clamp(width, 180, 820);
 }
 
-function visibleWaterfallRows(nodes: TreeGridNode[], expandedIds: Set<string>) {
+function visibleWaterfallRows(nodes: DiagnosticWaterfallNode[], expandedIds: Set<string>) {
   const rows: VisibleWaterfallNode[] = [];
-  const visit = (node: TreeGridNode, level: number) => {
+  const visit = (node: DiagnosticWaterfallNode, level: number) => {
     rows.push({ level, node });
     if (!expandedIds.has(node.id)) {
       return;

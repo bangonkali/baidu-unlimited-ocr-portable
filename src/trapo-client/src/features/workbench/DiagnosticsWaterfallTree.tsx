@@ -1,5 +1,5 @@
 import { Activity, Boxes, FileText, Folder } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import type { DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord } from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
@@ -15,7 +15,13 @@ interface WaterfallTimeline {
   startMs: number;
 }
 
-export function buildWaterfallRunNodes(args: WaterfallTraceNodesArgs): TreeGridNode[] {
+export interface DiagnosticWaterfallNode extends Omit<TreeGridNode, 'children'> {
+  children?: DiagnosticWaterfallNode[];
+  timespan: ReactNode;
+  timestamp: ReactNode;
+}
+
+export function buildWaterfallRunNodes(args: WaterfallTraceNodesArgs): DiagnosticWaterfallNode[] {
   const rows = args.payload?.rows ?? [];
   if (rows.length === 0) {
     return [];
@@ -30,13 +36,15 @@ export function buildWaterfallRunNodes(args: WaterfallTraceNodesArgs): TreeGridN
       roots.push(row);
     }
   }
-  const toNode = (row: DiagnosticWaterfallRowRecord): TreeGridNode => ({
+  const toNode = (row: DiagnosticWaterfallRowRecord): DiagnosticWaterfallNode => ({
     actions: waterfallBar(row, timeline),
     badge: <span>{formatTimestamp(row.visual_start_ms ?? row.start_ms)}</span>,
     children: sortRows(byParent.get(row.row_id) ?? []).map(toNode),
     icon: iconForRow(row),
     id: row.row_id,
     label: rowLabel(row),
+    timespan: <span>{formatMs(row.visual_duration_ms || row.duration_ms)}</span>,
+    timestamp: <span>{formatTimestamp(row.visual_start_ms ?? row.start_ms)}</span>,
   });
   return sortRows(roots).map(toNode);
 }
@@ -147,9 +155,6 @@ function waterfallBar(row: DiagnosticWaterfallRowRecord, timeline: WaterfallTime
       <span className={styles.waterfallLane}>
         <span className={styles.waterfallEnvelope} style={envelope} />
         <span className={styles.waterfallSegment} style={operation ?? envelope} />
-      </span>
-      <span className={styles.waterfallDuration}>
-        {formatMs(row.visual_duration_ms || row.duration_ms)}
       </span>
     </span>
   );

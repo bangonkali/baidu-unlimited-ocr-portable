@@ -57,6 +57,7 @@ fn build_diagnostic_waterfall(
             .into_iter()
             .map(|span| span_waterfall_row(span, now_ms, &work_unit_matches)),
     );
+    fold_duplicate_task_spans(&mut rows);
     add_synthetic_waterfall_groups(&mut rows);
     normalize_waterfall_rows(&mut rows);
     let summary = waterfall_summary(run_id, &rows);
@@ -184,7 +185,7 @@ fn span_waterfall_row(
         unit.filename
             .clone()
             .or_else(|| unit.source_path.clone())
-    });
+    }).or_else(|| span.filename.clone());
     WaterfallDraft {
         attributes,
         category: span.category,

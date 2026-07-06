@@ -78,7 +78,7 @@ describe('diagnostics waterfall', () => {
     );
   });
 
-  test('renders waterfall grid with timestamp as the first resizable column', () => {
+  test('renders waterfall grid with resizable metadata columns before the waterfall', () => {
     const nodes = buildWaterfallRunNodes({
       payload: waterfallPayload([
         waterfallRow({
@@ -97,11 +97,15 @@ describe('diagnostics waterfall', () => {
         onToggle={() => undefined}
       />,
     );
-    expect(html.indexOf('Timestamp')).toBeLessThan(html.indexOf('Name'));
+    expect(html.indexOf('Name')).toBeLessThan(html.indexOf('Timestamp'));
+    expect(html.indexOf('Timestamp')).toBeLessThan(html.indexOf('Timespan'));
+    expect(html.indexOf('Timespan')).toBeLessThan(html.indexOf('Waterfall</div>'));
     expect(html).toContain('2026-07-07 01:02:03.004');
+    expect(html).toContain('1.00s');
+    expect(html).toContain('Resize name column');
     expect(html).toContain('Waterfall</div>');
     expect(html).toContain('Resize timestamp column');
-    expect(html).toContain('Resize name column');
+    expect(html).toContain('Resize timespan column');
     expect(html.match(/Waterfall metadata columns/g)).toHaveLength(1);
   });
 
@@ -153,7 +157,6 @@ describe('diagnostics waterfall', () => {
     expect(html).toContain('second 2.00s');
     expect(html).toContain('left:50%');
     expect(html).toContain('width:50%');
-    expect(html).toContain('2.00s');
   });
 
   test('formats nonzero sub-millisecond spans as less than one millisecond', () => {

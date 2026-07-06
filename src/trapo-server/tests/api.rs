@@ -282,20 +282,26 @@ async fn diagnostics_waterfall_route_returns_trace_rows() -> anyhow::Result<()> 
     drop(repository);
     let run_id = Uuid::now_v7().to_string();
     let task_id = Uuid::now_v7().to_string();
+    let text_task_id = Uuid::now_v7().to_string();
     let work_unit_id = Uuid::now_v7().to_string();
     let orphan_work_unit_id = Uuid::now_v7().to_string();
     let root_span_id = Uuid::now_v7().to_string();
     let page_span_id = Uuid::now_v7().to_string();
+    let text_root_span_id = Uuid::now_v7().to_string();
+    let text_page_span_id = Uuid::now_v7().to_string();
     let render_span_id = Uuid::now_v7().to_string();
     let ocr_work_unit_id = Uuid::now_v7().to_string();
     let ocr_span_id = Uuid::now_v7().to_string();
     let seed = DiagnosticWaterfallSeed {
         run: &run_id,
         task: &task_id,
+        text_task: &text_task_id,
         work_unit: &work_unit_id,
         orphan_work_unit: &orphan_work_unit_id,
         root_span: &root_span_id,
         page_span: &page_span_id,
+        text_root_span: &text_root_span_id,
+        text_page_span: &text_page_span_id,
         render_span: &render_span_id,
         ocr_work_unit: &ocr_work_unit_id,
         ocr_span: &ocr_span_id,
@@ -330,6 +336,23 @@ fn assert_diagnostic_waterfall_hierarchy(
         rows.iter()
             .any(|row| row["row_id"] == format!("task:{}", seed.task))
     );
+    let file_group_id = assert_ocr_waterfall_grouping(rows, seed, payload);
+    assert_waterfall_task_folding(rows, seed, payload);
+    assert_waterfall_work_unit_folding(rows, seed, payload);
+    assert_rag_waterfall_grouping(rows, seed, payload)?;
+    let ocr_page = rows
+        .iter()
+        .find(|row| row["span_id"] == seed.ocr_span)
+        .ok_or_else(|| anyhow::anyhow!("ocr page span missing: {payload}"))?;
+    assert_eq!(ocr_page["parent_row_id"], file_group_id);
+    Ok(())
+}
+
+fn assert_ocr_waterfall_grouping(
+    rows: &[serde_json::Value],
+    seed: &DiagnosticWaterfallSeed<'_>,
+    payload: &serde_json::Value,
+) -> String {
     let run_root_id = format!("run:{}", seed.run);
     let ocr_group_id = format!("group:{}:ocr", seed.run);
     let file_group_id = format!("file-group:{}:file-waterfall:ocr", seed.run);
@@ -368,10 +391,33 @@ fn assert_diagnostic_waterfall_hierarchy(
             > 0.0,
         "file group should inherit visual bounds from children: {payload}"
     );
+    file_group_id
+}
+
+fn assert_waterfall_task_folding(
+    rows: &[serde_json::Value],
+    seed: &DiagnosticWaterfallSeed<'_>,
+    payload: &serde_json::Value,
+) {
     assert!(
         rows.iter()
             .any(|row| row["pipeline_step"] == "generate_embedding")
     );
+    assert!(
+        !rows.iter().any(|row| row["span_id"] == seed.root_span),
+        "duplicate embedding task diagnostic span should be folded into pipeline task: {payload}"
+    );
+    assert!(
+        !rows.iter().any(|row| row["span_id"] == seed.text_root_span),
+        "duplicate text-index task diagnostic span should be folded into pipeline task: {payload}"
+    );
+}
+
+fn assert_waterfall_work_unit_folding(
+    rows: &[serde_json::Value],
+    seed: &DiagnosticWaterfallSeed<'_>,
+    payload: &serde_json::Value,
+) {
     assert!(
         !rows
             .iter()
@@ -385,11 +431,26 @@ fn assert_diagnostic_waterfall_hierarchy(
         }),
         "unmatched work units should remain visible: {payload}"
     );
+}
+
+fn assert_rag_waterfall_grouping(
+    rows: &[serde_json::Value],
+    seed: &DiagnosticWaterfallSeed<'_>,
+    payload: &serde_json::Value,
+) -> anyhow::Result<()> {
     let page = rows
         .iter()
         .find(|row| row["span_id"] == seed.page_span)
         .ok_or_else(|| anyhow::anyhow!("page span missing: {payload}"))?;
-    assert_eq!(page["parent_row_id"], format!("span:{}", seed.root_span));
+    let embedding_file_group_id =
+        format!("file-group:{}:file-waterfall:generate_embedding", seed.task);
+    assert_rag_file_group(
+        rows,
+        &embedding_file_group_id,
+        &format!("task:{}", seed.task),
+        payload,
+    )?;
+    assert_eq!(page["parent_row_id"], embedding_file_group_id);
     assert_eq!(page["task_id"], seed.task);
     assert_eq!(page["work_unit_id"], seed.work_unit);
     assert_eq!(page["row_source"], "diagnostic_span");
@@ -398,12 +459,40 @@ fn assert_diagnostic_waterfall_hierarchy(
         page["attributes"]["work_unit"]["work_unit_id"],
         seed.work_unit
     );
-    let ocr_page = rows
+    let text_page = rows
         .iter()
-        .find(|row| row["span_id"] == seed.ocr_span)
-        .ok_or_else(|| anyhow::anyhow!("ocr page span missing: {payload}"))?;
-    assert_eq!(ocr_page["parent_row_id"], file_group_id);
+        .find(|row| row["span_id"] == seed.text_page_span)
+        .ok_or_else(|| anyhow::anyhow!("text page span missing: {payload}"))?;
+    let text_file_group_id = format!("file-group:{}:file-waterfall:text_index", seed.text_task);
+    assert_rag_file_group(
+        rows,
+        &text_file_group_id,
+        &format!("task:{}", seed.text_task),
+        payload,
+    )?;
+    assert_eq!(text_page["parent_row_id"], text_file_group_id);
+    assert_eq!(text_page["filename"], "trace.pdf");
     assert!(page["visual_start_ms"].as_f64().is_some());
+    Ok(())
+}
+
+fn assert_rag_file_group(
+    rows: &[serde_json::Value],
+    file_group_id: &str,
+    task_row_id: &str,
+    payload: &serde_json::Value,
+) -> anyhow::Result<()> {
+    let group = rows
+        .iter()
+        .find(|row| row["row_id"] == file_group_id)
+        .ok_or_else(|| anyhow::anyhow!("missing RAG file group {file_group_id}: {payload}"))?;
+    assert_eq!(group["parent_row_id"], task_row_id);
+    assert_eq!(group["row_source"], "file_group");
+    assert_eq!(group["label"], "trace.pdf");
+    assert!(
+        group["child_count"].as_u64().unwrap_or_default() > 0,
+        "RAG file group should contain page spans: {payload}"
+    );
     Ok(())
 }
 
@@ -582,10 +671,13 @@ fn seed_completed_text_run(
 struct DiagnosticWaterfallSeed<'a> {
     run: &'a str,
     task: &'a str,
+    text_task: &'a str,
     work_unit: &'a str,
     orphan_work_unit: &'a str,
     root_span: &'a str,
     page_span: &'a str,
+    text_root_span: &'a str,
+    text_page_span: &'a str,
     render_span: &'a str,
     ocr_work_unit: &'a str,
     ocr_span: &'a str,
@@ -641,6 +733,16 @@ fn seed_diagnostic_waterfall_core(
             '2026-07-07T00:00:05Z', 'test-runner')",
         params![seed.task, seed.run],
     )?;
+    conn.execute(
+        "INSERT INTO pipeline_tasks(
+            task_id, task_kind, origin_run_id, status, params_json, result_json,
+            queued_at, started_at, finished_at, runner_id
+         )
+         VALUES (?, 'text_index', ?, 'completed', '{}'::JSON, '{}'::JSON,
+            '2026-07-07T00:00:00Z', '2026-07-07T00:00:00Z',
+            '2026-07-07T00:00:01Z', 'test-runner')",
+        params![seed.text_task, seed.run],
+    )?;
     Ok(())
 }
 
@@ -694,6 +796,16 @@ fn seed_diagnostic_waterfall_spans(
     conn: &duckdb::Connection,
     seed: &DiagnosticWaterfallSeed<'_>,
 ) -> anyhow::Result<()> {
+    seed_embedding_waterfall_spans(conn, seed)?;
+    seed_text_index_waterfall_spans(conn, seed)?;
+    seed_ocr_waterfall_spans(conn, seed)?;
+    Ok(())
+}
+
+fn seed_embedding_waterfall_spans(
+    conn: &duckdb::Connection,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
     conn.execute(
         "INSERT INTO ingest_diagnostic_spans(
             span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
@@ -725,6 +837,50 @@ fn seed_diagnostic_waterfall_spans(
             seed.work_unit
         ],
     )?;
+    Ok(())
+}
+
+fn seed_text_index_waterfall_spans(
+    conn: &duckdb::Connection,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, NULL, 'Text index', '2026-07-07 00:00:00',
+            '2026-07-07 00:00:01', '{}'::JSON, ?, NULL, NULL,
+            'text_index', 'rag', 'ok', '2026-07-07T00:00:01Z',
+            1000, '{}'::JSON, ?, NULL, 'task')",
+        params![seed.text_root_span, seed.run, seed.run, seed.text_task],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, ?, 'Segment page text', '2026-07-07 00:00:00',
+            '2026-07-07 00:00:01', '{}'::JSON, ?, 'file-waterfall', 1,
+            'text_index', 'text_page', 'ok', '2026-07-07T00:00:01Z',
+            1000, '{}'::JSON, ?, NULL, 'text_page')",
+        params![
+            seed.text_page_span,
+            seed.run,
+            seed.text_root_span,
+            seed.run,
+            seed.text_task
+        ],
+    )?;
+    Ok(())
+}
+
+fn seed_ocr_waterfall_spans(
+    conn: &duckdb::Connection,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
     conn.execute(
         "INSERT INTO ingest_diagnostic_spans(
             span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,

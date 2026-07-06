@@ -156,6 +156,7 @@ pub(crate) struct DiagnosticSpanRow {
     pub(crate) span_kind: String,
     pub(crate) run_id: Option<String>,
     pub(crate) file_hash: Option<String>,
+    pub(crate) filename: Option<String>,
     pub(crate) page_no: Option<u32>,
     pub(crate) name: String,
     pub(crate) pipeline_step: String,

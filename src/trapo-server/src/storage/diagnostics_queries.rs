@@ -123,22 +123,24 @@ impl Repository {
         let status = filter.status.as_deref().filter(|value| *value != "all");
         let query = filter.q.as_deref().map(normalized_like);
         let mut statement = conn.prepare(
-            "SELECT span_id, coalesce(trace_id, run_id), parent_span_id,
-                task_id, work_unit_id, coalesce(span_kind, category, 'operation'),
-                run_id, file_hash, page_no,
-                name, coalesce(pipeline_step, name), coalesce(category, 'pipeline'),
-                annotation_engine, coalesce(status, 'ok'), started_at::VARCHAR,
-                coalesce(ended_at, finished_at::VARCHAR, started_at::VARCHAR), coalesce(duration_ms, 0),
-                coalesce(attributes_json, '{}'), error_type, error_message, error_stack
-             FROM ingest_diagnostic_spans
-             WHERE (? IS NULL OR run_id = ?)
-               AND (? IS NULL OR file_hash = ?)
-               AND (? IS NULL OR page_no = ?)
-               AND (? IS NULL OR status = ?)
-               AND (? IS NULL OR lower(name || ' ' || coalesce(pipeline_step, '') || ' ' ||
-                   coalesce(category, '') || ' ' || coalesce(annotation_engine, '') || ' ' ||
-                   coalesce(error_message, '')) LIKE ?)
-             ORDER BY started_at ASC, duration_ms DESC
+            "SELECT s.span_id, coalesce(s.trace_id, s.run_id), s.parent_span_id,
+                s.task_id, s.work_unit_id, coalesce(s.span_kind, s.category, 'operation'),
+                s.run_id, s.file_hash, f.display_name, s.page_no,
+                s.name, coalesce(s.pipeline_step, s.name), coalesce(s.category, 'pipeline'),
+                s.annotation_engine, coalesce(s.status, 'ok'), s.started_at::VARCHAR,
+                coalesce(s.ended_at, s.finished_at::VARCHAR, s.started_at::VARCHAR),
+                coalesce(s.duration_ms, 0), coalesce(s.attributes_json, '{}'),
+                s.error_type, s.error_message, s.error_stack
+             FROM ingest_diagnostic_spans s
+             LEFT JOIN files f ON f.file_hash = s.file_hash
+             WHERE (? IS NULL OR s.run_id = ?)
+               AND (? IS NULL OR s.file_hash = ?)
+               AND (? IS NULL OR s.page_no = ?)
+               AND (? IS NULL OR s.status = ?)
+               AND (? IS NULL OR lower(s.name || ' ' || coalesce(s.pipeline_step, '') || ' ' ||
+                   coalesce(s.category, '') || ' ' || coalesce(s.annotation_engine, '') || ' ' ||
+                   coalesce(s.error_message, '')) LIKE ?)
+             ORDER BY s.started_at ASC, s.duration_ms DESC
              LIMIT ?",
         )?;
         let rows = statement.query_map(
@@ -246,19 +248,20 @@ fn span_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticSpanRow> {
         span_kind: row.get(5)?,
         run_id: row.get(6)?,
         file_hash: row.get(7)?,
-        page_no: row.get::<_, Option<i64>>(8)?.map(i64_to_u32),
-        name: row.get(9)?,
-        pipeline_step: row.get(10)?,
-        category: row.get(11)?,
-        annotation_engine: row.get(12)?,
-        status: row.get(13)?,
-        started_at: row.get(14)?,
-        ended_at: row.get(15)?,
-        duration_ms: row.get(16)?,
-        attributes: json_value(row.get::<_, String>(17)?.as_str()),
-        error_type: row.get(18)?,
-        error_message: row.get(19)?,
-        error_stack: row.get(20)?,
+        filename: row.get(8)?,
+        page_no: row.get::<_, Option<i64>>(9)?.map(i64_to_u32),
+        name: row.get(10)?,
+        pipeline_step: row.get(11)?,
+        category: row.get(12)?,
+        annotation_engine: row.get(13)?,
+        status: row.get(14)?,
+        started_at: row.get(15)?,
+        ended_at: row.get(16)?,
+        duration_ms: row.get(17)?,
+        attributes: json_value(row.get::<_, String>(18)?.as_str()),
+        error_type: row.get(19)?,
+        error_message: row.get(20)?,
+        error_stack: row.get(21)?,
     })
 }
 

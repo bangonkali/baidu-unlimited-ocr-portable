@@ -2,7 +2,37 @@ fn add_synthetic_waterfall_groups(rows: &mut Vec<WaterfallDraft>) {
     let snapshot = rows.clone();
     add_run_roots(rows, &snapshot);
     add_ocr_groups(rows, &snapshot);
+    add_rag_file_groups(rows, &snapshot);
     reparent_waterfall_roots(rows);
+}
+
+fn fold_duplicate_task_spans(rows: &mut Vec<WaterfallDraft>) {
+    let task_rows = rows
+        .iter()
+        .filter(|row| row.row_source == "pipeline_task")
+        .filter_map(|row| row.task_id.as_ref().map(|task_id| (task_id.clone(), row.row_id.clone())))
+        .collect::<HashMap<_, _>>();
+    let duplicate_parents = rows
+        .iter()
+        .filter(|row| row.row_source == "diagnostic_span" && row.span_kind == "task")
+        .filter_map(|row| {
+            let task_parent = task_rows.get(row.task_id.as_ref()?)?;
+            Some((row.row_id.clone(), task_parent.clone()))
+        })
+        .collect::<HashMap<_, _>>();
+    if duplicate_parents.is_empty() {
+        return;
+    }
+    for row in rows.iter_mut() {
+        if let Some(parent) = row
+            .parent_row_id
+            .as_ref()
+            .and_then(|parent| duplicate_parents.get(parent))
+        {
+            row.parent_row_id = Some(parent.clone());
+        }
+    }
+    rows.retain(|row| !duplicate_parents.contains_key(&row.row_id));
 }
 
 fn add_run_roots(rows: &mut Vec<WaterfallDraft>, snapshot: &[WaterfallDraft]) {
@@ -71,9 +101,41 @@ fn add_ocr_groups(rows: &mut Vec<WaterfallDraft>, snapshot: &[WaterfallDraft]) {
     }
 }
 
+fn add_rag_file_groups(rows: &mut Vec<WaterfallDraft>, snapshot: &[WaterfallDraft]) {
+    for (run_id, task_id, pipeline_step, file_hash, filename) in rag_file_groups(snapshot) {
+        rows.push(synthetic_group_row(SyntheticGroupInput {
+            attributes: json!({"file_hash": file_hash.as_str(), "pipeline_step": pipeline_step.as_str()}),
+            category: "file_group".to_string(),
+            file_hash: Some(file_hash.clone()),
+            filename: filename.clone(),
+            label: filename.unwrap_or_else(|| short_waterfall_id(&file_hash)),
+            page_no: None,
+            parent_row_id: Some(format!("task:{task_id}")),
+            pipeline_step: pipeline_step.clone(),
+            row_id: rag_file_group_row_id(&task_id, &file_hash, &pipeline_step),
+            row_source: "file_group".to_string(),
+            run_id: Some(run_id.clone()),
+            span_kind: "file_group".to_string(),
+            status: aggregate_group_status(snapshot.iter().filter(|row| {
+                row_belongs_to_run(row, &run_id)
+                    && row.task_id.as_deref() == Some(task_id.as_str())
+                    && row.file_hash.as_deref() == Some(file_hash.as_str())
+                    && row.pipeline_step == pipeline_step
+            })),
+            trace_id: run_id,
+        }));
+    }
+}
+
 fn reparent_waterfall_roots(rows: &mut [WaterfallDraft]) {
     for row in rows.iter_mut() {
-        if row.parent_row_id.is_some() || is_synthetic_waterfall_group(row) {
+        if is_synthetic_waterfall_group(row) {
+            continue;
+        }
+        if maybe_reparent_rag_file_row(row) {
+            continue;
+        }
+        if row.parent_row_id.is_some() {
             continue;
         }
         let Some(run_id) = waterfall_row_run_id(row).map(str::to_string) else {
@@ -88,6 +150,28 @@ fn reparent_waterfall_roots(rows: &mut [WaterfallDraft]) {
             run_root_row_id(&run_id)
         });
     }
+}
+
+fn maybe_reparent_rag_file_row(row: &mut WaterfallDraft) -> bool {
+    if !is_rag_pipeline_row(row) {
+        return false;
+    }
+    let Some(task_id) = row.task_id.as_ref() else {
+        return false;
+    };
+    let Some(file_hash) = row.file_hash.as_ref() else {
+        return false;
+    };
+    let task_parent = format!("task:{task_id}");
+    if row.parent_row_id.as_deref() != Some(task_parent.as_str()) {
+        return false;
+    }
+    row.parent_row_id = Some(rag_file_group_row_id(
+        task_id,
+        file_hash,
+        &row.pipeline_step,
+    ));
+    true
 }
 
 fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {

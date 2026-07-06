@@ -1,8 +1,5 @@
 .diagnosticWaterfallBar {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) 58px;
-  gap: 8px;
-  align-items: center;
+  display: block;
   width: 100%;
   min-width: 0;
   height: 22px;
@@ -53,13 +50,6 @@
   top: 6px;
   height: 6px;
   opacity: 0.75;
-}
-
-.waterfallDuration {
-  color: var(--subtle);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
 .diagnosticWaterfallBar[data-status="completed"] .waterfallSegment,

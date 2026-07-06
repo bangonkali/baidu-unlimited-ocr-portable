@@ -1,6 +1,7 @@
 .waterfallGrid {
   --waterfall-timestamp-column: 190px;
   --waterfall-name-column: 380px;
+  --waterfall-timespan-column: 92px;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -30,15 +31,20 @@
 }
 
 .waterfallLeftContent {
-  min-width: calc(var(--waterfall-timestamp-column) + var(--waterfall-name-column) + 12px);
+  min-width: calc(
+    var(--waterfall-name-column) +
+    var(--waterfall-timestamp-column) +
+    var(--waterfall-timespan-column) +
+    18px
+  );
 }
 
 .waterfallLeftHeader,
 .waterfallLeftRow {
   display: grid;
   grid-template-columns:
-    var(--waterfall-timestamp-column) 6px var(--waterfall-name-column)
-    6px;
+    var(--waterfall-name-column) 6px var(--waterfall-timestamp-column) 6px
+    var(--waterfall-timespan-column) 6px;
   align-items: center;
   min-width: 0;
 }
@@ -143,7 +149,8 @@
   background: var(--panel-3);
 }
 
-.waterfallTimeCell {
+.waterfallTimestampCell,
+.waterfallTimespanCell {
   min-width: 0;
   padding: 0 8px;
   overflow: hidden;
@@ -153,6 +160,10 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.waterfallTimespanCell {
+  color: var(--muted);
 }
 
 .waterfallNameCell {

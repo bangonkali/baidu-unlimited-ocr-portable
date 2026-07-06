@@ -35,6 +35,38 @@ fn ocr_file_groups(rows: &[WaterfallDraft]) -> Vec<(String, String, Option<Strin
         .collect()
 }
 
+fn rag_file_groups(rows: &[WaterfallDraft]) -> Vec<(String, String, String, String, Option<String>)> {
+    let mut groups = BTreeMap::<(String, String, String, String), Option<String>>::new();
+    for row in rows.iter().filter(|row| is_rag_pipeline_row(row)) {
+        let Some(run_id) = waterfall_row_run_id(row) else {
+            continue;
+        };
+        let Some(task_id) = row.task_id.as_ref() else {
+            continue;
+        };
+        let Some(file_hash) = row.file_hash.as_ref() else {
+            continue;
+        };
+        let entry = groups
+            .entry((
+                run_id.to_string(),
+                task_id.clone(),
+                row.pipeline_step.clone(),
+                file_hash.clone(),
+            ))
+            .or_insert_with(|| row.filename.clone());
+        if entry.is_none() && row.filename.is_some() {
+            entry.clone_from(&row.filename);
+        }
+    }
+    groups
+        .into_iter()
+        .map(|((run_id, task_id, pipeline_step, file_hash), filename)| {
+            (run_id, task_id, pipeline_step, file_hash, filename)
+        })
+        .collect()
+}
+
 fn waterfall_row_run_id(row: &WaterfallDraft) -> Option<&str> {
     row.run_id
         .as_deref()
@@ -47,6 +79,10 @@ fn row_belongs_to_run(row: &WaterfallDraft, run_id: &str) -> bool {
 
 fn is_ocr_pipeline_row(row: &WaterfallDraft) -> bool {
     matches!(row.pipeline_step.as_str(), "ocr" | "render")
+}
+
+fn is_rag_pipeline_row(row: &WaterfallDraft) -> bool {
+    matches!(row.pipeline_step.as_str(), "text_index" | "generate_embedding")
 }
 
 fn is_synthetic_waterfall_group(row: &WaterfallDraft) -> bool {
@@ -86,6 +122,10 @@ fn ocr_task_group_row_id(run_id: &str) -> String {
 
 fn ocr_file_group_row_id(run_id: &str, file_hash: &str) -> String {
     format!("file-group:{run_id}:{file_hash}:ocr")
+}
+
+fn rag_file_group_row_id(task_id: &str, file_hash: &str, pipeline_step: &str) -> String {
+    format!("file-group:{task_id}:{file_hash}:{pipeline_step}")
 }
 
 fn short_waterfall_id(value: &str) -> String {
