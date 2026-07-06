@@ -94,10 +94,24 @@ describe('route search validators', () => {
       status: 'running',
       tab: 'logs',
     });
-    expect(validateIngestSearch({ model: 'm1', profile: 'p1', reprocess: 'true' })).toEqual({
+    expect(
+      validateIngestSearch({
+        engine_id: 'pdfium-unlimited-ocr',
+        model: 'm1',
+        profile: 'p1',
+        reprocess: 'true',
+        restart_run: 'run-1',
+        root_path: '/data/incoming',
+        runtime_id: 'cuda',
+      }),
+    ).toEqual({
+      engine: 'pdfium-unlimited-ocr',
       model: 'm1',
       profile: 'p1',
       reprocess: true,
+      restart: 'run-1',
+      root: '/data/incoming',
+      runtime: 'cuda',
     });
   });
 });

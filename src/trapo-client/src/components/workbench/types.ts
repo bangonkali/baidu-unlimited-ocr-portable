@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 export interface TreeNode {
   id: string;
   label: string;
+  actions?: ReactNode;
   icon?: ReactNode;
   badge?: ReactNode;
   checked?: boolean | 'indeterminate';

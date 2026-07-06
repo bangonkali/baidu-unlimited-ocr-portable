@@ -1,7 +1,7 @@
 import { useDebouncedValue } from '@tanstack/react-pacer';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   useCancelModelDownload,
@@ -14,6 +14,7 @@ import {
   useLogs,
   useModels,
   useOpenFolderDialog,
+  useResumeRun,
   useRunCommand,
   useSelectModel,
   useSettings,
@@ -31,29 +32,28 @@ import type {
   WorkbenchRouteSearch,
 } from '../../routeSearch';
 import type { ActiveView } from '../../stores/workbenchStore';
-import { useWorkbenchState } from '../../stores/workbenchStore';
-import { useDownloadModelWithPane } from './downloadsPaneContext';
+import {
+  setSelectedProfile,
+  setSelectedRoot,
+  useWorkbenchState,
+} from '../../stores/workbenchStore';
 import { startOcrEntry } from './startOcrEntry';
 import { visibleTextPages } from './textPreviewPages';
-import { useModelRouteActions } from './useModelRouteActions';
 import { useSelectedPageReplay } from './useOcrReplayHydration';
-import { useWorkbenchCommands } from './useWorkbenchCommands';
-import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
+import { useWorkbenchActions } from './useWorkbenchPageActions';
 import {
   autoFollowEnabledForRoute,
   useRouteSearchSync,
   useRouteSearchText,
 } from './useWorkbenchRouteSync';
-import { useWorkbenchSelectionActions } from './useWorkbenchSelectionActions';
 import {
   profileOptions,
   selectedModel,
   useAutoFollowLatestRegion,
   usePersistedWorkbenchUiSettings,
-  usePersistentProfile,
   useThemeSync,
 } from './WorkbenchPageSupport';
-import type { WorkbenchContentActions, WorkbenchViewData } from './workbenchContentProps';
+import type { WorkbenchViewData } from './workbenchContentProps';
 import { buildContentProps } from './workbenchContentProps';
 import { activeRunIdFromRuns, isActiveDocumentStatus, routeSearchText } from './workbenchRunState';
 
@@ -84,8 +84,10 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
-  const model = selectedModel(data.models.data);
-  const profiles = profileOptions(data.models.data?.profiles, workbench.selectedProfile);
+  useIngestRoutePrefill(activeView, props.ingestSearch);
+  const selectedProfile = props.ingestSearch?.profile ?? workbench.selectedProfile;
+  const model = selectedModel(data.models.data, props.ingestSearch?.model);
+  const profiles = profileOptions(data.models.data?.profiles, selectedProfile);
   const selectedDocument = selectedDocumentFrom(data.documents.data?.documents, workbench);
   useSelectedPageReplay({
     enabled:
@@ -129,6 +131,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     modelScope,
     navigate,
     props,
+    selectedProfile,
     searchText,
     setSearchText,
     workbench,
@@ -159,12 +162,12 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
       selectedRoot: workbench.selectedRoot,
       status: data.status.data,
     },
-    startOcr: () => startOcrEntry({ model, navigate, selectedProfile: workbench.selectedProfile }),
+    startOcr: () => startOcrEntry({ model, navigate, selectedProfile }),
     workbench,
   };
 }
 
-function useWorkbenchData(
+export function useWorkbenchData(
   fileHash: string | undefined,
   runId: string | undefined,
   debouncedSearch: string,
@@ -178,6 +181,7 @@ function useWorkbenchData(
     models: useModels(),
     previewImages: useDocumentPreviewImages(fileHash),
     regions: useDocumentRegions(fileHash, runId),
+    resumeRun: useResumeRun(),
     runs: useIngestRuns(),
     selectModel: useSelectModel(),
     settings: useSettings(),
@@ -189,73 +193,18 @@ function useWorkbenchData(
   };
 }
 
-interface WorkbenchActionArgs {
-  activeRunId: string | null;
-  data: ReturnType<typeof useWorkbenchData>;
-  model?: ModelAssetRecord;
-  modelScope: 'library' | 'downloads';
-  navigate: ReturnType<typeof useNavigate>;
-  props: WorkbenchPageProps;
-  searchText: string;
-  setSearchText: (value: string) => void;
-  workbench: ReturnType<typeof useWorkbenchState>;
-}
-
-function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContentActions {
-  const changeProfile = usePersistentProfile(
-    args.data.settings.data?.default_profile,
-    args.workbench.selectedProfile,
-    (profileId) => args.data.updateSettings.mutate({ default_profile: profileId }),
-  );
-  const ingestActions = useWorkbenchIngestActions({
-    folderDialog: args.data.folderDialog,
-    model: args.model,
-    navigate: args.navigate,
-    rootPath: args.workbench.selectedRoot,
-    selectedProfile: args.workbench.selectedProfile,
-    startIngest: args.data.startIngest,
-  });
-  const modelRouteActions = useModelRouteActions(
-    args.navigate,
-    args.modelScope,
-    args.props.modelSearch,
-  );
-  const selectionActions = useWorkbenchSelectionActions({
-    navigate: args.navigate,
-    searchText: args.searchText,
-    workbench: args.workbench,
-  });
-  const downloadModel = useDownloadModelWithPane(args.data.downloadModel);
-  const commandController = useWorkbenchCommands({
-    cancelModelDownload: args.data.cancelModelDownload,
-    downloadModel,
-    models: args.data.models.data,
-    navigate: args.navigate,
-    selectModel: args.data.selectModel,
-    setSearchText: args.setSearchText,
-    status: args.data.status.data,
-    workbench: args.workbench,
-  });
-
-  return {
-    ...ingestActions,
-    ...modelRouteActions,
-    ...selectionActions,
-    cancelModelDownload: args.data.cancelModelDownload,
-    changeProfile,
-    commandController,
-    downloadModel,
-    ingestBusy: args.data.startIngest.isPending || args.data.folderDialog.isPending,
-    modelBusy:
-      args.data.downloadModel.isPending ||
-      args.data.cancelModelDownload.isPending ||
-      args.data.selectModel.isPending,
-    selectModel: args.data.selectModel,
-    settingsBusy: args.data.selectModel.isPending || args.data.updateSettings.isPending,
-    stopRun: () => args.activeRunId && args.data.stopRun.mutate(args.activeRunId),
-    updateRuntime: (runtimeId: string) =>
-      args.data.updateSettings.mutate({ selected_runtime_id: runtimeId }),
-  };
+function useIngestRoutePrefill(activeView: ActiveView, search?: IngestRouteSearch) {
+  useEffect(() => {
+    if (activeView !== 'ingest') {
+      return;
+    }
+    if (search?.root) {
+      setSelectedRoot(search.root);
+    }
+    if (search?.profile) {
+      setSelectedProfile(search.profile);
+    }
+  }, [activeView, search?.profile, search?.root]);
 }
 
 function viewData(

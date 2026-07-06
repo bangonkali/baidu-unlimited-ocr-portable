@@ -56,6 +56,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/ingest/metrics/recent", get(recent_metrics))
         .route("/api/ingest/runs/{run_id}", get(get_run))
         .route("/api/ingest/runs/{run_id}/metrics", get(run_metrics))
+        .route("/api/ingest/runs/{run_id}/resume", post(resume_run))
         .route("/api/ingest/runs/{run_id}/stop", post(stop_run))
         .route("/api/ingest/runs/{run_id}/events", get(run_events))
         .route("/api/ocr/events", get(ocr_events))
@@ -154,6 +155,16 @@ async fn stop_run(
     Path(run_id): Path<String>,
 ) -> Result<(StatusCode, Json<crate::workbench_types::IngestRunRecord>)> {
     Ok((StatusCode::ACCEPTED, Json(state.stop_run(&run_id).await?)))
+}
+
+async fn resume_run(
+    State(state): State<AppState>,
+    Path(run_id): Path<String>,
+) -> Result<(
+    StatusCode,
+    Json<crate::workbench_types::IngestStartResponse>,
+)> {
+    Ok((StatusCode::ACCEPTED, Json(state.resume_run(&run_id).await?)))
 }
 
 async fn run_events(State(state): State<AppState>, Path(run_id): Path<String>) -> Result<Response> {

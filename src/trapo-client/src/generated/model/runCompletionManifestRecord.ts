@@ -5,32 +5,26 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.5
  */
-import type { RunCompletionManifestRecord } from './runCompletionManifestRecord';
+import type { RunCompletionManifestRecordSummary } from './runCompletionManifestRecordSummary';
 
-export interface IngestRunRecord {
-  can_restart: boolean;
-  can_resume: boolean;
-  completion_manifest?: null | RunCompletionManifestRecord;
-  /**
-     * @minimum 0
-     * @nullable
-     */
-  current_page?: number | null;
+export interface RunCompletionManifestRecord {
+  completed_at: string;
   engine_id: string;
-  /** @nullable */
-  error?: string | null;
-  file_hashes: string[];
+  /** @minimum 0 */
+  file_count: number;
   model_id: string;
+  /** @minimum 0 */
+  page_count: number;
   /** @minimum 0 */
   processed_pages: number;
   profile_id: string;
-  progress_percent: number;
   /** @minimum 0 */
   queued_files: number;
   root_path: string;
   run_id: string;
   runtime_id: string;
   status: string;
+  summary: RunCompletionManifestRecordSummary;
   /** @minimum 0 */
   total_pages: number;
 }

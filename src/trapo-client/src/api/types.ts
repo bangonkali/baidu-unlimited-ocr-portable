@@ -181,8 +181,26 @@ export interface IngestStartRequest {
   root_path: string;
   profile_id?: string;
   model_id?: string;
+  runtime_id?: string;
   engine_id?: string;
   reprocess?: boolean;
+}
+
+export interface RunCompletionManifestRecord {
+  run_id: string;
+  completed_at: string;
+  status: string;
+  root_path: string;
+  profile_id: string;
+  engine_id: string;
+  model_id: string;
+  runtime_id: string;
+  queued_files: number;
+  processed_pages: number;
+  total_pages: number;
+  file_count: number;
+  page_count: number;
+  summary: Record<string, unknown>;
 }
 
 export interface IngestRunRecord {
@@ -200,6 +218,9 @@ export interface IngestRunRecord {
   model_id?: string;
   runtime_id?: string;
   error?: string | null;
+  can_resume?: boolean;
+  can_restart?: boolean;
+  completion_manifest?: RunCompletionManifestRecord | null;
 }
 
 export interface IngestStartResponse {
@@ -269,30 +290,6 @@ export interface DocumentTextPayload {
   pages: PageTextRecord[];
 }
 
-export interface FolderDialogResponse {
-  cancelled: boolean;
-  selected_path: string;
-  manual_path_supported: boolean;
-  error?: string;
-}
-
-export interface PreviewImagesPayload {
-  file_hash: string;
-  variants: string[];
-  pages: number[];
-}
-
-export interface LogRecord {
-  timestamp: string;
-  level: string;
-  component: string;
-  message: string;
-}
-
-export interface LogsPayload {
-  log_path?: string;
-  logs: LogRecord[];
-}
-
 export type * from './diagnosticsTypes';
 export type * from './systemTypes';
+export type * from './workbenchAuxTypes';

@@ -25,7 +25,7 @@ use crate::{
         FolderDialogResponse, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
         IngestStartResponse, LogRecord, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
         OcrReplayPayload, OverlayBox, PageTextRecord, PreviewImagesPayload, RealtimeEventRecord,
-        TextRegionSpan,
+        RunCompletionManifestRecord, TextRegionSpan,
     },
 };
 
@@ -41,6 +41,7 @@ use crate::{
         start_ingest_doc,
         list_runs_doc,
         get_run_doc,
+        resume_run_doc,
         stop_run_doc,
         run_events_doc,
         ocr_events_doc,
@@ -91,6 +92,7 @@ use crate::{
         WorkbenchPaneSettingsPatch,
         IngestStartRequest,
         IngestStartResponse,
+        RunCompletionManifestRecord,
         IngestRunRecord,
         IngestRunsPayload,
         OcrMetricsTreeNode,
@@ -166,6 +168,9 @@ const fn get_run_doc() {}
 
 #[utoipa::path(post, path = "/api/ingest/runs/{run_id}/stop", tag = "ingest", params(("run_id" = String, Path)), responses((status = 202, description = "Stop requested", body = IngestRunRecord), (status = 404, body = ErrorPayload)))]
 const fn stop_run_doc() {}
+
+#[utoipa::path(post, path = "/api/ingest/runs/{run_id}/resume", tag = "ingest", params(("run_id" = String, Path)), responses((status = 202, description = "Run re-queued for resume", body = IngestStartResponse), (status = 404, body = ErrorPayload), (status = 409, body = ErrorPayload)))]
+const fn resume_run_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}/events", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, description = "Server-sent run snapshots", body = String, content_type = "text/event-stream"), (status = 404, body = ErrorPayload)))]
 const fn run_events_doc() {}

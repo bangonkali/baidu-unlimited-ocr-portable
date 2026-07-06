@@ -19,8 +19,9 @@ import {
 import { useDownloadsPane } from './downloadsPaneContext';
 import { StatusBar } from './StatusBar';
 
-export function selectedModel(models?: ModelsPayload) {
+export function selectedModel(models?: ModelsPayload, preferredModelId?: string) {
   return (
+    models?.models.find((item) => item.model_id === preferredModelId) ??
     models?.models.find((item) => item.selected) ??
     models?.models.find((item) => item.model_id === models.selected_model_id) ??
     models?.models[0]

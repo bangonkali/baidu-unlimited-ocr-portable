@@ -22,12 +22,16 @@ import { scopedRegionText } from './traceRegionAnchors';
 import styles from './WorkbenchPage.module.css';
 
 interface WorkbenchPanelsProps {
+  activeRunId?: string | null;
   documents: DocumentSummary[];
   logs: LogRecord[];
   model?: ModelAssetRecord;
   onOpenModels: () => void;
   onPickFolder: () => void;
+  onResumeRun: (runId: string) => void;
+  onRestartRun: (run: IngestRunRecord) => void;
   onStart: () => void;
+  onStopRun: (runId?: string) => void;
   previewPages: number[];
   regions: OverlayBox[];
   rootPath: string;
@@ -144,7 +148,14 @@ function DocumentWorkspace(props: WorkbenchPanelsProps) {
         onExpand={() => setPaneCollapsed('diagnostics', false)}
         ref={diagnosticsRef}
       >
-        <DiagnosticsPanel logs={props.logs} runs={props.runs} />
+        <DiagnosticsPanel
+          logs={props.logs}
+          activeRunId={props.activeRunId}
+          onResumeRun={props.onResumeRun}
+          onRestartRun={props.onRestartRun}
+          onStopRun={props.onStopRun}
+          runs={props.runs}
+        />
       </Panel>
     </PanelGroup>
   );

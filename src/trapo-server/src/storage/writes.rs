@@ -4,13 +4,16 @@ impl Repository {
         self.with_write(move |conn| {
             conn.execute(
                 "INSERT INTO ingest_runs(run_id, root_path, status, profile_id, engine_id, reprocess, error,
-                  queued_files, processed_pages, total_pages, model_id, runtime_id)
-                 VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?)
+                  queued_files, processed_pages, total_pages, model_id, runtime_id, finished_at)
+                 VALUES (?, ?, ?, ?, ?, false, ?, ?, ?, ?, ?, ?,
+                  CASE WHEN ? IN ('completed','failed','cancelled','completed_with_errors') THEN now() ELSE NULL END)
                  ON CONFLICT(run_id) DO UPDATE SET status = excluded.status, error = excluded.error,
-                  queued_files = excluded.queued_files, processed_pages = excluded.processed_pages,
+                 queued_files = excluded.queued_files, processed_pages = excluded.processed_pages,
                   total_pages = excluded.total_pages, model_id = excluded.model_id, runtime_id = excluded.runtime_id,
                   finished_at = CASE WHEN excluded.status IN ('completed','failed','cancelled','completed_with_errors')
-                    THEN now() ELSE ingest_runs.finished_at END",
+                    THEN now()
+                    WHEN excluded.status IN ('queued','running') THEN NULL
+                    ELSE ingest_runs.finished_at END",
                 params![
                     run.run_id.as_str(),
                     run.root_path.as_str(),
@@ -22,7 +25,52 @@ impl Repository {
                     i64::from(run.processed_pages),
                     i64::from(run.total_pages),
                     run.model_id.as_str(),
-                    run.runtime_id.as_str()
+                    run.runtime_id.as_str(),
+                    run.status.as_str()
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    pub(crate) async fn upsert_run_completion_manifest(
+        &self,
+        manifest: &StoredRunCompletionManifest,
+    ) -> Result<()> {
+        let manifest = manifest.clone();
+        let summary = manifest.summary.to_string();
+        self.with_write(move |conn| {
+            conn.execute(
+                "INSERT INTO ingest_run_completion_manifests(
+                    run_id, completed_at, status, root_path, profile_id, engine_id,
+                    model_id, runtime_id, queued_files, processed_pages, total_pages,
+                    file_count, page_count, summary_json
+                 )
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(run_id) DO UPDATE SET
+                    completed_at = excluded.completed_at, status = excluded.status,
+                    root_path = excluded.root_path, profile_id = excluded.profile_id,
+                    engine_id = excluded.engine_id, model_id = excluded.model_id,
+                    runtime_id = excluded.runtime_id, queued_files = excluded.queued_files,
+                    processed_pages = excluded.processed_pages, total_pages = excluded.total_pages,
+                    file_count = excluded.file_count, page_count = excluded.page_count,
+                    summary_json = excluded.summary_json",
+                params![
+                    manifest.run_id.as_str(),
+                    manifest.completed_at.as_str(),
+                    manifest.status.as_str(),
+                    manifest.root_path.as_str(),
+                    manifest.profile_id.as_str(),
+                    manifest.engine_id.as_str(),
+                    manifest.model_id.as_str(),
+                    manifest.runtime_id.as_str(),
+                    i64::from(manifest.queued_files),
+                    i64::from(manifest.processed_pages),
+                    i64::from(manifest.total_pages),
+                    i64::from(manifest.file_count),
+                    i64::from(manifest.page_count),
+                    summary.as_str()
                 ],
             )?;
             Ok(())

@@ -23,6 +23,37 @@ impl Repository {
         collect_rows(rows)
     }
 
+    fn load_run_completion_manifests(
+        conn: &Connection,
+    ) -> Result<Vec<StoredRunCompletionManifest>> {
+        let mut statement = conn.prepare(
+            "SELECT run_id, completed_at, status, root_path, profile_id, engine_id,
+              model_id, runtime_id, queued_files, processed_pages, total_pages,
+              file_count, page_count, summary_json
+             FROM ingest_run_completion_manifests
+             ORDER BY completed_at DESC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(StoredRunCompletionManifest {
+                run_id: row.get(0)?,
+                completed_at: row.get(1)?,
+                status: row.get(2)?,
+                root_path: row.get(3)?,
+                profile_id: row.get(4)?,
+                engine_id: row.get(5)?,
+                model_id: row.get(6)?,
+                runtime_id: row.get(7)?,
+                queued_files: i64_to_u32(row.get::<_, i64>(8)?),
+                processed_pages: i64_to_u32(row.get::<_, i64>(9)?),
+                total_pages: i64_to_u32(row.get::<_, i64>(10)?),
+                file_count: i64_to_u32(row.get::<_, i64>(11)?),
+                page_count: i64_to_u32(row.get::<_, i64>(12)?),
+                summary: json_value(row.get::<_, String>(13)?.as_str()),
+            })
+        })?;
+        collect_rows(rows)
+    }
+
     fn load_documents(conn: &Connection) -> Result<Vec<StoredDocument>> {
         let mut statement = conn.prepare(
             "SELECT f.file_hash, f.display_name, f.extension, f.size_bytes, f.page_count, f.status, f.error,

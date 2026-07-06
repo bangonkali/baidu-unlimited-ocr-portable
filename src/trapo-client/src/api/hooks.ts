@@ -102,7 +102,7 @@ export function useModels() {
   });
 }
 
-interface DownloadModelInput {
+export interface DownloadModelInput {
   modelId: string;
   force?: boolean;
 }
@@ -215,6 +215,21 @@ export function useStartIngest() {
   });
 }
 
+export function useResumeRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) =>
+      postJson<IngestStartResponse, Record<string, never>>(
+        `/api/ingest/runs/${encodeURIComponent(runId)}/resume`,
+        {},
+      ),
+    onSuccess: (response) => {
+      seedIngestStartResponse(queryClient, response);
+      invalidateIngestState(queryClient);
+    },
+  });
+}
+
 function seedIngestStartResponse(queryClient: QueryClient, response: IngestStartResponse) {
   queryClient.setQueryData<IngestRunsPayload>(queryKeys.runs, (current) => ({
     runs: upsertById(current?.runs ?? [], response.run, (run) => run.run_id),
@@ -247,6 +262,13 @@ function seedIngestStartResponse(queryClient: QueryClient, response: IngestStart
   );
 }
 
+function invalidateIngestState(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.status });
+  void queryClient.invalidateQueries({ queryKey: ['documents'] });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+}
+
 function upsertManyById<T>(current: T[], incoming: T[], getId: (value: T) => string) {
   return incoming.reduce((items, item) => upsertById(items, item, getId), current);
 }
@@ -263,9 +285,7 @@ export function useRunCommand(command: 'stop') {
     mutationFn: (runId: string) =>
       postJson<IngestRunRecord, Record<string, never>>(`/api/ingest/runs/${runId}/${command}`, {}),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
+      invalidateIngestState(queryClient);
     },
   });
 }

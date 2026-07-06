@@ -20,10 +20,31 @@ impl Repository {
         self.with_read(move |conn| {
             Ok(StoredSnapshot {
                 runs: Self::load_runs(&conn)?,
+                completion_manifests: Self::load_run_completion_manifests(&conn)?,
                 run_documents: Self::load_run_documents(&conn)?,
                 documents: Self::load_documents(&conn)?,
                 pages: Self::load_pages(&conn)?,
             })
+        })
+        .await
+    }
+
+    pub(crate) async fn completed_run_pages(&self, run_id: &str) -> Result<Vec<CompletedRunPage>> {
+        let run_id = run_id.to_string();
+        self.with_read(move |conn| {
+            let mut statement = conn.prepare(
+                "SELECT DISTINCT file_hash, page_no
+                 FROM document_run_page_ocr
+                 WHERE run_id = ? AND status = 'completed'
+                 ORDER BY file_hash, page_no",
+            )?;
+            let rows = statement.query_map(params![run_id.as_str()], |row| {
+                Ok(CompletedRunPage {
+                    file_hash: row.get(0)?,
+                    page_no: i64_to_u32(row.get::<_, i64>(1)?),
+                })
+            })?;
+            collect_rows(rows)
         })
         .await
     }

@@ -14,6 +14,30 @@ pub(crate) struct StoredRun {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct StoredRunCompletionManifest {
+    pub(crate) run_id: String,
+    pub(crate) completed_at: String,
+    pub(crate) status: String,
+    pub(crate) root_path: String,
+    pub(crate) profile_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) queued_files: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) file_count: u32,
+    pub(crate) page_count: u32,
+    pub(crate) summary: Value,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) struct CompletedRunPage {
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct StoredDocument {
     pub(crate) file_hash: String,
     pub(crate) display_name: String,
@@ -269,6 +293,7 @@ pub(crate) struct DiagnosticEventInsert {
 #[derive(Debug, Default)]
 pub(crate) struct StoredSnapshot {
     pub(crate) runs: Vec<StoredRun>,
+    pub(crate) completion_manifests: Vec<StoredRunCompletionManifest>,
     pub(crate) run_documents: Vec<StoredRunDocument>,
     pub(crate) documents: Vec<StoredDocument>,
     pub(crate) pages: Vec<StoredPage>,

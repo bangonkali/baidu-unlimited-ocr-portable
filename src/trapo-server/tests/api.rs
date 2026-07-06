@@ -116,6 +116,17 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
         .oneshot(
             Request::builder()
                 .method("POST")
+                .uri("/api/ingest/runs/missing-run/resume")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
                 .uri("/api/ingest/start")
                 .header("content-type", "application/json")
                 .body(Body::from(request.to_string()))?,
@@ -181,6 +192,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/system/shutdown",
         "/api/ingest/start",
         "/api/ingest/runs/{run_id}/events",
+        "/api/ingest/runs/{run_id}/resume",
         "/api/models/{model_id}/events",
         "/api/documents/{file_hash}/text",
         "/api/documents/{file_hash}/regions",
@@ -323,6 +335,7 @@ async fn test_state() -> anyhow::Result<AppState> {
     let client_dist = root.join("src").join("trapo-client").join("dist");
     std::fs::create_dir_all(&client_dist)?;
     std::fs::write(client_dist.join("index.html"), "<!doctype html>")?;
+    install_placeholder_cpu_runtime(&root)?;
     Ok(AppState::new(ServerConfig {
         app_root: root.clone(),
         client_dist,
@@ -337,4 +350,23 @@ async fn test_state() -> anyhow::Result<AppState> {
         open_browser: false,
     })
     .await?)
+}
+
+fn install_placeholder_cpu_runtime(root: &std::path::Path) -> anyhow::Result<()> {
+    for (platform, library_name) in [
+        ("windows-x86_64-cpu", "uocr-ffi.dll"),
+        ("windows-arm64-cpu", "uocr-ffi.dll"),
+        ("linux-x86_64-cpu", "libuocr-ffi.so"),
+        ("linux-arm64-cpu", "libuocr-ffi.so"),
+        ("macos-arm64-cpu", "libuocr-ffi.dylib"),
+    ] {
+        let runtime_dir = root
+            .join("thirdparty")
+            .join("uocr-runtime")
+            .join(platform)
+            .join("bin");
+        std::fs::create_dir_all(&runtime_dir)?;
+        std::fs::write(runtime_dir.join(library_name), &[] as &[u8])?;
+    }
+    Ok(())
 }

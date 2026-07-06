@@ -23,6 +23,30 @@ fn queued_page_state(page: &RenderedPage) -> PageState {
     }
 }
 
+fn page_state_for_resume_queue(
+    page: &RenderedPage,
+    existing_pages: &[PageState],
+    already_completed: bool,
+) -> PageState {
+    if already_completed {
+        if let Some(existing) = existing_pages
+            .iter()
+            .find(|existing| existing.page_no == page.page_no && existing.status == "completed")
+        {
+            let mut preserved = existing.clone();
+            preserved.image_path.clone_from(&page.image_path);
+            preserved.width_px = page.width_px;
+            preserved.height_px = page.height_px;
+            preserved.render_dpi = PDF_DPI;
+            return preserved;
+        }
+        let mut completed = queued_page_state(page);
+        completed.status = "completed".to_string();
+        return completed;
+    }
+    queued_page_state(page)
+}
+
 fn page_diagnostic_metadata(page: &PageState) -> (u32, Value) {
     (
         page.page_no,

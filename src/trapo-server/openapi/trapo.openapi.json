@@ -724,6 +724,56 @@
         }
       }
     },
+    "/api/ingest/runs/{run_id}/resume": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "resume_run_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Run re-queued for resume",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestStartResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/runs/{run_id}/stop": {
       "post": {
         "tags": [
@@ -2258,9 +2308,27 @@
           "profile_id",
           "engine_id",
           "model_id",
-          "runtime_id"
+          "runtime_id",
+          "can_resume",
+          "can_restart"
         ],
         "properties": {
+          "can_restart": {
+            "type": "boolean"
+          },
+          "can_resume": {
+            "type": "boolean"
+          },
+          "completion_manifest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RunCompletionManifestRecord"
+              }
+            ]
+          },
           "current_page": {
             "type": [
               "integer",
@@ -2369,6 +2437,12 @@
           },
           "root_path": {
             "type": "string"
+          },
+          "runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3084,6 +3158,79 @@
           },
           "type": {
             "type": "string"
+          }
+        }
+      },
+      "RunCompletionManifestRecord": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "completed_at",
+          "status",
+          "root_path",
+          "profile_id",
+          "engine_id",
+          "model_id",
+          "runtime_id",
+          "queued_files",
+          "processed_pages",
+          "total_pages",
+          "file_count",
+          "page_count",
+          "summary"
+        ],
+        "properties": {
+          "completed_at": {
+            "type": "string"
+          },
+          "engine_id": {
+            "type": "string"
+          },
+          "file_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "processed_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "queued_files": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "root_path": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "object"
+          },
+          "total_pages": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },

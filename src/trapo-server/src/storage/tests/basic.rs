@@ -315,6 +315,113 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn reloads_completion_manifest_and_completed_run_pages() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        repo.upsert_run_completion_manifest(&StoredRunCompletionManifest {
+            run_id: "run-a".to_string(),
+            completed_at: "2026-07-06T00:00:00Z".to_string(),
+            status: "completed".to_string(),
+            root_path: "dataset".to_string(),
+            profile_id: "profile".to_string(),
+            engine_id: "engine".to_string(),
+            model_id: "model".to_string(),
+            runtime_id: "runtime".to_string(),
+            queued_files: 1,
+            processed_pages: 1,
+            total_pages: 2,
+            file_count: 1,
+            page_count: 2,
+            summary: serde_json::json!({"completed_pages": 1}),
+        })
+        .await?;
+        repo.upsert_run_completion_manifest(&StoredRunCompletionManifest {
+            run_id: "run-a".to_string(),
+            completed_at: "2026-07-06T00:01:00Z".to_string(),
+            status: "completed".to_string(),
+            root_path: "dataset".to_string(),
+            profile_id: "profile".to_string(),
+            engine_id: "engine".to_string(),
+            model_id: "model".to_string(),
+            runtime_id: "runtime".to_string(),
+            queued_files: 1,
+            processed_pages: 2,
+            total_pages: 2,
+            file_count: 1,
+            page_count: 2,
+            summary: serde_json::json!({"completed_pages": 2}),
+        })
+        .await?;
+
+        let completed = stored_test_page("first total", "run-a-total", 0, 11);
+        repo.replace_page_ocr("run-a", &completed, "engine", "profile", 10)
+            .await?;
+        let mut failed = stored_test_page("second total", "run-a-failed", 0, 12);
+        failed.page_no = 2;
+        failed.status = "failed".to_string();
+        repo.replace_page_ocr("run-a", &failed, "engine", "profile", 11)
+            .await?;
+
+        let snapshot = repo.load_snapshot().await?;
+        assert_eq!(snapshot.completion_manifests.len(), 1);
+        assert_eq!(snapshot.completion_manifests[0].processed_pages, 2);
+        assert_eq!(
+            snapshot.completion_manifests[0].summary["completed_pages"],
+            serde_json::json!(2)
+        );
+
+        let pages = repo.completed_run_pages("run-a").await?;
+        assert_eq!(
+            pages,
+            vec![CompletedRunPage {
+                file_hash: "file-a".to_string(),
+                page_no: 1,
+            }]
+        );
+        assert!(repo.completed_run_pages("missing-run").await?.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn upsert_run_clears_finished_at_when_resume_requeues_run() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        let mut run = StoredRun {
+            run_id: "run-a".to_string(),
+            root_path: "dataset".to_string(),
+            status: "completed".to_string(),
+            profile_id: "profile".to_string(),
+            engine_id: "engine".to_string(),
+            model_id: "model".to_string(),
+            runtime_id: "runtime".to_string(),
+            queued_files: 1,
+            processed_pages: 1,
+            total_pages: 1,
+            error: None,
+        };
+        repo.upsert_run(&run).await?;
+        assert!(run_finished_at(&repo, "run-a").await?.is_some());
+
+        run.status = "queued".to_string();
+        run.processed_pages = 0;
+        repo.upsert_run(&run).await?;
+        assert_eq!(run_finished_at(&repo, "run-a").await?, None);
+        Ok(())
+    }
+
+    async fn run_finished_at(repo: &Repository, run_id: &str) -> Result<Option<String>> {
+        let run_id = run_id.to_string();
+        repo.with_read(move |conn| {
+            Ok(conn.query_row(
+                "SELECT CAST(finished_at AS VARCHAR) FROM ingest_runs WHERE run_id = ?",
+                params![run_id.as_str()],
+                |row| row.get::<_, Option<String>>(0),
+            )?)
+        })
+        .await
+    }
+
     fn annotation_draft(
         annotation_id: String,
         run_id: String,

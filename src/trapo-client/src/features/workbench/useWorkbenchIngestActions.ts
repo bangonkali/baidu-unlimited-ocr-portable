@@ -14,7 +14,9 @@ export function useWorkbenchIngestActions(args: {
   folderDialog: ReturnType<typeof useOpenFolderDialog>;
   model?: ModelAssetRecord;
   navigate: ReturnType<typeof useNavigate>;
+  engineId?: string;
   rootPath: string;
+  runtimeId?: string;
   selectedProfile: string;
   startIngest: ReturnType<typeof useStartIngest>;
 }) {
@@ -47,6 +49,8 @@ export function useWorkbenchIngestActions(args: {
         profile_id: args.selectedProfile,
         reprocess: options?.reprocess ?? false,
         root_path: args.rootPath,
+        ...(args.engineId ? { engine_id: args.engineId } : {}),
+        ...(args.runtimeId ? { runtime_id: args.runtimeId } : {}),
       })
       .then((response) => {
         const firstFileHash = response.documents[0]?.file_hash ?? response.run.file_hashes?.[0];

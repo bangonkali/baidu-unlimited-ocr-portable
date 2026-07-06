@@ -123,10 +123,15 @@ fn run_from_stored(stored: StoredRun) -> RunState {
         error: stored.error,
         cancel_requested: false,
         file_hashes: Vec::new(),
+        completion_manifest: None,
     }
 }
 
 fn run_record(run: &RunState) -> IngestRunRecord {
+    let completion_manifest = run
+        .completion_manifest
+        .as_ref()
+        .map(completion_manifest_record);
     IngestRunRecord {
         run_id: run.run_id.clone(),
         root_path: run.root_path.clone(),
@@ -142,8 +147,36 @@ fn run_record(run: &RunState) -> IngestRunRecord {
         model_id: run.model_id.clone(),
         runtime_id: run.runtime_id.clone(),
         error: run.error.clone(),
+        can_resume: run_can_resume(run),
+        can_restart: run_can_restart(run),
+        completion_manifest,
     }
 }
+
+fn completion_manifest_record(manifest: &StoredRunCompletionManifest) -> RunCompletionManifestRecord {
+    RunCompletionManifestRecord {
+        run_id: manifest.run_id.clone(),
+        completed_at: manifest.completed_at.clone(),
+        status: manifest.status.clone(),
+        root_path: manifest.root_path.clone(),
+        profile_id: manifest.profile_id.clone(),
+        engine_id: manifest.engine_id.clone(),
+        model_id: manifest.model_id.clone(),
+        runtime_id: manifest.runtime_id.clone(),
+        queued_files: manifest.queued_files,
+        processed_pages: manifest.processed_pages,
+        total_pages: manifest.total_pages,
+        file_count: manifest.file_count,
+        page_count: manifest.page_count,
+        summary: manifest.summary.clone(),
+    }
+}
+
+fn run_can_resume(run: &RunState) -> bool {
+    !run_is_active(&run.status) && run.completion_manifest.is_none()
+}
+
+const fn run_can_restart(run: &RunState) -> bool { run.completion_manifest.is_some() }
 
 fn document_summary(document: &DocumentState) -> DocumentSummary {
     let processed_pages = document

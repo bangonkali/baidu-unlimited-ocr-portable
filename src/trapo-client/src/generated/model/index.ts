@@ -68,6 +68,8 @@ export * from './previewImagesPayload';
 export * from './realtimeEventRecord';
 export * from './realtimeEventRecordPayload';
 export * from './recentMetricsDocParams';
+export * from './runCompletionManifestRecord';
+export * from './runCompletionManifestRecordSummary';
 export * from './runtimeVariantRecord';
 export * from './searchDocumentsDocParams';
 export * from './settingsPayload';

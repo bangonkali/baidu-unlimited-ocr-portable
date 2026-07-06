@@ -94,6 +94,19 @@ impl AppState {
         Ok(())
     }
 
+    async fn ensure_no_active_ingest(&self) -> Result<()> {
+        let state = self.inner.state.lock().await;
+        let active = state.active_run_id.is_some()
+            || state.runs.values().any(|run| run_is_active(&run.status));
+        drop(state);
+        if active {
+            return Err(AppError::Conflict(
+                "an ingest run is already queued or running".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     async fn cancel_work_for_shutdown(&self) -> Result<ShutdownWorkSummary> {
         let updates = self.collect_shutdown_updates().await?;
         self.persist_shutdown_updates(&updates).await?;

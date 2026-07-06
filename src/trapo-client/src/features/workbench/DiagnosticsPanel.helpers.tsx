@@ -1,30 +1,9 @@
 import { Boxes, CircleAlert, CircleCheck, Clock3, LoaderCircle } from 'lucide-react';
 
-import type {
-  DiagnosticSpanRecord,
-  DiagnosticWorkUnitRecord,
-  IngestRunRecord,
-  LogRecord,
-} from '../../api/types';
+import type { DiagnosticWorkUnitRecord, IngestRunRecord, LogRecord } from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import styles from './DiagnosticsPanel.module.css';
-
-export function buildSpanNodes(spans: DiagnosticSpanRecord[]): TreeGridNode[] {
-  const children = new Map<string | null, DiagnosticSpanRecord[]>();
-  for (const span of spans) {
-    const parent = span.parent_span_id ?? null;
-    children.set(parent, [...(children.get(parent) ?? []), span]);
-  }
-  const toNode = (span: DiagnosticSpanRecord): TreeGridNode => ({
-    badge: <span>{formatMs(span.duration_ms)}</span>,
-    children: (children.get(span.span_id) ?? []).map(toNode),
-    icon: iconForStatus(span.status),
-    id: span.span_id,
-    label: spanLabel(span),
-  });
-  return (children.get(null) ?? spans.filter((span) => !span.parent_span_id)).map(toNode);
-}
 
 export function buildProgressNodes(workUnits: DiagnosticWorkUnitRecord[]): TreeGridNode[] {
   const byRun = new Map<string, DiagnosticWorkUnitRecord[]>();
@@ -68,7 +47,7 @@ export function filterRuns(runs: IngestRunRecord[], search: DiagnosticsRouteSear
     if (search?.run && run.run_id !== search.run) {
       return false;
     }
-    if (search?.status && run.status !== search.status) {
+    if (search?.status && search.status !== 'all' && run.status !== search.status) {
       return false;
     }
     return query
@@ -104,11 +83,6 @@ export function toggled(current: Set<string>, id: string) {
 
 export function formatMs(value: number) {
   return value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${value.toFixed(0)}ms`;
-}
-
-function spanLabel(span: DiagnosticSpanRecord) {
-  const page = span.page_no ? ` page ${span.page_no}` : '';
-  return `${span.name}${page}`;
 }
 
 function normalized(value: string | undefined) {

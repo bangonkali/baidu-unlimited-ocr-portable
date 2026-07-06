@@ -155,6 +155,7 @@ function TreeGridRow({
         </div>
         <span className={styles.treeGridBadge}>{node.badge}</span>
         <span className={styles.treeGridSwitchCell}>
+          {node.actions}
           {node.checked !== undefined && (
             <TreeCheckbox checked={node.checked} onChange={node.onCheckedChange} />
           )}

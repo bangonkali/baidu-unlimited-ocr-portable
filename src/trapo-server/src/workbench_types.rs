@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use utoipa::ToSchema;
 
 pub(crate) use crate::workbench_diagnostics_types::*;
@@ -8,8 +9,28 @@ pub(crate) struct IngestStartRequest {
     pub(crate) root_path: String,
     pub(crate) profile_id: Option<String>,
     pub(crate) model_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
     pub(crate) engine_id: Option<String>,
     pub(crate) reprocess: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct RunCompletionManifestRecord {
+    pub(crate) run_id: String,
+    pub(crate) completed_at: String,
+    pub(crate) status: String,
+    pub(crate) root_path: String,
+    pub(crate) profile_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) queued_files: u32,
+    pub(crate) processed_pages: u32,
+    pub(crate) total_pages: u32,
+    pub(crate) file_count: u32,
+    pub(crate) page_count: u32,
+    #[schema(value_type = Object)]
+    pub(crate) summary: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -28,6 +49,9 @@ pub(crate) struct IngestRunRecord {
     pub(crate) model_id: String,
     pub(crate) runtime_id: String,
     pub(crate) error: Option<String>,
+    pub(crate) can_resume: bool,
+    pub(crate) can_restart: bool,
+    pub(crate) completion_manifest: Option<RunCompletionManifestRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

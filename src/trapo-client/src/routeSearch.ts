@@ -50,9 +50,13 @@ export interface DiagnosticsRouteSearch {
 }
 
 export interface IngestRouteSearch {
+  engine?: string;
   model?: string;
   profile?: string;
   reprocess?: boolean;
+  restart?: string;
+  root?: string;
+  runtime?: string;
 }
 
 export function validateRootSearch(search: Record<string, unknown>): RootRouteSearch {
@@ -129,9 +133,13 @@ export function validateDiagnosticsSearch(search: Record<string, unknown>): Diag
 
 export function validateIngestSearch(search: Record<string, unknown>): IngestRouteSearch {
   return {
+    engine: stringValue(search.engine) ?? stringValue(search.engine_id),
     model: stringValue(search.model),
     profile: stringValue(search.profile),
     reprocess: booleanValue(search.reprocess),
+    restart: stringValue(search.restart) ?? stringValue(search.restart_run),
+    root: stringValue(search.root) ?? stringValue(search.root_path),
+    runtime: stringValue(search.runtime) ?? stringValue(search.runtime_id),
   };
 }
 

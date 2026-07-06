@@ -30,7 +30,7 @@
 
 .treeGridRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px 34px;
+  grid-template-columns: minmax(0, 1fr) 72px 82px;
   min-height: 24px;
 }
 
@@ -106,6 +106,8 @@
 
 .treeGridSwitchCell {
   display: flex;
+  gap: 3px;
+  align-items: center;
   justify-content: flex-end;
   padding-right: 8px;
 }

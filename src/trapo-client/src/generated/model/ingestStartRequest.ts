@@ -16,4 +16,6 @@ export interface IngestStartRequest {
   /** @nullable */
   reprocess?: boolean | null;
   root_path: string;
+  /** @nullable */
+  runtime_id?: string | null;
 }

@@ -40,12 +40,14 @@ export interface WorkbenchContentActions {
   ingestBusy: boolean;
   modelBusy: boolean;
   pickFolder: () => void;
+  resumeRun: (runId: string) => void;
+  restartRun: (run: IngestRunRecord) => void;
   selectDocument: (fileHash: string, pageNo?: number) => void;
   selectModel: MutationLike<string>;
   selectRegion: (pageNo: number, regionId: string) => void;
   settingsBusy: boolean;
   startScan: (options?: { reprocess?: boolean }) => void;
-  stopRun: () => void;
+  stopRun: (runId?: string) => void;
   updateModelRouteSearch: (patch: Partial<ModelRouteSearch>) => void;
   updateRuntime: (runtimeId: string) => void;
 }
@@ -107,6 +109,7 @@ export function buildContentProps(args: {
     onOpenModels: () => args.actions.commandController.navigateView('models'),
     onPickFolder: args.actions.pickFolder,
     onProfileChange: args.actions.changeProfile,
+    onResumeRun: args.actions.resumeRun,
     onRootPathChange: (value) => {
       clearFolderDialogError();
       setSelectedRoot(value);
@@ -116,10 +119,11 @@ export function buildContentProps(args: {
     onSelectModel: (modelId) => args.actions.selectModel.mutate(modelId),
     onSelectRegion: args.actions.selectRegion,
     onStart: args.actions.startScan,
+    onRestartRun: args.actions.restartRun,
     onStop: args.actions.stopRun,
     onThemeChange: setTheme,
     rootPath: args.workbench.selectedRoot,
-    selectedProfile: args.workbench.selectedProfile,
+    selectedProfile: args.route.ingestSearch?.profile ?? args.workbench.selectedProfile,
     settingsBusy: args.actions.settingsBusy,
     settingsSearch: args.route.settingsSearch,
     theme: args.workbench.theme,

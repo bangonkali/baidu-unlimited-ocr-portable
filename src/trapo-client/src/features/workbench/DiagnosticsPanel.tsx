@@ -1,3 +1,4 @@
+import { Minimize2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import {
@@ -7,16 +8,10 @@ import {
   useDiagnosticRuns,
   useDiagnosticTrace,
 } from '../../api/hooks';
-import type { IngestRunRecord, LogRecord } from '../../api/types';
+import type { DiagnosticRunRecord, IngestRunRecord, LogRecord } from '../../api/types';
 import { TreeGrid } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
-import {
-  buildProgressNodes,
-  buildSpanNodes,
-  filterLogs,
-  filterRuns,
-  toggled,
-} from './DiagnosticsPanel.helpers';
+import { buildProgressNodes, filterLogs, filterRuns, toggled } from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsPanel.module.css';
 import {
   AnalyticsView,
@@ -26,20 +21,38 @@ import {
   ProgressSummary,
   TabBar,
 } from './DiagnosticsPanel.views';
+import { buildWaterfallRunNodes } from './DiagnosticsWaterfallTree';
 
 interface DiagnosticsPanelProps {
+  activeRunId?: string | null;
   logs: LogRecord[];
   runs: IngestRunRecord[];
   search?: DiagnosticsRouteSearch;
+  onResumeRun?: (runId: string) => void;
+  onRestartRun?: (run: IngestRunRecord) => void;
   onSearchChange?: (patch: Partial<DiagnosticsRouteSearch>) => void;
+  onStopRun?: (runId?: string) => void;
 }
 
 export { filterLogs, filterRuns };
 
-export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({
+  activeRunId,
+  logs,
+  onResumeRun,
+  onRestartRun,
+  onSearchChange,
+  onStopRun,
+  runs,
+  search,
+}: DiagnosticsPanelProps) {
   const tab = search?.tab ?? 'waterfall';
   const diagnosticRuns = useDiagnosticRuns();
-  const selectedRun = search?.run ?? diagnosticRuns.data?.runs[0]?.run_id;
+  const selectedRun = search?.run;
+  const runRecords = useMemo(
+    () => (runs.length > 0 ? runs : (diagnosticRuns.data?.runs.map(diagnosticRunRecord) ?? [])),
+    [diagnosticRuns.data?.runs, runs],
+  );
   const trace = useDiagnosticTrace({
     limit: 8000,
     q: search?.q,
@@ -49,10 +62,30 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
   const progress = useDiagnosticProgress(selectedRun);
   const analytics = useDiagnosticAnalytics(selectedRun);
   const models = useDiagnosticModels(selectedRun);
-  const [expandedIds, setExpandedIds] = useState(() => new Set<string>(['root']));
+  const [expandedIds, setExpandedIds] = useState(() => new Set<string>());
   const waterfallNodes = useMemo(
-    () => buildSpanNodes(trace.data?.spans ?? []),
-    [trace.data?.spans],
+    () =>
+      buildWaterfallRunNodes({
+        activeRunId,
+        events: trace.data?.events ?? [],
+        onResumeRun,
+        onRestartRun,
+        onStopRun,
+        runs: filterRuns(runRecords, search),
+        spans: trace.data?.spans ?? [],
+        workUnits: progress.data?.work_units ?? [],
+      }),
+    [
+      activeRunId,
+      onResumeRun,
+      onRestartRun,
+      onStopRun,
+      progress.data?.work_units,
+      runRecords,
+      search,
+      trace.data?.events,
+      trace.data?.spans,
+    ],
   );
   const progressNodes = useMemo(
     () => buildProgressNodes(progress.data?.work_units ?? []),
@@ -72,12 +105,27 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
       />
       <div className={styles.body}>
         {tab === 'waterfall' ? (
-          <TreeGrid
-            className={styles.tree}
-            expandedIds={expandedIds}
-            nodes={waterfallNodes}
-            onToggle={(id) => setExpandedIds((current) => toggled(current, id))}
-          />
+          <div className={styles.waterfallStack}>
+            <div className={styles.waterfallControls}>
+              {expandedIds.size > 0 ? (
+                <button
+                  aria-label="Collapse all"
+                  className={styles.collapseButton}
+                  onClick={() => setExpandedIds(new Set())}
+                  title="Collapse all"
+                  type="button"
+                >
+                  <Minimize2 size={13} />
+                </button>
+              ) : null}
+            </div>
+            <TreeGrid
+              className={styles.tree}
+              expandedIds={expandedIds}
+              nodes={waterfallNodes}
+              onToggle={(id) => setExpandedIds((current) => toggled(current, id))}
+            />
+          </div>
         ) : null}
         {tab === 'progress' ? (
           <ProgressSummary summary={progress.data?.summary} nodes={progressNodes} />
@@ -88,4 +136,17 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
       </div>
     </section>
   );
+}
+
+function diagnosticRunRecord(run: DiagnosticRunRecord) {
+  return {
+    file_hashes: [],
+    processed_pages: run.page_count,
+    progress_percent: 0,
+    queued_files: run.file_count,
+    root_path: run.root_path,
+    run_id: run.run_id,
+    status: run.status,
+    total_pages: run.page_count,
+  } satisfies IngestRunRecord;
 }

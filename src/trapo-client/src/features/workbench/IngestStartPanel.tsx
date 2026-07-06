@@ -94,7 +94,7 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
               <select
                 disabled={props.busy}
                 onChange={(event) => props.onModelChange(event.target.value)}
-                value={props.models?.selected_model_id ?? props.model?.model_id ?? ''}
+                value={props.model?.model_id ?? props.models?.selected_model_id ?? ''}
               >
                 {(props.models?.models ?? []).map((model) => (
                   <option key={model.model_id} value={model.model_id}>

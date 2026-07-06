@@ -880,6 +880,58 @@ export const runMetricsDoc = async (runId: string, options?: RequestInit): Promi
 
 
 
+export type resumeRunDocResponse202 = {
+  data: IngestStartResponse
+  status: 202
+}
+
+export type resumeRunDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type resumeRunDocResponse409 = {
+  data: ErrorPayload
+  status: 409
+}
+
+export type resumeRunDocResponseSuccess = (resumeRunDocResponse202) & {
+  headers: Headers;
+};
+export type resumeRunDocResponseError = (resumeRunDocResponse404 | resumeRunDocResponse409) & {
+  headers: Headers;
+};
+
+export type resumeRunDocResponse = (resumeRunDocResponseSuccess | resumeRunDocResponseError)
+
+export const getResumeRunDocUrl = (runId: string,) => {
+
+
+
+
+  return `/api/ingest/runs/${runId}/resume`
+}
+
+export const resumeRunDoc = async (runId: string, options?: RequestInit): Promise<resumeRunDocResponse> => {
+
+  const res = await fetch(getResumeRunDocUrl(runId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resumeRunDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as resumeRunDocResponse
+}
+
+
+
 export type stopRunDocResponse202 = {
   data: IngestRunRecord
   status: 202

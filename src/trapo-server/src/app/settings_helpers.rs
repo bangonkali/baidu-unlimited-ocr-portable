@@ -11,8 +11,20 @@ async fn read_string_setting(repository: &Repository, key: &str, fallback: &str)
 
 async fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -> Result<()> {
     let snapshot = repository.load_snapshot().await?;
+    let mut manifests = snapshot
+        .completion_manifests
+        .into_iter()
+        .map(|manifest| (manifest.run_id.clone(), manifest))
+        .collect::<BTreeMap<_, _>>();
+    let mut stale_active_runs = Vec::new();
     for run in snapshot.runs {
-        state.runs.insert(run.run_id.clone(), run_from_stored(run));
+        let mut hydrated = run_from_stored(run);
+        hydrated.completion_manifest = manifests.remove(&hydrated.run_id);
+        if run_is_active(&hydrated.status) && hydrated.completion_manifest.is_none() {
+            hydrated.status = "cancelled".to_string();
+            stale_active_runs.push(stored_run(&hydrated));
+        }
+        state.runs.insert(hydrated.run_id.clone(), hydrated);
     }
     for run_document in snapshot.run_documents {
         if let Some(run) = state.runs.get_mut(&run_document.run_id) {
@@ -30,6 +42,9 @@ async fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -
         if let Some(document) = state.documents.get_mut(&page.file_hash) {
             document.pages.push(page_from_stored(page));
         }
+    }
+    for stale in stale_active_runs {
+        repository.upsert_run(&stale).await?;
     }
     Ok(())
 }

@@ -4,12 +4,13 @@ impl AppState {
         run_id: &str,
         file_hash: &str,
         ocr_context: &OcrRunContext<'_>,
+        completed_pages: &BTreeSet<(String, u32)>,
     ) -> Result<()> {
         let document_path = self.mark_document_rendering(file_hash).await?;
         let rendered = self.render_document_pages(run_id, file_hash, &document_path, ocr_context)?;
-        self.queue_rendered_pages(run_id, file_hash, &rendered, ocr_context)
+        self.queue_rendered_pages(run_id, file_hash, &rendered, ocr_context, completed_pages)
             .await?;
-        self.process_rendered_pages(run_id, file_hash, rendered, ocr_context)
+        self.process_rendered_pages(run_id, file_hash, rendered, ocr_context, completed_pages)
             .await?;
         self.finish_document(run_id, file_hash, "completed", None)
             .await
@@ -150,9 +151,11 @@ impl AppState {
         file_hash: &str,
         rendered: &[RenderedPage],
         ocr_context: &OcrRunContext<'_>,
+        completed_pages: &BTreeSet<(String, u32)>,
     ) -> Result<()> {
         let (stored, pages, event, page_diagnostics) =
-            self.update_document_pages(run_id, file_hash, rendered).await?;
+            self.update_document_pages(run_id, file_hash, rendered, completed_pages)
+                .await?;
         self.inner.repository.upsert_document(&stored).await?;
         for page in &pages {
             self.inner.repository.upsert_page(page).await?;
@@ -184,6 +187,7 @@ impl AppState {
         run_id: &str,
         file_hash: &str,
         rendered: &[RenderedPage],
+        completed_pages: &BTreeSet<(String, u32)>,
     ) -> Result<(StoredDocument, Vec<StoredPage>, DocumentSummary, Vec<(u32, Value)>)> {
         let mut state = self.inner.state.lock().await;
         let document = state
@@ -192,7 +196,17 @@ impl AppState {
             .ok_or_else(|| AppError::NotFound("document not found".to_string()))?;
         document.page_count = usize_to_u32_saturating(rendered.len());
         document.status = "running".to_string();
-        document.pages = rendered.iter().map(queued_page_state).collect();
+        let existing_pages = document.pages.clone();
+        document.pages = rendered
+            .iter()
+            .map(|page| {
+                page_state_for_resume_queue(
+                    page,
+                    &existing_pages,
+                    completed_pages.contains(&(file_hash.to_string(), page.page_no)),
+                )
+            })
+            .collect();
         let pages = document
             .pages
             .iter()
@@ -219,8 +233,12 @@ impl AppState {
         file_hash: &str,
         rendered: Vec<RenderedPage>,
         ocr_context: &OcrRunContext<'_>,
+        completed_pages: &BTreeSet<(String, u32)>,
     ) -> Result<()> {
         for page in rendered {
+            if completed_pages.contains(&(file_hash.to_string(), page.page_no)) {
+                continue;
+            }
             if self.run_cancelled(run_id).await {
                 return Ok(());
             }

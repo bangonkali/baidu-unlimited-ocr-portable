@@ -4,6 +4,7 @@ impl AppState {
         request: IngestStartRequest,
     ) -> Result<IngestStartResponse> {
         self.ensure_not_shutting_down()?;
+        self.ensure_no_active_ingest().await?;
         let root = PathBuf::from(&request.root_path);
         let files = discover_supported_files(&root)?;
         let run_id = now_id();
@@ -57,7 +58,14 @@ impl AppState {
         }
         self.publish_status_changed().await;
         let replay_since_sequence = self.inner.hub.last_sequence();
-        self.spawn_ingest(run_id.clone(), files, profile_id, model_id, runtime_id);
+        self.spawn_ingest(IngestExecution {
+            completed_pages: BTreeSet::new(),
+            files,
+            model_id,
+            profile_id,
+            run_id: run_id.clone(),
+            runtime_id,
+        });
         Ok(IngestStartResponse {
             run: self.get_run(&run_id).await?,
             documents: prepared.document_events,
@@ -79,6 +87,15 @@ impl AppState {
             .clone()
             .unwrap_or_else(|| state.selected_model_id.clone());
         let runtime_id = state.selected_runtime_id.clone();
+        let runtime_id = request
+            .runtime_id
+            .clone()
+            .filter(|value| !value.is_empty())
+            .unwrap_or(runtime_id);
+        let runtime_selectable = state
+            .runtime_variants
+            .iter()
+            .any(|item| item.runtime_id == runtime_id && item.selectable);
         drop(state);
 
         if find_profile(&profile_id).is_none() {
@@ -88,6 +105,11 @@ impl AppState {
         }
         if find_model(&model_id).is_none() {
             return Err(AppError::BadRequest(format!("unknown model id: {model_id}")));
+        }
+        if !runtime_selectable {
+            return Err(AppError::BadRequest(format!(
+                "runtime is not supported on this device or is not installed: {runtime_id}"
+            )));
         }
         Ok((profile_id, model_id, runtime_id))
     }
@@ -118,6 +140,7 @@ impl AppState {
             error: None,
             cancel_requested: false,
             file_hashes: Vec::new(),
+            completion_manifest: None,
         };
         let mut stored_documents = Vec::new();
         let mut diagnostics = Vec::new();

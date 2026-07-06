@@ -1,7 +1,7 @@
 # Trapo DuckDB Query Inventory and Test Coverage
 
-Runtime storage query call sites: `62`
-Migration SQL bundles: `11`
+Runtime storage query call sites: `65`
+Migration SQL bundles: `12`
 
 This file is the required manifest for DuckDB-backed reads and writes in the
 Trapo server. Any new storage query, API route backed by storage, or migration
@@ -22,7 +22,8 @@ Coverage terms:
 | DB-OPEN-001 | read/write | `open`, `migrate_generated_ids_to_uuid_v7` | Opens DuckDB, creates `schema_migrations`, selects applied migration ids, executes migration SQL, inserts migration records, runs UUID v7 migration. | `migrates_and_persists_settings`; `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Re-opening an already migrated DB skips applied migrations. | Nested database path creation; migration idempotency. |
 | DB-SET-001 | read/write | `setting_value`, `put_setting` | Reads and upserts `settings` JSON by key. | `migrates_and_persists_settings`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing setting returns `None`. | JSON value overwrite. |
 | DB-SHUTDOWN-001 | write | `checkpoint` | Runs a DuckDB checkpoint during clean server shutdown after realtime and annotation queues drain. | `shutdown_route_requires_confirmation_and_blocks_new_work` | Shutdown without active work still completes. | Empty queue drain plus checkpoint is idempotent. |
-| DB-RUN-001 | write | `upsert_run` | Upserts `ingest_runs`, including terminal `finished_at`. | `reloads_run_document_membership`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing stop route is covered at API level by not-found behavior. | Status conflict update from queued to completed. |
+| DB-RUN-001 | write | `upsert_run` | Upserts `ingest_runs`, including terminal `finished_at`; clears `finished_at` when a stopped/completed run is requeued or running again. | `reloads_run_document_membership`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits`; `upsert_run_clears_finished_at_when_resume_requeues_run` | Missing stop route is covered at API level by not-found behavior. | Status conflict update from queued to completed, then completed back to queued for resume. |
+| DB-RUN-COMPLETE-001 | read/write | `upsert_run_completion_manifest`, `completed_run_pages`, `load_snapshot` | Upserts completed-run restart manifests in `ingest_run_completion_manifests`, loads them with the repository snapshot, and reads distinct completed page keys from `document_run_page_ocr` for resume skipping. | `reloads_completion_manifest_and_completed_run_pages` | Missing run completed-page lookup returns empty. | Duplicate manifest upsert replaces the prior row; failed page OCR rows are excluded from completed-page results. |
 | DB-RUN-DOC-001 | write | `replace_run_documents` | Deletes and re-inserts `ingest_run_documents` with ordinals. | `reloads_run_document_membership`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing run delete is a no-op. | Empty file list is accepted. |
 | DB-DOC-001 | write/read | `upsert_document`, `search_document_hashes` | Upserts `files` and `file_locations`; searches file name, relative path, and OCR text. | `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Search miss returns empty. | Search `limit=0` returns empty. |
 | DB-PAGE-001 | write/read | `upsert_page`, `load_snapshot` | Upserts `document_pages` and source `document_preview_images`; snapshot loads runs, run documents, files, pages, boxes, and spans. | `reloads_page_regions_and_spans`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Empty snapshot paths return empty vectors in fresh DB tests. | `preview_path=None` does not erase existing preview row. |
@@ -47,6 +48,7 @@ Coverage terms:
 | DB-MIG-004 | read/write | `migrate_generated_ids_to_uuid_v7` | Replaces legacy ids inside `ocr_stream_events.payload_json`, `document_regions.content_markdown`, and `document_region_annotations.content_markdown`. | `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Rows without the old id are untouched. | Payload and markdown replacement survives a second migration run. |
 | DB-MIG-005 | read/write | `migrate_generated_ids_to_uuid_v7` | Backfills `document_annotation_identities` from existing `document_regions` and finds run ids through `ocr_page_metrics`. | `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Existing annotation identity is not duplicated. | Backfilled id is UUID v7 and matches the migrated region id. |
 | DB-MIG-006 | read/write | `migrate` | Adds run scope to `document_regions` and `document_text_region_links`, creates `document_run_page_ocr`, backfills run-scoped OCR rows from metrics or annotation identities, and indexes run/file/page reads. | `run_scoped_document_reads_do_not_mix_ocr_outputs` | Missing run reads return empty. | Existing file-level OCR rows remain available as compatibility cache while new rows are run-scoped. |
+| DB-MIG-007 | write | `migrate` | Creates `ingest_run_completion_manifests` and its `completed_at` index for restart-prefill manifests. | `reloads_completion_manifest_and_completed_run_pages` | Fresh databases with no manifests load an empty manifest list. | Migration is idempotent through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
 
 ## API Routes Covered By DB Tests
 
@@ -54,7 +56,8 @@ Routes are listed here so route additions cannot bypass the query manifest:
 `/api/health`, `/api/status`, `/api/openapi.json`, `/api/system/folder-dialog`,
 `/api/system/shutdown`, `/api/ingest/start`, `/api/ingest/runs`, `/api/ingest/metrics/recent`,
 `/api/ingest/runs/{run_id}`, `/api/ingest/runs/{run_id}/metrics`,
-`/api/ingest/runs/{run_id}/stop`, `/api/ingest/runs/{run_id}/events`,
+`/api/ingest/runs/{run_id}/stop`, `/api/ingest/runs/{run_id}/resume`,
+`/api/ingest/runs/{run_id}/events`,
 `/api/ocr/events`, `/api/diagnostics/runs`, `/api/diagnostics/trace`,
 `/api/diagnostics/progress`, `/api/diagnostics/analytics`,
 `/api/diagnostics/models`, `/api/documents`, `/api/search`,

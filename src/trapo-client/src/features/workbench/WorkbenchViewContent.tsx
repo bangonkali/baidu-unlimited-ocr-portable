@@ -65,13 +65,15 @@ export interface WorkbenchViewContentProps {
   onOpenModels: () => void;
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
+  onResumeRun: (runId: string) => void;
+  onRestartRun: (run: IngestRunRecord) => void;
   onRootPathChange: (value: string) => void;
   onRuntimeChange: (runtimeId: string) => void;
   onSelectModel: (modelId: string) => void;
   onSelectDocument: (fileHash: string, pageNo?: number) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
   onStart: (options?: { reprocess?: boolean }) => void;
-  onStop: () => void;
+  onStop: (runId?: string) => void;
   onThemeChange: (theme: ThemeMode) => void;
 }
 
@@ -106,10 +108,14 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
   if (props.activeView === 'diagnostics') {
     return (
       <DiagnosticsPanel
+        activeRunId={props.activeRunId}
         logs={props.logs}
+        onResumeRun={props.onResumeRun}
+        onRestartRun={props.onRestartRun}
         runs={props.runs}
         search={props.diagnosticsSearch}
         onSearchChange={props.onDiagnosticsSearchChange}
+        onStopRun={props.onStop}
       />
     );
   }
@@ -155,14 +161,18 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
   }
   return (
     <WorkbenchPanels
+      activeRunId={props.activeRunId}
       documents={props.documents}
       logs={props.logs}
       model={props.model}
       onAutoFollowChange={props.onAutoFollowChange}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
+      onResumeRun={props.onResumeRun}
+      onRestartRun={props.onRestartRun}
       onSelectDocument={props.onSelectDocument}
       onSelectRegion={props.onSelectRegion}
+      onStopRun={props.onStop}
       onStart={props.onOpenIngest}
       previewPages={props.previewPages}
       regions={props.regions}

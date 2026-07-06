@@ -1,28 +1,20 @@
 impl AppState {
-    fn spawn_ingest(
-        &self,
-        run_id: String,
-        files: Vec<DiscoveredFile>,
-        profile_id: String,
-        model_id: String,
-        runtime_id: String,
-    ) {
+    fn spawn_ingest(&self, execution: IngestExecution) {
         let state = self.clone();
         self.spawn_background(async move {
-            state
-                .run_ingest(run_id, files, profile_id, model_id, runtime_id)
-                .await;
+            state.run_ingest(execution).await;
         });
     }
 
-    async fn run_ingest(
-        &self,
-        run_id: String,
-        files: Vec<DiscoveredFile>,
-        profile_id: String,
-        model_id: String,
-        runtime_id: String,
-    ) {
+    async fn run_ingest(&self, execution: IngestExecution) {
+        let IngestExecution {
+            completed_pages,
+            files,
+            model_id,
+            profile_id,
+            run_id,
+            runtime_id,
+        } = execution;
         self.mark_run_status(&run_id, "running", None).await;
         let lease_scope = DiagnosticSpanScope::start();
         let ocr_worker = self
@@ -57,7 +49,7 @@ impl AppState {
             }
             let file_hash = stable_hash(&file);
             if let Err(error) = self
-                .process_document(&run_id, &file_hash, &ocr_context)
+                .process_document(&run_id, &file_hash, &ocr_context, &completed_pages)
                 .await
             {
                 self.record_diagnostic_event(
@@ -71,20 +63,41 @@ impl AppState {
                     .await;
             }
         }
-        let final_status = if self.run_cancelled(&run_id).await {
+        self.finish_ingest_run(&run_id).await;
+    }
+
+    async fn finish_ingest_run(&self, run_id: &str) {
+        let final_status = if self.run_cancelled(run_id).await {
             "cancelled"
-        } else if self.run_has_errors(&run_id).await {
+        } else if self.run_has_errors(run_id).await {
             "completed_with_errors"
         } else {
             "completed"
         };
-        self.mark_run_status(&run_id, final_status, None).await;
+        self.mark_run_status(run_id, final_status, None).await;
+        if final_status == "completed"
+            && let Err(error) = self.persist_run_completion_manifest(run_id).await
+        {
+            self.log_warn(
+                "ingest",
+                format!("failed to write completion manifest for run {run_id}: {error}"),
+            );
+        }
         {
             let mut state = self.inner.state.lock().await;
-            if state.active_run_id.as_deref() == Some(&run_id) {
+            if state.active_run_id.as_deref() == Some(run_id) {
                 state.active_run_id = None;
             }
         }
         self.publish_status_changed().await;
     }
+}
+
+struct IngestExecution {
+    completed_pages: BTreeSet<(String, u32)>,
+    files: Vec<DiscoveredFile>,
+    model_id: String,
+    profile_id: String,
+    run_id: String,
+    runtime_id: String,
 }

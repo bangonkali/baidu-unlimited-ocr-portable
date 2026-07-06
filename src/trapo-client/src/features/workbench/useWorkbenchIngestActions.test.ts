@@ -113,4 +113,41 @@ describe('useWorkbenchIngestActions', () => {
     expect(getWorkbenchSnapshot().selectedRoot).toBe('/data/incoming');
     expect(getWorkbenchSnapshot().folderDialogError).toBeUndefined();
   });
+
+  test('includes restart-prefilled engine and runtime when starting', async () => {
+    const startCalls: unknown[] = [];
+    const actions = useWorkbenchIngestActions({
+      engineId: 'pdfium-unlimited-ocr',
+      folderDialog: { mutateAsync: async () => ({ cancelled: true }) } as never,
+      model: fixtureModels.models[0],
+      navigate: (() => undefined) as never,
+      rootPath: '/data/incoming',
+      runtimeId: 'cuda',
+      selectedProfile: 'experimental-exact-prefill-q4',
+      startIngest: {
+        mutateAsync: async (payload: unknown) => {
+          startCalls.push(payload);
+          return {
+            documents: [],
+            replay_since_sequence: 0,
+            run: { root_path: '/data/incoming', run_id: 'run-a', status: 'queued' },
+          };
+        },
+      } as never,
+    });
+
+    actions.startScan();
+    await Promise.resolve();
+
+    expect(startCalls).toEqual([
+      {
+        engine_id: 'pdfium-unlimited-ocr',
+        model_id: fixtureModels.models[0]?.model_id,
+        profile_id: 'experimental-exact-prefill-q4',
+        reprocess: false,
+        root_path: '/data/incoming',
+        runtime_id: 'cuda',
+      },
+    ]);
+  });
 });

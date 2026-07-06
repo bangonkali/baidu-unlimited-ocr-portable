@@ -21,6 +21,15 @@ impl AppState {
             let Some(run) = state.runs.get_mut(run_id) else {
                 return Err(AppError::NotFound("run not found".to_string()));
             };
+            if run.completion_manifest.is_some() {
+                return Err(AppError::Conflict(
+                    "completed runs cannot be stopped; restart from the ingest start page"
+                        .to_string(),
+                ));
+            }
+            if !run_is_active(&run.status) {
+                return Ok(run_record(run));
+            }
             run.cancel_requested = true;
             run.status = "cancelled".to_string();
             let file_hashes = run.file_hashes.clone();

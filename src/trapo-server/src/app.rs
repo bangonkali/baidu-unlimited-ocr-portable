@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
     path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
@@ -27,11 +27,11 @@ use crate::{
     },
     shutdown::{BackgroundTasks, ShutdownCoordinator},
     storage::{
-        AnnotationIdentityDraft, DiagnosticEventInsert, DiagnosticEventRow,
+        AnnotationIdentityDraft, CompletedRunPage, DiagnosticEventInsert, DiagnosticEventRow,
         DiagnosticModelLeaseInsert, DiagnosticModelLeaseRow, DiagnosticRunRow,
         DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
         DownloadEventInsert, OcrPageMetrics, Repository, StoredDocument, StoredPage,
-        StoredRealtimeEvent, StoredRun, WorkUnitUpsert,
+        StoredRealtimeEvent, StoredRun, StoredRunCompletionManifest, WorkUnitUpsert,
     },
     types::{
         HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
@@ -49,6 +49,7 @@ use crate::{
         FolderDialogResponse, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
         IngestStartResponse, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
         OcrReplayPayload, PageTextRecord, PreviewImagesPayload, RealtimeEventRecord,
+        RunCompletionManifestRecord,
     },
 };
 
@@ -104,6 +105,7 @@ pub(crate) struct RunState {
     pub(crate) error: Option<String>,
     pub(crate) cancel_requested: bool,
     pub(crate) file_hashes: Vec<String>,
+    pub(crate) completion_manifest: Option<StoredRunCompletionManifest>,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +186,7 @@ include!("app/download_targets.rs");
 include!("app/model_methods.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");
+include!("app/run_resume_methods.rs");
 include!("app/download_runtime.rs");
 include!("app/annotation_identity_runtime.rs");
 include!("app/ocr_stream_events.rs");
