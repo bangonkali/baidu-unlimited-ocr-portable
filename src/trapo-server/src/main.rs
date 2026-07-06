@@ -5,7 +5,9 @@
 
 use std::{env, net::SocketAddr, path::Path, process::ExitCode, time::Duration};
 
-use trapo_server::{AppState, ServerConfig, build_router, validate_ffi_library};
+use trapo_server::{
+    AppState, ServerConfig, build_router, validate_ffi_library, validate_llama_library,
+};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -29,6 +31,16 @@ async fn main() -> ExitCode {
             return ExitCode::from(2);
         };
         return check_ocr_runtime(path);
+    }
+    if let Some(index) = args
+        .iter()
+        .position(|arg| arg == "--check-embedding-runtime")
+    {
+        let Some(path) = args.get(index + 1) else {
+            eprintln!("--check-embedding-runtime requires a path to llama.cpp");
+            return ExitCode::from(2);
+        };
+        return check_embedding_runtime(path);
     }
 
     let config = ServerConfig::from_env_and_args(args);
@@ -78,7 +90,7 @@ async fn main() -> ExitCode {
 
 fn print_help() {
     println!(
-        "trapo-server\n\nOptions:\n  --port <PORT>                 Listen port (default 8765)\n  --no-browser                  Do not open a browser window\n  --check-ocr-runtime <PATH>    Validate a uocr-ffi runtime library\n  --version                     Print version"
+        "trapo-server\n\nOptions:\n  --port <PORT>                       Listen port (default 8765)\n  --no-browser                        Do not open a browser window\n  --check-ocr-runtime <PATH>          Validate a uocr-ffi runtime library\n  --check-embedding-runtime <PATH>    Validate a llama.cpp runtime library\n  --version                           Print version"
     );
 }
 
@@ -86,6 +98,19 @@ fn check_ocr_runtime(path: &str) -> ExitCode {
     match validate_ffi_library(Path::new(path)) {
         Ok(()) => {
             println!("uocr-ffi runtime loaded: {path}");
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn check_embedding_runtime(path: &str) -> ExitCode {
+    match validate_llama_library(Path::new(path)) {
+        Ok(()) => {
+            println!("llama.cpp runtime loaded: {path}");
             ExitCode::SUCCESS
         }
         Err(error) => {

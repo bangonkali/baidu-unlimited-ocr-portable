@@ -1,4 +1,8 @@
 impl AppState {
+    async fn selected_embedding_runtime_id(&self) -> String {
+        self.inner.state.lock().await.selected_runtime_id.clone()
+    }
+
     pub(crate) async fn ensure_no_active_pipeline_task(&self) -> Result<()> {
         if let Some(task) = self.inner.repository.active_pipeline_task().await? {
             return Err(AppError::Conflict(format!(
@@ -112,10 +116,12 @@ impl AppState {
             .await?;
         if let Some(model_id) = request.embedding_model_id.as_deref() {
             let model = self.embedding_model(model_id).await?;
+            let runtime_id = self.selected_embedding_runtime_id().await;
             let mut profile = profile_from_model_row(
                 &self.inner.config.app_root,
                 &self.inner.config.model_dir,
                 &model,
+                Some(&runtime_id),
             )?;
             profile.dimension = model.dimension;
             let vectors =

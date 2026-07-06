@@ -217,6 +217,20 @@
       "reason": "PDFium downloads are built from the fixed pdfium-binaries repo and checked by validate_pdfium_url."
     },
     {
+      "id": "workbench-smoke-localhost-network",
+      "rule_id": "SKY-D216",
+      "category": "danger",
+      "path_glob": "scripts/smoke_trapo_workbench.py",
+      "reason": "Packaged workbench smoke requests are restricted to the local 127.0.0.1 server started by the same script."
+    },
+    {
+      "id": "workbench-smoke-bounded-local-files",
+      "rule_id": "SKY-D325",
+      "category": "danger",
+      "path_glob": "scripts/smoke_trapo_workbench.py",
+      "reason": "Archive members are traversal-checked before extraction, and smoke logs are written under the temporary extracted app root."
+    },
+    {
       "id": "workbench-packager-archive-extract",
       "rule_id": "SKY-D326",
       "category": "danger",
@@ -469,6 +483,14 @@
       "category": "unused_functions",
       "path_glob": "src/trapo-server/src/ocr/ffi_*.rs",
       "reason": "FFI helper functions are shared across included native ABI fragments that Skylos does not resolve."
+    },
+    {
+      "id": "rust-embedding-ffi-runtime-validator",
+      "rule_id": "*",
+      "category": "unused_functions",
+      "path_glob": "src/trapo-server/src/embedding/ffi.rs",
+      "name_glob": "validate_llama_library",
+      "reason": "The packaged runtime smoke command reaches the validator through the parent embedding module re-export; cargo clippy validates actual Rust reachability."
     },
     {
       "id": "rust-storage-repository-methods",

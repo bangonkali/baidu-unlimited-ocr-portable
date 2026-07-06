@@ -43,13 +43,7 @@ pub(super) struct LlamaApi {
 
 impl LlamaApi {
     pub(super) fn load(path: &Path) -> Result<Self> {
-        let library = unsafe {
-            // SAFETY: loading a user-configured local llama.cpp dynamic library is required for FFI.
-            Library::new(path)
-        }
-        .map_err(|error| {
-            AppError::BadRequest(format!("failed to load llama.cpp library: {error}"))
-        })?;
+        let library = load_library(path)?;
         let api = unsafe {
             // SAFETY: symbol names and signatures are matched to the vendored llama.cpp header.
             (|| -> std::result::Result<Self, libloading::Error> {
@@ -82,6 +76,34 @@ impl LlamaApi {
             ))
         })
     }
+}
+
+// skylos: ignore[unused_functions] called through parent embedding module for packaged runtime smoke checks.
+pub(super) fn validate_llama_library(path: &Path) -> Result<()> {
+    let _api = LlamaApi::load(path)?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn load_library(path: &Path) -> Result<Library> {
+    use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
+
+    let library = unsafe {
+        // SAFETY: Loading is restricted to the configured local llama.cpp runtime path.
+        WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH)
+    }
+    .map_err(|error| AppError::BadRequest(format!("failed to load llama.cpp library: {error}")))?;
+    Ok(library.into())
+}
+
+#[cfg(not(windows))]
+fn load_library(path: &Path) -> Result<Library> {
+    let library = unsafe {
+        // SAFETY: Loading a configured local llama.cpp dynamic library is required for FFI.
+        Library::new(path)
+    }
+    .map_err(|error| AppError::BadRequest(format!("failed to load llama.cpp library: {error}")))?;
+    Ok(library)
 }
 
 #[repr(C)]

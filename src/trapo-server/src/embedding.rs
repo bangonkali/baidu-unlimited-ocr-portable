@@ -2,8 +2,11 @@
 
 mod ffi;
 mod session;
+#[cfg(test)]
+mod tests;
 
 use std::{
+    collections::BTreeSet,
     ffi::OsStr,
     os::raw::c_int,
     path::{Path, PathBuf},
@@ -50,12 +53,13 @@ pub(crate) fn profile_from_model_row(
     app_root: &Path,
     model_dir: &Path,
     row: &RagEmbeddingModelRow,
+    preferred_runtime_id: Option<&str>,
 ) -> Result<LlamaEmbeddingProfile> {
     let params = &row.llama_params;
     Ok(LlamaEmbeddingProfile {
         model_id: row.model_id.clone(),
         model_path: resolve_model_file(model_dir, &row.filename)?,
-        library_path: resolve_llama_library(app_root).ok_or_else(|| {
+        library_path: resolve_llama_library(app_root, preferred_runtime_id).ok_or_else(|| {
             AppError::BadRequest("llama.cpp runtime library was not found".to_string())
         })?,
         dimension: row.dimension,
@@ -70,10 +74,23 @@ pub(crate) fn profile_from_model_row(
     })
 }
 
-pub(crate) fn resolve_llama_library(app_root: &Path) -> Option<PathBuf> {
-    llama_library_candidates(app_root)
+pub(crate) fn resolve_llama_library(
+    app_root: &Path,
+    preferred_runtime_id: Option<&str>,
+) -> Option<PathBuf> {
+    llama_library_candidates(app_root, preferred_runtime_id)
         .into_iter()
         .find_map(|path| path.is_file().then(|| path.canonicalize().ok()).flatten())
+}
+
+/// Validates that a local llama.cpp runtime library can be loaded for embeddings.
+///
+/// # Errors
+///
+/// Returns an error when the dynamic library cannot be loaded or when required
+/// embedding symbols are missing.
+pub fn validate_llama_library(path: &Path) -> Result<()> {
+    ffi::validate_llama_library(path)
 }
 
 pub(crate) async fn generate_embeddings(
@@ -163,9 +180,11 @@ fn resolve_model_file(model_dir: &Path, filename: &str) -> Result<PathBuf> {
     Ok(canonical)
 }
 
-fn llama_library_candidates(app_root: &Path) -> Vec<PathBuf> {
+fn llama_library_candidates(app_root: &Path, preferred_runtime_id: Option<&str>) -> Vec<PathBuf> {
     let library_name = llama_library_name();
-    vec![
+    let mut candidates =
+        packaged_runtime_llama_candidates(app_root, library_name, preferred_runtime_id);
+    candidates.extend([
         app_root
             .join("thirdparty")
             .join("llama.cpp")
@@ -184,8 +203,45 @@ fn llama_library_candidates(app_root: &Path) -> Vec<PathBuf> {
             .join("llama")
             .join("bin")
             .join(library_name),
-        app_root.join(library_name),
-    ]
+    ]);
+    candidates.push(app_root.join(library_name));
+    candidates
+}
+
+fn packaged_runtime_llama_candidates(
+    app_root: &Path,
+    library_name: &str,
+    preferred_runtime_id: Option<&str>,
+) -> Vec<PathBuf> {
+    let runtime_root = app_root.join("thirdparty").join("uocr-runtime");
+    let Ok(entries) = std::fs::read_dir(&runtime_root) else {
+        return Vec::new();
+    };
+    let mut runtimes: Vec<String> = entries
+        .filter_map(std::result::Result::ok)
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect();
+    runtimes.sort_by_key(|runtime_id| runtime_rank(runtime_id, preferred_runtime_id));
+    let mut seen = BTreeSet::new();
+    let mut candidates = Vec::new();
+    for runtime_id in runtimes {
+        let candidate = runtime_root.join(runtime_id).join("bin").join(library_name);
+        if seen.insert(candidate.clone()) {
+            candidates.push(candidate);
+        }
+    }
+    candidates
+}
+
+fn runtime_rank(runtime_id: &str, preferred_runtime_id: Option<&str>) -> (u8, String) {
+    if Some(runtime_id) == preferred_runtime_id {
+        (0, runtime_id.to_string())
+    } else if runtime_id.ends_with("-cpu") {
+        (1, runtime_id.to_string())
+    } else {
+        (2, runtime_id.to_string())
+    }
 }
 
 const fn llama_library_name() -> &'static str {
@@ -195,69 +251,5 @@ const fn llama_library_name() -> &'static str {
         "libllama.dylib"
     } else {
         "libllama.so"
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn profile_uses_catalog_tuned_parameters() -> Result<()> {
-        let temp = tempfile::tempdir()?;
-        let row = RagEmbeddingModelRow {
-            model_id: "nomic".to_string(),
-            display_name: "Nomic".to_string(),
-            provider: "Nomic".to_string(),
-            repo_id: "repo".to_string(),
-            filename: "model.gguf".to_string(),
-            revision: "main".to_string(),
-            routing_origin: "embedding".to_string(),
-            model_family: "MRL".to_string(),
-            dimension: 768,
-            context_tokens: 8192,
-            pooling: "mean".to_string(),
-            normalize: true,
-            query_prefix: "search_query: ".to_string(),
-            document_prefix: "search_document: ".to_string(),
-            llama_params: json!({"n_gpu_layers": 12, "n_batch": 1024, "n_ubatch": 512}),
-            recommended_vram_gb: 4.0,
-            active: true,
-        };
-        std::fs::create_dir_all(
-            temp.path()
-                .join("thirdparty")
-                .join("llama.cpp")
-                .join("build")
-                .join("bin")
-                .join("Release"),
-        )?;
-        std::fs::write(
-            temp.path()
-                .join("thirdparty")
-                .join("llama.cpp")
-                .join("build")
-                .join("bin")
-                .join("Release")
-                .join(llama_library_name()),
-            "",
-        )?;
-        std::fs::write(temp.path().join("model.gguf"), "")?;
-        let profile = profile_from_model_row(temp.path(), temp.path(), &row)?;
-        assert_eq!(profile.dimension, 768);
-        assert_eq!(profile.context_tokens, 8192);
-        assert_eq!(profile.n_gpu_layers, 12);
-        assert_eq!(profile.n_batch, 1024);
-        assert_eq!(profile.n_ubatch, 512);
-        assert!(matches!(profile.pooling, PoolingType::Mean));
-        Ok(())
-    }
-
-    #[test]
-    fn l2_normalization_handles_zero_vector() {
-        let mut vector = vec![0.0, 0.0, 0.0];
-        normalize_l2(&mut vector);
-        assert_eq!(vector, vec![0.0, 0.0, 0.0]);
     }
 }

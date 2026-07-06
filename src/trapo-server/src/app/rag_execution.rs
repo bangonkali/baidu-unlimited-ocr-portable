@@ -81,10 +81,12 @@ impl AppState {
             started_at: &started_at,
         })
         .await?;
+        let runtime_id = self.selected_embedding_runtime_id().await;
         let mut profile = profile_from_model_row(
             &self.inner.config.app_root,
             &self.inner.config.model_dir,
             &model,
+            Some(&runtime_id),
         )?;
         profile.dimension = dimension;
         let texts = segments
