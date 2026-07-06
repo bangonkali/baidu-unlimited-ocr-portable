@@ -1,35 +1,49 @@
-import {
-  CircleAlert,
-  CircleCheck,
-  Clock3,
-  FileText,
-  Folder,
-  FolderOpen,
-  LoaderCircle,
-} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { DocumentSummary } from '../../api/types';
+import type { DocumentSummary, IngestRunRecord } from '../../api/types';
 import type { TreeNode } from '../../components/workbench';
 import { TreeView } from '../../components/workbench';
 import styles from './ExplorerTree.module.css';
+import { buildDocumentTree } from './ExplorerTreeData';
+import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
+import { latestRunIdFromRuns } from './workbenchExplorerFilter';
 
 interface ExplorerTreeProps {
   documents: DocumentSummary[];
+  filter: WorkbenchExplorerFilter;
   rootPath?: string;
+  runs: IngestRunRecord[];
   selectedFileHash?: string;
-  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+  selectedRunId?: string;
+  onFilterChange: (filter: WorkbenchExplorerFilter) => void;
+  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
 }
+
+export { buildDocumentTree };
 
 export function ExplorerTree({
   documents,
+  filter,
+  onFilterChange,
   onSelectDocument,
   rootPath,
+  runs,
   selectedFileHash,
+  selectedRunId,
 }: ExplorerTreeProps) {
   const tree = useMemo(
-    () => buildDocumentTree(documents, onSelectDocument, selectedFileHash, rootPath),
-    [documents, onSelectDocument, rootPath, selectedFileHash],
+    () =>
+      buildDocumentTree({
+        documents,
+        fallbackRootPath: rootPath,
+        onSelectDocument,
+        runId: filter.runId,
+        runs,
+        scope: filter.scope,
+        selectedFileHash,
+        selectedRunId,
+      }),
+    [documents, filter, onSelectDocument, rootPath, runs, selectedFileHash, selectedRunId],
   );
   const [expandedIds, setExpandedIds] = useState(() => defaultExpandedIds(tree.nodes));
 
@@ -39,9 +53,12 @@ export function ExplorerTree({
 
   return (
     <section className={styles.explorer} aria-label="Explorer">
-      <div className={styles.header}>Explorer</div>
+      <div className={styles.header}>
+        <span>Explorer</span>
+        <RunFilterSelect filter={filter} runs={runs} onChange={onFilterChange} />
+      </div>
       <div className={styles.treeScroll}>
-        {documents.length === 0 ? <div className={styles.empty}>No documents</div> : null}
+        {tree.documentCount === 0 ? <div className={styles.empty}>No documents</div> : null}
         <TreeView
           className={styles.tree}
           expandedIds={expandedIds}
@@ -53,172 +70,80 @@ export function ExplorerTree({
   );
 }
 
-interface MutableTreeNode extends TreeNode {
-  children: MutableTreeNode[];
-  kind: 'root' | 'folder' | 'document' | 'page';
-  pageNo?: number;
-}
-
-export function buildDocumentTree(
-  documents: DocumentSummary[],
-  onSelectDocument: (fileHash: string, pageNo?: number) => void,
-  selectedFileHash: string | undefined,
-  rootPath: string | undefined,
-) {
-  const root: MutableTreeNode = {
-    children: [],
-    icon: <FolderOpen size={15} />,
-    id: 'root',
-    kind: 'root',
-    label: rootLabel(rootPath),
-  };
-  const folders = new Map<string, MutableTreeNode>([['root', root]]);
-  for (const document of sortedDocuments(documents)) {
-    const parts = pathParts(document.relative_path || document.display_name);
-    const fileName = parts.pop() || document.display_name;
-    let parent = root;
-    let folderId = 'root';
-    for (const part of parts) {
-      folderId = `${folderId}/${part}`;
-      let folder = folders.get(folderId);
-      if (!folder) {
-        folder = {
-          children: [],
-          icon: <Folder size={15} />,
-          id: folderId,
-          kind: 'folder',
-          label: part,
-        };
-        folders.set(folderId, folder);
-        parent.children.push(folder);
-      }
-      parent = folder;
-    }
-    parent.children.push(documentNode(document, fileName, selectedFileHash, onSelectDocument));
-  }
-  sortNodes(root);
-  return { nodes: [root] };
-}
-
-function documentNode(
-  document: DocumentSummary,
-  fileName: string,
-  selectedDocumentId: string | undefined,
-  onSelectDocument: (fileHash: string, pageNo?: number) => void,
-): MutableTreeNode {
-  const documentId = document.file_hash;
-  const pageCount = Math.max(document.page_count || 1, 1);
-  return {
-    badge: <StatusIcon status={document.status} />,
-    children:
-      pageCount > 1
-        ? Array.from({ length: pageCount }, (_, index) =>
-            pageNode(document, documentId, index + 1, selectedDocumentId, onSelectDocument),
-          )
-        : [],
-    icon: <FileText size={14} />,
-    id: `document:${documentId}`,
-    kind: 'document',
-    label: fileName,
-    onSelect: () => onSelectDocument(documentId, 1),
-    selected: selectedDocumentId === documentId,
-  };
-}
-
-function pageNode(
-  document: DocumentSummary,
-  documentId: string,
-  pageNo: number,
-  selectedDocumentId: string | undefined,
-  onSelectDocument: (fileHash: string, pageNo?: number) => void,
-): MutableTreeNode {
-  return {
-    badge: pageBadge(document, pageNo),
-    children: [],
-    icon: <FileText size={13} />,
-    id: `document:${documentId}:page:${pageNo}`,
-    kind: 'page',
-    label: `Page ${pageNo}`,
-    onSelect: () => onSelectDocument(documentId, pageNo),
-    pageNo,
-    selected: selectedDocumentId === documentId && document.current_page === pageNo,
-  };
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'completed') {
-    return <CircleCheck className={styles.ok} size={13} />;
-  }
-  if (status === 'failed' || status === 'completed_with_errors') {
-    return <CircleAlert className={styles.bad} size={13} />;
-  }
-  if (status === 'running' || status === 'rendering') {
-    return <LoaderCircle className={styles.spin} size={13} />;
-  }
-  return <Clock3 className={styles.queued} size={13} />;
-}
-
-function pageBadge(document: DocumentSummary, pageNo: number) {
-  if (document.current_page === pageNo && document.status === 'running') {
-    return <LoaderCircle className={styles.spin} size={12} />;
-  }
-  if ((document.processed_pages ?? 0) >= pageNo) {
-    return <CircleCheck className={styles.ok} size={12} />;
-  }
-  return <Clock3 className={styles.queued} size={12} />;
-}
-
-function sortedDocuments(documents: DocumentSummary[]) {
-  return [...documents].sort((left, right) =>
-    (left.relative_path || left.display_name).localeCompare(
-      right.relative_path || right.display_name,
-    ),
+function RunFilterSelect({
+  filter,
+  onChange,
+  runs,
+}: {
+  filter: WorkbenchExplorerFilter;
+  runs: IngestRunRecord[];
+  onChange: (filter: WorkbenchExplorerFilter) => void;
+}) {
+  const latestRunId = latestRunIdFromRuns(runs);
+  const selectedValue = selectedFilterValue(filter, latestRunId);
+  const previousRuns = runs.filter((run) => run.run_id !== latestRunId);
+  return (
+    <select
+      aria-label="Explorer run filter"
+      className={styles.runSelect}
+      disabled={runs.length === 0}
+      onChange={(event) => onChange(filterFromValue(event.currentTarget.value))}
+      value={selectedValue}
+    >
+      {latestRunId ? (
+        <option value={`run:${latestRunId}`}>Latest run</option>
+      ) : (
+        <option value="none">No runs</option>
+      )}
+      <option value="all">All runs</option>
+      {previousRuns.map((run) => (
+        <option key={run.run_id} value={`run:${run.run_id}`}>
+          {runOptionLabel(run)}
+        </option>
+      ))}
+      {filter.scope === 'run' &&
+      filter.runId &&
+      !runs.some((run) => run.run_id === filter.runId) ? (
+        <option value={`run:${filter.runId}`}>{filter.runId}</option>
+      ) : null}
+    </select>
   );
 }
 
-function sortNodes(node: MutableTreeNode) {
-  node.children.sort((left, right) => {
-    const kindOrder = nodeKindOrder(left) - nodeKindOrder(right);
-    if (kindOrder !== 0) {
-      return kindOrder;
-    }
-    if (left.kind === 'page' && right.kind === 'page') {
-      const pageOrder = pageNumberOrder(left, right);
-      if (pageOrder !== 0) {
-        return pageOrder;
-      }
-    }
-    return left.label.localeCompare(right.label);
-  });
-  for (const child of node.children) {
-    sortNodes(child);
+function selectedFilterValue(filter: WorkbenchExplorerFilter, latestRunId: string | undefined) {
+  if (filter.scope === 'all') {
+    return 'all';
   }
+  const runId = filter.runId ?? latestRunId;
+  return runId ? `run:${runId}` : 'none';
 }
 
-function nodeKindOrder(node: MutableTreeNode) {
-  if (node.kind === 'folder') {
-    return 0;
+function filterFromValue(value: string): WorkbenchExplorerFilter {
+  if (value === 'all') {
+    return { scope: 'all' };
   }
-  if (node.kind === 'document') {
-    return 1;
+  if (value.startsWith('run:')) {
+    return { runId: value.slice(4), scope: 'run' };
   }
-  if (node.kind === 'page') {
-    return 2;
-  }
-  return 3;
+  return { scope: 'run' };
 }
 
-function pageNumberOrder(left: MutableTreeNode, right: MutableTreeNode) {
-  if (left.pageNo !== undefined && right.pageNo !== undefined) {
-    return left.pageNo - right.pageNo;
-  }
-  if (left.pageNo !== undefined) {
-    return -1;
-  }
-  if (right.pageNo !== undefined) {
-    return 1;
-  }
-  return 0;
+function runOptionLabel(run: IngestRunRecord) {
+  const root = rootName(run.root_path);
+  return `${root} - ${shortRunId(run.run_id)}`;
+}
+
+function rootName(rootPath: string) {
+  return (
+    rootPath
+      .split(/[\\/]+/)
+      .filter(Boolean)
+      .at(-1) ?? rootPath
+  );
+}
+
+function shortRunId(runId: string) {
+  return runId.length > 10 ? runId.slice(0, 10) : runId;
 }
 
 function defaultExpandedIds(nodes: TreeNode[]) {
@@ -250,13 +175,4 @@ function toggleExpanded(
     }
     return next;
   });
-}
-
-function pathParts(path: string) {
-  return path.split(/[\\/]+/).filter(Boolean);
-}
-
-function rootLabel(rootPath: string | undefined) {
-  const parts = pathParts(rootPath ?? '');
-  return parts.at(-1) ?? 'Workspace';
 }

@@ -23,6 +23,7 @@ import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
 import { SettingsPanel } from './SettingsPanel';
 import { WorkbenchPanels } from './WorkbenchPanels';
+import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
 
 export interface WorkbenchViewContentProps {
   activeView: ActiveView;
@@ -30,6 +31,7 @@ export interface WorkbenchViewContentProps {
   activeRunId?: string | null;
   diagnosticsSearch?: DiagnosticsRouteSearch;
   documents: DocumentSummary[];
+  explorerFilter: WorkbenchExplorerFilter;
   folderDialogError?: string;
   ingestBusy: boolean;
   ingestSearch?: IngestRouteSearch;
@@ -58,6 +60,7 @@ export interface WorkbenchViewContentProps {
   onCancelModel: (modelId: string) => void;
   onDiagnosticsSearchChange: (patch: Partial<DiagnosticsRouteSearch>) => void;
   onDownloadModel: (modelId: string, force?: boolean) => void;
+  onExplorerFilterChange: (filter: WorkbenchExplorerFilter) => void;
   onModelChange: (modelId: string) => void;
   onModelRouteSearchChange: (patch: Partial<ModelRouteSearch>) => void;
   onModelScopeChange: (scope: 'library' | 'downloads') => void;
@@ -70,7 +73,7 @@ export interface WorkbenchViewContentProps {
   onRootPathChange: (value: string) => void;
   onRuntimeChange: (runtimeId: string) => void;
   onSelectModel: (modelId: string) => void;
-  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
   onStart: (options?: { reprocess?: boolean }) => void;
   onStop: (runId?: string) => void;
@@ -163,9 +166,11 @@ export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
     <WorkbenchPanels
       activeRunId={props.activeRunId}
       documents={props.documents}
+      explorerFilter={props.explorerFilter}
       logs={props.logs}
       model={props.model}
       onAutoFollowChange={props.onAutoFollowChange}
+      onExplorerFilterChange={props.onExplorerFilterChange}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
       onResumeRun={props.onResumeRun}

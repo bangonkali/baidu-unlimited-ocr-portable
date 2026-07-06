@@ -20,10 +20,12 @@ import { PreviewPane } from './PreviewPane';
 import { TextPane } from './TextPane';
 import { scopedRegionText } from './traceRegionAnchors';
 import styles from './WorkbenchPage.module.css';
+import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
 
 interface WorkbenchPanelsProps {
   activeRunId?: string | null;
   documents: DocumentSummary[];
+  explorerFilter: WorkbenchExplorerFilter;
   logs: LogRecord[];
   model?: ModelAssetRecord;
   onOpenModels: () => void;
@@ -40,7 +42,8 @@ interface WorkbenchPanelsProps {
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
   onAutoFollowChange: (enabled: boolean) => void;
-  onSelectDocument: (fileHash: string, pageNo?: number) => void;
+  onExplorerFilterChange: (filter: WorkbenchExplorerFilter) => void;
+  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
@@ -69,9 +72,13 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
         >
           <ExplorerTree
             documents={props.documents}
+            filter={props.explorerFilter}
+            onFilterChange={props.onExplorerFilterChange}
             onSelectDocument={props.onSelectDocument}
             rootPath={props.rootPath}
+            runs={props.runs}
             selectedFileHash={props.workbench.selection.fileHash}
+            selectedRunId={props.explorerFilter.runId}
           />
         </Panel>
         <ResizeHandle />

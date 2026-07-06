@@ -280,6 +280,20 @@
       "reason": "fileHash/file_hash values are public document identifiers used for UI routing, not secret tokens."
     },
     {
+      "id": "client-public-document-id-explorer-tree",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/features/workbench/ExplorerTreeData.tsx",
+      "reason": "file_hash and run_id values are public workbench route and run membership identifiers used to group explorer nodes, not secret tokens."
+    },
+    {
+      "id": "client-public-document-id-explorer-filter",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/features/workbench/workbenchExplorerFilter.ts",
+      "reason": "file_hash and run_id values are public run membership identifiers used to choose explorer filter targets, not secret tokens."
+    },
+    {
       "id": "client-public-document-id-workbench-support",
       "rule_id": "SKY-D253",
       "category": "danger",

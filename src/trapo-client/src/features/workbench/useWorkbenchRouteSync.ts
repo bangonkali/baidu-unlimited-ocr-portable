@@ -83,8 +83,11 @@ export function routeSelectionPatchForSync(
   workbenchSearch?: WorkbenchRouteSearch,
   seededFollowScope?: string,
 ) {
-  if (activeView !== 'workbench' || workbenchSearch?.file === undefined) {
+  if (activeView !== 'workbench') {
     return undefined;
+  }
+  if (workbenchSearch?.file === undefined) {
+    return runOnlySelectionPatch(workbench.selection, workbenchSearch);
   }
   const follow = routeAutoFollowValue(activeView, workbenchSearch) === true;
   if (follow && seededFollowScope === followScopeKey(workbenchSearch)) {
@@ -101,6 +104,25 @@ export function routeSelectionPatchForSync(
     routeSelection.regionId !== workbench.selection.regionId ||
     routeSelection.runId !== workbench.selection.runId
     ? routeSelection
+    : undefined;
+}
+
+function runOnlySelectionPatch(
+  selection: Pick<WorkbenchState, 'selection'>['selection'],
+  workbenchSearch?: WorkbenchRouteSearch,
+) {
+  if (workbenchSearch?.run === undefined) {
+    return undefined;
+  }
+  return selection.fileHash !== undefined ||
+    selection.regionId !== undefined ||
+    selection.runId !== workbenchSearch.run
+    ? {
+        fileHash: undefined,
+        pageNo: 1,
+        regionId: undefined,
+        runId: workbenchSearch.run,
+      }
     : undefined;
 }
 

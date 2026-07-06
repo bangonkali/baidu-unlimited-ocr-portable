@@ -75,7 +75,11 @@ export const Explorer: Story = {
     <div className="storyTall">
       <ExplorerTree
         documents={fixtureDocuments}
+        filter={{ runId: fixtureRuns[0]?.run_id, scope: 'run' }}
+        onFilterChange={() => undefined}
         onSelectDocument={() => undefined}
+        runs={fixtureRuns}
+        selectedRunId={fixtureRuns[0]?.run_id}
         selectedFileHash="hash-invoice-014"
       />
     </div>

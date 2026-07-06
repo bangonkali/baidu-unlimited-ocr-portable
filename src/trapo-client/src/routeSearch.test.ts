@@ -39,6 +39,7 @@ describe('route search validators', () => {
         q: 'invoice',
         region: 'r1',
         run: 'run-a',
+        run_scope: 'all',
       }),
     ).toEqual({
       file: 'abc',
@@ -49,13 +50,16 @@ describe('route search validators', () => {
       q: 'invoice',
       region: 'r1',
       run: 'run-a',
+      run_scope: 'all',
     });
     expect(validateWorkbenchSearch({ page: '-2' }).page).toBeUndefined();
+    expect(validateWorkbenchSearch({ run_scope: 'current' }).run_scope).toBeUndefined();
     expect(
       validateWorkbenchSearch({
         file_hash: 'legacy-hash',
         page_no: '2',
         region_id: 'legacy-region',
+        runScope: 'all',
         run_id: 'legacy-run',
       }),
     ).toMatchObject({
@@ -63,6 +67,7 @@ describe('route search validators', () => {
       page: 2,
       region: 'legacy-region',
       run: 'legacy-run',
+      run_scope: 'all',
     });
   });
 

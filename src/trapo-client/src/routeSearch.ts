@@ -11,6 +11,7 @@ export interface WorkbenchRouteSearch {
   q?: string;
   region?: string;
   run?: string;
+  run_scope?: 'all';
 }
 
 export type ModelViewMode = 'grid' | 'cards';
@@ -85,6 +86,7 @@ export function validateWorkbenchSearch(search: Record<string, unknown>): Workbe
     q: stringValue(search.q),
     region: stringValue(search.region) ?? stringValue(search.region_id),
     run: stringValue(search.run) ?? stringValue(search.run_id),
+    run_scope: runScopeValue(search.run_scope) ?? runScopeValue(search.runScope),
   };
 }
 
@@ -186,4 +188,8 @@ function modelSortValue(value: unknown): ModelSortKey | undefined {
 
 function downloadStatusValue(value: unknown): DownloadStatusFilter | undefined {
   return value === 'active' || value === 'queued' || value === 'all' ? value : undefined;
+}
+
+function runScopeValue(value: unknown): 'all' | undefined {
+  return value === 'all' ? value : undefined;
 }

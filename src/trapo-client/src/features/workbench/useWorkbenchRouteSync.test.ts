@@ -157,6 +157,24 @@ describe('routeSelectionPatchForSync', () => {
       runId: 'run-new',
     });
   });
+
+  test('clears stale file focus for run-only workbench routes', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 4,
+        regionId: 'old-region',
+        runId: 'run-old',
+      },
+    });
+
+    expect(routeSelectionPatchForSync('workbench', state, { run: 'run-archive' })).toEqual({
+      fileHash: undefined,
+      pageNo: 1,
+      regionId: undefined,
+      runId: 'run-archive',
+    });
+  });
 });
 
 describe('routeSearchFromSelection', () => {
@@ -176,6 +194,18 @@ describe('routeSearchFromSelection', () => {
       page: 2,
       run: 'run-a',
     });
+  });
+
+  test('keeps all-runs explorer scope in route search', () => {
+    const state = workbenchState({ autoFollowRegions: false });
+    expect(routeSearchFromSelection(state, state.selection, '', { runScope: 'all' })).toMatchObject(
+      {
+        file: 'hash-doc',
+        page: 2,
+        run: 'run-a',
+        run_scope: 'all',
+      },
+    );
   });
 });
 

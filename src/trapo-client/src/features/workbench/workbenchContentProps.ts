@@ -20,6 +20,7 @@ import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore'
 import { clearFolderDialogError, setSelectedRoot, setTheme } from '../../stores/workbenchStore';
 import type { useWorkbenchCommands } from './useWorkbenchCommands';
 import type { WorkbenchViewContentProps } from './WorkbenchViewContent';
+import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
 
 interface ModelDownloadInput {
   force?: boolean;
@@ -37,12 +38,13 @@ export interface WorkbenchContentActions {
   changeProfile: (profileId: string) => void;
   commandController: ReturnType<typeof useWorkbenchCommands>;
   downloadModel: MutationLike<ModelDownloadInput>;
+  changeExplorerFilter: (filter: WorkbenchExplorerFilter) => void;
   ingestBusy: boolean;
   modelBusy: boolean;
   pickFolder: () => void;
   resumeRun: (runId: string) => void;
   restartRun: (run: IngestRunRecord) => void;
-  selectDocument: (fileHash: string, pageNo?: number) => void;
+  selectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
   selectModel: MutationLike<string>;
   selectRegion: (pageNo: number, regionId: string) => void;
   settingsBusy: boolean;
@@ -82,6 +84,7 @@ export function buildContentProps(args: {
   activeRun?: IngestRunRecord;
   activeRunId?: string | null;
   data: WorkbenchViewData;
+  explorerFilter: WorkbenchExplorerFilter;
   route: WorkbenchContentRoute;
   workbench: ReturnType<typeof useWorkbenchState>;
 }): WorkbenchViewContentProps {
@@ -91,6 +94,7 @@ export function buildContentProps(args: {
     activeRunId: args.activeRunId,
     activeView: args.route.activeView,
     diagnosticsSearch: args.route.diagnosticsSearch,
+    explorerFilter: args.explorerFilter,
     folderDialogError: args.workbench.folderDialogError,
     ingestBusy: args.actions.ingestBusy,
     ingestSearch: args.route.ingestSearch,
@@ -102,6 +106,7 @@ export function buildContentProps(args: {
     onCancelModel: (modelId) => args.actions.cancelModelDownload.mutate(modelId),
     onDiagnosticsSearchChange: args.actions.commandController.updateDiagnosticsRouteSearch,
     onDownloadModel: (modelId, force) => args.actions.downloadModel.mutate({ force, modelId }),
+    onExplorerFilterChange: args.actions.changeExplorerFilter,
     onModelChange: (modelId) => args.actions.selectModel.mutate(modelId),
     onModelRouteSearchChange: args.actions.updateModelRouteSearch,
     onModelScopeChange: args.actions.changeModelScope,

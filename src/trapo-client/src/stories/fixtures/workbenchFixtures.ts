@@ -77,6 +77,7 @@ export const fixtureRuns: IngestRunRecord[] = [
     queued_files: 18,
     root_path: 'C:\\data\\incoming',
     run_id: 'run-20260629-01',
+    file_hashes: ['hash-invoice-014', 'hash-shipping-form'],
     status: 'running',
     total_pages: 43,
   },

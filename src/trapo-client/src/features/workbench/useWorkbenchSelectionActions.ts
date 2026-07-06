@@ -21,12 +21,14 @@ interface WorkbenchSelectionValue {
 
 interface UseWorkbenchSelectionActionsArgs {
   navigate: ReturnType<typeof useNavigate>;
+  runScope?: 'all';
   searchText: string;
   workbench: WorkbenchState;
 }
 
 export function useWorkbenchSelectionActions({
   navigate,
+  runScope,
   searchText,
   workbench,
 }: UseWorkbenchSelectionActionsArgs) {
@@ -40,11 +42,12 @@ export function useWorkbenchSelectionActions({
             { ...workbench, autoFollowRegions: enabled },
             workbench.selection,
             searchText,
+            { runScope },
           ),
         to: '/workbench',
       });
     },
-    [navigate, searchText, workbench],
+    [navigate, runScope, searchText, workbench],
   );
 
   const selectWorkbenchTarget = useCallback(
@@ -59,16 +62,17 @@ export function useWorkbenchSelectionActions({
             { ...workbench, autoFollowRegions: false },
             nextSelection,
             searchText,
+            { runScope },
           ),
         to: '/workbench',
       });
     },
-    [navigate, searchText, workbench],
+    [navigate, runScope, searchText, workbench],
   );
 
   const selectDocument = useCallback(
-    (fileHash: string, pageNo = 1) =>
-      selectWorkbenchTarget({ fileHash, pageNo, regionId: undefined }),
+    (fileHash: string, pageNo = 1, runId?: string) =>
+      selectWorkbenchTarget({ fileHash, pageNo, regionId: undefined, runId }),
     [selectWorkbenchTarget],
   );
 
@@ -101,6 +105,7 @@ export function routeSearchFromSelection(
   state: WorkbenchState,
   selection: WorkbenchSelectionValue,
   searchText: string,
+  options: { runScope?: 'all' } = {},
 ): WorkbenchRouteSearch {
   return {
     file: selection.fileHash,
@@ -110,6 +115,7 @@ export function routeSearchFromSelection(
     page: selection.fileHash ? selection.pageNo : undefined,
     q: searchText.trim() || undefined,
     region: selection.regionId,
-    run: selection.fileHash ? selection.runId : undefined,
+    run: selection.runId,
+    run_scope: options.runScope === 'all' ? 'all' : undefined,
   };
 }

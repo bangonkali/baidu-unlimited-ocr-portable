@@ -2,18 +2,25 @@ import type { useNavigate } from '@tanstack/react-router';
 
 import type { ModelAssetRecord } from '../../api/types';
 import type { useWorkbenchState } from '../../stores/workbenchStore';
+import { setAutoFollowRegions, setSelection } from '../../stores/workbenchStore';
 import { useDownloadModelWithPane } from './downloadsPaneContext';
 import { useModelRouteActions } from './useModelRouteActions';
 import { useWorkbenchCommands } from './useWorkbenchCommands';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
 import type { useWorkbenchData, WorkbenchPageProps } from './useWorkbenchPageController';
-import { useWorkbenchSelectionActions } from './useWorkbenchSelectionActions';
+import {
+  routeSearchFromSelection,
+  useWorkbenchSelectionActions,
+} from './useWorkbenchSelectionActions';
 import { usePersistentProfile } from './WorkbenchPageSupport';
 import type { WorkbenchContentActions } from './workbenchContentProps';
+import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
+import { firstDocumentForRun, latestRunIdFromRuns } from './workbenchExplorerFilter';
 
 interface WorkbenchActionArgs {
   activeRunId: string | null;
   data: ReturnType<typeof useWorkbenchData>;
+  explorerFilter: WorkbenchExplorerFilter;
   model?: ModelAssetRecord;
   modelScope: 'library' | 'downloads';
   navigate: ReturnType<typeof useNavigate>;
@@ -47,6 +54,7 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
   );
   const selectionActions = useWorkbenchSelectionActions({
     navigate: args.navigate,
+    runScope: args.explorerFilter.scope === 'all' ? 'all' : undefined,
     searchText: args.searchText,
     workbench: args.workbench,
   });
@@ -67,6 +75,7 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
     ...modelRouteActions,
     ...selectionActions,
     cancelModelDownload: args.data.cancelModelDownload,
+    changeExplorerFilter: (filter) => changeExplorerFilter(args, filter),
     changeProfile,
     commandController,
     downloadModel,
@@ -99,4 +108,33 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
     updateRuntime: (runtimeId: string) =>
       args.data.updateSettings.mutate({ selected_runtime_id: runtimeId }),
   };
+}
+
+function changeExplorerFilter(args: WorkbenchActionArgs, filter: WorkbenchExplorerFilter) {
+  const runs = args.data.runs.data?.runs ?? [];
+  const documents = args.data.documents.data?.documents ?? [];
+  const runId =
+    filter.scope === 'run'
+      ? filter.runId
+      : (args.explorerFilter.runId ?? latestRunIdFromRuns(runs));
+  const firstDocument = firstDocumentForRun(documents, runs, runId);
+  const nextSelection = {
+    fileHash: firstDocument?.file_hash,
+    pageNo: firstDocument?.current_page ?? 1,
+    regionId: undefined,
+    runId,
+  };
+  setAutoFollowRegions(false);
+  setSelection(nextSelection);
+  void args.navigate({
+    replace: true,
+    search: () =>
+      routeSearchFromSelection(
+        { ...args.workbench, autoFollowRegions: false },
+        nextSelection,
+        args.searchText,
+        { runScope: filter.scope === 'all' ? 'all' : undefined },
+      ),
+    to: '/workbench',
+  });
 }

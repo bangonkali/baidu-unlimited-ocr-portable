@@ -55,6 +55,7 @@ import {
 } from './WorkbenchPageSupport';
 import type { WorkbenchViewData } from './workbenchContentProps';
 import { buildContentProps } from './workbenchContentProps';
+import { explorerFilterFromSearch, latestRunIdFromRuns } from './workbenchExplorerFilter';
 import { activeRunIdFromRuns, isActiveDocumentStatus, routeSearchText } from './workbenchRunState';
 
 export interface WorkbenchPageProps {
@@ -79,11 +80,15 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const data = useWorkbenchData(
     workbench.selection.fileHash,
-    workbench.selection.runId,
+    props.workbenchSearch?.run,
     debouncedSearch,
   );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
+  const explorerFilter = explorerFilterFromSearch(
+    props.workbenchSearch,
+    data.runs.data?.runs ?? [],
+  );
   useIngestRoutePrefill(activeView, props.ingestSearch);
   const selectedProfile = props.ingestSearch?.profile ?? workbench.selectedProfile;
   const model = selectedModel(data.models.data, props.ingestSearch?.model);
@@ -96,7 +101,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     fileHash: workbench.selection.fileHash,
     pageNo: workbench.selection.pageNo,
     queryClient,
-    runId: workbench.selection.runId,
+    runId: data.documentRunId,
   });
 
   useThemeSync(workbench.theme);
@@ -135,6 +140,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     searchText,
     setSearchText,
     workbench,
+    explorerFilter,
   });
 
   return {
@@ -145,6 +151,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
       activeRun,
       activeRunId,
       data: viewData(data, model, profiles, selectedDocument),
+      explorerFilter,
       route: {
         activeView,
         diagnosticsSearch: props.diagnosticsSearch,
@@ -172,6 +179,8 @@ export function useWorkbenchData(
   runId: string | undefined,
   debouncedSearch: string,
 ) {
+  const runs = useIngestRuns();
+  const documentRunId = runId ?? latestRunIdFromRuns(runs.data?.runs);
   return {
     cancelModelDownload: useCancelModelDownload(),
     documents: useDocuments(debouncedSearch),
@@ -180,15 +189,16 @@ export function useWorkbenchData(
     logs: useLogs(220),
     models: useModels(),
     previewImages: useDocumentPreviewImages(fileHash),
-    regions: useDocumentRegions(fileHash, runId),
+    documentRunId,
+    regions: useDocumentRegions(fileHash, documentRunId),
     resumeRun: useResumeRun(),
-    runs: useIngestRuns(),
+    runs,
     selectModel: useSelectModel(),
     settings: useSettings(),
     startIngest: useStartIngest(),
     status: useStatus(),
     stopRun: useRunCommand('stop'),
-    text: useDocumentText(fileHash, runId),
+    text: useDocumentText(fileHash, documentRunId),
     updateSettings: useUpdateSettings(),
   };
 }
