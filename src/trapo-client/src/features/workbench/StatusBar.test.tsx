@@ -39,6 +39,19 @@ describe('StatusBar shutdown controls', () => {
     expect(css).toContain('--status-hover');
   });
 
+  test('keeps status bar icon controls borderless by default', () => {
+    const statusBarCss = readFileSync(new URL('./StatusBar.module.css', import.meta.url), 'utf8');
+    const notificationsCss = readFileSync(
+      new URL('./NotificationBell.module.css', import.meta.url),
+      'utf8',
+    );
+
+    expect(statusBarCss).not.toContain('border: 1px solid var(--status-border)');
+    expect(notificationsCss).not.toContain('border: 1px solid var(--status-border)');
+    expect(statusBarCss.match(/border: 0;/g)).toHaveLength(2);
+    expect(notificationsCss).toContain('border: 0;');
+  });
+
   test('renders the offline page copy', () => {
     const html = renderToString(
       <ServiceOfflinePage
