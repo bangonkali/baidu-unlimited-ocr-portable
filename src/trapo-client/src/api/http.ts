@@ -18,6 +18,12 @@ export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> 
   return response.json() as Promise<T>;
 }
 
+export async function getText(url: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(toApiPath(url), { signal }); // skylos: ignore[SKY-D216] toApiPath only allows same-origin /api/ paths.
+  await assertOk(response);
+  return response.text();
+}
+
 export async function postJson<TResponse, TBody>(
   url: string,
   body: TBody,

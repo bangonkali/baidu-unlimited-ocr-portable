@@ -392,6 +392,13 @@
       "reason": "The log file is opened under the app log root configured during local server startup."
     },
     {
+      "id": "server-log-root-path",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/logger/**",
+      "reason": "The log and raw stdio capture files are opened under the app log root configured during local server startup."
+    },
+    {
       "id": "server-duckdb-configured-data-path",
       "rule_id": "SKY-D215",
       "category": "danger",

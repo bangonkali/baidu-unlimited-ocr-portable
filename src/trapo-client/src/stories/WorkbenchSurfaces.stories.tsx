@@ -51,6 +51,8 @@ export const Ingest: Story = {
         activeRun={fixtureRuns[0]}
         model={fixtureModels.models[0]}
         models={fixtureModels}
+        onCancelModel={() => undefined}
+        onDownloadModel={() => undefined}
         onModelChange={() => undefined}
         onPickFolder={() => undefined}
         onGenerateEmbedding={() => undefined}

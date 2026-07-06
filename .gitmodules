@@ -32,3 +32,6 @@
 [submodule "thirdparty/deadpool"]
 	path = thirdparty/deadpool
 	url = git@github.com:deadpool-rs/deadpool.git
+[submodule "thirdparty/rig"]
+	path = thirdparty/rig
+	url = git@github.com:0xPlaygrounds/rig.git

@@ -46,6 +46,9 @@ pub(crate) struct DiagnosticSpanRecord {
     pub(crate) span_id: String,
     pub(crate) trace_id: String,
     pub(crate) parent_span_id: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) work_unit_id: Option<String>,
+    pub(crate) span_kind: String,
     pub(crate) run_id: Option<String>,
     pub(crate) file_hash: Option<String>,
     pub(crate) page_no: Option<u32>,
@@ -98,6 +101,58 @@ pub(crate) struct DiagnosticTracePayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DiagnosticWaterfallRowRecord {
+    pub(crate) row_id: String,
+    pub(crate) trace_id: String,
+    pub(crate) parent_row_id: Option<String>,
+    pub(crate) span_id: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) work_unit_id: Option<String>,
+    pub(crate) run_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) filename: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) label: String,
+    pub(crate) row_source: String,
+    pub(crate) pipeline_step: String,
+    pub(crate) category: String,
+    pub(crate) span_kind: String,
+    pub(crate) status: String,
+    pub(crate) started_at: Option<String>,
+    pub(crate) ended_at: Option<String>,
+    pub(crate) duration_ms: f64,
+    pub(crate) start_ms: Option<f64>,
+    pub(crate) end_ms: Option<f64>,
+    pub(crate) visual_start_ms: Option<f64>,
+    pub(crate) visual_end_ms: Option<f64>,
+    pub(crate) visual_duration_ms: f64,
+    pub(crate) depth: u32,
+    pub(crate) child_count: u32,
+    pub(crate) sort_index: u32,
+    #[schema(value_type = Object)]
+    pub(crate) attributes: Value,
+    pub(crate) error_type: Option<String>,
+    pub(crate) error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DiagnosticWaterfallSummary {
+    pub(crate) run_id: Option<String>,
+    pub(crate) row_count: u32,
+    pub(crate) trace_count: u32,
+    pub(crate) error_count: u32,
+    pub(crate) start_ms: Option<f64>,
+    pub(crate) end_ms: Option<f64>,
+    pub(crate) duration_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DiagnosticWaterfallPayload {
+    pub(crate) summary: DiagnosticWaterfallSummary,
+    pub(crate) rows: Vec<DiagnosticWaterfallRowRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct DiagnosticWorkUnitRecord {
     pub(crate) work_unit_id: String,
     pub(crate) run_id: String,
@@ -115,6 +170,7 @@ pub(crate) struct DiagnosticWorkUnitRecord {
     pub(crate) artifact_variant: Option<String>,
     pub(crate) status: String,
     pub(crate) attempt_count: u32,
+    pub(crate) queued_at: String,
     pub(crate) started_at: Option<String>,
     pub(crate) finished_at: Option<String>,
     pub(crate) duration_ms: Option<f64>,

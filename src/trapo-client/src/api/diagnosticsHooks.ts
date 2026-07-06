@@ -8,6 +8,7 @@ import type {
   DiagnosticProgressPayload,
   DiagnosticRunsPayload,
   DiagnosticTracePayload,
+  DiagnosticWaterfallPayload,
   OcrReplayPayload,
 } from './types';
 
@@ -57,6 +58,28 @@ export function useDiagnosticTrace(params: {
     queryFn: ({ signal }) =>
       getJson<DiagnosticTracePayload>(buildApiUrl('/api/diagnostics/trace', params), signal),
     queryKey: queryKeys.diagnosticTrace(params),
+  });
+}
+
+export function useDiagnosticWaterfall(params: {
+  run_id?: string;
+  file_hash?: string;
+  page_no?: number;
+  status?: string;
+  q?: string;
+  limit?: number;
+  refetchInterval?: number | false;
+}) {
+  const { refetchInterval, ...query } = params;
+  return useQuery({
+    placeholderData: {
+      rows: [],
+      summary: { duration_ms: 0, error_count: 0, row_count: 0, trace_count: 0 },
+    },
+    queryFn: ({ signal }) =>
+      getJson<DiagnosticWaterfallPayload>(buildApiUrl('/api/diagnostics/waterfall', query), signal),
+    queryKey: queryKeys.diagnosticWaterfall(query),
+    refetchInterval,
   });
 }
 

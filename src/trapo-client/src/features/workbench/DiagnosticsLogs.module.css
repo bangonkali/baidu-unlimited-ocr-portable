@@ -1,0 +1,89 @@
+.logStack {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.logToolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--subtle-border);
+  font-size: 12px;
+}
+
+.logCopyButton {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.logCopyButton:hover {
+  background: var(--panel-3);
+}
+
+.logHeader,
+.logRow {
+  display: grid;
+  grid-template-columns: 16px 132px 72px 108px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.logHeader {
+  padding: 0 10px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--subtle-border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.logHeader span:first-child {
+  grid-column: 2;
+}
+
+.logRow {
+  width: 100%;
+  padding: 0 10px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--subtle-border);
+  font-size: 12px;
+}
+
+.logRow:hover {
+  background: var(--panel-3);
+}
+
+.logRow time,
+.logRow small,
+.logRow span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logRow time {
+  color: var(--subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.logRow strong {
+  color: var(--muted);
+  font-size: 11px;
+}

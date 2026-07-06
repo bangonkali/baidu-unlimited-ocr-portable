@@ -27,6 +27,7 @@ export {
   useDiagnosticProgress,
   useDiagnosticRuns,
   useDiagnosticTrace,
+  useDiagnosticWaterfall,
   useOcrReplay,
 } from './diagnosticsHooks';
 export {

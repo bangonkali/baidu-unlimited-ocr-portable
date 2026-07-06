@@ -84,7 +84,8 @@ impl AppState {
                 model: input.model_id,
                 profile: input.profile_id,
                 metadata: metadata.clone(),
-            });
+            })
+            .await;
         }
         self.inner
             .repository

@@ -16,6 +16,9 @@ impl DiagnosticSpanScope {
 
 struct SpanFinish<'a> {
     run_id: &'a str,
+    task_id: Option<&'a str>,
+    work_unit_id: Option<&'a str>,
+    parent_span_id: Option<&'a str>,
     file_hash: Option<&'a str>,
     page_no: Option<u32>,
     name: &'a str,
@@ -44,7 +47,10 @@ impl AppState {
         let span = DiagnosticSpanInsert {
             span_id: scope.span_id,
             trace_id: finish.run_id.to_string(),
-            parent_span_id: None,
+            parent_span_id: finish.parent_span_id.map(ToString::to_string),
+            task_id: finish.task_id.map(ToString::to_string),
+            work_unit_id: finish.work_unit_id.map(ToString::to_string),
+            span_kind: finish.category.to_string(),
             run_id: Some(finish.run_id.to_string()),
             file_hash: finish.file_hash.map(ToString::to_string),
             page_no: finish.page_no,
@@ -98,10 +104,9 @@ impl AppState {
         });
     }
 
-    fn upsert_diagnostic_work_unit(&self, draft: DiagnosticWorkUnitDraft<'_>) -> String {
+    async fn upsert_diagnostic_work_unit(&self, draft: DiagnosticWorkUnitDraft<'_>) -> String {
         let work_key =
             diagnostic_work_key(draft.run_id, draft.file_hash, draft.page_no, draft.phase);
-        let repository = self.inner.repository.clone();
         let unit = WorkUnitUpsert {
             work_unit_id: new_persistence_id(),
             run_id: draft.run_id.to_string(),
@@ -117,26 +122,19 @@ impl AppState {
             artifact_variant: None,
             metadata: draft.metadata,
         };
-        self.spawn_background(async move {
-            if let Err(error) = repository.upsert_work_unit(&unit).await {
-                tracing::warn!(%error, "failed to persist diagnostic work unit");
-            }
-        });
+        if let Err(error) = self.inner.repository.upsert_work_unit(&unit).await {
+            tracing::warn!(%error, "failed to persist diagnostic work unit");
+        }
         work_key
     }
 
-    fn start_diagnostic_work_unit(&self, run_id: &str, work_key: &str) {
-        let repository = self.inner.repository.clone();
-        let run_id = run_id.to_string();
-        let work_key = work_key.to_string();
-        self.spawn_background(async move {
-            if let Err(error) = repository.start_work_unit(&run_id, &work_key).await {
-                tracing::warn!(%error, "failed to mark diagnostic work unit started");
-            }
-        });
+    async fn start_diagnostic_work_unit(&self, run_id: &str, work_key: &str) {
+        if let Err(error) = self.inner.repository.start_work_unit(run_id, work_key).await {
+            tracing::warn!(%error, "failed to mark diagnostic work unit started");
+        }
     }
 
-    fn finish_diagnostic_work_unit(
+    async fn finish_diagnostic_work_unit(
         &self,
         run_id: &str,
         work_key: &str,
@@ -144,19 +142,14 @@ impl AppState {
         error: Option<&str>,
         result: Value,
     ) {
-        let repository = self.inner.repository.clone();
-        let run_id = run_id.to_string();
-        let work_key = work_key.to_string();
-        let status = status.to_string();
-        let error = error.map(str::to_string);
-        self.spawn_background(async move {
-            if let Err(error) = repository
-                .finish_work_unit(&run_id, &work_key, &status, &result, error.as_deref())
-                .await
-            {
-                tracing::warn!(%error, "failed to mark diagnostic work unit finished");
-            }
-        });
+        if let Err(error) = self
+            .inner
+            .repository
+            .finish_work_unit(run_id, work_key, status, &result, error)
+            .await
+        {
+            tracing::warn!(%error, "failed to mark diagnostic work unit finished");
+        }
     }
 
     fn record_model_lease(&self, lease: ModelLeaseDiagnostic<'_>, scope: &DiagnosticSpanScope) {

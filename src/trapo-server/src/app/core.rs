@@ -132,6 +132,10 @@ impl AppState {
         self.inner.logger.recent(limit)
     }
 
+    pub(crate) fn export_logs_plain(&self) -> String {
+        self.inner.logger.export_plain()
+    }
+
     pub(crate) async fn folder_dialog(&self) -> FolderDialogResponse {
         crate::folder_dialog::open_folder_dialog().await
     }

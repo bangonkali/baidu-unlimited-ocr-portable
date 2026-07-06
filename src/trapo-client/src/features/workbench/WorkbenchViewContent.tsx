@@ -169,6 +169,8 @@ function renderIngestView(props: WorkbenchViewContentProps) {
       ingestSearch={props.ingestSearch}
       model={props.model}
       models={props.models}
+      onCancelModel={props.onCancelModel}
+      onDownloadModel={props.onDownloadModel}
       onModelChange={props.onModelChange}
       onPickFolder={props.onPickFolder}
       onProfileChange={props.onProfileChange}

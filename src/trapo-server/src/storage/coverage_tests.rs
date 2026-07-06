@@ -179,17 +179,31 @@ mod coverage_tests {
         .await?;
         repo.finish_work_unit("missing", "missing", "completed", &json!({}), None)
             .await?;
+        let missed_start_unit = work_unit("run-d", "file-d", 2);
+        repo.upsert_work_unit(&missed_start_unit).await?;
+        repo.finish_work_unit(
+            "run-d",
+            "file-d:2:ocr",
+            "completed",
+            &json!({"pages": 1}),
+            None,
+        )
+        .await?;
         repo.insert_diagnostic_span(&span("span-ok", "run-d", "file-d", 1, "ok", None))
             .await?;
-        repo.insert_diagnostic_span(&span(
+        let mut error_span = span(
             "span-error",
             "run-d",
             "file-d",
             2,
             "error",
             Some("decode failed"),
-        ))
-        .await?;
+        );
+        error_span.parent_span_id = Some("span-ok".to_string());
+        error_span.task_id = Some(new_persistence_id());
+        error_span.work_unit_id = Some(unit.work_unit_id);
+        error_span.span_kind = "ocr_page".to_string();
+        repo.insert_diagnostic_span(&error_span).await?;
         repo.insert_diagnostic_event(&diagnostic_event("event-d", "run-d", "file-d", 2))
             .await?;
         repo.insert_model_lease(&DiagnosticModelLeaseInsert {
@@ -227,6 +241,10 @@ mod coverage_tests {
             .await?;
         assert_eq!(spans.len(), 1);
         assert_eq!(events.len(), 1);
+        assert_eq!(spans[0].parent_span_id.as_deref(), Some("span-ok"));
+        assert!(is_uuid_v7(spans[0].task_id.as_deref().unwrap_or_default()));
+        assert!(is_uuid_v7(spans[0].work_unit_id.as_deref().unwrap_or_default()));
+        assert_eq!(spans[0].span_kind, "ocr_page");
         let (spans, events) = repo
             .diagnostic_trace(&DiagnosticTraceFilter {
                 run_id: Some("run-d"),
@@ -243,6 +261,16 @@ mod coverage_tests {
             repo.diagnostic_work_units(Some("run-d"), 0).await?[0].status,
             "completed"
         );
+        let work_units = repo.diagnostic_work_units(Some("run-d"), 10).await?;
+        let Some(missed_start) = work_units
+            .iter()
+            .find(|unit| unit.work_key == "file-d:2:ocr") else {
+                return Err(AppError::Internal(
+                    "missed-start work unit should be listed".to_string(),
+                ));
+            };
+        assert!(missed_start.started_at.is_some());
+        assert!(missed_start.duration_ms.is_some());
         assert!(
             repo.diagnostic_work_units(Some("missing"), 10)
                 .await?

@@ -5,8 +5,14 @@ import type {
   ModelsPayload,
   OverlayBox,
   PageTextRecord,
-  SettingsPayload,
 } from '../../api/types';
+import {
+  fixtureDownloadedEmbeddingModel,
+  fixtureNomicEmbeddingModel,
+} from './workbenchModelFixtures';
+
+export { fixtureSettings } from './workbenchSettingsFixtures';
+export { fixtureDownloadedEmbeddingModel };
 
 export const fixtureDocuments: DocumentSummary[] = [
   {
@@ -186,6 +192,7 @@ export const fixtureModels: ModelsPayload = {
       total_file_count: 2,
       total_required_bytes: 2_044_024_672,
     },
+    fixtureNomicEmbeddingModel,
   ],
   profiles: [
     {
@@ -246,55 +253,4 @@ export const fixtureDownloadingModels: ModelsPayload = {
       status_message: 'Downloading Unlimited-OCR-Q4_K_M.gguf',
     },
   ],
-};
-
-export const fixtureSettings: SettingsPayload = {
-  cache_path: 'C:\\trapo\\cache',
-  database_path: 'C:\\trapo\\data\\trapo.duckdb',
-  default_profile: 'experimental-exact-prefill-q4',
-  download_concurrency: 4,
-  ocr_concurrency: 1,
-  pdf_dpi: 200,
-  retry_profile: 'best-zero-empty-q4',
-  runtime_variants: [
-    {
-      accelerator: 'cuda',
-      backend: 'cuda',
-      hardware_supported: true,
-      installed: true,
-      label: 'Windows x64 CUDA 13',
-      platform: 'windows-x86_64-cuda13',
-      runtime_id: 'windows-x86_64-cuda13',
-      selectable: true,
-      selected: true,
-      support_detail: 'NVIDIA CUDA probe found',
-    },
-    {
-      accelerator: 'rocm',
-      backend: 'rocm',
-      hardware_supported: false,
-      installed: false,
-      label: 'Windows x64 AMD ROCm/HIP',
-      platform: 'windows-x86_64-rocm6',
-      runtime_id: 'windows-x86_64-rocm6',
-      selectable: false,
-      selected: false,
-      support_detail: 'rocminfo/hipinfo was not found',
-    },
-    {
-      accelerator: 'cpu',
-      backend: 'cpu',
-      hardware_supported: true,
-      installed: true,
-      label: 'Windows x64 CPU',
-      platform: 'windows-x86_64-cpu',
-      runtime_id: 'windows-x86_64-cpu',
-      selectable: true,
-      selected: false,
-      support_detail: 'CPU inference is available',
-    },
-  ],
-  selected_accelerator: 'cuda',
-  selected_model_id: 'unlimited-ocr-q4-k-m',
-  selected_runtime_id: 'windows-x86_64-cuda13',
 };

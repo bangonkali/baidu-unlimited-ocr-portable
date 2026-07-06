@@ -2,7 +2,7 @@
 
 use axum::{
     body::{Body, to_bytes},
-    http::{Request, StatusCode},
+    http::{Request, StatusCode, header},
 };
 use duckdb::params;
 use tower::ServiceExt;
@@ -233,6 +233,8 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/ingest/start",
         "/api/ingest/runs/{run_id}/events",
         "/api/ingest/runs/{run_id}/resume",
+        "/api/diagnostics/waterfall",
+        "/api/logs/export",
         "/api/models/{model_id}/events",
         "/api/documents/{file_hash}/text",
         "/api/documents/{file_hash}/regions",
@@ -268,6 +270,163 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
     assert!(
         value["paths"]["/api/models/{model_id}/cancel"]["post"]["responses"]["202"].is_object()
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn diagnostics_waterfall_route_returns_trace_rows() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    let task_id = Uuid::now_v7().to_string();
+    let work_unit_id = Uuid::now_v7().to_string();
+    let orphan_work_unit_id = Uuid::now_v7().to_string();
+    let root_span_id = Uuid::now_v7().to_string();
+    let page_span_id = Uuid::now_v7().to_string();
+    let render_span_id = Uuid::now_v7().to_string();
+    let ocr_work_unit_id = Uuid::now_v7().to_string();
+    let ocr_span_id = Uuid::now_v7().to_string();
+    let seed = DiagnosticWaterfallSeed {
+        run: &run_id,
+        task: &task_id,
+        work_unit: &work_unit_id,
+        orphan_work_unit: &orphan_work_unit_id,
+        root_span: &root_span_id,
+        page_span: &page_span_id,
+        render_span: &render_span_id,
+        ocr_work_unit: &ocr_work_unit_id,
+        ocr_span: &ocr_span_id,
+    };
+    seed_diagnostic_waterfall_run(&config, &seed)?;
+    let app = build_router(AppState::new(config).await?);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/diagnostics/waterfall?run_id={run_id}"))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let rows = payload["rows"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("waterfall rows missing: {payload}"))?;
+    assert_diagnostic_waterfall_hierarchy(rows, &seed, &payload)?;
+    Ok(())
+}
+
+fn assert_diagnostic_waterfall_hierarchy(
+    rows: &[serde_json::Value],
+    seed: &DiagnosticWaterfallSeed<'_>,
+    payload: &serde_json::Value,
+) -> anyhow::Result<()> {
+    assert!(
+        rows.iter()
+            .any(|row| row["row_id"] == format!("task:{}", seed.task))
+    );
+    let run_root_id = format!("run:{}", seed.run);
+    let ocr_group_id = format!("group:{}:ocr", seed.run);
+    let file_group_id = format!("file-group:{}:file-waterfall:ocr", seed.run);
+    assert!(
+        rows.iter()
+            .any(|row| row["row_id"] == run_root_id && row["row_source"] == "run")
+    );
+    assert!(
+        rows.iter()
+            .any(|row| { row["row_id"] == ocr_group_id && row["parent_row_id"] == run_root_id })
+    );
+    assert!(
+        rows.iter()
+            .any(|row| { row["row_id"] == file_group_id && row["parent_row_id"] == ocr_group_id })
+    );
+    let file_groups = rows
+        .iter()
+        .filter(|row| row["row_id"] == file_group_id)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        file_groups.len(),
+        1,
+        "OCR grouping must not create empty duplicate file groups: {payload}"
+    );
+    let file_group = file_groups[0];
+    assert_eq!(file_group["label"], "trace.pdf");
+    assert_eq!(file_group["filename"], "trace.pdf");
+    assert!(
+        file_group["child_count"].as_u64().unwrap_or_default() > 0,
+        "file group should contain render and OCR spans: {payload}"
+    );
+    assert!(
+        file_group["visual_duration_ms"]
+            .as_f64()
+            .unwrap_or_default()
+            > 0.0,
+        "file group should inherit visual bounds from children: {payload}"
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["pipeline_step"] == "generate_embedding")
+    );
+    assert!(
+        !rows
+            .iter()
+            .any(|row| row["row_id"] == format!("work:{}", seed.work_unit)),
+        "matched work unit should be folded into its diagnostic span: {payload}"
+    );
+    assert!(
+        rows.iter().any(|row| {
+            row["row_id"] == format!("work:{}", seed.orphan_work_unit)
+                && row["row_source"] == "work_unit"
+        }),
+        "unmatched work units should remain visible: {payload}"
+    );
+    let page = rows
+        .iter()
+        .find(|row| row["span_id"] == seed.page_span)
+        .ok_or_else(|| anyhow::anyhow!("page span missing: {payload}"))?;
+    assert_eq!(page["parent_row_id"], format!("span:{}", seed.root_span));
+    assert_eq!(page["task_id"], seed.task);
+    assert_eq!(page["work_unit_id"], seed.work_unit);
+    assert_eq!(page["row_source"], "diagnostic_span");
+    assert_eq!(page["span_kind"], "embedding_page");
+    assert_eq!(
+        page["attributes"]["work_unit"]["work_unit_id"],
+        seed.work_unit
+    );
+    let ocr_page = rows
+        .iter()
+        .find(|row| row["span_id"] == seed.ocr_span)
+        .ok_or_else(|| anyhow::anyhow!("ocr page span missing: {payload}"))?;
+    assert_eq!(ocr_page["parent_row_id"], file_group_id);
+    assert!(page["visual_start_ms"].as_f64().is_some());
+    Ok(())
+}
+
+#[tokio::test]
+async fn logs_export_route_returns_plain_text_with_timestamps() -> anyhow::Result<()> {
+    let app = build_router(test_state().await?);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/logs/export")
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[header::CONTENT_TYPE],
+        "text/plain; charset=utf-8"
+    );
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let text = std::str::from_utf8(&body)?;
+    assert!(text.contains("INFO server trapo-server initialized"));
+    assert!(text.lines().all(|line| line.starts_with("20")));
     Ok(())
 }
 
@@ -416,6 +575,179 @@ fn seed_completed_text_run(
          )
          VALUES (?, ?, 1, 'test-engine', 'test-profile', ?, ?, 'completed', 1, 1, '{}'::JSON)",
         params![run_id, file_hash, text, text],
+    )?;
+    Ok(())
+}
+
+struct DiagnosticWaterfallSeed<'a> {
+    run: &'a str,
+    task: &'a str,
+    work_unit: &'a str,
+    orphan_work_unit: &'a str,
+    root_span: &'a str,
+    page_span: &'a str,
+    render_span: &'a str,
+    ocr_work_unit: &'a str,
+    ocr_span: &'a str,
+}
+
+fn seed_diagnostic_waterfall_run(
+    config: &ServerConfig,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
+    let conn = duckdb::Connection::open(&config.database_path)?;
+    seed_diagnostic_waterfall_core(&conn, config, seed)?;
+    seed_diagnostic_waterfall_work_units(&conn, seed)?;
+    seed_diagnostic_waterfall_spans(&conn, seed)?;
+    Ok(())
+}
+
+fn seed_diagnostic_waterfall_core(
+    conn: &duckdb::Connection,
+    config: &ServerConfig,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
+    let root_path = config.app_root.to_string_lossy().to_string();
+    let absolute_path = config
+        .app_root
+        .join("trace.pdf")
+        .to_string_lossy()
+        .to_string();
+    conn.execute(
+        "INSERT INTO ingest_runs(
+            run_id, root_path, status, profile_id, engine_id, queued_files,
+            processed_pages, total_pages, model_id, runtime_id
+         )
+         VALUES (?, ?, 'completed', 'test-profile', 'test-engine', 1, 1, 1, 'test-model', 'test-runtime')",
+        params![seed.run, root_path.as_str()],
+    )?;
+    conn.execute(
+        "INSERT INTO files(file_hash, display_name, extension, size_bytes, page_count, status)
+         VALUES ('file-waterfall', 'trace.pdf', 'pdf', 10, 1, 'completed')",
+        [],
+    )?;
+    conn.execute(
+        "INSERT INTO file_locations(file_hash, root_path, absolute_path, relative_path)
+         VALUES ('file-waterfall', ?, ?, 'trace.pdf')",
+        params![root_path.as_str(), absolute_path.as_str()],
+    )?;
+    conn.execute(
+        "INSERT INTO pipeline_tasks(
+            task_id, task_kind, origin_run_id, status, params_json, result_json,
+            queued_at, started_at, finished_at, runner_id
+         )
+         VALUES (?, 'generate_embedding', ?, 'completed', '{}'::JSON, '{}'::JSON,
+            '2026-07-07T00:00:00Z', '2026-07-07T00:00:01Z',
+            '2026-07-07T00:00:05Z', 'test-runner')",
+        params![seed.task, seed.run],
+    )?;
+    Ok(())
+}
+
+fn seed_diagnostic_waterfall_work_units(
+    conn: &duckdb::Connection,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "INSERT INTO ingest_work_units(
+            work_unit_id, run_id, file_hash, page_no, status, queued_at, started_at, finished_at,
+            work_key, phase, engine, provider, model, profile, execution_key,
+            artifact_variant, attempt_count, duration_ms, result_json, metadata_json
+         )
+         VALUES (?, ?, 'file-waterfall', 1, 'completed',
+            '2026-07-07 00:00:01', '2026-07-07 00:00:02', '2026-07-07 00:00:04',
+            'file-waterfall:1:embedding', 'generate_embedding', 'llama.cpp',
+            'local', 'embedding-gemma-300m', 'default', 'embedding', 'page',
+            1, 2000, '{}'::JSON, '{}'::JSON)",
+        params![seed.work_unit, seed.run],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_work_units(
+            work_unit_id, run_id, file_hash, page_no, status, queued_at, started_at, finished_at,
+            work_key, phase, engine, provider, model, profile, execution_key,
+            artifact_variant, attempt_count, duration_ms, result_json, metadata_json
+         )
+         VALUES (?, ?, 'file-waterfall', 2, 'completed',
+            '2026-07-07 00:00:02', '2026-07-07 00:00:03', '2026-07-07 00:00:04',
+            'file-waterfall:2:embedding', 'generate_embedding', 'llama.cpp',
+            'local', 'embedding-gemma-300m', 'default', 'embedding', 'page',
+            1, 1000, '{}'::JSON, '{}'::JSON)",
+        params![seed.orphan_work_unit, seed.run],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_work_units(
+            work_unit_id, run_id, file_hash, page_no, status, queued_at, started_at, finished_at,
+            work_key, phase, engine, provider, model, profile, execution_key,
+            artifact_variant, attempt_count, duration_ms, result_json, metadata_json
+         )
+         VALUES (?, ?, 'file-waterfall', 3, 'completed',
+            '2026-07-07 00:00:01', '2026-07-07 00:00:02', '2026-07-07 00:00:03',
+            'file-waterfall:3:ocr', 'ocr', 'unlimited-ocr-ffi',
+            'local', 'ocr-model', 'default', 'ocr', 'page',
+            1, 1000, '{}'::JSON, '{}'::JSON)",
+        params![seed.ocr_work_unit, seed.run],
+    )?;
+    Ok(())
+}
+
+fn seed_diagnostic_waterfall_spans(
+    conn: &duckdb::Connection,
+    seed: &DiagnosticWaterfallSeed<'_>,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, NULL, 'Generate embedding', '2026-07-07 00:00:01',
+            '2026-07-07 00:00:05', '{}'::JSON, ?, NULL, NULL,
+            'generate_embedding', 'rag', 'ok', '2026-07-07T00:00:05Z',
+            4000, '{}'::JSON, ?, NULL, 'task')",
+        params![seed.root_span, seed.run, seed.run, seed.task],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, ?, 'Embed page', '2026-07-07 00:00:02',
+            '2026-07-07 00:00:04', '{}'::JSON, ?, 'file-waterfall', 1,
+            'generate_embedding', 'rag', 'ok', '2026-07-07T00:00:04Z',
+            2000, '{}'::JSON, ?, ?, 'embedding_page')",
+        params![
+            seed.page_span,
+            seed.run,
+            seed.root_span,
+            seed.run,
+            seed.task,
+            seed.work_unit
+        ],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, NULL, 'Render document', '2026-07-07 00:00:01',
+            '2026-07-07 00:00:02', '{}'::JSON, ?, 'file-waterfall', NULL,
+            'render', 'file', 'ok', '2026-07-07T00:00:02Z',
+            1000, '{}'::JSON, NULL, NULL, 'file')",
+        params![seed.render_span, seed.run, seed.run],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
+            trace_id, file_hash, page_no, pipeline_step, category, status, ended_at,
+            duration_ms, attributes_json, task_id, work_unit_id, span_kind
+         )
+         VALUES (?, ?, NULL, 'OCR page', '2026-07-07 00:00:02',
+            '2026-07-07 00:00:03', '{}'::JSON, ?, 'file-waterfall', 3,
+            'ocr', 'page', 'ok', '2026-07-07T00:00:03Z',
+            1000, '{}'::JSON, NULL, ?, 'page')",
+        params![seed.ocr_span, seed.run, seed.run, seed.ocr_work_unit],
     )?;
     Ok(())
 }

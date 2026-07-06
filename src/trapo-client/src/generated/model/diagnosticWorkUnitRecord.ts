@@ -36,6 +36,7 @@ export interface DiagnosticWorkUnitRecord {
   /** @nullable */
   profile?: string | null;
   provider: string;
+  queued_at: string;
   result: DiagnosticWorkUnitRecordResult;
   run_id: string;
   /** @nullable */

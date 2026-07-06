@@ -1,4 +1,5 @@
 mod migration_sql;
+mod migration_sql_diagnostics;
 mod migration_sql_downloads;
 mod migrations;
 

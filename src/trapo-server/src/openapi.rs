@@ -22,15 +22,16 @@ use crate::{
         DiagnosticPipelineTaskRecord, DiagnosticProgressPayload, DiagnosticProgressSummary,
         DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
         DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
-        DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail, DocumentRegionsPayload,
-        DocumentSummary, DocumentTextPayload, DocumentsPayload, FolderDialogResponse,
-        GenerateEmbeddingRequest, GenerateEmbeddingResponse, HybridSearchFileResult,
-        HybridSearchHit, HybridSearchRequest, HybridSearchResponse, IngestRunRecord,
-        IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogRecord, LogsPayload,
-        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox, PageTextRecord,
-        PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
-        TextIndexRequest, TextIndexResponse, TextRegionSpan, UsedEmbeddingModelRecord,
-        UsedEmbeddingModelsPayload,
+        DiagnosticTraceSummary, DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord,
+        DiagnosticWaterfallSummary, DiagnosticWorkUnitRecord, DocumentDetail,
+        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
+        FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
+        HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
+        IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogRecord,
+        LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox,
+        PageTextRecord, PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord,
+        RunCompletionManifestRecord, TextIndexRequest, TextIndexResponse, TextRegionSpan,
+        UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -52,6 +53,7 @@ use crate::{
         ocr_events_doc,
         diagnostics_runs_doc,
         diagnostics_trace_doc,
+        diagnostics_waterfall_doc,
         diagnostics_progress_doc,
         diagnostics_analytics_doc,
         diagnostics_models_doc,
@@ -76,7 +78,8 @@ use crate::{
         select_model_doc,
         cancel_model_doc,
         model_events_doc,
-        logs_doc
+        logs_doc,
+        logs_export_doc
     ),
     components(schemas(
         ErrorPayload,
@@ -138,6 +141,9 @@ use crate::{
         DiagnosticEventRecord,
         DiagnosticTraceSummary,
         DiagnosticTracePayload,
+        DiagnosticWaterfallRowRecord,
+        DiagnosticWaterfallSummary,
+        DiagnosticWaterfallPayload,
         DiagnosticWorkUnitRecord,
         DiagnosticModelLeaseRecord,
         DiagnosticPipelineTaskRecord,
@@ -206,6 +212,9 @@ const fn diagnostics_runs_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/trace", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("status" = Option<String>, Query), ("q" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticTracePayload)))]
 const fn diagnostics_trace_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/waterfall", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("status" = Option<String>, Query), ("q" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticWaterfallPayload)))]
+const fn diagnostics_waterfall_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/progress", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticProgressPayload)))]
 const fn diagnostics_progress_doc() {}
@@ -281,3 +290,6 @@ const fn model_events_doc() {}
 
 #[utoipa::path(get, path = "/api/logs/recent", tag = "logs", params(("limit" = Option<u32>, Query)), responses((status = 200, body = LogsPayload)))]
 const fn logs_doc() {}
+
+#[utoipa::path(get, path = "/api/logs/export", tag = "logs", responses((status = 200, description = "Plain text log export", body = String, content_type = "text/plain")))]
+const fn logs_export_doc() {}

@@ -1,4 +1,4 @@
-use super::{migration_sql, migration_sql_downloads};
+use super::{migration_sql, migration_sql_diagnostics, migration_sql_downloads};
 
 pub(super) struct Migration {
     pub id: i32,
@@ -287,5 +287,10 @@ CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_ki
         id: 14,
         name: "download_manager_concurrency",
         sql: migration_sql_downloads::DOWNLOAD_MANAGER_CONCURRENCY,
+    },
+    Migration {
+        id: 15,
+        name: "diagnostic_trace_rendering",
+        sql: migration_sql_diagnostics::DIAGNOSTIC_TRACE_RENDERING,
     },
 ];

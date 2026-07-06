@@ -1,7 +1,7 @@
 # Trapo DuckDB Query Inventory and Test Coverage
 
 Runtime storage query call sites: `91`
-Migration SQL bundles: `14`
+Migration SQL bundles: `15`
 
 This file is the required manifest for DuckDB-backed reads and writes in the
 Trapo server. Any new storage query, API route backed by storage, or migration
@@ -32,8 +32,8 @@ Coverage terms:
 | DB-METRIC-001 | read/write | `upsert_page_metrics`, `list_page_metrics` | Upserts and lists `ocr_page_metrics` by run or globally. | `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing run returns empty. | `limit=0` returns empty; `u64::MAX` saturates to `i64::MAX`. |
 | DB-REPLAY-001 | read/write | `persist_realtime_event`, `persist_realtime_events`, `list_ocr_stream_events` | Inserts OCR page events into `ocr_stream_events`; lists by run, file, page, sequence, and limit. | `persists_and_lists_ocr_stream_events`; `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Non-`ocr.page.*` event is ignored; missing run returns empty. | `limit=0` clamps to one; duplicate sequence is ignored. |
 | DB-DOWNLOAD-001 | read/write | `insert_download_event`, `download_event_count` | Inserts `download_events`, including optional `error_kind`; test helper counts events by download id and type. | `persists_download_lifecycle_events`; `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Duplicate `event_id` is ignored; missing download count is zero. | `total_bytes=NULL` and `error_kind=NULL` are accepted. |
-| DB-DIAG-WORK-001 | read/write | `upsert_work_unit`, `start_work_unit`, `finish_work_unit`, `diagnostic_work_units` | Upserts and transitions `ingest_work_units`; lists work units with file/location joins. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Missing start/finish is a no-op; missing run filter returns empty. | `limit=0` clamps to one. |
-| DB-DIAG-SPAN-001 | read/write | `insert_diagnostic_span`, `diagnostic_trace` | Upserts `ingest_diagnostic_spans`; filters by run, file, page, status, text query, and limit. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | No-match query returns empty. | `limit=0` clamps to one. |
+| DB-DIAG-WORK-001 | read/write | `upsert_work_unit`, `start_work_unit`, `finish_work_unit`, `diagnostic_work_units` | Upserts and transitions `ingest_work_units`; lists work units with queued/start/finish timing and file/location joins. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Missing start/finish is a no-op; missing run filter returns empty. | `finish_work_unit` backfills missing `started_at` from `queued_at`; `limit=0` clamps to one. |
+| DB-DIAG-SPAN-001 | read/write | `insert_diagnostic_span`, `diagnostic_trace` | Upserts `ingest_diagnostic_spans`, including `task_id`, `work_unit_id`, `span_kind`, and trace parent fields for waterfall rendering; filters by run, file, page, status, text query, and limit. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits`; `diagnostics_waterfall_route_returns_trace_rows` | No-match query returns empty; matched work-unit rows are folded into span waterfall attributes instead of duplicated. | `limit=0` clamps to one; missing parent spans render as top-level rows; unmatched work units remain standalone lifecycle rows. |
 | DB-DIAG-EVENT-001 | read/write | `insert_diagnostic_event`, `diagnostic_trace` | Inserts `ingest_diagnostic_events`; filters by run, file, page, query, and limit. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | No-match query returns empty. | `limit=0` clamps to one. |
 | DB-DIAG-LEASE-001 | read/write | `insert_model_lease`, `diagnostic_model_leases` | Upserts `ingest_model_leases` by run and execution key; lists by run. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Missing run filter returns empty. | Duplicate execution key updates the existing lease; `limit=0` clamps to one. |
 | DB-DIAG-RUN-001 | read | `diagnostic_runs` | Aggregates `ingest_runs` with diagnostic spans for duration, span counts, errors, files, and pages. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Empty DB returns empty through API smoke coverage. | `limit=0` clamps to one. |
@@ -54,6 +54,7 @@ Coverage terms:
 | DB-MIG-006 | read/write | `migrate` | Adds run scope to `document_regions` and `document_text_region_links`, creates `document_run_page_ocr`, backfills run-scoped OCR rows from metrics or annotation identities, and indexes run/file/page reads. | `run_scoped_document_reads_do_not_mix_ocr_outputs` | Missing run reads return empty. | Existing file-level OCR rows remain available as compatibility cache while new rows are run-scoped. |
 | DB-MIG-007 | write | `migrate` | Creates `ingest_run_completion_manifests` and its `completed_at` index for restart-prefill manifests. | `reloads_completion_manifest_and_completed_run_pages` | Fresh databases with no manifests load an empty manifest list. | Migration is idempotent through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
 | DB-MIG-008 | write | `migrate` | Adds OCR category columns and creates RAG pipeline task, embedding model, text segment, text index, FTS snapshot, embedding run, and fixed-dimension vector tables. | `pipeline_task_allows_only_one_active_task`; `embedding_models_and_used_models_round_trip`; `text_segments_index_and_fts_search_round_trip`; `embedding_vectors_and_vss_search_round_trip` | Existing OCR labels backfill categories without changing cleaned text. | Migration is idempotent and vector dimensions are predeclared for supported embedding families. |
+| DB-MIG-009 | write | `migrate` | Adds trace-rendering columns and indexes to `ingest_diagnostic_spans` for task/page waterfall rows. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits`; `diagnostics_waterfall_route_returns_trace_rows` | Existing rows without explicit span kind fall back to category or `operation`. | Migration is idempotent through `ADD COLUMN IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
 
 ## API Routes Covered By DB Tests
 
@@ -64,6 +65,7 @@ Routes are listed here so route additions cannot bypass the query manifest:
 `/api/ingest/runs/{run_id}/stop`, `/api/ingest/runs/{run_id}/resume`,
 `/api/ingest/runs/{run_id}/events`,
 `/api/ocr/events`, `/api/diagnostics/runs`, `/api/diagnostics/trace`,
+`/api/diagnostics/waterfall`,
 `/api/diagnostics/progress`, `/api/diagnostics/analytics`,
 `/api/diagnostics/models`, `/api/rag/text-index`, `/api/rag/embeddings`,
 `/api/rag/embedding-models/used`, `/api/rag/search`, `/api/documents`, `/api/search`,
@@ -74,7 +76,8 @@ Routes are listed here so route additions cannot bypass the query manifest:
 `/api/documents/{file_hash}/preview-images/{variant}/{page_no}`,
 `/api/settings`, `/api/models`, `/api/models/{model_id}/download`,
 `/api/models/{model_id}/select`, `/api/models/{model_id}/cancel`,
-`/api/models/{model_id}/events`, `/api/logs/recent`, `/api/events`.
+`/api/models/{model_id}/events`, `/api/logs/recent`, `/api/logs/export`,
+`/api/events`.
 
 API route smoke and contract tests live in `src/trapo-server/tests/api.rs`.
 Database manifest guard tests live in `src/trapo-server/tests/db_manifest.rs`.

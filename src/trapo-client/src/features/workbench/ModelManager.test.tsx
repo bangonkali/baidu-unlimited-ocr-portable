@@ -107,7 +107,7 @@ describe('ModelManager', () => {
     expect(downloads.map((model) => model.model_id)).toEqual(['unlimited-ocr-q4-k-m']);
 
     const bySize = visibleModels(fixtureModels.models, { dir: 'asc', sort: 'size' });
-    expect(bySize[0]?.model_id).toBe('unlimited-ocr-iq2-m');
+    expect(bySize[0]?.model_id).toBe('nomic-embed-text-v1-5-q4-k-m');
 
     const embeddingOnly = visibleModels(
       [

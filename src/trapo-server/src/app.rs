@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -8,7 +8,7 @@ use std::{
     time::Instant,
 };
 
-use chrono::Utc;
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
@@ -19,7 +19,9 @@ use crate::{
         model_catalog, ocr_profiles, runtime_record, runtime_variants,
     },
     config::ServerConfig,
-    embedding::{EmbeddingPurpose, generate_embeddings, profile_from_model_row},
+    embedding::{
+        EmbeddingPurpose, LlamaEmbeddingProfile, generate_embeddings, profile_from_model_row,
+    },
     error::{AppError, Result},
     ids::new_persistence_id,
     logger::AppLogger,
@@ -51,11 +53,12 @@ use crate::{
         DiagnosticPipelineTaskRecord, DiagnosticProgressPayload, DiagnosticProgressSummary,
         DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
         DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
-        DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail, DocumentRegionsPayload,
-        DocumentSummary, DocumentTextPayload, DocumentsPayload, FolderDialogResponse,
-        GenerateEmbeddingRequest, GenerateEmbeddingResponse, HybridSearchFileResult,
-        HybridSearchHit, HybridSearchRequest, HybridSearchResponse, IngestRunRecord,
-        IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogsPayload,
+        DiagnosticTraceSummary, DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord,
+        DiagnosticWaterfallSummary, DiagnosticWorkUnitRecord, DocumentDetail,
+        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
+        FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
+        HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
+        IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogsPayload,
         OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord,
         PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
         TextIndexRequest, TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
@@ -211,7 +214,12 @@ include!("app/region_snippets.rs");
 include!("app/page_completion.rs");
 include!("app/page_pipeline.rs");
 include!("app/rag_methods.rs");
+include!("app/rag_text_index_execution.rs");
 include!("app/rag_execution.rs");
+include!("app/rag_execution_helpers.rs");
+include!("app/rag_execution_diagnostics.rs");
+include!("app/rag_embedding_execution.rs");
+include!("app/rag_embedding_page_spans.rs");
 include!("app/rag_text_segments.rs");
 include!("app/rag_records.rs");
 include!("app/download_helpers.rs");
@@ -220,6 +228,12 @@ include!("app/logging.rs");
 include!("app/diagnostics_recording.rs");
 include!("app/diagnostics_methods.rs");
 include!("app/diagnostics_records.rs");
+include!("app/diagnostics_waterfall_work_units.rs");
+include!("app/diagnostics_waterfall_group_helpers.rs");
+include!("app/diagnostics_waterfall_groups.rs");
+include!("app/diagnostics_waterfall_build.rs");
+include!("app/diagnostics_waterfall_layout.rs");
+include!("app/diagnostics_waterfall.rs");
 include!("app/replay_methods.rs");
 
 include!("app/settings_helpers.rs");

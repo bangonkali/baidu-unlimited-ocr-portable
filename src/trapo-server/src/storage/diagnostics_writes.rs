@@ -72,11 +72,13 @@ impl Repository {
         self.with_write(move |conn| {
             conn.execute(
                 "UPDATE ingest_work_units
-                 SET status = ?, finished_at = current_timestamp,
-                     duration_ms = CASE
-                       WHEN started_at IS NULL THEN NULL
-                       ELSE date_diff('millisecond', started_at, current_timestamp)
-                     END,
+                 SET status = ?, started_at = coalesce(started_at, queued_at, current_timestamp),
+                     finished_at = current_timestamp,
+                     duration_ms = date_diff(
+                       'millisecond',
+                       coalesce(started_at, queued_at, current_timestamp),
+                       current_timestamp
+                     ),
                      result_json = ?, error = ?
                  WHERE run_id = ? AND work_key = ?",
                 params![
@@ -100,9 +102,10 @@ impl Repository {
                 "INSERT INTO ingest_diagnostic_spans(
                     span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
                     trace_id, file_hash, page_no, pipeline_step, category, annotation_engine, status,
-                    ended_at, duration_ms, attributes_json, error_type, error_message, error_stack
+                    ended_at, duration_ms, attributes_json, error_type, error_message, error_stack,
+                    task_id, work_unit_id, span_kind
                  )
-                 VALUES (?, ?, ?, ?, ?, ?, ?::JSON, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?, ?::JSON, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(span_id) DO UPDATE SET
                     finished_at = excluded.finished_at, attributes = excluded.attributes,
                     trace_id = excluded.trace_id, file_hash = excluded.file_hash, page_no = excluded.page_no,
@@ -110,7 +113,9 @@ impl Repository {
                     annotation_engine = excluded.annotation_engine, status = excluded.status,
                     ended_at = excluded.ended_at, duration_ms = excluded.duration_ms,
                     attributes_json = excluded.attributes_json, error_type = excluded.error_type,
-                    error_message = excluded.error_message, error_stack = excluded.error_stack",
+                    error_message = excluded.error_message, error_stack = excluded.error_stack,
+                    task_id = excluded.task_id, work_unit_id = excluded.work_unit_id,
+                    span_kind = excluded.span_kind",
                 params![
                     span.span_id.as_str(),
                     span.run_id.as_deref(),
@@ -131,7 +136,10 @@ impl Repository {
                     attributes.as_str(),
                     span.error_type.as_deref(),
                     span.error_message.as_deref(),
-                    span.error_stack.as_deref()
+                    span.error_stack.as_deref(),
+                    span.task_id.as_deref(),
+                    span.work_unit_id.as_deref(),
+                    span.span_kind.as_str()
                 ],
             )?;
             Ok(())

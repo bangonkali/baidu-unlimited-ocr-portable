@@ -7,7 +7,9 @@ impl AppState {
         completed_pages: &BTreeSet<(String, u32)>,
     ) -> Result<()> {
         let document_path = self.mark_document_rendering(file_hash).await?;
-        let rendered = self.render_document_pages(run_id, file_hash, &document_path, ocr_context)?;
+        let rendered = self
+            .render_document_pages(run_id, file_hash, &document_path, ocr_context)
+            .await?;
         self.queue_rendered_pages(run_id, file_hash, &rendered, ocr_context, completed_pages)
             .await?;
         self.process_rendered_pages(run_id, file_hash, rendered, ocr_context, completed_pages)
@@ -37,7 +39,7 @@ impl AppState {
         Ok(document_path)
     }
 
-    fn render_document_pages(
+    async fn render_document_pages(
         &self,
         run_id: &str,
         file_hash: &str,
@@ -52,16 +54,19 @@ impl AppState {
             model: ocr_context.model_id,
             profile: ocr_context.profile_id,
             metadata: json!({ "source_path": document_path.to_string_lossy().to_string() }),
-        });
-        self.start_diagnostic_work_unit(run_id, &work_unit_id);
+        })
+        .await;
+        self.start_diagnostic_work_unit(run_id, &work_unit_id).await;
         let span = DiagnosticSpanScope::start();
         match self.render_document_file(file_hash, document_path) {
             Ok(rendered) => {
-                self.finish_render_diagnostics(run_id, file_hash, &work_unit_id, span, &rendered);
+                self.finish_render_diagnostics(run_id, file_hash, &work_unit_id, span, &rendered)
+                    .await;
                 Ok(rendered)
             }
             Err(error) => {
-                self.fail_render_diagnostics(run_id, file_hash, &work_unit_id, span, &error);
+                self.fail_render_diagnostics(run_id, file_hash, &work_unit_id, span, &error)
+                    .await;
                 Err(error)
             }
         }
@@ -86,7 +91,7 @@ impl AppState {
         }
     }
 
-    fn finish_render_diagnostics(
+    async fn finish_render_diagnostics(
         &self,
         run_id: &str,
         file_hash: &str,
@@ -98,6 +103,9 @@ impl AppState {
             span,
             SpanFinish {
                 run_id,
+                task_id: None,
+                work_unit_id: Some(work_unit_id),
+                parent_span_id: None,
                 file_hash: Some(file_hash),
                 page_no: None,
                 name: "Render document",
@@ -115,10 +123,11 @@ impl AppState {
             "completed",
             None,
             json!({ "page_count": rendered.len() }),
-        );
+        )
+        .await;
     }
 
-    fn fail_render_diagnostics(
+    async fn fail_render_diagnostics(
         &self,
         run_id: &str,
         file_hash: &str,
@@ -131,6 +140,9 @@ impl AppState {
             span,
             SpanFinish {
                 run_id,
+                task_id: None,
+                work_unit_id: Some(work_unit_id),
+                parent_span_id: None,
                 file_hash: Some(file_hash),
                 page_no: None,
                 name: "Render document",
@@ -142,7 +154,8 @@ impl AppState {
                 attributes: json!({}),
             },
         );
-        self.finish_diagnostic_work_unit(run_id, work_unit_id, "failed", Some(&message), json!({}));
+        self.finish_diagnostic_work_unit(run_id, work_unit_id, "failed", Some(&message), json!({}))
+            .await;
     }
 
     async fn queue_rendered_pages(
@@ -174,7 +187,8 @@ impl AppState {
                 model: ocr_context.model_id,
                 profile: ocr_context.profile_id,
                 metadata,
-            });
+            })
+            .await;
         }
         self.inner
             .hub
@@ -256,7 +270,7 @@ impl AppState {
         ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
         let work_unit_id = diagnostic_work_key(run_id, file_hash, Some(page.page_no), "ocr");
-        self.start_diagnostic_work_unit(run_id, &work_unit_id);
+        self.start_diagnostic_work_unit(run_id, &work_unit_id).await;
         let span = DiagnosticSpanScope::start();
         let result = self
             .process_page(
@@ -278,7 +292,8 @@ impl AppState {
                 result: &result,
             },
             span,
-        );
+        )
+        .await;
         result
     }
 

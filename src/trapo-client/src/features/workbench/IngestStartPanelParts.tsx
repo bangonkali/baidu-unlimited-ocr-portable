@@ -1,36 +1,6 @@
-import type { IngestRunRecord, ModelAssetRecord, StatusPayload } from '../../api/types';
+import type { IngestRunRecord, StatusPayload } from '../../api/types';
 import styles from './IngestStartPanel.module.css';
 import { clampProgress, percentLabel, runPageLabel } from './progressFormat';
-
-export function EmbeddingModelSelect({
-  busy,
-  models,
-  selectedModelId,
-  onChange,
-}: {
-  busy?: boolean;
-  models: ModelAssetRecord[];
-  selectedModelId: string;
-  onChange: (modelId: string) => void;
-}) {
-  return (
-    <label className={styles.field}>
-      <span>Embedding model</span>
-      <select
-        disabled={busy || models.length === 0}
-        onChange={(event) => onChange(event.target.value)}
-        value={selectedModelId}
-      >
-        <option value="">Select a downloaded embedding model</option>
-        {models.map((model) => (
-          <option key={model.model_id} value={model.model_id}>
-            {model.display_name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 export function RunStatus({
   activeRun,

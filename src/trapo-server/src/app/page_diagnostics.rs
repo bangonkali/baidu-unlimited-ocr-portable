@@ -1,5 +1,9 @@
 impl AppState {
-    fn finish_page_diagnostics(&self, finish: PageDiagnosticFinish<'_>, span: DiagnosticSpanScope) {
+    async fn finish_page_diagnostics(
+        &self,
+        finish: PageDiagnosticFinish<'_>,
+        span: DiagnosticSpanScope,
+    ) {
         let (status, error) = match finish.result {
             Ok(()) => ("ok", None),
             Err(error) => ("failed", Some(error.to_string())),
@@ -9,6 +13,9 @@ impl AppState {
             span,
             SpanFinish {
                 run_id: finish.run_id,
+                task_id: None,
+                work_unit_id: Some(finish.work_unit_id),
+                parent_span_id: None,
                 file_hash: Some(finish.file_hash),
                 page_no: Some(finish.page.page_no),
                 name: "OCR page",
@@ -32,6 +39,7 @@ impl AppState {
             },
             error_ref,
             json!({ "page_no": finish.page.page_no }),
-        );
+        )
+        .await;
     }
 }

@@ -79,121 +79,19 @@
 }
 
 .waterfallStack {
-  --tree-grid-actions-justify: stretch;
-  --tree-grid-columns: minmax(260px, 1fr) 92px minmax(320px, 46vw);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
-.waterfallControls {
-  display: grid;
-  grid-template-columns: var(--tree-grid-columns);
-  align-items: center;
-  min-height: 28px;
+.waterfallNotice {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 6px 8px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  background: var(--panel-2);
   border-bottom: 1px solid var(--subtle-border);
-}
-
-.waterfallControls > span {
-  min-width: 0;
-  padding: 0 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.waterfallActionHeader {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.collapseButton {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-size: 11px;
-}
-
-.collapseButton:hover {
-  color: var(--text);
-  background: var(--panel-3);
-}
-
-.diagnosticWaterfallBar {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) 58px;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  min-width: 0;
-  height: 22px;
-}
-
-.waterfallLane {
-  position: relative;
-  display: block;
-  height: 18px;
-  overflow: hidden;
-  background:
-    repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent calc(20% - 1px),
-      color-mix(in srgb, var(--border) 65%, transparent) calc(20% - 1px),
-      color-mix(in srgb, var(--border) 65%, transparent) 20%
-    ),
-    color-mix(in srgb, var(--panel) 78%, var(--control-bg));
-  border-left: 1px solid var(--subtle-border);
-  border-right: 1px solid var(--subtle-border);
-}
-
-.waterfallSegment {
-  position: absolute;
-  top: 4px;
-  display: block;
-  min-width: 2px;
-  height: 10px;
-  background: var(--accent);
-  border-radius: 1px;
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--accent) 55%, #38bdf8);
-}
-
-.waterfallDuration {
-  color: var(--subtle);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.diagnosticWaterfallBar[data-status="completed"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="ok"] .waterfallSegment {
-  background: var(--success);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--success) 55%, #38bdf8);
-}
-
-.diagnosticWaterfallBar[data-status="failed"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="error"] .waterfallSegment {
-  background: var(--danger);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--danger) 45%, #38bdf8);
-}
-
-.diagnosticWaterfallBar[data-status="running"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="queued"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="planned"] .waterfallSegment {
-  background: var(--warning);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--warning) 45%, #38bdf8);
+  font-size: 12px;
 }
 
 .runActions {

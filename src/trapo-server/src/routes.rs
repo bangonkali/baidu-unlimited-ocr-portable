@@ -64,6 +64,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/ocr/events", get(ocr_events))
         .route("/api/diagnostics/runs", get(diagnostics_runs))
         .route("/api/diagnostics/trace", get(diagnostics_trace))
+        .route("/api/diagnostics/waterfall", get(diagnostics_waterfall))
         .route("/api/diagnostics/progress", get(diagnostics_progress))
         .route("/api/diagnostics/analytics", get(diagnostics_analytics))
         .route("/api/diagnostics/models", get(diagnostics_models))
@@ -95,6 +96,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/models/{model_id}/cancel", post(cancel_model))
         .route("/api/models/{model_id}/events", get(model_events))
         .route("/api/logs/recent", get(logs))
+        .route("/api/logs/export", get(export_logs))
         .route("/api/events", get(websocket))
         .merge(Scalar::with_url("/scalar", ApiDoc::openapi()));
 
@@ -321,6 +323,14 @@ async fn logs(
     Query(query): Query<LimitQuery>,
 ) -> Json<crate::workbench_types::LogsPayload> {
     Json(state.logs(query.limit.unwrap_or(200)))
+}
+
+async fn export_logs(State(state): State<AppState>) -> Response {
+    (
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        state.export_logs_plain(),
+    )
+        .into_response()
 }
 
 async fn websocket(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {

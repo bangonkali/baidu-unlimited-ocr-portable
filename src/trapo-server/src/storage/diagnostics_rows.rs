@@ -16,12 +16,13 @@ fn work_unit_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<DiagnosticWorkUni
         artifact_variant: row.get(13)?,
         status: row.get(14)?,
         attempt_count: i64_to_u32(row.get::<_, i64>(15)?),
-        started_at: row.get(16)?,
-        finished_at: row.get(17)?,
-        duration_ms: row.get(18)?,
-        error: row.get(19)?,
-        result: json_value(row.get::<_, String>(20)?.as_str()),
-        metadata: json_value(row.get::<_, String>(21)?.as_str()),
+        queued_at: row.get(16)?,
+        started_at: row.get(17)?,
+        finished_at: row.get(18)?,
+        duration_ms: row.get(19)?,
+        error: row.get(20)?,
+        result: json_value(row.get::<_, String>(21)?.as_str()),
+        metadata: json_value(row.get::<_, String>(22)?.as_str()),
     })
 }
 

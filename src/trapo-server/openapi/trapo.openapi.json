@@ -236,6 +236,80 @@
         }
       }
     },
+    "/api/diagnostics/waterfall": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_waterfall_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file_hash",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page_no",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticWaterfallPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/documents": {
       "get": {
         "tags": [
@@ -847,6 +921,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/export": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "logs_export_doc",
+        "responses": {
+          "200": {
+            "description": "Plain text log export",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1999,6 +2093,7 @@
         "required": [
           "span_id",
           "trace_id",
+          "span_kind",
           "name",
           "pipeline_step",
           "category",
@@ -2081,14 +2176,29 @@
           "span_id": {
             "type": "string"
           },
+          "span_kind": {
+            "type": "string"
+          },
           "started_at": {
             "type": "string"
           },
           "status": {
             "type": "string"
           },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "trace_id": {
             "type": "string"
+          },
+          "work_unit_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2153,6 +2263,247 @@
           }
         }
       },
+      "DiagnosticWaterfallPayload": {
+        "type": "object",
+        "required": [
+          "summary",
+          "rows"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticWaterfallRowRecord"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DiagnosticWaterfallSummary"
+          }
+        }
+      },
+      "DiagnosticWaterfallRowRecord": {
+        "type": "object",
+        "required": [
+          "row_id",
+          "trace_id",
+          "label",
+          "row_source",
+          "pipeline_step",
+          "category",
+          "span_kind",
+          "status",
+          "duration_ms",
+          "visual_duration_ms",
+          "depth",
+          "child_count",
+          "sort_index",
+          "attributes"
+        ],
+        "properties": {
+          "attributes": {
+            "type": "object"
+          },
+          "category": {
+            "type": "string"
+          },
+          "child_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "depth": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "end_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "page_no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "parent_row_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pipeline_step": {
+            "type": "string"
+          },
+          "row_id": {
+            "type": "string"
+          },
+          "row_source": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort_index": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "span_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "span_kind": {
+            "type": "string"
+          },
+          "start_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "visual_duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "visual_end_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "visual_start_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "work_unit_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiagnosticWaterfallSummary": {
+        "type": "object",
+        "required": [
+          "row_count",
+          "trace_count",
+          "error_count",
+          "duration_ms"
+        ],
+        "properties": {
+          "duration_ms": {
+            "type": "number",
+            "format": "double"
+          },
+          "end_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "error_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "row_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_ms": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "trace_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "DiagnosticWorkUnitRecord": {
         "type": "object",
         "required": [
@@ -2166,6 +2517,7 @@
           "execution_key",
           "status",
           "attempt_count",
+          "queued_at",
           "result",
           "metadata"
         ],
@@ -2242,6 +2594,9 @@
             ]
           },
           "provider": {
+            "type": "string"
+          },
+          "queued_at": {
             "type": "string"
           },
           "result": {

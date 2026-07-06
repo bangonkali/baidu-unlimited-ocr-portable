@@ -1,5 +1,4 @@
-import { Workflow } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import type {
   IngestRunRecord,
@@ -9,14 +8,18 @@ import type {
   StatusPayload,
 } from '../../api/types';
 import type { IngestRouteSearch } from '../../routeSearch';
-import styles from './IngestStartPanel.module.css';
-import { isIngestBusy, latestCompletedRunId, RunStatus } from './IngestStartPanelParts';
+import { isIngestBusy, latestCompletedRunId } from './IngestStartPanelParts';
+import { IngestWizardLayout } from './IngestWizardLayout';
 import {
-  FolderSection,
-  OcrConfigurationSection,
-  RunTaskSection,
-  StartStopActions,
-} from './IngestTaskSections';
+  embeddingModels,
+  isModelReady,
+  ocrModels,
+  recommendedEmbeddingModel,
+  recommendedOcrModel,
+} from './ingestWizardModels';
+import { buildIngestWizardStartOptions } from './ingestWizardStart';
+import { ingestWizardSteps } from './ingestWizardSteps';
+import { useIngestWizardStateSync } from './useIngestWizardStateSync';
 
 interface IngestStartOptions {
   embeddingAfterIngest?: boolean;
@@ -38,6 +41,8 @@ interface IngestStartPanelProps {
   rootPath: string;
   selectedProfile: string;
   status?: StatusPayload;
+  onCancelModel: (modelId: string) => void;
+  onDownloadModel: (modelId: string, force?: boolean) => void;
   onModelChange: (modelId: string) => void;
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
@@ -54,36 +59,38 @@ interface IngestStartPanelProps {
 }
 
 export function IngestStartPanel(props: IngestStartPanelProps) {
+  const allModels = useMemo(() => props.models?.models ?? [], [props.models?.models]);
+  const ocrModelOptions = ocrModels(allModels);
+  const embeddingModelOptions = embeddingModels(allModels);
+  const recommendedOcr = recommendedOcrModel(
+    allModels,
+    props.ingestSearch?.model,
+    props.models?.selected_model_id,
+  );
+  const recommendedEmbedding = recommendedEmbeddingModel(
+    allModels,
+    props.ingestSearch?.embedding_model,
+  );
+  const selectedOcrModel =
+    ocrModelOptions.find((model) => model.model_id === props.model?.model_id) ?? recommendedOcr;
   const [reprocess, setReprocess] = useState(props.ingestSearch?.reprocess ?? false);
   const [textIndexAfterIngest, setTextIndexAfterIngest] = useState(
-    props.ingestSearch?.index ?? false,
+    props.ingestSearch?.index ?? true,
   );
   const [embeddingAfterIngest, setEmbeddingAfterIngest] = useState(
-    props.ingestSearch?.embed ?? false,
+    props.ingestSearch?.embed ?? isModelReady(recommendedEmbedding),
   );
   const latestRunId = latestCompletedRunId(props.runs);
   const [selectedRunId, setSelectedRunId] = useState(latestRunId ?? '');
-  const active = isIngestBusy(props.status, props.activeRun);
-  const models = props.models?.models ?? [];
-  const ocrModels = models.filter((model) => model.model_kind !== 'embedding');
-  const embeddingModels = models.filter((model) => model.model_kind === 'embedding');
-  const downloadedEmbeddingModels = embeddingModels.filter(
-    (model) => model.status === 'downloaded',
-  );
-  const defaultEmbeddingModel =
-    downloadedEmbeddingModels.find(
-      (model) => model.model_id === props.ingestSearch?.embedding_model,
-    ) ?? downloadedEmbeddingModels[0];
   const [selectedEmbeddingModelId, setSelectedEmbeddingModelId] = useState(
-    defaultEmbeddingModel?.model_id ?? '',
+    recommendedEmbedding?.model_id ?? '',
   );
   const selectedEmbeddingModel =
-    embeddingModels.find((model) => model.model_id === selectedEmbeddingModelId) ??
-    defaultEmbeddingModel;
-  const modelReady = props.model?.status === 'downloaded' && props.model.model_kind !== 'embedding';
-  const embeddingReady = Boolean(
-    selectedEmbeddingModelId && selectedEmbeddingModel?.status === 'downloaded',
-  );
+    embeddingModelOptions.find((model) => model.model_id === selectedEmbeddingModelId) ??
+    recommendedEmbedding;
+  const active = isIngestBusy(props.status, props.activeRun);
+  const modelReady = isModelReady(selectedOcrModel);
+  const embeddingReady = isModelReady(selectedEmbeddingModel);
   const canStart =
     Boolean(props.rootPath.trim()) &&
     modelReady &&
@@ -92,106 +99,86 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
     !active &&
     props.profiles.length > 0;
   const canRunPostStep = Boolean(selectedRunId) && !props.busy && !active;
-  const canGenerateEmbedding = canRunPostStep && embeddingReady;
 
-  useEffect(() => {
-    setReprocess(props.ingestSearch?.reprocess ?? false);
-  }, [props.ingestSearch?.reprocess]);
-  useEffect(() => {
-    setTextIndexAfterIngest(props.ingestSearch?.index ?? false);
-  }, [props.ingestSearch?.index]);
-  useEffect(() => {
-    setEmbeddingAfterIngest(props.ingestSearch?.embed ?? false);
-  }, [props.ingestSearch?.embed]);
-  useEffect(() => {
-    if (latestRunId && !selectedRunId) {
-      setSelectedRunId(latestRunId);
-    }
-  }, [latestRunId, selectedRunId]);
-  useEffect(() => {
-    if (defaultEmbeddingModel && !selectedEmbeddingModelId) {
-      setSelectedEmbeddingModelId(defaultEmbeddingModel.model_id);
-    }
-  }, [defaultEmbeddingModel, selectedEmbeddingModelId]);
+  useIngestWizardStateSync({
+    ingestSearch: props.ingestSearch,
+    latestRunId,
+    recommendedEmbedding,
+    selectedEmbeddingModelId,
+    selectedRunId,
+    setEmbeddingAfterIngest,
+    setReprocess,
+    setSelectedEmbeddingModelId,
+    setSelectedRunId,
+    setTextIndexAfterIngest,
+  });
 
-  const embeddingDimension = selectedEmbeddingModel?.embedding_dimension ?? undefined;
   const startIngest = () =>
-    props.onStart({
-      embeddingAfterIngest,
-      embeddingDimension,
-      embeddingModelId: selectedEmbeddingModelId || undefined,
-      reprocess,
-      textIndexAfterIngest,
-    });
+    props.onStart(
+      buildIngestWizardStartOptions({
+        embeddingAfterIngest,
+        reprocess,
+        selectedEmbeddingModel,
+        selectedEmbeddingModelId,
+        textIndexAfterIngest,
+      }),
+    );
   const generateEmbedding = () =>
     props.onGenerateEmbedding({
-      dimension: embeddingDimension,
+      dimension: selectedEmbeddingModel?.embedding_dimension ?? undefined,
       modelId: selectedEmbeddingModelId,
       sourceRunId: selectedRunId,
     });
 
   return (
-    <section className={styles.panel} aria-label="Start ingest">
-      <header className={styles.header}>
-        <Workflow size={16} />
-        <span>Start Ingest</span>
-        <span className={styles.workflowStep}>Text Index</span>
-        <span className={styles.workflowStep}>Generate Embedding</span>
-      </header>
-      <div className={styles.body}>
-        <div className={styles.form}>
-          <FolderSection
-            busy={props.busy}
-            folderDialogError={props.folderDialogError}
-            rootPath={props.rootPath}
-            onPickFolder={props.onPickFolder}
-            onRootPathChange={props.onRootPathChange}
-          />
-          <OcrConfigurationSection
-            busy={props.busy}
-            embeddingAfterIngest={embeddingAfterIngest}
-            embeddingModels={downloadedEmbeddingModels}
-            modelValue={props.model?.model_id ?? props.models?.selected_model_id ?? ''}
-            ocrModels={ocrModels}
-            profiles={props.profiles}
-            reprocess={reprocess}
-            selectedEmbeddingModelId={selectedEmbeddingModelId}
-            selectedProfile={props.selectedProfile}
-            textIndexAfterIngest={textIndexAfterIngest}
-            onEmbeddingAfterIngestChange={setEmbeddingAfterIngest}
-            onEmbeddingModelChange={setSelectedEmbeddingModelId}
-            onModelChange={props.onModelChange}
-            onProfileChange={props.onProfileChange}
-            onReprocessChange={setReprocess}
-            onTextIndexAfterIngestChange={setTextIndexAfterIngest}
-          />
-          <RunTaskSection
-            busy={props.busy}
-            canGenerateEmbedding={canGenerateEmbedding}
-            canRunPostStep={canRunPostStep}
-            embeddingModels={downloadedEmbeddingModels}
-            runs={props.runs}
-            selectedEmbeddingModelId={selectedEmbeddingModelId}
-            selectedRunId={selectedRunId}
-            onEmbeddingModelChange={setSelectedEmbeddingModelId}
-            onGenerateEmbedding={generateEmbedding}
-            onRunChange={setSelectedRunId}
-            onStartTextIndex={() => props.onStartTextIndex(selectedRunId)}
-          />
-          <StartStopActions
-            active={active}
-            canStart={canStart}
-            onStart={startIngest}
-            onStop={props.onStop}
-          />
-        </div>
-        <RunStatus
-          activeRun={props.activeRun}
-          activeRunId={props.activeRunId}
-          status={props.status}
-        />
-      </div>
-    </section>
+    <IngestWizardLayout
+      active={active}
+      activeRun={props.activeRun}
+      activeRunId={props.activeRunId}
+      busy={props.busy}
+      canRunPostStep={canRunPostStep}
+      canStart={canStart}
+      embeddingAfterIngest={embeddingAfterIngest}
+      embeddingModelOptions={embeddingModelOptions}
+      embeddingReady={embeddingReady}
+      folderDialogError={props.folderDialogError}
+      ocrModelOptions={ocrModelOptions}
+      profiles={props.profiles}
+      recommendedEmbedding={recommendedEmbedding}
+      recommendedOcr={recommendedOcr}
+      reprocess={reprocess}
+      rootPath={props.rootPath}
+      runs={props.runs}
+      selectedEmbeddingModel={selectedEmbeddingModel}
+      selectedOcrModel={selectedOcrModel}
+      selectedProfile={props.selectedProfile}
+      selectedRunId={selectedRunId}
+      status={props.status}
+      steps={ingestWizardSteps({
+        canStart,
+        embeddingAfterIngest,
+        embeddingReady,
+        modelReady,
+        rootReady: Boolean(props.rootPath.trim()),
+        textIndexAfterIngest,
+      })}
+      textIndexAfterIngest={textIndexAfterIngest}
+      onCancelModel={props.onCancelModel}
+      onDownloadModel={props.onDownloadModel}
+      onEmbeddingAfterIngestChange={setEmbeddingAfterIngest}
+      onEmbeddingModelChange={setSelectedEmbeddingModelId}
+      onGenerateEmbedding={generateEmbedding}
+      onModelChange={props.onModelChange}
+      onPickFolder={props.onPickFolder}
+      onProfileChange={props.onProfileChange}
+      onReprocessChange={setReprocess}
+      onRootPathChange={props.onRootPathChange}
+      onRunChange={setSelectedRunId}
+      onStart={startIngest}
+      onStartTextIndex={() => props.onStartTextIndex(selectedRunId)}
+      onStop={props.onStop}
+      onTextIndexAfterIngestChange={setTextIndexAfterIngest}
+    />
   );
 }
 

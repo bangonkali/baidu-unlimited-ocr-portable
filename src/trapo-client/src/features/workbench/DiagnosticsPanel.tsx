@@ -1,15 +1,13 @@
-import { Minimize2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   useDiagnosticAnalytics,
   useDiagnosticModels,
   useDiagnosticProgress,
   useDiagnosticRuns,
-  useDiagnosticTrace,
+  useDiagnosticWaterfall,
 } from '../../api/hooks';
-import type { DiagnosticRunRecord, IngestRunRecord, LogRecord } from '../../api/types';
-import { TreeGrid } from '../../components/workbench';
+import type { IngestRunRecord, LogRecord } from '../../api/types';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import { buildProgressNodes, filterLogs, filterRuns, toggled } from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsPanel.module.css';
@@ -21,7 +19,8 @@ import {
   ProgressSummary,
   TabBar,
 } from './DiagnosticsPanel.views';
-import { buildWaterfallRunNodes } from './DiagnosticsWaterfallTree';
+import { DiagnosticsWaterfallGrid } from './DiagnosticsWaterfallGrid';
+import { buildWaterfallRunNodes, waterfallExpandableIds } from './DiagnosticsWaterfallTree';
 
 interface DiagnosticsPanelProps {
   activeRunId?: string | null;
@@ -36,26 +35,14 @@ interface DiagnosticsPanelProps {
 
 export { filterLogs, filterRuns };
 
-export function DiagnosticsPanel({
-  activeRunId,
-  logs,
-  onResumeRun,
-  onRestartRun,
-  onSearchChange,
-  onStopRun,
-  runs,
-  search,
-}: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPanelProps) {
   const tab = search?.tab ?? 'waterfall';
   const diagnosticRuns = useDiagnosticRuns();
   const selectedRun = search?.run;
-  const runRecords = useMemo(
-    () => (runs.length > 0 ? runs : (diagnosticRuns.data?.runs.map(diagnosticRunRecord) ?? [])),
-    [diagnosticRuns.data?.runs, runs],
-  );
-  const trace = useDiagnosticTrace({
+  const waterfall = useDiagnosticWaterfall({
     limit: 8000,
     q: search?.q,
+    refetchInterval: 1500,
     run_id: selectedRun,
     status: search?.status === 'all' ? undefined : search?.status,
   });
@@ -66,29 +53,17 @@ export function DiagnosticsPanel({
   const waterfallNodes = useMemo(
     () =>
       buildWaterfallRunNodes({
-        activeRunId,
-        events: trace.data?.events ?? [],
-        onResumeRun,
-        onRestartRun,
-        onStopRun,
-        pipelineTasks: progress.data?.pipeline_tasks ?? [],
-        runs: filterRuns(runRecords, search),
-        spans: trace.data?.spans ?? [],
-        workUnits: progress.data?.work_units ?? [],
+        payload: waterfall.data,
       }),
-    [
-      activeRunId,
-      onResumeRun,
-      onRestartRun,
-      onStopRun,
-      progress.data?.pipeline_tasks,
-      progress.data?.work_units,
-      runRecords,
-      search,
-      trace.data?.events,
-      trace.data?.spans,
-    ],
+    [waterfall.data],
   );
+  const hasEmbeddingWaterfallRows =
+    waterfall.data?.rows.some((row) => row.pipeline_step === 'generate_embedding') ?? true;
+  useEffect(() => {
+    setExpandedIds((current) =>
+      current.size === 0 ? waterfallExpandableIds(waterfallNodes) : current,
+    );
+  }, [waterfallNodes]);
   const progressNodes = useMemo(
     () => buildProgressNodes(progress.data?.work_units ?? []),
     [progress.data?.work_units],
@@ -108,28 +83,15 @@ export function DiagnosticsPanel({
       <div className={styles.body}>
         {tab === 'waterfall' ? (
           <div className={styles.waterfallStack}>
-            <div className={styles.waterfallControls}>
-              <span>Name</span>
-              <span>Time</span>
-              <span className={styles.waterfallActionHeader}>
-                Waterfall
-                {expandedIds.size > 0 ? (
-                  <button
-                    aria-label="Collapse all"
-                    className={styles.collapseButton}
-                    onClick={() => setExpandedIds(new Set())}
-                    title="Collapse all"
-                    type="button"
-                  >
-                    <Minimize2 size={13} />
-                  </button>
-                ) : null}
-              </span>
-            </div>
-            <TreeGrid
-              className={styles.tree}
+            {!hasEmbeddingWaterfallRows ? (
+              <div className={styles.waterfallNotice}>
+                No embedding generation recorded for this run.
+              </div>
+            ) : null}
+            <DiagnosticsWaterfallGrid
               expandedIds={expandedIds}
               nodes={waterfallNodes}
+              onCollapseAll={() => setExpandedIds(new Set())}
               onToggle={(id) => setExpandedIds((current) => toggled(current, id))}
             />
           </div>
@@ -143,17 +105,4 @@ export function DiagnosticsPanel({
       </div>
     </section>
   );
-}
-
-function diagnosticRunRecord(run: DiagnosticRunRecord) {
-  return {
-    file_hashes: [],
-    processed_pages: run.page_count,
-    progress_percent: 0,
-    queued_files: run.file_count,
-    root_path: run.root_path,
-    run_id: run.run_id,
-    status: run.status,
-    total_pages: run.page_count,
-  } satisfies IngestRunRecord;
 }

@@ -34,6 +34,9 @@ export interface DiagnosticSpanRecord {
   span_id: string;
   trace_id: string;
   parent_span_id?: string | null;
+  task_id?: string | null;
+  work_unit_id?: string | null;
+  span_kind: string;
   run_id?: string | null;
   file_hash?: string | null;
   page_no?: number | null;
@@ -80,6 +83,54 @@ export interface DiagnosticTracePayload {
   events: DiagnosticEventRecord[];
 }
 
+export interface DiagnosticWaterfallRowRecord {
+  row_id: string;
+  trace_id: string;
+  parent_row_id?: string | null;
+  span_id?: string | null;
+  task_id?: string | null;
+  work_unit_id?: string | null;
+  run_id?: string | null;
+  file_hash?: string | null;
+  filename?: string | null;
+  page_no?: number | null;
+  label: string;
+  row_source: 'pipeline_task' | 'diagnostic_span' | 'work_unit' | string;
+  pipeline_step: string;
+  category: string;
+  span_kind: string;
+  status: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_ms: number;
+  start_ms?: number | null;
+  end_ms?: number | null;
+  visual_start_ms?: number | null;
+  visual_end_ms?: number | null;
+  visual_duration_ms: number;
+  depth: number;
+  child_count: number;
+  sort_index: number;
+  attributes: Record<string, unknown>;
+  error_type?: string | null;
+  error_message?: string | null;
+}
+
+export interface DiagnosticWaterfallSummary {
+  run_id?: string | null;
+  row_count: number;
+  trace_count: number;
+  error_count: number;
+  start_ms?: number | null;
+  end_ms?: number | null;
+  duration_ms: number;
+}
+
+export interface DiagnosticWaterfallPayload {
+  summary: DiagnosticWaterfallSummary;
+  rows: DiagnosticWaterfallRowRecord[];
+}
+
 export interface DiagnosticWorkUnitRecord {
   work_unit_id: string;
   run_id: string;
@@ -97,6 +148,7 @@ export interface DiagnosticWorkUnitRecord {
   artifact_variant?: string | null;
   status: string;
   attempt_count: number;
+  queued_at: string;
   started_at?: string | null;
   finished_at?: string | null;
   duration_ms?: number | null;

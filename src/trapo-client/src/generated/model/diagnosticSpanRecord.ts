@@ -34,7 +34,12 @@ export interface DiagnosticSpanRecord {
   /** @nullable */
   run_id?: string | null;
   span_id: string;
+  span_kind: string;
   started_at: string;
   status: string;
+  /** @nullable */
+  task_id?: string | null;
   trace_id: string;
+  /** @nullable */
+  work_unit_id?: string | null;
 }

@@ -65,6 +65,24 @@ async fn diagnostics_trace(
     ))
 }
 
+async fn diagnostics_waterfall(
+    State(state): State<AppState>,
+    Query(query): Query<DiagnosticTraceQuery>,
+) -> Result<Json<crate::workbench_types::DiagnosticWaterfallPayload>> {
+    Ok(Json(
+        state
+            .diagnostic_waterfall(crate::app::DiagnosticTraceRequest {
+                run_id: query.run_id,
+                file_hash: query.file_hash,
+                page_no: query.page_no,
+                status: query.status,
+                q: query.q,
+                limit: query.limit.unwrap_or(10_000),
+            })
+            .await?,
+    ))
+}
+
 async fn diagnostics_progress(
     State(state): State<AppState>,
     Query(query): Query<DiagnosticRunQuery>,

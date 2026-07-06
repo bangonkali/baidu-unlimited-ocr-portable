@@ -1,10 +1,13 @@
-import { Activity, FileText } from 'lucide-react';
+import { Activity, Clipboard, FileText } from 'lucide-react';
+import { useState } from 'react';
 
 import type { useDiagnosticAnalytics } from '../../api/hooks';
+import { getText } from '../../api/http';
 import type { DiagnosticModelLeaseRecord, LogRecord } from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
 import { TreeGrid } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
+import logStyles from './DiagnosticsLogs.module.css';
 import { formatMs, iconForStatus } from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsPanel.module.css';
 
@@ -165,17 +168,83 @@ export function ModelLeaseList({ leases }: { leases: DiagnosticModelLeaseRecord[
 }
 
 export function LogList({ logs }: { logs: LogRecord[] }) {
+  const [copyStatus, setCopyStatus] = useState('');
+  const copyLog = (value: string, status: string) => {
+    void copyToClipboard(value).then(() => {
+      setCopyStatus(status);
+      window.setTimeout(() => setCopyStatus(''), 1400);
+    });
+  };
+  const copyAll = () => {
+    void getText('/api/logs/export').then((text) => copyLog(text, 'Copied all logs'));
+  };
   return (
-    <div className={styles.list}>
-      {logs.length === 0 ? <div className={styles.empty}>No logs</div> : null}
-      {logs.map((log) => (
-        <div className={styles.compactRow} key={`${log.timestamp}-${log.message}`}>
-          <FileText size={14} />
-          <span>{log.message}</span>
-          <strong>{log.level}</strong>
-          <small>{log.component}</small>
-        </div>
-      ))}
+    <div className={logStyles.logStack}>
+      <div className={logStyles.logToolbar}>
+        <button className={logStyles.logCopyButton} onClick={copyAll} type="button">
+          <Clipboard size={13} />
+          Copy All
+        </button>
+        {copyStatus ? <span>{copyStatus}</span> : null}
+      </div>
+      <div className={logStyles.logHeader}>
+        <span>Time</span>
+        <span>Level</span>
+        <span>Component</span>
+        <span>Message</span>
+      </div>
+      <div className={styles.list}>
+        {logs.length === 0 ? <div className={styles.empty}>No logs</div> : null}
+        {logs.map((log) => (
+          <button
+            className={logStyles.logRow}
+            key={`${log.timestamp}-${log.message}`}
+            onClick={() => copyLog(formatLogLine(log), 'Copied row')}
+            title="Copy log row"
+            type="button"
+          >
+            <FileText size={14} />
+            <time>{formatLogTime(log.timestamp)}</time>
+            <strong>{log.level}</strong>
+            <small>{log.component}</small>
+            <span>{log.message}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
+}
+
+function formatLogLine(log: LogRecord) {
+  return `${log.timestamp} ${log.level} ${log.component} ${log.message}`;
+}
+
+function formatLogTime(value: string) {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return value || 'unknown';
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+    month: '2-digit',
+    second: '2-digit',
+  }).format(parsed);
+}
+
+async function copyToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = value;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-9999px';
+  document.body.append(textArea);
+  textArea.select();
+  document.execCommand('copy');
+  textArea.remove();
 }

@@ -11,11 +11,13 @@ import type {
   DiagnosticProgressPayload,
   DiagnosticRunsPayload,
   DiagnosticTracePayload,
+  DiagnosticWaterfallPayload,
   DiagnosticsAnalyticsDocParams,
   DiagnosticsModelsDocParams,
   DiagnosticsProgressDocParams,
   DiagnosticsRunsDocParams,
   DiagnosticsTraceDocParams,
+  DiagnosticsWaterfallDocParams,
   DocumentDetail,
   DocumentRegionsDocParams,
   DocumentRegionsPayload,
@@ -287,6 +289,53 @@ export const diagnosticsTraceDoc = async (params?: DiagnosticsTraceDocParams, op
 
   const data: diagnosticsTraceDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as diagnosticsTraceDocResponse
+}
+
+
+
+export type diagnosticsWaterfallDocResponse200 = {
+  data: DiagnosticWaterfallPayload
+  status: 200
+}
+
+export type diagnosticsWaterfallDocResponseSuccess = (diagnosticsWaterfallDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type diagnosticsWaterfallDocResponse = (diagnosticsWaterfallDocResponseSuccess)
+
+export const getDiagnosticsWaterfallDocUrl = (params?: DiagnosticsWaterfallDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/diagnostics/waterfall?${stringifiedParams}` : `/api/diagnostics/waterfall`
+}
+
+export const diagnosticsWaterfallDoc = async (params?: DiagnosticsWaterfallDocParams, options?: RequestInit): Promise<diagnosticsWaterfallDocResponse> => {
+
+  const res = await fetch(getDiagnosticsWaterfallDocUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsWaterfallDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsWaterfallDocResponse
 }
 
 
@@ -1029,6 +1078,46 @@ export const startIngestDoc = async (ingestStartRequest: IngestStartRequest, opt
 
   const data: startIngestDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as startIngestDocResponse
+}
+
+
+
+export type logsExportDocResponse200 = {
+  data: string
+  status: 200
+}
+
+export type logsExportDocResponseSuccess = (logsExportDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type logsExportDocResponse = (logsExportDocResponseSuccess)
+
+export const getLogsExportDocUrl = () => {
+
+
+
+
+  return `/api/logs/export`
+}
+
+export const logsExportDoc = async ( options?: RequestInit): Promise<logsExportDocResponse> => {
+
+  const res = await fetch(getLogsExportDocUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: logsExportDocResponse['data'] = body !== null ? body : ''
+  return { data, status: res.status, headers: res.headers } as logsExportDocResponse
 }
 
 

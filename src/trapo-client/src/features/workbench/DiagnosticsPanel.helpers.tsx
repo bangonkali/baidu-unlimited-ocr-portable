@@ -82,6 +82,9 @@ export function toggled(current: Set<string>, id: string) {
 }
 
 export function formatMs(value: number) {
+  if (value > 0 && value < 1) {
+    return '<1ms';
+  }
   return value >= 1000 ? `${(value / 1000).toFixed(2)}s` : `${value.toFixed(0)}ms`;
 }
 
