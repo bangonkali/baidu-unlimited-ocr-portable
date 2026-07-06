@@ -4,6 +4,7 @@ import { Cpu, Gauge, Moon, Settings2, Sun } from 'lucide-react';
 import type { ModelsPayload, OcrProfileRecord, SettingsPayload } from '../../api/types';
 import type { SettingsSection } from '../../routeSearch';
 import type { ThemeMode } from '../../stores/workbenchStore';
+import { ModelDownloadSettings } from './ModelDownloadSettings';
 import styles from './SettingsPanel.module.css';
 
 interface SettingsPanelProps {
@@ -14,6 +15,7 @@ interface SettingsPanelProps {
   selectedProfile: string;
   settings?: SettingsPayload;
   theme: ThemeMode;
+  onDownloadConcurrencyChange: (value: number) => void;
   onModelChange: (modelId: string) => void;
   onProfileChange: (profileId: string) => void;
   onRuntimeChange: (runtimeId: string) => void;
@@ -68,7 +70,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
             />
           ) : null}
           {activeSection === 'storage' ? <StorageSettings settings={props.settings} /> : null}
-          {activeSection === 'models' ? <ModelSettings models={props.models} /> : null}
+          {activeSection === 'models' ? (
+            <ModelDownloadSettings
+              busy={props.busy}
+              models={props.models}
+              onDownloadConcurrencyChange={props.onDownloadConcurrencyChange}
+              settings={props.settings}
+            />
+          ) : null}
         </div>
       </div>
     </section>
@@ -210,19 +219,6 @@ function StorageSettings({ settings }: { settings?: SettingsPayload }) {
       <h2>Storage</h2>
       <p>{settings?.database_path ?? 'Database path unavailable'}</p>
       <p>{settings?.cache_path ?? 'Cache path unavailable'}</p>
-    </section>
-  );
-}
-
-function ModelSettings({ models }: { models?: ModelsPayload }) {
-  return (
-    <section className={styles.group}>
-      <h2>Models</h2>
-      <p>{models?.provider_label ?? models?.provider_repo ?? 'Unlimited-OCR model catalog'}</p>
-      <div className={styles.meta}>
-        <span>{models?.models.length ?? 0} variants</span>
-        <span>Selected {models?.selected_model_id ?? 'none'}</span>
-      </div>
     </section>
   );
 }

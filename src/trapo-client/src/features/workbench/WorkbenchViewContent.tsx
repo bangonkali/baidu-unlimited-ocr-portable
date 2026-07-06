@@ -65,6 +65,7 @@ export interface WorkbenchViewContentProps {
   onCancelModel: (modelId: string) => void;
   onDiagnosticsSearchChange: (patch: Partial<DiagnosticsRouteSearch>) => void;
   onDownloadModel: (modelId: string, force?: boolean) => void;
+  onDownloadConcurrencyChange: (value: number) => void;
   onExplorerFilterChange: (filter: WorkbenchExplorerFilter) => void;
   onModelChange: (modelId: string) => void;
   onModelRouteSearchChange: (patch: Partial<ModelRouteSearch>) => void;
@@ -218,6 +219,7 @@ function renderSettingsView(props: WorkbenchViewContentProps) {
       activeSection={props.settingsSearch?.section}
       busy={props.settingsBusy}
       models={props.models}
+      onDownloadConcurrencyChange={props.onDownloadConcurrencyChange}
       onModelChange={props.onModelChange}
       onProfileChange={props.onProfileChange}
       onRuntimeChange={props.onRuntimeChange}

@@ -3122,6 +3122,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "trapo-downloader"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "reqwest 0.13.1",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "trapo-server"
 version = "0.1.5"
 dependencies = [
@@ -3152,6 +3162,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "trapo-downloader",
  "utoipa",
  "utoipa-axum",
  "utoipa-scalar",

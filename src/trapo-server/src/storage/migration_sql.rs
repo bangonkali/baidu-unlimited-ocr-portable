@@ -24,6 +24,7 @@ UPDATE document_text_region_links SET annotation_id = region_id WHERE annotation
 
 ALTER TABLE download_events ADD COLUMN IF NOT EXISTS download_key TEXT DEFAULT '';
 UPDATE download_events SET download_key = download_id WHERE download_key IS NULL OR download_key = '';
+ALTER TABLE download_events ADD COLUMN IF NOT EXISTS error_kind TEXT;
 
 ALTER TABLE ocr_stream_events ADD COLUMN IF NOT EXISTS event_id TEXT;
 UPDATE ocr_stream_events SET event_id = CAST(sequence AS VARCHAR)

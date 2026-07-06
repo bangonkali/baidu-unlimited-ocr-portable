@@ -55,12 +55,15 @@ describe('ModelManager', () => {
   test('renders active file download details in the download manager', () => {
     const html = renderToString(
       <DownloadManager
+        downloadConcurrency={4}
         models={fixtureDownloadingModels.models}
         onCancelModel={() => undefined}
         onClose={() => undefined}
       />,
     );
-    expect(html).toContain('active files');
+    const text = html.replaceAll('<!-- -->', '');
+    expect(text).toContain('downloading /');
+    expect(text).toContain('Limit 4 concurrent files');
     expect(html).toContain('45.0%');
     expect(html).toContain('11.25 MiB/s');
     expect(html).toContain('Unlimited-OCR-Q4_K_M.gguf');

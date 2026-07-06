@@ -215,6 +215,7 @@ export const Settings: Story = {
     <div className="storyTall">
       <SettingsPanel
         models={fixtureModels}
+        onDownloadConcurrencyChange={() => undefined}
         onModelChange={() => undefined}
         onProfileChange={() => undefined}
         onRuntimeChange={() => undefined}

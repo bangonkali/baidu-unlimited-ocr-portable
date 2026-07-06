@@ -12,16 +12,25 @@ export interface ActiveDownloadItem {
 }
 
 interface DownloadManagerProps {
-  models: ModelAssetRecord[];
   busy?: boolean;
+  downloadConcurrency?: number;
+  models: ModelAssetRecord[];
   onCancelModel: (modelId: string) => void;
   onClose: () => void;
 }
 
 const activeStatuses = new Set(['queued', 'downloading', 'cancelling']);
 
-export function DownloadManager({ busy, models, onCancelModel, onClose }: DownloadManagerProps) {
+export function DownloadManager({
+  busy,
+  downloadConcurrency,
+  models,
+  onCancelModel,
+  onClose,
+}: DownloadManagerProps) {
   const tracked = activeDownloadItems(models);
+  const downloading = tracked.filter((item) => item.file.status === 'downloading').length;
+  const queued = tracked.filter((item) => item.file.status === 'queued').length;
   const totalBytes = tracked.reduce((total, item) => total + (item.file.total_bytes ?? 0), 0);
   const downloadedBytes = tracked.reduce((total, item) => total + item.file.downloaded_bytes, 0);
   const totalPercent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
@@ -37,10 +46,13 @@ export function DownloadManager({ busy, models, onCancelModel, onClose }: Downlo
       <div className={styles.summary}>
         <DownloadCloud size={17} />
         <div className={styles.summaryText}>
-          <strong>{tracked.length} active files</strong>
+          <strong>
+            {downloading} downloading / {queued} queued
+          </strong>
           <span>
             {formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
           </span>
+          <span>Limit {downloadConcurrency ?? 4} concurrent files</span>
           <div className={styles.progress}>
             <span style={{ width: `${Math.min(totalPercent, 100)}%` }} />
           </div>

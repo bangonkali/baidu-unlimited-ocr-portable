@@ -12,6 +12,8 @@ export interface ModelDownloadFileRecord {
   downloaded_bytes: number;
   /** @nullable */
   error?: string | null;
+  /** @nullable */
+  error_kind?: string | null;
   /**
      * @minimum 0
      * @nullable

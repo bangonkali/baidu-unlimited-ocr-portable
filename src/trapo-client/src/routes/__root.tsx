@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createRootRoute, Outlet, retainSearchParams, useLocation } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useCancelModelDownload, useModels } from '../api/hooks';
+import { useCancelModelDownload, useModels, useSettings } from '../api/hooks';
 import { getJson } from '../api/http';
 import type { StatusPayload } from '../api/types';
 import { activeDownloadItems, DownloadManager } from '../features/workbench/DownloadManager';
@@ -31,6 +31,7 @@ function RootLayout() {
   const location = useLocation();
   const navigate = Route.useNavigate();
   const models = useModels();
+  const settings = useSettings();
   const cancelDownload = useCancelModelDownload();
   const service = useServiceShutdownState();
   const statusProbe = useServiceStatusProbe(service.mode);
@@ -104,6 +105,7 @@ function RootLayout() {
       {isOpen && service.mode === 'online' ? (
         <DownloadManager
           busy={cancelDownload.isPending}
+          downloadConcurrency={settings.data?.download_concurrency}
           models={models.data?.models ?? []}
           onCancelModel={cancelDownload.mutate}
           onClose={pane.close}

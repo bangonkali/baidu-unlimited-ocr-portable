@@ -5,8 +5,8 @@ impl Repository {
             conn.execute(
                 "INSERT INTO download_events(event_id, download_id, download_key, owner_kind, owner_id, file_id,
                   file_name, target_path, source_url, event_type, status, downloaded_bytes,
-                  total_bytes, error, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  total_bytes, error, error_kind, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(event_id) DO NOTHING",
                 params![
                     event.event_id.as_str(),
@@ -23,6 +23,7 @@ impl Repository {
                     u64_to_i64_saturating(event.downloaded_bytes),
                     event.total_bytes.map(u64_to_i64_saturating),
                     event.error.as_deref(),
+                    event.error_kind.as_deref(),
                     event.created_at.as_str()
                 ],
             )?;

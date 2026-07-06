@@ -11,6 +11,7 @@ describe('SettingsPanel', () => {
     const appearanceHtml = renderSettingsPanel();
     const runtimeHtml = renderSettingsPanel('runtime');
     const ocrHtml = renderSettingsPanel('ocr');
+    const modelsHtml = renderSettingsPanel('models');
 
     expect(appearanceHtml).toContain('Appearance');
     expect(runtimeHtml).toContain('Windows x64 CUDA 13');
@@ -18,11 +19,13 @@ describe('SettingsPanel', () => {
     expect(runtimeHtml).toContain('Runtime files are not installed');
     expect(ocrHtml).toContain('Unlimited-OCR Q4_K_M');
     expect(ocrHtml).toContain('Experimental exact-prefill Q4');
+    expect(modelsHtml).toContain('Concurrent downloads');
+    expect(modelsHtml.replaceAll('<!-- -->', '')).toContain('4 files at once');
     expect(runtimeHtml).toContain('disabled=""');
   });
 });
 
-function renderSettingsPanel(activeSection?: 'runtime' | 'ocr') {
+function renderSettingsPanel(activeSection?: 'runtime' | 'ocr' | 'models') {
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: ['/settings'] }),
     routeTree,
@@ -32,6 +35,7 @@ function renderSettingsPanel(activeSection?: 'runtime' | 'ocr') {
       <SettingsPanel
         activeSection={activeSection}
         models={fixtureModels}
+        onDownloadConcurrencyChange={() => undefined}
         onModelChange={() => undefined}
         onProfileChange={() => undefined}
         onRuntimeChange={() => undefined}

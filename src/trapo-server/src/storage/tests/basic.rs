@@ -272,6 +272,7 @@ mod tests {
             downloaded_bytes: 0,
             total_bytes: Some(128),
             error: None,
+            error_kind: Some("network".to_string()),
             created_at: "2026-07-03T00:00:00Z".to_string(),
         };
 

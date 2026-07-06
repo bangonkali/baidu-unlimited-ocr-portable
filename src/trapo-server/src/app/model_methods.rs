@@ -55,22 +55,18 @@ impl AppState {
             });
         }
         let targets = model_download_targets(&self.inner.config.model_dir, entry);
-        let (status, event, should_spawn_next) = {
+        let (status, event, queued_any) = {
             let mut state = self.inner.state.lock().await;
-            let active = state
-                .downloads
-                .values()
-                .any(|download| matches!(download.status.as_str(), "downloading" | "cancelling"));
             let queued_any = queue_download_targets(&mut state, targets, force);
             let record = model_record(&self.inner.config.model_dir, &state, entry);
             let status = record.status.clone();
             let event = serde_json::to_value(record)?;
             drop(state);
-            (status, event, queued_any && !active)
+            (status, event, queued_any)
         };
         self.inner.hub.publish("model.changed", event);
-        if should_spawn_next {
-            self.spawn_next_download().await;
+        if queued_any {
+            self.spawn_available_downloads().await;
         }
         Ok(ModelDownloadRecord {
             model_id: model_id.to_string(),
@@ -82,44 +78,42 @@ impl AppState {
         if find_model(model_id).is_none() {
             return Err(AppError::BadRequest("unknown model id".to_string()));
         }
-        let (status, event) = {
+        let (status, event, cancel_requested, immediate_cancelled) = {
             let mut state = self.inner.state.lock().await;
-            let mut touched = false;
-            for download in state
-                .downloads
-                .values_mut()
-                .filter(|download| {
-                    download.owner_kind == "model"
-                        && download.owner_id == model_id
-                        && is_active_download_status(&download.status)
-                })
-            {
-                download.cancel_requested = true;
-                download.status = if download.status == "queued" {
-                    "cancelled".to_string()
-                } else {
-                    "cancelling".to_string()
-                };
-                download.last_event_at = Some(Utc::now().to_rfc3339());
-                touched = true;
-            }
-            if touched {
+            let cancel_updates = mark_model_downloads_cancel_requested(&mut state, model_id);
+            if cancel_updates.touched {
                 let entry = find_model(model_id)
                     .ok_or_else(|| AppError::BadRequest("unknown model id".to_string()))?;
                 let record = model_record(&self.inner.config.model_dir, &state, entry);
                 let status = record.status.clone();
                 let event = serde_json::to_value(record)?;
                 drop(state);
-                (status, Some(event))
+                (
+                    status,
+                    Some(event),
+                    cancel_updates.cancel_requested,
+                    cancel_updates.immediate_cancelled,
+                )
             } else {
                 drop(state);
-                ("idle".to_string(), None)
+                (
+                    "idle".to_string(),
+                    None,
+                    cancel_updates.cancel_requested,
+                    cancel_updates.immediate_cancelled,
+                )
             }
         };
+        for download in &cancel_requested {
+            self.record_download_event(download, "cancel_requested").await;
+        }
+        for download in &immediate_cancelled {
+            self.record_download_event(download, "cancelled").await;
+        }
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
-        self.spawn_next_download().await;
+        self.spawn_available_downloads().await;
         Ok(ModelDownloadRecord {
             model_id: model_id.to_string(),
             status,
@@ -141,6 +135,41 @@ impl AppState {
             model: record,
         })
     }
+}
+
+#[derive(Debug, Default)]
+struct ModelCancelUpdates {
+    touched: bool,
+    cancel_requested: Vec<DownloadState>,
+    immediate_cancelled: Vec<DownloadState>,
+}
+
+fn mark_model_downloads_cancel_requested(
+    state: &mut WorkbenchState,
+    model_id: &str,
+) -> ModelCancelUpdates {
+    let mut updates = ModelCancelUpdates::default();
+    for download in state.downloads.values_mut().filter(|download| {
+        download.owner_kind == "model"
+            && download.owner_id == model_id
+            && is_active_download_status(&download.status)
+    }) {
+        download.cancel_requested = true;
+        download.cancel_flag.store(true, Ordering::Relaxed);
+        let was_queued = download.status == "queued";
+        download.status = if was_queued {
+            "cancelled".to_string()
+        } else {
+            "cancelling".to_string()
+        };
+        download.last_event_at = Some(Utc::now().to_rfc3339());
+        updates.cancel_requested.push(download.clone());
+        if was_queued {
+            updates.immediate_cancelled.push(download.clone());
+        }
+        updates.touched = true;
+    }
+    updates
 }
 
 fn queue_download_targets(
@@ -192,10 +221,12 @@ fn queued_download_state(
         downloaded_bytes: 0,
         total_bytes: Some(target.total_bytes),
         error: None,
+        error_kind: None,
         started_at: None,
         last_progress_publish_at: None,
         last_progress_publish_bytes: 0,
         cancel_requested: false,
+        cancel_flag: Arc::new(AtomicBool::new(false)),
         last_event_at: Some(Utc::now().to_rfc3339()),
     }
 }

@@ -75,6 +75,8 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
     ...modelRouteActions,
     ...selectionActions,
     cancelModelDownload: args.data.cancelModelDownload,
+    changeDownloadConcurrency: (value: number) =>
+      args.data.updateSettings.mutate({ download_concurrency: value }),
     changeExplorerFilter: (filter) => changeExplorerFilter(args, filter),
     changeProfile,
     commandController,

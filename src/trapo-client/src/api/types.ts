@@ -75,6 +75,7 @@ export interface ModelAssetRecord {
   local_path?: string | null;
   size_bytes?: number | null;
   error?: string | null;
+  error_kind?: string | null;
   model_file?: string;
   mmproj_file?: string;
   current_file?: string | null;
@@ -121,6 +122,7 @@ export interface ModelDownloadFileRecord {
   bytes_per_second?: number;
   eta_seconds?: number | null;
   error?: string | null;
+  error_kind?: string | null;
 }
 
 export interface ModelsPayload {
@@ -149,6 +151,7 @@ export interface ModelDownloadRequest {
 export interface SettingsPayload {
   pdf_dpi: number;
   ocr_concurrency: number;
+  download_concurrency: number;
   default_profile: string;
   retry_profile: string;
   cache_path?: string;
@@ -162,6 +165,7 @@ export interface SettingsPayload {
 
 export interface SettingsUpdateRequest {
   default_profile?: string;
+  download_concurrency?: number;
   selected_runtime_id?: string;
   workbench_ui?: WorkbenchUiSettingsPatch;
 }

@@ -252,6 +252,7 @@ export const fixtureSettings: SettingsPayload = {
   cache_path: 'C:\\trapo\\cache',
   database_path: 'C:\\trapo\\data\\trapo.duckdb',
   default_profile: 'experimental-exact-prefill-q4',
+  download_concurrency: 4,
   ocr_concurrency: 1,
   pdf_dpi: 200,
   retry_profile: 'best-zero-empty-q4',

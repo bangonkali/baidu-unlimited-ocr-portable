@@ -35,6 +35,8 @@ export interface ModelAssetRecord {
   embedding_dimension?: number | null;
   /** @nullable */
   error?: string | null;
+  /** @nullable */
+  error_kind?: string | null;
   /**
      * @minimum 0
      * @nullable

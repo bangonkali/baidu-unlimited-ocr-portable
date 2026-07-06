@@ -41,6 +41,7 @@ export interface WorkbenchContentActions {
   commandController: ReturnType<typeof useWorkbenchCommands>;
   downloadModel: MutationLike<ModelDownloadInput>;
   changeExplorerFilter: (filter: WorkbenchExplorerFilter) => void;
+  changeDownloadConcurrency: (value: number) => void;
   ingestBusy: boolean;
   modelBusy: boolean;
   pickFolder: () => void;
@@ -119,6 +120,7 @@ export function buildContentProps(args: {
     onCancelModel: (modelId) => args.actions.cancelModelDownload.mutate(modelId),
     onDiagnosticsSearchChange: args.actions.commandController.updateDiagnosticsRouteSearch,
     onDownloadModel: (modelId, force) => args.actions.downloadModel.mutate({ force, modelId }),
+    onDownloadConcurrencyChange: args.actions.changeDownloadConcurrency,
     onExplorerFilterChange: args.actions.changeExplorerFilter,
     onModelChange: (modelId) => args.actions.selectModel.mutate(modelId),
     onModelRouteSearchChange: args.actions.updateModelRouteSearch,

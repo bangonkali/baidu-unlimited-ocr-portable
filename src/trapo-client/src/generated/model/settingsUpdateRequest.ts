@@ -10,6 +10,11 @@ import type { WorkbenchUiSettingsPatch } from './workbenchUiSettingsPatch';
 export interface SettingsUpdateRequest {
   /** @nullable */
   default_profile?: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  download_concurrency?: number | null;
   /** @nullable */
   selected_runtime_id?: string | null;
   workbench_ui?: null | WorkbenchUiSettingsPatch;

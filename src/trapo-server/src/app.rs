@@ -1,7 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 
@@ -88,6 +91,7 @@ struct WorkbenchState {
     selected_runtime_id: String,
     runtime_variants: Vec<crate::catalog::RuntimeVariant>,
     workbench_ui: WorkbenchUiSettings,
+    download_concurrency: u32,
     active_run_id: Option<String>,
     runs: BTreeMap<String, RunState>,
     documents: BTreeMap<String, DocumentState>,
@@ -159,10 +163,12 @@ struct DownloadState {
     downloaded_bytes: u64,
     total_bytes: Option<u64>,
     error: Option<String>,
+    error_kind: Option<String>,
     started_at: Option<Instant>,
     last_progress_publish_at: Option<Instant>,
     last_progress_publish_bytes: u64,
     cancel_requested: bool,
+    cancel_flag: Arc<AtomicBool>,
     last_event_at: Option<String>,
 }
 

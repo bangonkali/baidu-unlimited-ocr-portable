@@ -3083,6 +3083,12 @@
               "null"
             ]
           },
+          "error_kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "eta_seconds": {
             "type": [
               "integer",
@@ -3273,6 +3279,12 @@
             "minimum": 0
           },
           "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error_kind": {
             "type": [
               "string",
               "null"
@@ -3884,6 +3896,7 @@
         "required": [
           "pdf_dpi",
           "ocr_concurrency",
+          "download_concurrency",
           "default_profile",
           "retry_profile",
           "cache_path",
@@ -3903,6 +3916,11 @@
           },
           "default_profile": {
             "type": "string"
+          },
+          "download_concurrency": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           },
           "ocr_concurrency": {
             "type": "integer",
@@ -3945,6 +3963,14 @@
               "string",
               "null"
             ]
+          },
+          "download_concurrency": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
           },
           "selected_runtime_id": {
             "type": [

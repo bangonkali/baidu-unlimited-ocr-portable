@@ -95,6 +95,7 @@ pub(crate) struct ModelAssetRecord {
     pub(crate) local_path: Option<String>,
     pub(crate) size_bytes: Option<u64>,
     pub(crate) error: Option<String>,
+    pub(crate) error_kind: Option<String>,
     pub(crate) model_file: String,
     pub(crate) mmproj_file: String,
     pub(crate) current_file: Option<String>,
@@ -151,6 +152,7 @@ pub(crate) struct ModelDownloadFileRecord {
     pub(crate) bytes_per_second: f64,
     pub(crate) eta_seconds: Option<u64>,
     pub(crate) error: Option<String>,
+    pub(crate) error_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -184,6 +186,7 @@ pub(crate) struct ModelDownloadRequest {
 pub(crate) struct SettingsPayload {
     pub(crate) pdf_dpi: u32,
     pub(crate) ocr_concurrency: u32,
+    pub(crate) download_concurrency: u32,
     pub(crate) default_profile: String,
     pub(crate) retry_profile: String,
     pub(crate) cache_path: String,
@@ -198,6 +201,7 @@ pub(crate) struct SettingsPayload {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 pub(crate) struct SettingsUpdateRequest {
     pub(crate) default_profile: Option<String>,
+    pub(crate) download_concurrency: Option<u32>,
     pub(crate) selected_runtime_id: Option<String>,
     pub(crate) workbench_ui: Option<WorkbenchUiSettingsPatch>,
 }

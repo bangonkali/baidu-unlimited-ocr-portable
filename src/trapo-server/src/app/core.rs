@@ -20,6 +20,13 @@ impl AppState {
             read_string_setting(&repository, "selected_profile_id", DEFAULT_PROFILE_ID).await;
         let preferred_runtime = read_string_setting(&repository, "selected_runtime_id", "").await;
         let selected_runtime_id = choose_runtime_id(&variants, &preferred_runtime);
+        let download_concurrency = read_u32_setting(
+            &repository,
+            "download_concurrency",
+            DEFAULT_DOWNLOAD_CONCURRENCY,
+        )
+        .await
+        .clamp(MIN_DOWNLOAD_CONCURRENCY, MAX_DOWNLOAD_CONCURRENCY);
         let workbench_ui = repository
             .setting_value("workbench_ui")
             .await?
@@ -36,6 +43,7 @@ impl AppState {
             selected_runtime_id,
             runtime_variants: variants,
             workbench_ui,
+            download_concurrency,
             active_run_id: None,
             runs: BTreeMap::new(),
             documents: BTreeMap::new(),
@@ -164,6 +172,20 @@ impl AppState {
                 }
                 state.selected_profile_id.clone_from(&profile_id);
                 settings_to_persist.push(("selected_profile_id", Value::String(profile_id)));
+            }
+            if let Some(download_concurrency) = request.download_concurrency {
+                if !(MIN_DOWNLOAD_CONCURRENCY..=MAX_DOWNLOAD_CONCURRENCY)
+                    .contains(&download_concurrency)
+                {
+                    return Err(AppError::BadRequest(format!(
+                        "download_concurrency must be between {MIN_DOWNLOAD_CONCURRENCY} and {MAX_DOWNLOAD_CONCURRENCY}"
+                    )));
+                }
+                state.download_concurrency = download_concurrency;
+                settings_to_persist.push((
+                    "download_concurrency",
+                    Value::from(download_concurrency),
+                ));
             }
             if let Some(patch) = request.workbench_ui {
                 apply_workbench_patch(&mut state.workbench_ui, patch)?;

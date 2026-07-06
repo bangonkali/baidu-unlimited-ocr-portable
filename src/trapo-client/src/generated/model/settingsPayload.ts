@@ -13,6 +13,8 @@ export interface SettingsPayload {
   database_path: string;
   default_profile: string;
   /** @minimum 0 */
+  download_concurrency: number;
+  /** @minimum 0 */
   ocr_concurrency: number;
   /** @minimum 0 */
   pdf_dpi: number;

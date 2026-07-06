@@ -47,10 +47,12 @@ mod tests {
                 downloaded_bytes: 128,
                 total_bytes: Some(256),
                 error: None,
+                error_kind: None,
                 started_at: Some(Instant::now()),
                 last_progress_publish_at: None,
                 last_progress_publish_bytes: 0,
                 cancel_requested: false,
+                cancel_flag: Arc::new(AtomicBool::new(false)),
                 last_event_at: Some("2026-07-03T00:00:00Z".to_string()),
             },
         );
@@ -92,10 +94,12 @@ mod tests {
                 downloaded_bytes: target.total_bytes,
                 total_bytes: Some(target.total_bytes),
                 error: None,
+                error_kind: None,
                 started_at: Some(Instant::now()),
                 last_progress_publish_at: None,
                 last_progress_publish_bytes: 0,
                 cancel_requested: false,
+                cancel_flag: Arc::new(AtomicBool::new(false)),
                 last_event_at: Some("2026-07-03T00:00:00Z".to_string()),
             },
         );
@@ -108,7 +112,7 @@ mod tests {
     }
 
     #[test]
-    fn download_progress_publication_is_coalesced_by_time_and_size() {
+    fn download_progress_publication_is_coalesced_to_one_second() {
         let mut download = DownloadState {
             download_id: "download-a".to_string(),
             download_key: "model:model-a:model".to_string(),
@@ -123,37 +127,87 @@ mod tests {
             downloaded_bytes: 0,
             total_bytes: Some(10 * 1024 * 1024),
             error: None,
+            error_kind: None,
             started_at: Some(Instant::now()),
             last_progress_publish_at: None,
             last_progress_publish_bytes: 0,
             cancel_requested: false,
+            cancel_flag: Arc::new(AtomicBool::new(false)),
             last_event_at: None,
         };
         let now = Instant::now();
 
-        assert!(should_publish_download_progress(&download, 1024, now));
+        assert!(should_publish_download_progress(&download, now));
         mark_download_progress_published(&mut download, 1024, now, "now".to_string());
         assert!(!should_publish_download_progress(
             &download,
-            512 * 1024,
             now + Duration::from_millis(100)
         ));
         assert!(should_publish_download_progress(
             &download,
-            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 1024,
-            now + Duration::from_millis(100)
-        ));
-        mark_download_progress_published(
-            &mut download,
-            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 1024,
-            now + Duration::from_millis(100),
-            "later".to_string(),
-        );
-        assert!(should_publish_download_progress(
-            &download,
-            MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES + 2048,
             now + Duration::from_millis(MODEL_DOWNLOAD_PROGRESS_FLUSH_MS + 100)
         ));
+    }
+
+    #[test]
+    fn queued_download_scheduler_fills_available_slots() {
+        let mut state = test_workbench_state(DEFAULT_MODEL_ID);
+        state.download_concurrency = 2;
+        for index in 0..3 {
+            let download_id = format!("download-{index}");
+            state.download_queue.push_back(download_id.clone());
+            state
+                .downloads
+                .insert(download_id.clone(), test_download_state(&download_id, "queued"));
+        }
+
+        let started = start_queued_downloads(&mut state);
+
+        assert_eq!(started.len(), 2);
+        assert_eq!(
+            state
+                .downloads
+                .values()
+                .filter(|download| download.status == "downloading")
+                .count(),
+            2
+        );
+        assert_eq!(state.download_queue.len(), 1);
+    }
+
+    #[test]
+    fn model_cancel_marks_active_and_queued_downloads_for_terminal_events() -> Result<()> {
+        let mut state = test_workbench_state(DEFAULT_MODEL_ID);
+        state.download_queue.push_back("queued".to_string());
+        state.downloads.insert(
+            "queued".to_string(),
+            test_download_state("queued", "queued"),
+        );
+        state.downloads.insert(
+            "active".to_string(),
+            test_download_state("active", "downloading"),
+        );
+
+        let updates = mark_model_downloads_cancel_requested(&mut state, DEFAULT_MODEL_ID);
+
+        assert!(updates.touched);
+        assert_eq!(updates.cancel_requested.len(), 2);
+        assert_eq!(updates.immediate_cancelled.len(), 1);
+        let queued = state
+            .downloads
+            .get("queued")
+            .ok_or_else(|| AppError::Internal("queued download missing".to_string()))?;
+        let active = state
+            .downloads
+            .get("active")
+            .ok_or_else(|| AppError::Internal("active download missing".to_string()))?;
+        assert_eq!(queued.status, "cancelled");
+        assert_eq!(active.status, "cancelling");
+        assert!(queued.cancel_requested);
+        assert!(active.cancel_requested);
+        assert!(queued.cancel_flag.load(Ordering::Relaxed));
+        assert!(active.cancel_flag.load(Ordering::Relaxed));
+        Ok(())
     }
 
     fn test_workbench_state(model_id: &str) -> WorkbenchState {
@@ -163,11 +217,37 @@ mod tests {
             selected_runtime_id: String::new(),
             runtime_variants: Vec::new(),
             workbench_ui: WorkbenchUiSettings::default(),
+            download_concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
             active_run_id: None,
             runs: BTreeMap::new(),
             documents: BTreeMap::new(),
             downloads: HashMap::new(),
             download_queue: VecDeque::new(),
+        }
+    }
+
+    fn test_download_state(download_id: &str, status: &str) -> DownloadState {
+        DownloadState {
+            download_id: download_id.to_string(),
+            download_key: format!("model:{DEFAULT_MODEL_ID}:{download_id}"),
+            owner_kind: "model".to_string(),
+            owner_id: DEFAULT_MODEL_ID.to_string(),
+            file_id: download_id.to_string(),
+            file_name: format!("{download_id}.gguf"),
+            source_url: format!("https://example.test/{download_id}.gguf"),
+            target_path: PathBuf::from(format!("{download_id}.gguf")),
+            force: false,
+            status: status.to_string(),
+            downloaded_bytes: 0,
+            total_bytes: Some(128),
+            error: None,
+            error_kind: None,
+            started_at: None,
+            last_progress_publish_at: None,
+            last_progress_publish_bytes: 0,
+            cancel_requested: false,
+            cancel_flag: Arc::new(AtomicBool::new(false)),
+            last_event_at: None,
         }
     }
 }

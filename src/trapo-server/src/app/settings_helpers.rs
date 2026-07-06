@@ -1,3 +1,7 @@
+const DEFAULT_DOWNLOAD_CONCURRENCY: u32 = 4;
+const MIN_DOWNLOAD_CONCURRENCY: u32 = 1;
+const MAX_DOWNLOAD_CONCURRENCY: u32 = 16;
+
 async fn read_string_setting(repository: &Repository, key: &str, fallback: &str) -> String {
     repository
         .setting_value(key)
@@ -7,6 +11,17 @@ async fn read_string_setting(repository: &Repository, key: &str, fallback: &str)
         .and_then(|value| value.as_str().map(ToString::to_string))
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| fallback.to_string())
+}
+
+async fn read_u32_setting(repository: &Repository, key: &str, fallback: u32) -> u32 {
+    repository
+        .setting_value(key)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|value| value.as_u64())
+        .and_then(|value| u32::try_from(value).ok())
+        .unwrap_or(fallback)
 }
 
 async fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -> Result<()> {
@@ -54,6 +69,7 @@ fn settings_payload(inner: &AppInner, state: &WorkbenchState) -> SettingsPayload
     SettingsPayload {
         pdf_dpi: PDF_DPI,
         ocr_concurrency: 1,
+        download_concurrency: state.download_concurrency,
         default_profile: state.selected_profile_id.clone(),
         retry_profile: RETRY_PROFILE_ID.to_string(),
         cache_path: inner.config.cache_dir.to_string_lossy().to_string(),

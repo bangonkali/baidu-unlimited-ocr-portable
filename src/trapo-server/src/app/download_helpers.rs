@@ -1,12 +1,11 @@
-const MODEL_DOWNLOAD_PROGRESS_FLUSH_MS: u64 = 250;
-const MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES: u64 = 2 * 1024 * 1024;
+const MODEL_DOWNLOAD_PROGRESS_FLUSH_MS: u64 = 1_000;
 
 impl AppState {
     async fn bump_download_progress(
         &self,
         download_id: &str,
         downloaded: u64,
-        total: u64,
+        total: Option<u64>,
     ) -> Result<()> {
         let event = {
             let mut state = self.inner.state.lock().await;
@@ -17,8 +16,10 @@ impl AppState {
                     return Ok(());
                 };
                 download.downloaded_bytes = downloaded;
-                download.total_bytes = Some(total);
-                if !should_publish_download_progress(download, downloaded, now) {
+                if let Some(total) = total {
+                    download.total_bytes = Some(total);
+                }
+                if !should_publish_download_progress(download, now) {
                     return Ok(());
                 }
                 mark_download_progress_published(download, downloaded, now, occurred_at);
@@ -34,16 +35,25 @@ impl AppState {
         Ok(())
     }
 
-    async fn set_download_complete(&self, download_id: &str) -> Result<()> {
+    async fn set_download_complete(
+        &self,
+        download_id: &str,
+        downloaded_bytes: u64,
+        total_bytes: Option<u64>,
+    ) {
         let (event, completed) = {
             let mut state = self.inner.state.lock().await;
             let completed = {
                 let Some(download) = state.downloads.get_mut(download_id) else {
-                    return Ok(());
+                    return;
                 };
                 download.status = "downloaded".to_string();
-                download.downloaded_bytes = download.total_bytes.unwrap_or(download.downloaded_bytes);
+                download.downloaded_bytes = downloaded_bytes;
+                if let Some(total_bytes) = total_bytes {
+                    download.total_bytes = Some(total_bytes);
+                }
                 download.error = None;
+                download.error_kind = None;
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
@@ -55,11 +65,17 @@ impl AppState {
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
-        self.spawn_next_download().await;
-        Ok(())
+        self.spawn_available_downloads().await;
     }
 
-    async fn set_download_error(&self, download_id: &str, error: String) {
+    async fn set_download_error(
+        &self,
+        download_id: &str,
+        error_kind: String,
+        error: String,
+        downloaded_bytes: Option<u64>,
+        total_bytes: Option<u64>,
+    ) {
         let (event, failed) = {
             let mut state = self.inner.state.lock().await;
             let failed = {
@@ -67,7 +83,14 @@ impl AppState {
                     return;
                 };
                 download.status = "failed".to_string();
+                if let Some(downloaded_bytes) = downloaded_bytes {
+                    download.downloaded_bytes = downloaded_bytes;
+                }
+                if let Some(total_bytes) = total_bytes {
+                    download.total_bytes = Some(total_bytes);
+                }
                 download.error = Some(error);
+                download.error_kind = Some(error_kind);
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
@@ -79,10 +102,15 @@ impl AppState {
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
-        self.spawn_next_download().await;
+        self.spawn_available_downloads().await;
     }
 
-    async fn set_download_cancelled(&self, download_id: &str) {
+    async fn set_download_cancelled(
+        &self,
+        download_id: &str,
+        downloaded_bytes: u64,
+        total_bytes: Option<u64>,
+    ) {
         let (event, cancelled) = {
             let mut state = self.inner.state.lock().await;
             let cancelled = {
@@ -90,6 +118,10 @@ impl AppState {
                     return;
                 };
                 download.status = "cancelled".to_string();
+                download.downloaded_bytes = downloaded_bytes;
+                if let Some(total_bytes) = total_bytes {
+                    download.total_bytes = Some(total_bytes);
+                }
                 download.last_event_at = Some(Utc::now().to_rfc3339());
                 download.clone()
             };
@@ -101,17 +133,7 @@ impl AppState {
         if let Some(event) = event {
             self.inner.hub.publish("model.changed", event);
         }
-        self.spawn_next_download().await;
-    }
-
-    async fn download_cancelled(&self, download_id: &str) -> bool {
-        let state = self.inner.state.lock().await;
-        let cancelled = state
-            .downloads
-            .get(download_id)
-            .is_some_and(|download| download.cancel_requested);
-        drop(state);
-        cancelled
+        self.spawn_available_downloads().await;
     }
 
     async fn record_download_event(&self, download: &DownloadState, event_type: &str) {
@@ -130,6 +152,7 @@ impl AppState {
             downloaded_bytes: download.downloaded_bytes,
             total_bytes: download.total_bytes,
             error: download.error.clone(),
+            error_kind: download.error_kind.clone(),
             created_at: Utc::now().to_rfc3339(),
         };
         if let Err(error) = self.inner.repository.insert_download_event(&event).await {
@@ -140,17 +163,11 @@ impl AppState {
 
 fn should_publish_download_progress(
     download: &DownloadState,
-    downloaded: u64,
     now: Instant,
 ) -> bool {
     let Some(last_published_at) = download.last_progress_publish_at else {
         return true;
     };
-    if downloaded.saturating_sub(download.last_progress_publish_bytes)
-        >= MODEL_DOWNLOAD_PROGRESS_FLUSH_BYTES
-    {
-        return true;
-    }
     now.checked_duration_since(last_published_at)
         .is_none_or(|elapsed| elapsed.as_millis() >= u128::from(MODEL_DOWNLOAD_PROGRESS_FLUSH_MS))
 }

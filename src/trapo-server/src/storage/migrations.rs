@@ -1,4 +1,4 @@
-use super::migration_sql;
+use super::{migration_sql, migration_sql_downloads};
 
 pub(super) struct Migration {
     pub id: i32,
@@ -142,6 +142,9 @@ ON CONFLICT(key) DO NOTHING;
 INSERT INTO settings(key, value, updated_at)
 VALUES ('selected_profile_id', '"experimental-exact-prefill-q4"'::JSON, current_timestamp)
 ON CONFLICT(key) DO NOTHING;
+INSERT INTO settings(key, value, updated_at)
+VALUES ('download_concurrency', '4'::JSON, current_timestamp)
+ON CONFLICT(key) DO NOTHING;
 "#,
     },
     Migration {
@@ -254,7 +257,7 @@ CREATE TABLE IF NOT EXISTS download_events (
   event_id TEXT PRIMARY KEY, download_id TEXT NOT NULL, download_key TEXT NOT NULL DEFAULT '', owner_kind TEXT NOT NULL,
   owner_id TEXT NOT NULL, file_id TEXT NOT NULL, file_name TEXT NOT NULL, target_path TEXT NOT NULL,
   source_url TEXT NOT NULL, event_type TEXT NOT NULL, status TEXT NOT NULL,
-  downloaded_bytes UBIGINT NOT NULL DEFAULT 0, total_bytes UBIGINT, error TEXT, created_at TEXT NOT NULL
+  downloaded_bytes UBIGINT NOT NULL DEFAULT 0, total_bytes UBIGINT, error TEXT, error_kind TEXT, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_download_events_download ON download_events(download_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_kind, owner_id, created_at);
@@ -273,22 +276,16 @@ CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_ki
     Migration {
         id: 12,
         name: "ingest_run_completion_manifests",
-        sql: r"
-CREATE TABLE IF NOT EXISTS ingest_run_completion_manifests (
-  run_id TEXT PRIMARY KEY, completed_at TEXT NOT NULL, status TEXT NOT NULL,
-  root_path TEXT NOT NULL, profile_id TEXT NOT NULL, engine_id TEXT NOT NULL,
-  model_id TEXT NOT NULL, runtime_id TEXT NOT NULL,
-  queued_files INTEGER NOT NULL, processed_pages INTEGER NOT NULL, total_pages INTEGER NOT NULL,
-  file_count INTEGER NOT NULL, page_count INTEGER NOT NULL,
-  summary_json TEXT NOT NULL DEFAULT '{}'
-);
-CREATE INDEX IF NOT EXISTS idx_ingest_run_completion_completed_at
-  ON ingest_run_completion_manifests(completed_at);
-",
+        sql: migration_sql_downloads::INGEST_RUN_COMPLETION_MANIFESTS,
     },
     Migration {
         id: 13,
         name: "rag_pipeline",
         sql: migration_sql::RAG_PIPELINE,
+    },
+    Migration {
+        id: 14,
+        name: "download_manager_concurrency",
+        sql: migration_sql_downloads::DOWNLOAD_MANAGER_CONCURRENCY,
     },
 ];

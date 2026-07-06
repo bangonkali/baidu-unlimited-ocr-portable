@@ -26,6 +26,7 @@ fn model_record(
             .then(|| model_dir.join(entry.model_file).to_string_lossy().to_string()),
         size_bytes: Some(entry.model_size_bytes),
         error: files.iter().find_map(|file| file.error.clone()),
+        error_kind: files.iter().find_map(|file| file.error_kind.clone()),
         model_file: entry.model_file.to_string(),
         mmproj_file: entry.mmproj_file.unwrap_or("").to_string(),
         current_file: active_downloads
@@ -108,6 +109,7 @@ fn model_files(
                     bytes_per_second,
                 ),
                 error: download.and_then(|item| item.error.clone()),
+                error_kind: download.and_then(|item| item.error_kind.clone()),
             }
         })
         .collect()

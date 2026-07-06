@@ -98,6 +98,7 @@ mod test_fixtures {
             downloaded_bytes: 0,
             total_bytes,
             error: None,
+            error_kind: None,
             created_at: "2026-07-03T00:00:00Z".to_string(),
         }
     }

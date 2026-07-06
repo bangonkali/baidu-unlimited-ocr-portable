@@ -260,6 +260,7 @@ pub(crate) struct DownloadEventInsert {
     pub(crate) downloaded_bytes: u64,
     pub(crate) total_bytes: Option<u64>,
     pub(crate) error: Option<String>,
+    pub(crate) error_kind: Option<String>,
     pub(crate) created_at: String,
 }
 

@@ -40,6 +40,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs", "process
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = "0.7"
 tower-http = { version = "0.7", features = ["cors", "fs", "trace"] }
+trapo-downloader = { path = "../../crates/trapo-downloader" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

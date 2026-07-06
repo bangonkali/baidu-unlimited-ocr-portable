@@ -248,6 +248,7 @@ fn collect_download_update(
         return;
     };
     download.cancel_requested = true;
+    download.cancel_flag.store(true, Ordering::Relaxed);
     download.status = if download.status == "queued" {
         "cancelled".to_string()
     } else {
