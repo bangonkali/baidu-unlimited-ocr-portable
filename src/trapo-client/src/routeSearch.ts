@@ -26,10 +26,12 @@ export type ModelSortKey =
   | 'eta';
 export type SortDirection = 'asc' | 'desc';
 export type DownloadStatusFilter = 'active' | 'queued' | 'all';
+export type ModelOriginFilter = 'all' | 'unlimited_ocr' | 'embedding';
 
 export interface ModelRouteSearch {
   dir?: SortDirection;
   model?: string;
+  origin?: ModelOriginFilter;
   sort?: ModelSortKey;
   status?: DownloadStatusFilter;
   view?: ModelViewMode;
@@ -51,13 +53,22 @@ export interface DiagnosticsRouteSearch {
 }
 
 export interface IngestRouteSearch {
+  embed?: boolean;
+  embedding_model?: string;
   engine?: string;
+  index?: boolean;
   model?: string;
   profile?: string;
   reprocess?: boolean;
   restart?: string;
   root?: string;
   runtime?: string;
+}
+
+export interface SearchRouteSearch {
+  model?: string;
+  q?: string;
+  run?: string;
 }
 
 export function validateRootSearch(search: Record<string, unknown>): RootRouteSearch {
@@ -94,6 +105,7 @@ export function validateModelSearch(search: Record<string, unknown>): ModelRoute
   return {
     dir: sortDirectionValue(search.dir),
     model: stringValue(search.model),
+    origin: modelOriginValue(search.origin),
     sort: modelSortValue(search.sort),
     status: downloadStatusValue(search.status),
     view: modelViewValue(search.view),
@@ -135,13 +147,24 @@ export function validateDiagnosticsSearch(search: Record<string, unknown>): Diag
 
 export function validateIngestSearch(search: Record<string, unknown>): IngestRouteSearch {
   return {
+    embed: booleanValue(search.embed) ?? booleanValue(search.embedding_after_ingest),
+    embedding_model: stringValue(search.embedding_model) ?? stringValue(search.embedding_model_id),
     engine: stringValue(search.engine) ?? stringValue(search.engine_id),
+    index: booleanValue(search.index) ?? booleanValue(search.text_index_after_ingest),
     model: stringValue(search.model),
     profile: stringValue(search.profile),
     reprocess: booleanValue(search.reprocess),
     restart: stringValue(search.restart) ?? stringValue(search.restart_run),
     root: stringValue(search.root) ?? stringValue(search.root_path),
     runtime: stringValue(search.runtime) ?? stringValue(search.runtime_id),
+  };
+}
+
+export function validateSearchSearch(search: Record<string, unknown>): SearchRouteSearch {
+  return {
+    model: stringValue(search.model) ?? stringValue(search.embedding_model),
+    q: stringValue(search.q),
+    run: stringValue(search.run) ?? stringValue(search.run_id),
   };
 }
 
@@ -188,6 +211,10 @@ function modelSortValue(value: unknown): ModelSortKey | undefined {
 
 function downloadStatusValue(value: unknown): DownloadStatusFilter | undefined {
   return value === 'active' || value === 'queued' || value === 'all' ? value : undefined;
+}
+
+function modelOriginValue(value: unknown): ModelOriginFilter | undefined {
+  return value === 'all' || value === 'unlimited_ocr' || value === 'embedding' ? value : undefined;
 }
 
 function runScopeValue(value: unknown): 'all' | undefined {

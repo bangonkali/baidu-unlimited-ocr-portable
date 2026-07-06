@@ -1,4 +1,14 @@
 #[derive(Debug, Clone)]
+pub(crate) struct DbExtensionCapabilities {
+    pub(crate) fts_loaded: bool,
+    pub(crate) fts_error: Option<String>,
+    pub(crate) vss_loaded: bool,
+    pub(crate) vss_error: Option<String>,
+    pub(crate) duckpgq_loaded: bool,
+    pub(crate) duckpgq_error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct StoredRun {
     pub(crate) run_id: String,
     pub(crate) root_path: String,
@@ -86,6 +96,7 @@ pub(crate) struct AnnotationIdentityDraft {
     pub(crate) source_region_key: String,
     pub(crate) discovery_index: u32,
     pub(crate) label: String,
+    pub(crate) category: String,
     pub(crate) x1: f64,
     pub(crate) y1: f64,
     pub(crate) x2: f64,
@@ -250,6 +261,112 @@ pub(crate) struct DownloadEventInsert {
     pub(crate) total_bytes: Option<u64>,
     pub(crate) error: Option<String>,
     pub(crate) created_at: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct PipelineTaskRow {
+    pub(crate) task_id: String,
+    pub(crate) task_kind: String,
+    pub(crate) origin_run_id: Option<String>,
+    pub(crate) status: String,
+    pub(crate) params: Value,
+    pub(crate) result: Value,
+    pub(crate) queued_at: String,
+    pub(crate) started_at: Option<String>,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) runner_id: Option<String>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagEmbeddingModelRow {
+    pub(crate) model_id: String,
+    pub(crate) display_name: String,
+    pub(crate) provider: String,
+    pub(crate) repo_id: String,
+    pub(crate) filename: String,
+    pub(crate) revision: String,
+    pub(crate) routing_origin: String,
+    pub(crate) model_family: String,
+    pub(crate) dimension: u32,
+    pub(crate) context_tokens: u32,
+    pub(crate) pooling: String,
+    pub(crate) normalize: bool,
+    pub(crate) query_prefix: String,
+    pub(crate) document_prefix: String,
+    pub(crate) llama_params: Value,
+    pub(crate) recommended_vram_gb: f64,
+    pub(crate) active: bool,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagTextSegmentRow {
+    pub(crate) segment_id: String,
+    pub(crate) source_run_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) segment_index: u32,
+    pub(crate) annotation_id: Option<String>,
+    pub(crate) category: String,
+    pub(crate) text: String,
+    pub(crate) token_estimate: u32,
+    pub(crate) text_start: u64,
+    pub(crate) text_end: u64,
+    pub(crate) source_kind: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagTextIndexRunRow {
+    pub(crate) text_index_run_id: String,
+    pub(crate) task_id: Option<String>,
+    pub(crate) source_run_id: String,
+    pub(crate) status: String,
+    pub(crate) segments_indexed: u32,
+    pub(crate) started_at: String,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagEmbeddingRunRow {
+    pub(crate) embedding_run_id: String,
+    pub(crate) task_id: Option<String>,
+    pub(crate) source_run_id: String,
+    pub(crate) model_id: String,
+    pub(crate) requested_dimension: u32,
+    pub(crate) actual_dimension: u32,
+    pub(crate) status: String,
+    pub(crate) segments_total: u32,
+    pub(crate) segments_embedded: u32,
+    pub(crate) started_at: String,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) error: Option<String>,
+    pub(crate) params: Value,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagEmbeddingVectorRow {
+    pub(crate) embedding_run_id: String,
+    pub(crate) source_run_id: String,
+    pub(crate) segment_id: String,
+    pub(crate) model_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) embedding: Vec<f32>,
+    pub(crate) metadata: Value,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RagSearchHitRow {
+    pub(crate) segment_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) annotation_id: Option<String>,
+    pub(crate) category: String,
+    pub(crate) text: String,
+    pub(crate) score: f64,
+    pub(crate) hit_source: String,
+    pub(crate) model_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]

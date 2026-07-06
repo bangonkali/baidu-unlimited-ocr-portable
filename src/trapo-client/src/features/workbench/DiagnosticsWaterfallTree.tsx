@@ -1,78 +1,63 @@
-import { Boxes, FileText, Folder } from 'lucide-react';
+import { Boxes } from 'lucide-react';
 
 import type {
   DiagnosticEventRecord,
+  DiagnosticPipelineTaskRecord,
   DiagnosticSpanRecord,
   DiagnosticWorkUnitRecord,
   IngestRunRecord,
 } from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
 import { formatMs, iconForStatus } from './DiagnosticsPanel.helpers';
+import styles from './DiagnosticsPanel.module.css';
 import { DiagnosticsRunActions, isActiveRunStatus } from './DiagnosticsRunActions';
+import type { RunBucket } from './DiagnosticsWaterfallBuckets';
+import {
+  addRecordNode,
+  createRunBucketResolver,
+  diagnosticLocation,
+  folderChildren,
+  pipelineTaskLocation,
+  shortId,
+  taskDurationMs,
+  unitLocation,
+} from './DiagnosticsWaterfallBuckets';
 
 interface WaterfallRunNodesArgs {
   activeRunId?: string | null;
   events: DiagnosticEventRecord[];
   runs: IngestRunRecord[];
   spans: DiagnosticSpanRecord[];
+  pipelineTasks: DiagnosticPipelineTaskRecord[];
   workUnits: DiagnosticWorkUnitRecord[];
   onResumeRun?: (runId: string) => void;
   onRestartRun?: (run: IngestRunRecord) => void;
   onStopRun?: (runId?: string) => void;
 }
 
-interface RunBucket {
-  run?: IngestRunRecord;
-  runId: string;
-  root: FolderBucket;
-}
-
-interface FolderBucket {
-  files: Map<string, FileBucket>;
-  folders: Map<string, FolderBucket>;
-  id: string;
-  label: string;
-}
-
-interface FileBucket {
-  details: TreeGridNode[];
-  id: string;
-  label: string;
-  pages: Map<number, TreeGridNode[]>;
-}
-
-interface RecordLocation {
-  fileKey: string;
-  fileLabel: string;
-  pageNo?: number | null;
-  pathParts: string[];
-}
-
 export function buildWaterfallRunNodes(args: WaterfallRunNodesArgs): TreeGridNode[] {
-  const knownRuns = new Map(args.runs.map((run) => [run.run_id, run]));
-  const runBuckets = new Map<string, RunBucket>();
-  const runBucket = (runId: string): RunBucket => {
-    const existing = runBuckets.get(runId);
-    if (existing) {
-      return existing;
-    }
-    const bucket = {
-      root: folderBucket(`run:${runId}:root`, ''),
-      run: knownRuns.get(runId),
-      runId,
-    };
-    runBuckets.set(runId, bucket);
-    return bucket;
-  };
+  const { runBuckets, runBucket } = createRunBucketResolver(args.runs);
+  const maxDurationMs = maxDuration(args);
 
   for (const run of args.runs) {
     runBucket(run.run_id);
   }
   for (const unit of args.workUnits) {
-    addRecordNode(runBucket(unit.run_id), unitLocation(unit), workUnitNode(unit));
+    addRecordNode(runBucket(unit.run_id), unitLocation(unit), workUnitNode(unit, maxDurationMs));
+  }
+  for (const task of args.pipelineTasks) {
+    addRecordNode(
+      runBucket(task.origin_run_id ?? 'unscoped'),
+      pipelineTaskLocation(task),
+      pipelineTaskNode(task, maxDurationMs),
+    );
   }
   for (const span of args.spans) {
-    addRecordNode(runBucket(span.run_id ?? 'unscoped'), diagnosticLocation(span), spanNode(span));
+    addRecordNode(
+      runBucket(span.run_id ?? 'unscoped'),
+      diagnosticLocation(span),
+      spanNode(span, maxDurationMs),
+    );
   }
   for (const event of args.events) {
     addRecordNode(
@@ -112,117 +97,9 @@ function runNode(
   };
 }
 
-function addRecordNode(bucket: RunBucket, location: RecordLocation, node: TreeGridNode) {
-  const parent = fileBucket(bucket.root, location.pathParts, location.fileKey, location.fileLabel);
-  if (location.pageNo && location.pageNo > 0) {
-    parent.pages.set(location.pageNo, [...(parent.pages.get(location.pageNo) ?? []), node]);
-    return;
-  }
-  parent.details.push(node);
-}
-
-function unitLocation(unit: DiagnosticWorkUnitRecord): RecordLocation {
-  const path = metadataString(unit.metadata, 'relative_path') ?? unit.source_path ?? unit.filename;
-  return recordLocation(path, unit.file_hash, unit.filename, unit.page_no);
-}
-
-function diagnosticLocation(
-  record: Pick<
-    DiagnosticSpanRecord | DiagnosticEventRecord,
-    'attributes' | 'file_hash' | 'page_no'
-  >,
-): RecordLocation {
-  const path =
-    metadataString(record.attributes, 'relative_path') ??
-    metadataString(record.attributes, 'source_path') ??
-    metadataString(record.attributes, 'filename');
-  return recordLocation(
-    path,
-    record.file_hash,
-    metadataString(record.attributes, 'filename'),
-    record.page_no,
-  );
-}
-
-function recordLocation(
-  path: string | null | undefined,
-  fileHash: string | null | undefined,
-  filename: string | null | undefined,
-  pageNo: number | null | undefined,
-): RecordLocation {
-  const parts = splitPath(path ?? filename ?? fileHash ?? 'unknown');
-  const fileLabel = filename ?? parts.at(-1) ?? fileHash ?? 'unknown';
+function workUnitNode(unit: DiagnosticWorkUnitRecord, maxDurationMs: number): TreeGridNode {
   return {
-    fileKey: fileHash ?? parts.join('/'),
-    fileLabel,
-    pageNo,
-    pathParts: parts.length > 1 ? parts.slice(0, -1) : [],
-  };
-}
-
-function fileBucket(
-  root: FolderBucket,
-  pathParts: string[],
-  fileKey: string,
-  fileLabel: string,
-): FileBucket {
-  let folder = root;
-  for (const part of pathParts) {
-    const id = `${folder.id}/folder:${part}`;
-    const existing = folder.folders.get(part) ?? folderBucket(id, part);
-    folder.folders.set(part, existing);
-    folder = existing;
-  }
-  const existing = folder.files.get(fileKey);
-  if (existing) {
-    return existing;
-  }
-  const next = {
-    details: [],
-    id: `${folder.id}/file:${fileKey}`,
-    label: fileLabel,
-    pages: new Map<number, TreeGridNode[]>(),
-  };
-  folder.files.set(fileKey, next);
-  return next;
-}
-
-function folderBucket(id: string, label: string): FolderBucket {
-  return { files: new Map(), folders: new Map(), id, label };
-}
-
-function folderChildren(folder: FolderBucket): TreeGridNode[] {
-  const folders = [...folder.folders.values()].sort(labelSort).map((child) => ({
-    badge: <span>{child.files.size + child.folders.size}</span>,
-    children: folderChildren(child),
-    icon: <Folder size={14} />,
-    id: child.id,
-    label: child.label,
-  }));
-  return [...folders, ...[...folder.files.values()].sort(labelSort).map(fileNode)];
-}
-
-function fileNode(file: FileBucket): TreeGridNode {
-  const pages = [...file.pages.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([pageNo, details]) => ({
-      badge: <span>{details.length}</span>,
-      children: details,
-      icon: <FileText size={14} />,
-      id: `${file.id}/page:${pageNo}`,
-      label: `page ${pageNo}`,
-    }));
-  return {
-    badge: <span>{file.details.length + pages.length}</span>,
-    children: [...pages, ...file.details],
-    icon: <FileText size={14} />,
-    id: file.id,
-    label: file.label,
-  };
-}
-
-function workUnitNode(unit: DiagnosticWorkUnitRecord): TreeGridNode {
-  return {
+    actions: waterfallBar(unit.duration_ms ?? 0, maxDurationMs, unit.status),
     badge: <span>{unit.status}</span>,
     icon: iconForStatus(unit.status),
     id: `work:${unit.work_unit_id}`,
@@ -230,12 +107,24 @@ function workUnitNode(unit: DiagnosticWorkUnitRecord): TreeGridNode {
   };
 }
 
-function spanNode(span: DiagnosticSpanRecord): TreeGridNode {
+function spanNode(span: DiagnosticSpanRecord, maxDurationMs: number): TreeGridNode {
   return {
+    actions: waterfallBar(span.duration_ms, maxDurationMs, span.status),
     badge: <span>{formatMs(span.duration_ms)}</span>,
     icon: iconForStatus(span.status),
     id: `span:${span.span_id}`,
     label: `${span.name}${span.page_no ? ` page ${span.page_no}` : ''}`,
+  };
+}
+
+function pipelineTaskNode(task: DiagnosticPipelineTaskRecord, maxDurationMs: number): TreeGridNode {
+  const duration = taskDurationMs(task);
+  return {
+    actions: waterfallBar(duration, maxDurationMs, task.status),
+    badge: <span>{duration ? formatMs(duration) : task.status}</span>,
+    icon: iconForStatus(task.status),
+    id: `task:${task.task_id}`,
+    label: `${task.task_kind} - ${task.status}`,
   };
 }
 
@@ -252,22 +141,24 @@ function statusFromSeverity(severity: string) {
   return severity === 'error' || severity === 'fatal' ? 'error' : 'ok';
 }
 
-function splitPath(value: string) {
-  return value
-    .split(/[\\/]+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
+function maxDuration(args: WaterfallRunNodesArgs) {
+  const durations = [
+    ...args.workUnits.map((unit) => unit.duration_ms ?? 0),
+    ...args.spans.map((span) => span.duration_ms),
+    ...args.pipelineTasks.map(taskDurationMs),
+  ];
+  return Math.max(...durations, 1);
 }
 
-function metadataString(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function labelSort<T extends { label: string }>(left: T, right: T) {
-  return left.label.localeCompare(right.label);
-}
-
-function shortId(value: string) {
-  return value.length > 8 ? value.slice(0, 8) : value;
+function waterfallBar(durationMs: number, maxDurationMs: number, status: string) {
+  const width = durationMs > 0 ? Math.max(3, (durationMs / maxDurationMs) * 100) : 3;
+  return (
+    <span
+      className={styles.diagnosticWaterfallBar}
+      data-status={status}
+      title={formatMs(durationMs)}
+    >
+      <span style={{ width: `${Math.min(width, 100)}%` }} />
+    </span>
+  );
 }

@@ -13,6 +13,8 @@ export const queryKeys = {
   diagnosticProgress: (runId?: string) => ['diagnostics', 'progress', runId ?? 'latest'] as const,
   diagnosticAnalytics: (runId?: string) => ['diagnostics', 'analytics', runId ?? 'latest'] as const,
   diagnosticModels: (runId?: string) => ['diagnostics', 'models', runId ?? 'latest'] as const,
+  ragEmbeddingModelsUsed: ['rag', 'embedding-models', 'used'] as const,
+  ragSearch: (params: Record<string, unknown>) => ['rag', 'search', params] as const,
   runs: ['runs'] as const,
   settings: ['settings'] as const,
   status: ['status'] as const,

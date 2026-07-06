@@ -1,15 +1,26 @@
 import type { ModelAssetRecord } from '../../api/types';
-import type { DownloadStatusFilter, ModelSortKey, SortDirection } from '../../routeSearch';
+import type {
+  DownloadStatusFilter,
+  ModelOriginFilter,
+  ModelSortKey,
+  SortDirection,
+} from '../../routeSearch';
 
 export interface ModelLibraryOptions {
   dir?: SortDirection;
+  origin?: ModelOriginFilter;
   scope?: 'library' | 'downloads';
   sort?: ModelSortKey;
   status?: DownloadStatusFilter;
 }
 
 export function visibleModels(models: ModelAssetRecord[], options: ModelLibraryOptions) {
-  const filtered = filterModels(models, options.scope ?? 'library', options.status ?? 'all');
+  const filtered = filterModels(
+    models,
+    options.scope ?? 'library',
+    options.status ?? 'all',
+    options.origin ?? 'all',
+  );
   return [...filtered].sort((left, right) =>
     compareModels(left, right, options.sort ?? 'status', options.dir ?? 'asc'),
   );
@@ -36,11 +47,17 @@ function filterModels(
   models: ModelAssetRecord[],
   scope: 'library' | 'downloads',
   status: DownloadStatusFilter,
+  origin: ModelOriginFilter,
 ) {
-  if (scope === 'library' && status === 'all') {
-    return models;
-  }
-  return models.filter((model) => statusMatches(model.status, scope, status));
+  return models.filter(
+    (model) =>
+      originMatches(model, origin) &&
+      (scope === 'library' || statusMatches(model.status, scope, status)),
+  );
+}
+
+function originMatches(model: ModelAssetRecord, origin: ModelOriginFilter) {
+  return origin === 'all' || model.routing_origin === origin;
 }
 
 function statusMatches(

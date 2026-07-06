@@ -1,0 +1,151 @@
+.searchShell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.searchPane {
+  display: grid;
+  grid-template-rows: 35px auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+}
+
+.header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.controls {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.controls input,
+.controls select {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  color: var(--text);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.resultList {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.empty {
+  padding: 12px;
+  color: var(--muted);
+}
+
+.fileResult {
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.fileHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.fileHeader span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileHeader b {
+  display: inline-grid;
+  min-width: 24px;
+  min-height: 18px;
+  place-items: center;
+  color: var(--accent-foreground);
+  background: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hit {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px 7px 22px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+
+.hit:hover {
+  background: var(--panel-3);
+}
+
+.hit[data-source="fts"] {
+  border-left-color: var(--accent);
+}
+
+.hit[data-source="vss"] {
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+}
+
+.hitMeta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--subtle);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet {
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.snippet mark {
+  color: inherit;
+  background: color-mix(in srgb, var(--warning) 42%, transparent);
+  border-radius: 2px;
+}
+
+.resizeHandle {
+  width: 1px;
+  background: var(--border);
+  cursor: col-resize;
+}
+
+.resizeHandle:hover {
+  background: var(--accent);
+}

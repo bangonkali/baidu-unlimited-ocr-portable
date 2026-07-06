@@ -8,6 +8,15 @@
 
 export interface IngestStartRequest {
   /** @nullable */
+  embedding_after_ingest?: boolean | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  embedding_dimension?: number | null;
+  /** @nullable */
+  embedding_model_id?: string | null;
+  /** @nullable */
   engine_id?: string | null;
   /** @nullable */
   model_id?: string | null;
@@ -18,4 +27,6 @@ export interface IngestStartRequest {
   root_path: string;
   /** @nullable */
   runtime_id?: string | null;
+  /** @nullable */
+  text_index_after_ingest?: boolean | null;
 }

@@ -64,6 +64,9 @@ export function useWorkbenchCommands({
       case 'models':
         void navigate({ to: '/models' });
         return;
+      case 'search':
+        void navigate({ to: '/search' });
+        return;
       case 'settings':
         void navigate({ to: '/settings' });
         return;
@@ -154,6 +157,9 @@ function navigateToCommandTarget(
       void navigate({ params: target.params, search: target.search ?? {}, to: target.to });
       return;
     case '/models/downloads':
+      void navigate({ search: target.search ?? {}, to: target.to });
+      return;
+    case '/search':
       void navigate({ search: target.search ?? {}, to: target.to });
       return;
     case '/settings':

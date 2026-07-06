@@ -6,11 +6,13 @@
  * OpenAPI spec version: 0.1.5
  */
 import type { DiagnosticModelLeaseRecord } from './diagnosticModelLeaseRecord';
+import type { DiagnosticPipelineTaskRecord } from './diagnosticPipelineTaskRecord';
 import type { DiagnosticProgressSummary } from './diagnosticProgressSummary';
 import type { DiagnosticWorkUnitRecord } from './diagnosticWorkUnitRecord';
 
 export interface DiagnosticProgressPayload {
   model_leases: DiagnosticModelLeaseRecord[];
+  pipeline_tasks: DiagnosticPipelineTaskRecord[];
   summary: DiagnosticProgressSummary;
   work_units: DiagnosticWorkUnitRecord[];
 }

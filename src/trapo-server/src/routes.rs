@@ -16,7 +16,9 @@ use crate::{
     openapi::ApiDoc,
     realtime,
     types::SettingsUpdateRequest,
-    workbench_types::IngestStartRequest,
+    workbench_types::{
+        GenerateEmbeddingRequest, HybridSearchRequest, IngestStartRequest, TextIndexRequest,
+    },
 };
 
 #[derive(Debug, Deserialize)]
@@ -65,6 +67,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/diagnostics/progress", get(diagnostics_progress))
         .route("/api/diagnostics/analytics", get(diagnostics_analytics))
         .route("/api/diagnostics/models", get(diagnostics_models))
+        .route("/api/rag/text-index", post(start_text_index))
+        .route("/api/rag/embeddings", post(generate_embedding))
+        .route("/api/rag/embedding-models/used", get(used_embedding_models))
+        .route("/api/rag/search", post(hybrid_search))
         .route("/api/documents", get(list_documents))
         .route("/api/search", get(list_documents))
         .route("/api/documents/{file_hash}", get(get_document))
@@ -200,6 +206,42 @@ async fn list_documents(
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<crate::workbench_types::DocumentsPayload>> {
     Ok(Json(state.list_documents(query.q).await?))
+}
+
+async fn start_text_index(
+    State(state): State<AppState>,
+    Json(request): Json<TextIndexRequest>,
+) -> Result<(StatusCode, Json<crate::workbench_types::TextIndexResponse>)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.start_text_index(request).await?),
+    ))
+}
+
+async fn generate_embedding(
+    State(state): State<AppState>,
+    Json(request): Json<GenerateEmbeddingRequest>,
+) -> Result<(
+    StatusCode,
+    Json<crate::workbench_types::GenerateEmbeddingResponse>,
+)> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.start_generate_embedding(request).await?),
+    ))
+}
+
+async fn used_embedding_models(
+    State(state): State<AppState>,
+) -> Result<Json<crate::workbench_types::UsedEmbeddingModelsPayload>> {
+    Ok(Json(state.used_embedding_models().await?))
+}
+
+async fn hybrid_search(
+    State(state): State<AppState>,
+    Json(request): Json<HybridSearchRequest>,
+) -> Result<Json<crate::workbench_types::HybridSearchResponse>> {
+    Ok(Json(state.hybrid_search(request).await?))
 }
 
 async fn get_document(

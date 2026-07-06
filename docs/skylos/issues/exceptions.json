@@ -479,6 +479,20 @@
       "reason": "Repository methods are reached through async application services across Rust include fragments; cargo clippy and storage tests validate reachability."
     },
     {
+      "id": "rag-segment-file-hash-digest",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/app/rag_records.rs",
+      "reason": "The flagged file_hash assignment stores a content digest identity in DuckDB RAG segment rows, not a filesystem path or filesystem sink."
+    },
+    {
+      "id": "embedding-profile-canonical-paths",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/embedding.rs",
+      "reason": "Embedding profiles canonicalize the model file under the configured model directory and canonicalize the llama.cpp library before the FFI session opens."
+    },
+    {
       "id": "root-policy-precommit",
       "rule_id": "SKY-R104",
       "category": "quality",

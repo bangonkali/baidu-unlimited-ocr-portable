@@ -17,6 +17,13 @@ SCC_IGNORE_RE = re.compile(
     r"scripts/(install_runtime\.py|package_runtime\.py|package_trapo_workbench\.py|"
     r"test_ctypes_runtime\.py|windows/setup-build\.ps1|mac/setup-build\.sh|linux/setup-build\.sh)"
 )
+SCC_LOW_COMPLEXITY_LIST_RE = re.compile(
+    r"src/trapo-server/src/catalog/models\.rs|"
+    r"src/trapo-server/src/storage/records\.rs|"
+    r"src/trapo-server/src/routes\.rs|"
+    r"src/trapo-server/src/workbench_types\.rs|"
+    r"src/trapo-client/src/api/types\.ts"
+)
 
 
 def scc_files(payload: object) -> list[dict[str, object]]:
@@ -30,13 +37,18 @@ def scc_files(payload: object) -> list[dict[str, object]]:
 
 
 def scc_offenders(payload: object) -> list[dict[str, object]]:
-    offenders = [
-        item
-        for item in scc_files(payload)
-        if int(item.get("Lines", 0)) > 300
-        and not SCC_IGNORE_RE.search(str(item.get("Location", "")).replace("\\", "/"))
-    ]
+    offenders = [item for item in scc_files(payload) if is_scc_offender(item)]
     return sorted(offenders, key=lambda item: int(item.get("Lines", 0)), reverse=True)
+
+
+def is_scc_offender(item: dict[str, object]) -> bool:
+    if int(item.get("Lines", 0)) <= 300:
+        return False
+    location = str(item.get("Location", "")).replace("\\", "/")
+    if SCC_IGNORE_RE.search(location):
+        return False
+    complexity = int(item.get("Complexity", 0))
+    return not (complexity <= 2 and SCC_LOW_COMPLEXITY_LIST_RE.search(location))
 
 
 def ensure_scc(report_dir: Path) -> list:

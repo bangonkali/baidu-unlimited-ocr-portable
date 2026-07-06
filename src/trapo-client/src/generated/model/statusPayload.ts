@@ -5,6 +5,7 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.5
  */
+import type { DuckDbExtensionsRecord } from './duckDbExtensionsRecord';
 import type { RuntimeVariantRecord } from './runtimeVariantRecord';
 
 export interface StatusPayload {
@@ -14,6 +15,7 @@ export interface StatusPayload {
   active_run_id?: string | null;
   database_path: string;
   default_profile: string;
+  duckdb_extensions: DuckDbExtensionsRecord;
   git_sha: string;
   git_tag: string;
   host: string;

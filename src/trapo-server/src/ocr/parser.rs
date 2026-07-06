@@ -8,12 +8,9 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
     let mut cursor = 0;
     for segment in &segments {
         if segment.start > cursor {
-            parsed
-                .cleaned_text
-                .push_str(&remove_marker_tokens(&raw_text[cursor..segment.start]));
+            push_cleaned_fragment(&mut parsed.cleaned_text, &raw_text[cursor..segment.start]);
         }
         let clean_start = usize_to_u64_saturating(parsed.cleaned_text.len());
-        parsed.cleaned_text.push_str(&segment.label);
         for box_points in &segment.boxes {
             let source_region_key = region_source_key_for(context, segment, box_points);
             parsed.spans.push(TextRegionSpan {
@@ -29,7 +26,8 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
                 region_id: source_region_key.clone(),
                 source_region_key,
                 label: segment.label.clone(),
-                content_markdown: segment.label.clone(),
+                category: segment.label.clone(),
+                content_markdown: String::new(),
                 content_html: None,
                 page_no: context.page_no,
                 left_percent: box_points.x1 / 999.0 * 100.0,
@@ -42,9 +40,7 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
         cursor = cursor.max(segment.end);
     }
     if cursor < raw_text.len() {
-        parsed
-            .cleaned_text
-            .push_str(&remove_marker_tokens(&raw_text[cursor..]));
+        push_cleaned_fragment(&mut parsed.cleaned_text, &raw_text[cursor..]);
     }
     parsed
 }
@@ -87,4 +83,13 @@ fn usize_to_u64_saturating(value: usize) -> u64 {
 
 fn u64_to_usize_saturating(value: u64) -> usize {
     usize::try_from(value).unwrap_or(usize::MAX)
+}
+
+fn push_cleaned_fragment(buffer: &mut String, raw_fragment: &str) {
+    let cleaned = remove_marker_tokens(raw_fragment);
+    if buffer.chars().last().is_some_and(char::is_whitespace) {
+        buffer.push_str(cleaned.trim_start_matches(char::is_whitespace));
+        return;
+    }
+    buffer.push_str(&cleaned);
 }

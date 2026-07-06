@@ -154,10 +154,28 @@ pub(crate) struct DiagnosticProgressSummary {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DiagnosticPipelineTaskRecord {
+    pub(crate) task_id: String,
+    pub(crate) task_kind: String,
+    pub(crate) origin_run_id: Option<String>,
+    pub(crate) status: String,
+    #[schema(value_type = Object)]
+    pub(crate) params: Value,
+    #[schema(value_type = Object)]
+    pub(crate) result: Value,
+    pub(crate) queued_at: String,
+    pub(crate) started_at: Option<String>,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) runner_id: Option<String>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct DiagnosticProgressPayload {
     pub(crate) summary: DiagnosticProgressSummary,
     pub(crate) work_units: Vec<DiagnosticWorkUnitRecord>,
     pub(crate) model_leases: Vec<DiagnosticModelLeaseRecord>,
+    pub(crate) pipeline_tasks: Vec<DiagnosticPipelineTaskRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

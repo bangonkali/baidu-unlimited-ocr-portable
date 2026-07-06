@@ -27,6 +27,7 @@ pub struct Repository {
     shared_connection: Arc<Mutex<Connection>>,
     read_slots: Arc<Semaphore>,
     write_slots: Arc<Semaphore>,
+    extension_capabilities: Arc<DbExtensionCapabilities>,
 }
 
 include!("storage/records.rs");
@@ -39,6 +40,12 @@ include!("storage/internal.rs");
 include!("storage/load.rs");
 include!("storage/replay.rs");
 include!("storage/download_events.rs");
+include!("storage/rag_rows.rs");
+include!("storage/rag_tasks.rs");
+include!("storage/rag_models.rs");
+include!("storage/rag_text.rs");
+include!("storage/rag_vectors.rs");
+include!("storage/rag_search.rs");
 include!("storage/diagnostics_types.rs");
 include!("storage/diagnostics_writes.rs");
 include!("storage/diagnostics_queries.rs");
@@ -56,3 +63,6 @@ include!("storage/coverage_tests.rs");
 
 #[cfg(test)]
 include!("storage/migration_tests.rs");
+
+#[cfg(test)]
+include!("storage/rag_tests.rs");

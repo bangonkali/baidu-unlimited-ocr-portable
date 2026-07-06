@@ -16,6 +16,18 @@
   border-bottom: 1px solid var(--border);
 }
 
+.workflowStep {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--subtle);
+}
+
+.workflowStep::before {
+  color: var(--border-strong);
+  content: ">";
+}
+
 .body {
   display: grid;
   grid-template-columns: minmax(280px, 520px) minmax(240px, 1fr);

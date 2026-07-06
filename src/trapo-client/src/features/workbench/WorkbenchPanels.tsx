@@ -22,7 +22,7 @@ import { scopedRegionText } from './traceRegionAnchors';
 import styles from './WorkbenchPage.module.css';
 import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
 
-interface WorkbenchPanelsProps {
+export interface WorkbenchPanelsProps {
   activeRunId?: string | null;
   documents: DocumentSummary[];
   explorerFilter: WorkbenchExplorerFilter;
@@ -109,7 +109,7 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
   );
 }
 
-function DocumentWorkspace(props: WorkbenchPanelsProps) {
+export function DocumentWorkspace(props: WorkbenchPanelsProps) {
   const diagnosticsRef = useRef<ImperativePanelHandle>(null);
   usePanelCollapseSync(diagnosticsRef, props.workbench.panesCollapsed.diagnostics);
   return (

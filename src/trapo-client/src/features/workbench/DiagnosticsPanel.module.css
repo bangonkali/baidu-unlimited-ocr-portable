@@ -108,6 +108,38 @@
   background: var(--panel-3);
 }
 
+.diagnosticWaterfallBar {
+  display: block;
+  width: 112px;
+  height: 10px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--control-bg) 82%, var(--border));
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.diagnosticWaterfallBar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.diagnosticWaterfallBar[data-status="completed"] span,
+.diagnosticWaterfallBar[data-status="ok"] span {
+  background: var(--success);
+}
+
+.diagnosticWaterfallBar[data-status="failed"] span,
+.diagnosticWaterfallBar[data-status="error"] span {
+  background: var(--danger);
+}
+
+.diagnosticWaterfallBar[data-status="running"] span,
+.diagnosticWaterfallBar[data-status="queued"] span,
+.diagnosticWaterfallBar[data-status="planned"] span {
+  background: var(--warning);
+}
+
 .runActions {
   display: inline-flex;
   gap: 3px;

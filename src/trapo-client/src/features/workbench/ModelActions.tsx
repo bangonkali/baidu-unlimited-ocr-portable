@@ -28,17 +28,20 @@ export function ModelActions({
   const isActive = isDownloading || isQueued || model.status === 'cancelling';
   const isReady = model.status === 'downloaded';
   const isRetry = ['failed', 'cancelled'].includes(model.status);
+  const canSelectForOcr = model.model_kind !== 'embedding';
   return (
     <div className={compact ? styles.actionsCompact : styles.actions}>
-      <button
-        className={model.selected ? styles.selectedButton : styles.secondaryButton}
-        disabled={busy || model.selected}
-        onClick={() => onSelectModel(model.model_id)}
-        type="button"
-      >
-        <CircleDot size={15} strokeWidth={1.9} />
-        <span>{model.selected ? 'In Use' : 'Use'}</span>
-      </button>
+      {canSelectForOcr ? (
+        <button
+          className={model.selected ? styles.selectedButton : styles.secondaryButton}
+          disabled={busy || model.selected}
+          onClick={() => onSelectModel(model.model_id)}
+          type="button"
+        >
+          <CircleDot size={15} strokeWidth={1.9} />
+          <span>{model.selected ? 'In Use' : 'Use'}</span>
+        </button>
+      ) : null}
       {isDownloading || isQueued ? (
         <button
           className={styles.secondaryButton}

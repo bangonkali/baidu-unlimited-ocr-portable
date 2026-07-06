@@ -39,7 +39,7 @@ fn region_event_is_emitted_when_box_marker_completes() -> anyhow::Result<()> {
     let patch = receiver.try_recv()?;
     assert_eq!(patch.event_type, "ocr.page.text.patch");
     assert_eq!(patch.payload["op"], "replace");
-    assert_eq!(patch.payload["text"], "A Total");
+    assert_eq!(patch.payload["text"], "A ");
     assert!(receiver.try_recv().is_err());
 
     publish_token_events(
@@ -65,7 +65,7 @@ fn region_event_is_emitted_when_box_marker_completes() -> anyhow::Result<()> {
     let patch = receiver.try_recv()?;
     assert_eq!(patch.event_type, "ocr.page.text.patch");
     assert_eq!(patch.payload["op"], "replace");
-    assert_eq!(patch.payload["text"], "A Total tail");
+    assert_eq!(patch.payload["text"], "A tail");
     assert!(receiver.try_recv().is_err());
     Ok(())
 }

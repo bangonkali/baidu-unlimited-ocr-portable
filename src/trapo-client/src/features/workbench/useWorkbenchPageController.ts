@@ -10,6 +10,7 @@ import {
   useDocuments,
   useDocumentText,
   useDownloadModel,
+  useGenerateEmbedding,
   useIngestRuns,
   useLogs,
   useModels,
@@ -19,8 +20,10 @@ import {
   useSelectModel,
   useSettings,
   useStartIngest,
+  useStartTextIndex,
   useStatus,
   useUpdateSettings,
+  useUsedEmbeddingModels,
 } from '../../api/hooks';
 import type { DocumentSummary, ModelAssetRecord, OcrProfileRecord } from '../../api/types';
 import { useRealtimeState } from '../../realtime/realtimeStore';
@@ -28,6 +31,7 @@ import type {
   DiagnosticsRouteSearch,
   IngestRouteSearch,
   ModelRouteSearch,
+  SearchRouteSearch,
   SettingsRouteSearch,
   WorkbenchRouteSearch,
 } from '../../routeSearch';
@@ -49,6 +53,7 @@ import {
 import {
   profileOptions,
   selectedModel,
+  selectedOcrModel,
   useAutoFollowLatestRegion,
   usePersistedWorkbenchUiSettings,
   useThemeSync,
@@ -65,6 +70,7 @@ export interface WorkbenchPageProps {
   modelDetailId?: string;
   modelScope?: 'library' | 'downloads';
   modelSearch?: ModelRouteSearch;
+  searchSearch?: SearchRouteSearch;
   settingsSearch?: SettingsRouteSearch;
   workbenchSearch?: WorkbenchRouteSearch;
 }
@@ -80,7 +86,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
   const data = useWorkbenchData(
     workbench.selection.fileHash,
-    props.workbenchSearch?.run,
+    props.workbenchSearch?.run ?? props.searchSearch?.run,
     debouncedSearch,
   );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
@@ -91,7 +97,10 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   );
   useIngestRoutePrefill(activeView, props.ingestSearch);
   const selectedProfile = props.ingestSearch?.profile ?? workbench.selectedProfile;
-  const model = selectedModel(data.models.data, props.ingestSearch?.model);
+  const model =
+    activeView === 'ingest'
+      ? selectedOcrModel(data.models.data, props.ingestSearch?.model)
+      : selectedModel(data.models.data, props.ingestSearch?.model);
   const profiles = profileOptions(data.models.data?.profiles, selectedProfile);
   const selectedDocument = selectedDocumentFrom(data.documents.data?.documents, workbench);
   useSelectedPageReplay({
@@ -159,6 +168,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
         modelDetailId: props.modelDetailId,
         modelScope,
         modelSearch: props.modelSearch,
+        searchSearch: props.searchSearch,
         settingsSearch: props.settingsSearch,
       },
       workbench,
@@ -186,6 +196,7 @@ export function useWorkbenchData(
     documents: useDocuments(debouncedSearch),
     downloadModel: useDownloadModel(),
     folderDialog: useOpenFolderDialog(),
+    generateEmbedding: useGenerateEmbedding(),
     logs: useLogs(220),
     models: useModels(),
     previewImages: useDocumentPreviewImages(fileHash),
@@ -196,9 +207,11 @@ export function useWorkbenchData(
     selectModel: useSelectModel(),
     settings: useSettings(),
     startIngest: useStartIngest(),
+    startTextIndex: useStartTextIndex(),
     status: useStatus(),
     stopRun: useRunCommand('stop'),
     text: useDocumentText(fileHash, documentRunId),
+    usedEmbeddingModels: useUsedEmbeddingModels(),
     updateSettings: useUpdateSettings(),
   };
 }

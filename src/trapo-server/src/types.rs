@@ -39,8 +39,19 @@ pub(crate) struct StatusPayload {
     pub(crate) inference_engine: String,
     pub(crate) log_path: String,
     pub(crate) database_path: String,
+    pub(crate) duckdb_extensions: DuckDbExtensionsRecord,
     pub(crate) realtime_path: String,
     pub(crate) selected_model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DuckDbExtensionsRecord {
+    pub(crate) fts_loaded: bool,
+    pub(crate) fts_error: Option<String>,
+    pub(crate) vss_loaded: bool,
+    pub(crate) vss_error: Option<String>,
+    pub(crate) duckpgq_loaded: bool,
+    pub(crate) duckpgq_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -76,6 +87,8 @@ pub(crate) struct OcrProfileRecord {
 pub(crate) struct ModelAssetRecord {
     pub(crate) model_id: String,
     pub(crate) display_name: String,
+    pub(crate) model_kind: String,
+    pub(crate) routing_origin: String,
     pub(crate) status: String,
     pub(crate) repo_id: String,
     pub(crate) revision: String,
@@ -105,6 +118,13 @@ pub(crate) struct ModelAssetRecord {
     pub(crate) recommended: bool,
     pub(crate) selected: bool,
     pub(crate) provider_name: String,
+    pub(crate) embedding_dimension: Option<u32>,
+    pub(crate) context_tokens: Option<u32>,
+    pub(crate) pooling: Option<String>,
+    pub(crate) normalize_embeddings: bool,
+    pub(crate) query_prefix: Option<String>,
+    pub(crate) document_prefix: Option<String>,
+    pub(crate) recommended_vram_gb: Option<f64>,
     pub(crate) total_required_bytes: Option<u64>,
     pub(crate) downloaded_file_count: u32,
     pub(crate) total_file_count: u32,

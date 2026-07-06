@@ -163,7 +163,7 @@ impl Repository {
     ) -> Result<Vec<OverlayBox>> {
         let mut statement = conn.prepare(
             "SELECT coalesce(r.annotation_id, r.region_id), r.region_id,
-              coalesce(r.source_region_key, ''), r.label,
+              coalesce(r.source_region_key, ''), r.label, coalesce(r.category, r.label),
               coalesce(a.content_markdown, r.content_markdown, ''),
               coalesce(a.content_html, r.content_html), r.page_no, r.x1, r.y1, r.x2, r.y2,
               coalesce(v.hidden, false)
@@ -176,23 +176,24 @@ impl Repository {
         )?;
         let run_id = run_id.unwrap_or("");
         let rows = statement.query_map(params![file_hash, i64::from(page_no), run_id, run_id], |row| {
-            let x1 = row.get::<_, f64>(7)?;
-            let y1 = row.get::<_, f64>(8)?;
-            let x2 = row.get::<_, f64>(9)?;
-            let y2 = row.get::<_, f64>(10)?;
+            let x1 = row.get::<_, f64>(8)?;
+            let y1 = row.get::<_, f64>(9)?;
+            let x2 = row.get::<_, f64>(10)?;
+            let y2 = row.get::<_, f64>(11)?;
             Ok(OverlayBox {
                 annotation_id: row.get(0)?,
                 region_id: row.get(1)?,
                 source_region_key: row.get(2)?,
                 label: row.get(3)?,
-                content_markdown: row.get(4)?,
-                content_html: row.get(5)?,
-                page_no: i64_to_u32(row.get::<_, i64>(6)?),
+                category: row.get(4)?,
+                content_markdown: row.get(5)?,
+                content_html: row.get(6)?,
+                page_no: i64_to_u32(row.get::<_, i64>(7)?),
                 left_percent: normalized_to_percent(x1),
                 top_percent: normalized_to_percent(y1),
                 width_percent: normalized_to_percent(x2 - x1),
                 height_percent: normalized_to_percent(y2 - y1),
-                hidden: row.get(11)?,
+                hidden: row.get(12)?,
             })
         })?;
         collect_rows(rows)

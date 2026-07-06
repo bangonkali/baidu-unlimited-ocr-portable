@@ -37,6 +37,7 @@ mod tests {
                 region_id: region_id.clone(),
                 source_region_key: "source-a".to_string(),
                 label: "Total".to_string(),
+                category: "text".to_string(),
                 content_markdown: "Total".to_string(),
                 content_html: None,
                 page_no: 1,
@@ -68,6 +69,7 @@ mod tests {
         assert!(crate::ids::is_uuid_v7(&loaded.boxes[0].annotation_id));
         assert_eq!(loaded.boxes[0].annotation_id, annotation_id);
         assert_eq!(loaded.boxes[0].region_id, region_id);
+        assert_eq!(loaded.boxes[0].category, "text");
         assert_eq!(loaded.spans[0].annotation_id, annotation_id);
         assert_eq!(loaded.spans[0].region_id, region_id);
         Ok(())
@@ -438,6 +440,7 @@ mod tests {
             source_region_key: format!("pdfium:file-a:{page_no}:{discovery_index}"),
             discovery_index,
             label: "Invoice total".to_string(),
+            category: "text".to_string(),
             x1: 10.0,
             y1: 20.0,
             x2: 50.0,
@@ -468,6 +471,7 @@ mod tests {
                 region_id: annotation_id.clone(),
                 source_region_key: format!("source-{label}"),
                 label: label.to_string(),
+                category: "text".to_string(),
                 content_markdown: text.to_string(),
                 content_html: None,
                 page_no: 1,

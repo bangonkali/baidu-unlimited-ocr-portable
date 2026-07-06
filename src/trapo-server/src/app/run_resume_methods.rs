@@ -1,6 +1,7 @@
 impl AppState {
     pub(crate) async fn resume_run(&self, run_id: &str) -> Result<IngestStartResponse> {
         self.ensure_not_shutting_down()?;
+        self.ensure_no_active_pipeline_task().await?;
         let completed_pages = self.inner.repository.completed_run_pages(run_id).await?;
         let completed_page_set = completed_page_set(completed_pages);
         let prepared = self.prepare_resume_run(run_id, &completed_page_set).await?;
@@ -21,11 +22,15 @@ impl AppState {
         let replay_since_sequence = self.inner.hub.last_sequence();
         self.spawn_ingest(IngestExecution {
             completed_pages: completed_page_set,
+            embedding_after_ingest: false,
+            embedding_dimension: None,
+            embedding_model_id: None,
             files: prepared.files,
             model_id: prepared.model_id,
             profile_id: prepared.profile_id,
             run_id: run_id.to_string(),
             runtime_id: prepared.runtime_id,
+            text_index_after_ingest: false,
         });
         Ok(IngestStartResponse {
             run: self.get_run(run_id).await?,

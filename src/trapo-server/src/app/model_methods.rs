@@ -8,6 +8,7 @@ impl AppState {
             shared_mmproj_file: SHARED_MMPROJ_FILE.to_string(),
             models: model_catalog()
                 .iter()
+                .chain(embedding_model_catalog().iter())
                 .map(|entry| model_record(&self.inner.config.model_dir, &state, entry))
                 .collect(),
             profiles: ocr_profiles(),

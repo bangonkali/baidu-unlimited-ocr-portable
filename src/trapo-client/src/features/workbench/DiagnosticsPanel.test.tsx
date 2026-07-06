@@ -52,6 +52,7 @@ describe('diagnostics filters', () => {
 
     const nodes = buildWaterfallRunNodes({
       events: [],
+      pipelineTasks: [],
       runs: [run],
       spans: [],
       workUnits: [workUnit],

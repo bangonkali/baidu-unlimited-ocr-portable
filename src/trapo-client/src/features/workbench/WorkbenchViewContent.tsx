@@ -14,6 +14,7 @@ import type {
   DiagnosticsRouteSearch,
   IngestRouteSearch,
   ModelRouteSearch,
+  SearchRouteSearch,
   SettingsRouteSearch,
 } from '../../routeSearch';
 import type { ActiveView, ThemeMode, useWorkbenchState } from '../../stores/workbenchStore';
@@ -21,6 +22,7 @@ import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { IngestStartPanel } from './IngestStartPanel';
 import { ModelDetailPanel } from './ModelDetailPanel';
 import { ModelManager } from './ModelManager';
+import { SearchView } from './SearchView';
 import { SettingsPanel } from './SettingsPanel';
 import { WorkbenchPanels } from './WorkbenchPanels';
 import type { WorkbenchExplorerFilter } from './workbenchExplorerFilter';
@@ -41,6 +43,7 @@ export interface WorkbenchViewContentProps {
   modelDetailId?: string;
   modelScope: 'library' | 'downloads';
   modelSearch?: ModelRouteSearch;
+  searchSearch?: SearchRouteSearch;
   models?: ModelsPayload;
   previewPages: number[];
   profiles: OcrProfileRecord[];
@@ -75,93 +78,156 @@ export interface WorkbenchViewContentProps {
   onSelectModel: (modelId: string) => void;
   onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
-  onStart: (options?: { reprocess?: boolean }) => void;
+  onStart: (options?: {
+    embeddingAfterIngest?: boolean;
+    embeddingDimension?: number;
+    embeddingModelId?: string;
+    reprocess?: boolean;
+    textIndexAfterIngest?: boolean;
+  }) => void;
+  onStartTextIndex: (sourceRunId: string) => void;
+  onGenerateEmbedding: (input: {
+    dimension?: number;
+    modelId: string;
+    sourceRunId: string;
+  }) => void;
+  onSearchRouteSearchChange: (patch: Partial<SearchRouteSearch>) => void;
   onStop: (runId?: string) => void;
   onThemeChange: (theme: ThemeMode) => void;
 }
 
 export function WorkbenchViewContent(props: WorkbenchViewContentProps) {
-  if (props.activeView === 'models') {
-    if (props.modelDetailId) {
-      return (
-        <ModelDetailPanel
-          busy={props.modelBusy}
-          model={props.models?.models.find((model) => model.model_id === props.modelDetailId)}
-          onCancelModel={props.onCancelModel}
-          onDownloadModel={props.onDownloadModel}
-          onSelectModel={props.onSelectModel}
-        />
-      );
-    }
+  switch (props.activeView) {
+    case 'models':
+      return renderModelView(props);
+    case 'diagnostics':
+      return renderDiagnosticsView(props);
+    case 'ingest':
+      return renderIngestView(props);
+    case 'search':
+      return renderSearchView(props);
+    case 'settings':
+      return renderSettingsView(props);
+    default:
+      return renderWorkbenchView(props);
+  }
+}
+
+function renderModelView(props: WorkbenchViewContentProps) {
+  if (props.modelDetailId) {
     return (
-      <ModelManager
+      <ModelDetailPanel
         busy={props.modelBusy}
-        models={props.models}
+        model={props.models?.models.find((model) => model.model_id === props.modelDetailId)}
         onCancelModel={props.onCancelModel}
         onDownloadModel={props.onDownloadModel}
-        onRouteSearchChange={props.onModelRouteSearchChange}
-        onScopeChange={props.onModelScopeChange}
         onSelectModel={props.onSelectModel}
-        routeSearch={props.modelSearch}
-        scope={props.modelScope}
-        status={props.status}
       />
     );
   }
-  if (props.activeView === 'diagnostics') {
-    return (
-      <DiagnosticsPanel
-        activeRunId={props.activeRunId}
-        logs={props.logs}
-        onResumeRun={props.onResumeRun}
-        onRestartRun={props.onRestartRun}
-        runs={props.runs}
-        search={props.diagnosticsSearch}
-        onSearchChange={props.onDiagnosticsSearchChange}
-        onStopRun={props.onStop}
-      />
-    );
-  }
-  if (props.activeView === 'ingest') {
-    return (
-      <IngestStartPanel
-        activeRun={props.activeRun}
-        activeRunId={props.activeRunId}
-        busy={props.ingestBusy}
-        folderDialogError={props.folderDialogError}
-        ingestSearch={props.ingestSearch}
-        model={props.model}
-        models={props.models}
-        onModelChange={props.onModelChange}
-        onPickFolder={props.onPickFolder}
-        onProfileChange={props.onProfileChange}
-        onRootPathChange={props.onRootPathChange}
-        onStart={props.onStart}
-        onStop={props.onStop}
-        profiles={props.profiles}
-        rootPath={props.rootPath}
-        selectedProfile={props.selectedProfile}
-        status={props.status}
-      />
-    );
-  }
-  if (props.activeView === 'settings') {
-    return (
-      <SettingsPanel
-        activeSection={props.settingsSearch?.section}
-        busy={props.settingsBusy}
-        models={props.models}
-        onModelChange={props.onModelChange}
-        onProfileChange={props.onProfileChange}
-        onRuntimeChange={props.onRuntimeChange}
-        onThemeChange={props.onThemeChange}
-        profiles={props.profiles}
-        selectedProfile={props.selectedProfile}
-        settings={props.settings}
-        theme={props.theme}
-      />
-    );
-  }
+  return (
+    <ModelManager
+      busy={props.modelBusy}
+      models={props.models}
+      onCancelModel={props.onCancelModel}
+      onDownloadModel={props.onDownloadModel}
+      onRouteSearchChange={props.onModelRouteSearchChange}
+      onScopeChange={props.onModelScopeChange}
+      onSelectModel={props.onSelectModel}
+      routeSearch={props.modelSearch}
+      scope={props.modelScope}
+      status={props.status}
+    />
+  );
+}
+
+function renderDiagnosticsView(props: WorkbenchViewContentProps) {
+  return (
+    <DiagnosticsPanel
+      activeRunId={props.activeRunId}
+      logs={props.logs}
+      onResumeRun={props.onResumeRun}
+      onRestartRun={props.onRestartRun}
+      runs={props.runs}
+      search={props.diagnosticsSearch}
+      onSearchChange={props.onDiagnosticsSearchChange}
+      onStopRun={props.onStop}
+    />
+  );
+}
+
+function renderIngestView(props: WorkbenchViewContentProps) {
+  return (
+    <IngestStartPanel
+      activeRun={props.activeRun}
+      activeRunId={props.activeRunId}
+      busy={props.ingestBusy}
+      folderDialogError={props.folderDialogError}
+      ingestSearch={props.ingestSearch}
+      model={props.model}
+      models={props.models}
+      onModelChange={props.onModelChange}
+      onPickFolder={props.onPickFolder}
+      onProfileChange={props.onProfileChange}
+      onRootPathChange={props.onRootPathChange}
+      onGenerateEmbedding={props.onGenerateEmbedding}
+      onStart={props.onStart}
+      onStartTextIndex={props.onStartTextIndex}
+      onStop={props.onStop}
+      profiles={props.profiles}
+      rootPath={props.rootPath}
+      runs={props.runs}
+      selectedProfile={props.selectedProfile}
+      status={props.status}
+    />
+  );
+}
+
+function renderSearchView(props: WorkbenchViewContentProps) {
+  return (
+    <SearchView
+      activeRunId={props.activeRunId}
+      documents={props.documents}
+      logs={props.logs}
+      model={props.model}
+      onAutoFollowChange={props.onAutoFollowChange}
+      onOpenModels={props.onOpenModels}
+      onPickFolder={props.onPickFolder}
+      onResumeRun={props.onResumeRun}
+      onRestartRun={props.onRestartRun}
+      onRouteSearchChange={props.onSearchRouteSearchChange}
+      onStopRun={props.onStop}
+      previewPages={props.previewPages}
+      regions={props.regions}
+      rootPath={props.rootPath}
+      runs={props.runs}
+      search={props.searchSearch}
+      selectedDocument={props.selectedDocument}
+      textPages={props.textPages}
+      workbench={props.workbench}
+    />
+  );
+}
+
+function renderSettingsView(props: WorkbenchViewContentProps) {
+  return (
+    <SettingsPanel
+      activeSection={props.settingsSearch?.section}
+      busy={props.settingsBusy}
+      models={props.models}
+      onModelChange={props.onModelChange}
+      onProfileChange={props.onProfileChange}
+      onRuntimeChange={props.onRuntimeChange}
+      onThemeChange={props.onThemeChange}
+      profiles={props.profiles}
+      selectedProfile={props.selectedProfile}
+      settings={props.settings}
+      theme={props.theme}
+    />
+  );
+}
+
+function renderWorkbenchView(props: WorkbenchViewContentProps) {
   return (
     <WorkbenchPanels
       activeRunId={props.activeRunId}

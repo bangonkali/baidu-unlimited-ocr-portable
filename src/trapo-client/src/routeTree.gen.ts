@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkbenchRouteImport } from './routes/workbench'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
@@ -26,6 +27,11 @@ const WorkbenchRoute = WorkbenchRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/models': typeof ModelsRouteWithChildren
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
   '/ingest/start': typeof IngestStartRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/models': typeof ModelsRouteWithChildren
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
   '/ingest/start': typeof IngestStartRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/models': typeof ModelsRouteWithChildren
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
   '/ingest/start': typeof IngestStartRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/diagnostics'
     | '/models'
+    | '/search'
     | '/settings'
     | '/workbench'
     | '/ingest/start'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/diagnostics'
     | '/models'
+    | '/search'
     | '/settings'
     | '/workbench'
     | '/ingest/start'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/diagnostics'
     | '/models'
+    | '/search'
     | '/settings'
     | '/workbench'
     | '/ingest/start'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosticsRoute: typeof DiagnosticsRoute
   ModelsRoute: typeof ModelsRouteWithChildren
+  SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   WorkbenchRoute: typeof WorkbenchRoute
   IngestStartRoute: typeof IngestStartRoute
@@ -146,6 +159,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -210,6 +230,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosticsRoute: DiagnosticsRoute,
   ModelsRoute: ModelsRouteWithChildren,
+  SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   WorkbenchRoute: WorkbenchRoute,
   IngestStartRoute: IngestStartRoute,

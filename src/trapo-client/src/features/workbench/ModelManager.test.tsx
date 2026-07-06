@@ -105,6 +105,21 @@ describe('ModelManager', () => {
 
     const bySize = visibleModels(fixtureModels.models, { dir: 'asc', sort: 'size' });
     expect(bySize[0]?.model_id).toBe('unlimited-ocr-iq2-m');
+
+    const embeddingOnly = visibleModels(
+      [
+        { ...fixtureModels.models[0], model_kind: 'ocr', routing_origin: 'unlimited_ocr' },
+        {
+          ...fixtureModels.models[0],
+          display_name: 'Nomic Embed',
+          model_id: 'nomic-embed',
+          model_kind: 'embedding',
+          routing_origin: 'embedding',
+        },
+      ],
+      { origin: 'embedding' },
+    );
+    expect(embeddingOnly.map((model) => model.model_id)).toEqual(['nomic-embed']);
   });
 
   test('renders dedicated model detail surface', () => {

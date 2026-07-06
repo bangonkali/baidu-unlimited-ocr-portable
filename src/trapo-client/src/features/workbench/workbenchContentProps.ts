@@ -14,6 +14,7 @@ import type {
   DiagnosticsRouteSearch,
   IngestRouteSearch,
   ModelRouteSearch,
+  SearchRouteSearch,
   SettingsRouteSearch,
 } from '../../routeSearch';
 import type { ActiveView, useWorkbenchState } from '../../stores/workbenchStore';
@@ -48,9 +49,18 @@ export interface WorkbenchContentActions {
   selectModel: MutationLike<string>;
   selectRegion: (pageNo: number, regionId: string) => void;
   settingsBusy: boolean;
-  startScan: (options?: { reprocess?: boolean }) => void;
+  startScan: (options?: {
+    embeddingAfterIngest?: boolean;
+    embeddingDimension?: number;
+    embeddingModelId?: string;
+    reprocess?: boolean;
+    textIndexAfterIngest?: boolean;
+  }) => void;
+  startTextIndex: (sourceRunId: string) => void;
+  generateEmbedding: (input: { dimension?: number; modelId: string; sourceRunId: string }) => void;
   stopRun: (runId?: string) => void;
   updateModelRouteSearch: (patch: Partial<ModelRouteSearch>) => void;
+  updateSearchRouteSearch: (patch: Partial<SearchRouteSearch>) => void;
   updateRuntime: (runtimeId: string) => void;
 }
 
@@ -76,6 +86,7 @@ export interface WorkbenchContentRoute {
   modelDetailId?: string;
   modelScope: 'library' | 'downloads';
   modelSearch?: ModelRouteSearch;
+  searchSearch?: SearchRouteSearch;
   settingsSearch?: SettingsRouteSearch;
 }
 
@@ -124,13 +135,17 @@ export function buildContentProps(args: {
     onSelectModel: (modelId) => args.actions.selectModel.mutate(modelId),
     onSelectRegion: args.actions.selectRegion,
     onStart: args.actions.startScan,
+    onStartTextIndex: args.actions.startTextIndex,
+    onGenerateEmbedding: args.actions.generateEmbedding,
     onRestartRun: args.actions.restartRun,
+    onSearchRouteSearchChange: args.actions.updateSearchRouteSearch,
     onStop: args.actions.stopRun,
     onThemeChange: setTheme,
     rootPath: args.workbench.selectedRoot,
     selectedProfile: args.route.ingestSearch?.profile ?? args.workbench.selectedProfile,
     settingsBusy: args.actions.settingsBusy,
     settingsSearch: args.route.settingsSearch,
+    searchSearch: args.route.searchSearch,
     theme: args.workbench.theme,
     workbench: args.workbench,
   };

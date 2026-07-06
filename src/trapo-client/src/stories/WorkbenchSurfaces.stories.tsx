@@ -53,12 +53,15 @@ export const Ingest: Story = {
         models={fixtureModels}
         onModelChange={() => undefined}
         onPickFolder={() => undefined}
+        onGenerateEmbedding={() => undefined}
         onProfileChange={() => undefined}
         onRootPathChange={() => undefined}
         onStart={() => undefined}
+        onStartTextIndex={() => undefined}
         onStop={() => undefined}
         profiles={fixtureModels.profiles}
         rootPath="C:\\data\\incoming"
+        runs={fixtureRuns}
         selectedProfile="experimental-exact-prefill-q4"
         status={{
           default_profile: 'experimental-exact-prefill-q4',

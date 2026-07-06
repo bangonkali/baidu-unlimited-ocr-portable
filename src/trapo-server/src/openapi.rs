@@ -9,23 +9,28 @@ use utoipa::OpenApi;
 use crate::{
     error::ErrorPayload,
     types::{
-        HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
-        ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
-        OcrProfileRecord, RuntimeVariantRecord, SettingsPayload, SettingsUpdateRequest,
-        ShutdownPayload, ShutdownRequest, StatusPayload, WorkbenchPaneSettings,
-        WorkbenchPaneSettingsPatch, WorkbenchUiSettings, WorkbenchUiSettingsPatch,
+        DuckDbExtensionsRecord, HealthPayload, ModelAssetRecord, ModelDownloadEvent,
+        ModelDownloadFileRecord, ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord,
+        ModelsPayload, OcrProfileRecord, RuntimeVariantRecord, SettingsPayload,
+        SettingsUpdateRequest, ShutdownPayload, ShutdownRequest, StatusPayload,
+        WorkbenchPaneSettings, WorkbenchPaneSettingsPatch, WorkbenchUiSettings,
+        WorkbenchUiSettingsPatch,
     },
     workbench_types::{
         DiagnosticAnalyticsPayload, DiagnosticAnalyticsSummary, DiagnosticBreakdownRecord,
         DiagnosticEventRecord, DiagnosticModelLeaseRecord, DiagnosticModelsPayload,
-        DiagnosticProgressPayload, DiagnosticProgressSummary, DiagnosticRecommendationRecord,
-        DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSlowSpanRecord, DiagnosticSpanRecord,
-        DiagnosticTracePayload, DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail,
-        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
-        FolderDialogResponse, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
-        IngestStartResponse, LogRecord, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
-        OcrReplayPayload, OverlayBox, PageTextRecord, PreviewImagesPayload, RealtimeEventRecord,
-        RunCompletionManifestRecord, TextRegionSpan,
+        DiagnosticPipelineTaskRecord, DiagnosticProgressPayload, DiagnosticProgressSummary,
+        DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
+        DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
+        DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail, DocumentRegionsPayload,
+        DocumentSummary, DocumentTextPayload, DocumentsPayload, FolderDialogResponse,
+        GenerateEmbeddingRequest, GenerateEmbeddingResponse, HybridSearchFileResult,
+        HybridSearchHit, HybridSearchRequest, HybridSearchResponse, IngestRunRecord,
+        IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogRecord, LogsPayload,
+        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox, PageTextRecord,
+        PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
+        TextIndexRequest, TextIndexResponse, TextRegionSpan, UsedEmbeddingModelRecord,
+        UsedEmbeddingModelsPayload,
     },
 };
 
@@ -50,6 +55,10 @@ use crate::{
         diagnostics_progress_doc,
         diagnostics_analytics_doc,
         diagnostics_models_doc,
+        start_text_index_doc,
+        generate_embedding_doc,
+        used_embedding_models_doc,
+        hybrid_search_doc,
         run_metrics_doc,
         recent_metrics_doc,
         list_documents_doc,
@@ -75,6 +84,7 @@ use crate::{
         ShutdownRequest,
         ShutdownPayload,
         StatusPayload,
+        DuckDbExtensionsRecord,
         RuntimeVariantRecord,
         OcrProfileRecord,
         ModelAssetRecord,
@@ -95,6 +105,17 @@ use crate::{
         RunCompletionManifestRecord,
         IngestRunRecord,
         IngestRunsPayload,
+        PipelineTaskRecord,
+        TextIndexRequest,
+        TextIndexResponse,
+        GenerateEmbeddingRequest,
+        GenerateEmbeddingResponse,
+        UsedEmbeddingModelsPayload,
+        UsedEmbeddingModelRecord,
+        HybridSearchRequest,
+        HybridSearchResponse,
+        HybridSearchFileResult,
+        HybridSearchHit,
         OcrMetricsTreeNode,
         OcrMetricsTreePayload,
         DocumentSummary,
@@ -119,6 +140,7 @@ use crate::{
         DiagnosticTracePayload,
         DiagnosticWorkUnitRecord,
         DiagnosticModelLeaseRecord,
+        DiagnosticPipelineTaskRecord,
         DiagnosticProgressSummary,
         DiagnosticProgressPayload,
         DiagnosticBreakdownRecord,
@@ -131,6 +153,7 @@ use crate::{
     tags(
         (name = "system"),
         (name = "ingest"),
+        (name = "rag"),
         (name = "diagnostics"),
         (name = "documents"),
         (name = "settings"),
@@ -192,6 +215,18 @@ const fn diagnostics_analytics_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/models", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticModelsPayload)))]
 const fn diagnostics_models_doc() {}
+
+#[utoipa::path(post, path = "/api/rag/text-index", tag = "rag", request_body = TextIndexRequest, responses((status = 202, description = "Text index task completed or queued", body = TextIndexResponse), (status = 400, body = ErrorPayload), (status = 409, body = ErrorPayload)))]
+const fn start_text_index_doc() {}
+
+#[utoipa::path(post, path = "/api/rag/embeddings", tag = "rag", request_body = GenerateEmbeddingRequest, responses((status = 202, description = "Embedding generation task completed or queued", body = GenerateEmbeddingResponse), (status = 400, body = ErrorPayload), (status = 409, body = ErrorPayload)))]
+const fn generate_embedding_doc() {}
+
+#[utoipa::path(get, path = "/api/rag/embedding-models/used", tag = "rag", responses((status = 200, body = UsedEmbeddingModelsPayload)))]
+const fn used_embedding_models_doc() {}
+
+#[utoipa::path(post, path = "/api/rag/search", tag = "rag", request_body = HybridSearchRequest, responses((status = 200, body = HybridSearchResponse), (status = 400, body = ErrorPayload)))]
+const fn hybrid_search_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}/metrics", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, body = OcrMetricsTreePayload)))]
 const fn run_metrics_doc() {}

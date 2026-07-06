@@ -9,11 +9,15 @@ impl AppState {
     async fn run_ingest(&self, execution: IngestExecution) {
         let IngestExecution {
             completed_pages,
+            embedding_after_ingest,
+            embedding_dimension,
+            embedding_model_id,
             files,
             model_id,
             profile_id,
             run_id,
             runtime_id,
+            text_index_after_ingest,
         } = execution;
         self.mark_run_status(&run_id, "running", None).await;
         let lease_scope = DiagnosticSpanScope::start();
@@ -63,10 +67,20 @@ impl AppState {
                     .await;
             }
         }
-        self.finish_ingest_run(&run_id).await;
+        let final_status = self.finish_ingest_run(&run_id).await;
+        if final_status == "completed" {
+            self.run_post_ingest_pipeline(
+                &run_id,
+                text_index_after_ingest,
+                embedding_after_ingest,
+                embedding_model_id,
+                embedding_dimension,
+            )
+            .await;
+        }
     }
 
-    async fn finish_ingest_run(&self, run_id: &str) {
+    async fn finish_ingest_run(&self, run_id: &str) -> String {
         let final_status = if self.run_cancelled(run_id).await {
             "cancelled"
         } else if self.run_has_errors(run_id).await {
@@ -90,14 +104,51 @@ impl AppState {
             }
         }
         self.publish_status_changed().await;
+        final_status.to_string()
+    }
+
+    async fn run_post_ingest_pipeline(
+        &self,
+        run_id: &str,
+        text_index_after_ingest: bool,
+        embedding_after_ingest: bool,
+        embedding_model_id: Option<String>,
+        embedding_dimension: Option<u32>,
+    ) {
+        if text_index_after_ingest
+            && let Err(error) = self
+                .start_text_index(TextIndexRequest {
+                    source_run_id: run_id.to_string(),
+                })
+                .await
+        {
+            self.log_warn("rag", format!("post-ingest text index failed: {error}"));
+            return;
+        }
+        if embedding_after_ingest
+            && let Some(model_id) = embedding_model_id
+            && let Err(error) = self
+                .start_generate_embedding(GenerateEmbeddingRequest {
+                    source_run_id: run_id.to_string(),
+                    model_id,
+                    dimension: embedding_dimension,
+                })
+                .await
+        {
+            self.log_warn("rag", format!("post-ingest embedding failed: {error}"));
+        }
     }
 }
 
 struct IngestExecution {
     completed_pages: BTreeSet<(String, u32)>,
+    embedding_after_ingest: bool,
+    embedding_dimension: Option<u32>,
+    embedding_model_id: Option<String>,
     files: Vec<DiscoveredFile>,
     model_id: String,
     profile_id: String,
     run_id: String,
     runtime_id: String,
+    text_index_after_ingest: bool,
 }

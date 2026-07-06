@@ -5,7 +5,8 @@ fn model_record(
 ) -> ModelAssetRecord {
     let files = model_files(model_dir, state, entry);
     let status = model_status_from_files(&files);
-    let total_required = entry.model_size_bytes + SHARED_MMPROJ_SIZE_BYTES;
+    let total_required = entry.model_size_bytes + entry.mmproj_size_bytes;
+    let total_file_count = usize_to_u32_saturating(files.len());
     let downloaded_bytes = files.iter().map(|file| file.downloaded_bytes).sum::<u64>();
     let percent = download_percent(downloaded_bytes, total_required);
     let active_downloads = model_downloads(state, entry.model_id);
@@ -16,15 +17,17 @@ fn model_record(
     ModelAssetRecord {
         model_id: entry.model_id.to_string(),
         display_name: entry.display_name.to_string(),
+        model_kind: entry.model_kind.to_string(),
+        routing_origin: entry.routing_origin.to_string(),
         status: status.clone(),
-        repo_id: PROVIDER_REPO_ID.to_string(),
-        revision: PROVIDER_REVISION.to_string(),
+        repo_id: entry.repo_id.to_string(),
+        revision: entry.revision.to_string(),
         local_path: (status == "downloaded")
             .then(|| model_dir.join(entry.model_file).to_string_lossy().to_string()),
         size_bytes: Some(entry.model_size_bytes),
         error: files.iter().find_map(|file| file.error.clone()),
         model_file: entry.model_file.to_string(),
-        mmproj_file: SHARED_MMPROJ_FILE.to_string(),
+        mmproj_file: entry.mmproj_file.unwrap_or("").to_string(),
         current_file: active_downloads
             .iter()
             .find(|download| download.status == "downloading")
@@ -51,7 +54,14 @@ fn model_record(
         notes: entry.notes.to_string(),
         recommended: entry.recommended,
         selected: state.selected_model_id == entry.model_id,
-        provider_name: PROVIDER_LABEL.to_string(),
+        provider_name: entry.provider_label.to_string(),
+        embedding_dimension: entry.embedding_dimension,
+        context_tokens: entry.context_tokens,
+        pooling: (!entry.pooling.is_empty()).then(|| entry.pooling.to_string()),
+        normalize_embeddings: entry.normalize_embeddings,
+        query_prefix: (!entry.query_prefix.is_empty()).then(|| entry.query_prefix.to_string()),
+        document_prefix: (!entry.document_prefix.is_empty()).then(|| entry.document_prefix.to_string()),
+        recommended_vram_gb: (entry.recommended_vram_gb > 0.0).then_some(entry.recommended_vram_gb),
         total_required_bytes: Some(total_required),
         downloaded_file_count: usize_to_u32_saturating(
             model_download_targets(model_dir, entry)
@@ -59,7 +69,7 @@ fn model_record(
                 .filter(|target| file_is_present(&target.target_path))
                 .count(),
         ),
-        total_file_count: 2,
+        total_file_count,
     }
 }
 

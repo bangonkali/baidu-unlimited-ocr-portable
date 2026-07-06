@@ -286,4 +286,9 @@ CREATE INDEX IF NOT EXISTS idx_ingest_run_completion_completed_at
   ON ingest_run_completion_manifests(completed_at);
 ",
     },
+    Migration {
+        id: 13,
+        name: "rag_pipeline",
+        sql: migration_sql::RAG_PIPELINE,
+    },
 ];

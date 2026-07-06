@@ -48,11 +48,11 @@ impl Repository {
         conn.execute(
             "INSERT INTO document_annotation_identities(
                 annotation_id, run_id, file_hash, page_no, engine_id, profile_id,
-                source_region_key, discovery_index, label, x1, y1, x2, y2, created_at
+                source_region_key, discovery_index, label, category, x1, y1, x2, y2, created_at
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
              ON CONFLICT(run_id, file_hash, page_no, source_region_key) DO UPDATE SET
-                label = excluded.label, x1 = excluded.x1, y1 = excluded.y1,
+                label = excluded.label, category = excluded.category, x1 = excluded.x1, y1 = excluded.y1,
                 x2 = excluded.x2, y2 = excluded.y2, updated_at = now()",
             params![
                 annotation_id,
@@ -64,6 +64,7 @@ impl Repository {
                 draft.source_region_key,
                 i64::from(draft.discovery_index),
                 draft.label,
+                draft.category,
                 draft.x1,
                 draft.y1,
                 draft.x2,
@@ -81,12 +82,12 @@ impl Repository {
         conn.execute(
             "INSERT INTO document_regions(
                 run_id, region_id, annotation_id, source_region_key, file_hash, page_no, engine_id,
-                profile_id, label, x1, y1, x2, y2, source_span_start, source_span_end,
+                profile_id, label, category, x1, y1, x2, y2, source_span_start, source_span_end,
                 content_markdown, content_html
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(region_id) DO UPDATE SET
-                label = excluded.label, x1 = excluded.x1, y1 = excluded.y1,
+                label = excluded.label, category = excluded.category, x1 = excluded.x1, y1 = excluded.y1,
                 x2 = excluded.x2, y2 = excluded.y2,
                 run_id = excluded.run_id,
                 source_span_start = excluded.source_span_start,
@@ -103,6 +104,7 @@ impl Repository {
                 draft.engine_id,
                 draft.profile_id,
                 draft.label,
+                draft.category,
                 draft.x1,
                 draft.y1,
                 draft.x2,

@@ -24,7 +24,11 @@ import type {
   DocumentsPayload,
   ErrorPayload,
   FolderDialogResponse,
+  GenerateEmbeddingRequest,
+  GenerateEmbeddingResponse,
   HealthPayload,
+  HybridSearchRequest,
+  HybridSearchResponse,
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
@@ -46,7 +50,10 @@ import type {
   SettingsUpdateRequest,
   ShutdownPayload,
   ShutdownRequest,
-  StatusPayload
+  StatusPayload,
+  TextIndexRequest,
+  TextIndexResponse,
+  UsedEmbeddingModelsPayload
 } from './model';
 
 export type diagnosticsAnalyticsDocResponse200 = {
@@ -1385,6 +1392,197 @@ export const openapiDoc = async ( options?: RequestInit): Promise<openapiDocResp
 
   const data: openapiDocResponse['data'] = body ? JSON.parse(body) : undefined
   return { data, status: res.status, headers: res.headers } as openapiDocResponse
+}
+
+
+
+export type usedEmbeddingModelsDocResponse200 = {
+  data: UsedEmbeddingModelsPayload
+  status: 200
+}
+
+export type usedEmbeddingModelsDocResponseSuccess = (usedEmbeddingModelsDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type usedEmbeddingModelsDocResponse = (usedEmbeddingModelsDocResponseSuccess)
+
+export const getUsedEmbeddingModelsDocUrl = () => {
+
+
+
+
+  return `/api/rag/embedding-models/used`
+}
+
+export const usedEmbeddingModelsDoc = async ( options?: RequestInit): Promise<usedEmbeddingModelsDocResponse> => {
+
+  const res = await fetch(getUsedEmbeddingModelsDocUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: usedEmbeddingModelsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as usedEmbeddingModelsDocResponse
+}
+
+
+
+export type generateEmbeddingDocResponse202 = {
+  data: GenerateEmbeddingResponse
+  status: 202
+}
+
+export type generateEmbeddingDocResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type generateEmbeddingDocResponse409 = {
+  data: ErrorPayload
+  status: 409
+}
+
+export type generateEmbeddingDocResponseSuccess = (generateEmbeddingDocResponse202) & {
+  headers: Headers;
+};
+export type generateEmbeddingDocResponseError = (generateEmbeddingDocResponse400 | generateEmbeddingDocResponse409) & {
+  headers: Headers;
+};
+
+export type generateEmbeddingDocResponse = (generateEmbeddingDocResponseSuccess | generateEmbeddingDocResponseError)
+
+export const getGenerateEmbeddingDocUrl = () => {
+
+
+
+
+  return `/api/rag/embeddings`
+}
+
+export const generateEmbeddingDoc = async (generateEmbeddingRequest: GenerateEmbeddingRequest, options?: RequestInit): Promise<generateEmbeddingDocResponse> => {
+
+  const res = await fetch(getGenerateEmbeddingDocUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(generateEmbeddingRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: generateEmbeddingDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as generateEmbeddingDocResponse
+}
+
+
+
+export type hybridSearchDocResponse200 = {
+  data: HybridSearchResponse
+  status: 200
+}
+
+export type hybridSearchDocResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type hybridSearchDocResponseSuccess = (hybridSearchDocResponse200) & {
+  headers: Headers;
+};
+export type hybridSearchDocResponseError = (hybridSearchDocResponse400) & {
+  headers: Headers;
+};
+
+export type hybridSearchDocResponse = (hybridSearchDocResponseSuccess | hybridSearchDocResponseError)
+
+export const getHybridSearchDocUrl = () => {
+
+
+
+
+  return `/api/rag/search`
+}
+
+export const hybridSearchDoc = async (hybridSearchRequest: HybridSearchRequest, options?: RequestInit): Promise<hybridSearchDocResponse> => {
+
+  const res = await fetch(getHybridSearchDocUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(hybridSearchRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: hybridSearchDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as hybridSearchDocResponse
+}
+
+
+
+export type startTextIndexDocResponse202 = {
+  data: TextIndexResponse
+  status: 202
+}
+
+export type startTextIndexDocResponse400 = {
+  data: ErrorPayload
+  status: 400
+}
+
+export type startTextIndexDocResponse409 = {
+  data: ErrorPayload
+  status: 409
+}
+
+export type startTextIndexDocResponseSuccess = (startTextIndexDocResponse202) & {
+  headers: Headers;
+};
+export type startTextIndexDocResponseError = (startTextIndexDocResponse400 | startTextIndexDocResponse409) & {
+  headers: Headers;
+};
+
+export type startTextIndexDocResponse = (startTextIndexDocResponseSuccess | startTextIndexDocResponseError)
+
+export const getStartTextIndexDocUrl = () => {
+
+
+
+
+  return `/api/rag/text-index`
+}
+
+export const startTextIndexDoc = async (textIndexRequest: TextIndexRequest, options?: RequestInit): Promise<startTextIndexDocResponse> => {
+
+  const res = await fetch(getStartTextIndexDocUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(textIndexRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startTextIndexDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as startTextIndexDocResponse
 }
 
 

@@ -25,6 +25,16 @@ export interface StatusPayload {
   database_path?: string;
   realtime_path?: string;
   selected_model_id?: string;
+  duckdb_extensions?: DuckDbExtensionsRecord;
+}
+
+export interface DuckDbExtensionsRecord {
+  fts_loaded: boolean;
+  fts_error?: string | null;
+  vss_loaded: boolean;
+  vss_error?: string | null;
+  duckpgq_loaded: boolean;
+  duckpgq_error?: string | null;
 }
 
 export interface RuntimeVariantRecord {
@@ -57,6 +67,8 @@ export interface OcrProfileRecord {
 export interface ModelAssetRecord {
   model_id: string;
   display_name: string;
+  model_kind?: 'ocr' | 'embedding' | string;
+  routing_origin?: 'unlimited_ocr' | 'embedding' | string;
   status: string;
   repo_id?: string;
   revision?: string;
@@ -86,6 +98,13 @@ export interface ModelAssetRecord {
   recommended?: boolean;
   selected?: boolean;
   provider_name?: string;
+  embedding_dimension?: number | null;
+  context_tokens?: number | null;
+  pooling?: string | null;
+  normalize_embeddings?: boolean | null;
+  query_prefix?: string | null;
+  document_prefix?: string | null;
+  recommended_vram_gb?: number | null;
   total_required_bytes?: number | null;
   downloaded_file_count?: number;
   total_file_count?: number;
@@ -184,6 +203,93 @@ export interface IngestStartRequest {
   runtime_id?: string;
   engine_id?: string;
   reprocess?: boolean;
+  text_index_after_ingest?: boolean;
+  embedding_after_ingest?: boolean;
+  embedding_model_id?: string;
+  embedding_dimension?: number;
+}
+
+export interface PipelineTaskRecord {
+  task_id: string;
+  task_kind: string;
+  origin_run_id?: string | null;
+  status: string;
+  params: Record<string, unknown>;
+  result: Record<string, unknown>;
+  queued_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  runner_id?: string | null;
+  error?: string | null;
+}
+
+export interface TextIndexRequest {
+  source_run_id: string;
+}
+
+export interface TextIndexResponse {
+  task: PipelineTaskRecord;
+  text_index_run_id: string;
+  source_run_id: string;
+  segments_indexed: number;
+  status: string;
+}
+
+export interface GenerateEmbeddingRequest {
+  source_run_id: string;
+  model_id: string;
+  dimension?: number;
+}
+
+export interface GenerateEmbeddingResponse {
+  task: PipelineTaskRecord;
+  embedding_run_id: string;
+  source_run_id: string;
+  model_id: string;
+  dimension: number;
+  segments_embedded: number;
+  status: string;
+}
+
+export interface UsedEmbeddingModelRecord {
+  model_id: string;
+  display_name: string;
+  provider: string;
+  dimension: number;
+}
+
+export interface UsedEmbeddingModelsPayload {
+  models: UsedEmbeddingModelRecord[];
+}
+
+export interface HybridSearchRequest {
+  query: string;
+  source_run_id?: string;
+  embedding_model_id?: string;
+  limit?: number;
+}
+
+export interface HybridSearchHit {
+  segment_id: string;
+  file_hash: string;
+  page_no: number;
+  annotation_id?: string | null;
+  category: string;
+  text: string;
+  score: number;
+  hit_source: string;
+  model_id?: string | null;
+}
+
+export interface HybridSearchFileResult {
+  file_hash: string;
+  hit_count: number;
+  hits: HybridSearchHit[];
+}
+
+export interface HybridSearchResponse {
+  query: string;
+  files: HybridSearchFileResult[];
 }
 
 export interface RunCompletionManifestRecord {
@@ -260,6 +366,7 @@ export interface OverlayBox {
   annotation_id?: string;
   region_id: string;
   label: string;
+  category?: string;
   content_markdown?: string;
   content_html?: string | null;
   page_no: number;

@@ -3,6 +3,7 @@ import { ArrowDownAZ, ArrowUpAZ, Cpu, HardDriveDownload, Library } from 'lucide-
 import type { ModelsPayload, StatusPayload } from '../../api/types';
 import type {
   DownloadStatusFilter,
+  ModelOriginFilter,
   ModelRouteSearch,
   ModelSortKey,
   ModelViewMode,
@@ -38,7 +39,8 @@ export function ModelManager(props: ModelManagerProps) {
   const sort = props.routeSearch?.sort ?? 'status';
   const dir = props.routeSearch?.dir ?? 'asc';
   const statusFilter = props.routeSearch?.status ?? 'all';
-  const shown = visibleModels(library, { dir, scope, sort, status: statusFilter });
+  const origin = props.routeSearch?.origin ?? 'all';
+  const shown = visibleModels(library, { dir, origin, scope, sort, status: statusFilter });
   const updateSearch = props.onRouteSearchChange ?? (() => undefined);
   const changeSort = (nextSort: ModelSortKey) =>
     updateSearch({ dir: nextSort === sort && dir === 'asc' ? 'desc' : 'asc', sort: nextSort });
@@ -57,9 +59,11 @@ export function ModelManager(props: ModelManagerProps) {
         scope={scope}
         sort={sort}
         status={statusFilter}
+        origin={origin}
         view={view}
         onDirChange={(nextDir) => updateSearch({ dir: nextDir })}
         onSortChange={(nextSort) => updateSearch({ sort: nextSort })}
+        onOriginChange={(nextOrigin) => updateSearch({ origin: nextOrigin })}
         onStatusChange={(nextStatus) => updateSearch({ status: nextStatus })}
         onViewChange={(nextView) => updateSearch({ view: nextView })}
         onScopeChange={props.onScopeChange ?? (() => undefined)}
@@ -110,11 +114,13 @@ function ModelSummary({
 
 function ModelToolbar(props: {
   dir: SortDirection;
+  origin: ModelOriginFilter;
   scope: 'library' | 'downloads';
   sort: ModelSortKey;
   status: DownloadStatusFilter;
   view: ModelViewMode;
   onDirChange: (dir: SortDirection) => void;
+  onOriginChange: (origin: ModelOriginFilter) => void;
   onSortChange: (sort: ModelSortKey) => void;
   onScopeChange: (scope: 'library' | 'downloads') => void;
   onStatusChange: (status: DownloadStatusFilter) => void;
@@ -139,6 +145,17 @@ function ModelToolbar(props: {
           Cards
         </button>
       </div>
+      <label>
+        <span>Origin</span>
+        <select
+          onChange={(event) => props.onOriginChange(event.target.value as ModelOriginFilter)}
+          value={props.origin}
+        >
+          <option value="all">All</option>
+          <option value="unlimited_ocr">Unlimited OCR</option>
+          <option value="embedding">Embedding</option>
+        </select>
+      </label>
       <label>
         <span>Sort</span>
         <select

@@ -30,7 +30,7 @@
 
 .treeGridRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 82px;
+  grid-template-columns: minmax(0, 1fr) 82px 132px;
   min-height: 24px;
 }
 

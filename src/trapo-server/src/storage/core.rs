@@ -14,8 +14,12 @@ impl Repository {
             tokio::fs::create_dir_all(parent).await?;
         }
         let connection_path = database_path.clone();
-        let shared_connection = tokio::task::spawn_blocking(move || {
+        let (shared_connection, extension_capabilities) = tokio::task::spawn_blocking(move || {
             open_configured_database(connection_path.as_path())
+                .map(|connection| {
+                    let extension_capabilities = configure_duckdb_extensions(&connection);
+                    (connection, extension_capabilities)
+                })
         })
         .await
         .map_err(|error| AppError::Internal(format!("database open worker failed: {error}")))??;
@@ -24,6 +28,7 @@ impl Repository {
             shared_connection: Arc::new(Mutex::new(shared_connection)),
             read_slots: Arc::new(Semaphore::new(DB_READ_CONCURRENCY)),
             write_slots: Arc::new(Semaphore::new(DB_WRITE_CONCURRENCY)),
+            extension_capabilities: Arc::new(extension_capabilities),
         };
         repository.migrate().await?;
         Ok(repository)
@@ -32,6 +37,11 @@ impl Repository {
     #[must_use]
     pub(crate) fn path(&self) -> &Path {
         &self.database_path
+    }
+
+    #[must_use]
+    pub(crate) fn extension_capabilities(&self) -> DbExtensionCapabilities {
+        (*self.extension_capabilities).clone()
     }
 
     pub(crate) async fn setting_value(&self, key: &str) -> Result<Option<Value>> {
@@ -69,5 +79,33 @@ impl Repository {
             Ok(())
         })
         .await
+    }
+}
+
+fn configure_duckdb_extensions(conn: &Connection) -> DbExtensionCapabilities {
+    let (fts_loaded, fts_error) = load_duckdb_extension(conn, "fts");
+    let (vss_loaded, vss_error) = load_duckdb_extension(conn, "vss");
+    if vss_loaded {
+        let _ = conn.execute_batch("SET hnsw_enable_experimental_persistence = true;");
+    }
+    DbExtensionCapabilities {
+        fts_loaded,
+        fts_error,
+        vss_loaded,
+        vss_error,
+        duckpgq_loaded: false,
+        duckpgq_error: Some("duckpgq initialization deferred until graph queries are introduced".to_string()),
+    }
+}
+
+fn load_duckdb_extension(conn: &Connection, name: &str) -> (bool, Option<String>) {
+    let install_sql = format!("INSTALL {name};");
+    let load_sql = format!("LOAD {name};");
+    match conn.execute_batch(&install_sql).and_then(|()| conn.execute_batch(&load_sql)) {
+        Ok(()) => (true, None),
+        Err(install_error) => match conn.execute_batch(&load_sql) {
+            Ok(()) => (true, Some(format!("install skipped or failed before load succeeded: {install_error}"))),
+            Err(load_error) => (false, Some(format!("{install_error}; load failed: {load_error}"))),
+        },
     }
 }

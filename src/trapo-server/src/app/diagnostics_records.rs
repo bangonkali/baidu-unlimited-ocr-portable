@@ -102,6 +102,22 @@ fn diagnostic_model_lease_record(row: DiagnosticModelLeaseRow) -> DiagnosticMode
     }
 }
 
+fn diagnostic_pipeline_task_record(row: PipelineTaskRow) -> DiagnosticPipelineTaskRecord {
+    DiagnosticPipelineTaskRecord {
+        task_id: row.task_id,
+        task_kind: row.task_kind,
+        origin_run_id: row.origin_run_id,
+        status: row.status,
+        params: row.params,
+        result: row.result,
+        queued_at: row.queued_at,
+        started_at: row.started_at,
+        finished_at: row.finished_at,
+        runner_id: row.runner_id,
+        error: row.error,
+    }
+}
+
 fn diagnostic_trace_summary(
     run_id: Option<String>,
     spans: &[DiagnosticSpanRow],

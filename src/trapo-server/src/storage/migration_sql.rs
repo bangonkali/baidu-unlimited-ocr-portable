@@ -127,3 +127,162 @@ CREATE INDEX IF NOT EXISTS idx_regions_run_file_page
 CREATE INDEX IF NOT EXISTS idx_text_region_links_run_file_page
   ON document_text_region_links(run_id, file_hash, page_no);
 ";
+
+pub(super) const RAG_PIPELINE: &str = r"
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS category TEXT;
+UPDATE document_regions SET category = label WHERE category IS NULL OR category = '';
+
+ALTER TABLE document_annotation_identities ADD COLUMN IF NOT EXISTS category TEXT;
+UPDATE document_annotation_identities SET category = label WHERE category IS NULL OR category = '';
+
+CREATE TABLE IF NOT EXISTS pipeline_tasks (
+  task_id TEXT PRIMARY KEY,
+  task_kind TEXT NOT NULL,
+  origin_run_id TEXT,
+  status TEXT NOT NULL,
+  params_json TEXT NOT NULL DEFAULT '{}',
+  result_json TEXT NOT NULL DEFAULT '{}',
+  queued_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT,
+  runner_id TEXT,
+  error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pipeline_tasks_status ON pipeline_tasks(status, queued_at);
+CREATE INDEX IF NOT EXISTS idx_pipeline_tasks_origin ON pipeline_tasks(origin_run_id, task_kind, queued_at);
+
+CREATE TABLE IF NOT EXISTS rag_embedding_models (
+  model_id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  repo_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  revision TEXT NOT NULL,
+  routing_origin TEXT NOT NULL,
+  model_family TEXT NOT NULL,
+  dimension INTEGER NOT NULL,
+  context_tokens INTEGER NOT NULL,
+  pooling TEXT NOT NULL,
+  normalize BOOLEAN NOT NULL,
+  query_prefix TEXT NOT NULL DEFAULT '',
+  document_prefix TEXT NOT NULL DEFAULT '',
+  llama_params_json TEXT NOT NULL DEFAULT '{}',
+  recommended_vram_gb DOUBLE NOT NULL DEFAULT 4,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TEXT NOT NULL DEFAULT CAST(now() AS VARCHAR),
+  updated_at TEXT NOT NULL DEFAULT CAST(now() AS VARCHAR)
+);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_models_origin ON rag_embedding_models(routing_origin, active);
+
+CREATE TABLE IF NOT EXISTS rag_text_segments (
+  segment_id TEXT PRIMARY KEY,
+  source_run_id TEXT NOT NULL,
+  file_hash TEXT NOT NULL,
+  page_no INTEGER NOT NULL,
+  segment_index INTEGER NOT NULL,
+  annotation_id TEXT,
+  category TEXT NOT NULL,
+  text TEXT NOT NULL,
+  token_estimate INTEGER NOT NULL,
+  text_start UBIGINT NOT NULL DEFAULT 0,
+  text_end UBIGINT NOT NULL DEFAULT 0,
+  source_kind TEXT NOT NULL DEFAULT 'page',
+  created_at TEXT NOT NULL DEFAULT CAST(now() AS VARCHAR),
+  UNIQUE(source_run_id, file_hash, page_no, segment_index)
+);
+CREATE INDEX IF NOT EXISTS idx_rag_text_segments_run ON rag_text_segments(source_run_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_text_segments_annotation ON rag_text_segments(annotation_id);
+
+CREATE TABLE IF NOT EXISTS rag_text_index_runs (
+  text_index_run_id TEXT PRIMARY KEY,
+  task_id TEXT,
+  source_run_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  segments_indexed INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rag_text_index_runs_source ON rag_text_index_runs(source_run_id, started_at);
+
+CREATE TABLE IF NOT EXISTS rag_fts_index_snapshots (
+  snapshot_id TEXT PRIMARY KEY,
+  text_index_run_id TEXT NOT NULL,
+  source_run_id TEXT NOT NULL,
+  index_name TEXT NOT NULL,
+  status TEXT NOT NULL,
+  segments_indexed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  error TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rag_fts_snapshots_source ON rag_fts_index_snapshots(source_run_id, created_at);
+
+CREATE TABLE IF NOT EXISTS rag_embedding_runs (
+  embedding_run_id TEXT PRIMARY KEY,
+  task_id TEXT,
+  source_run_id TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  requested_dimension INTEGER NOT NULL,
+  actual_dimension INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  segments_total INTEGER NOT NULL DEFAULT 0,
+  segments_embedded INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  error TEXT,
+  params_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_runs_source ON rag_embedding_runs(source_run_id, model_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_runs_model_status ON rag_embedding_runs(model_id, status);
+
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_128 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[128] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_256 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[256] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_512 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[512] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_768 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[768] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_1024 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[1024] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_2560 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[2560] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+CREATE TABLE IF NOT EXISTS rag_embedding_vectors_4096 (
+  embedding_run_id TEXT NOT NULL, source_run_id TEXT NOT NULL, segment_id TEXT NOT NULL,
+  model_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
+  embedding FLOAT[4096] NOT NULL, metadata_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+  PRIMARY KEY (embedding_run_id, segment_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_128_lookup ON rag_embedding_vectors_128(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_256_lookup ON rag_embedding_vectors_256(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_512_lookup ON rag_embedding_vectors_512(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_768_lookup ON rag_embedding_vectors_768(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_1024_lookup ON rag_embedding_vectors_1024(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_2560_lookup ON rag_embedding_vectors_2560(source_run_id, model_id, file_hash, page_no);
+CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_4096_lookup ON rag_embedding_vectors_4096(source_run_id, model_id, file_hash, page_no);
+";

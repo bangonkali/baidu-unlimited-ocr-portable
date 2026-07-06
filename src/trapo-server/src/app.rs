@@ -11,11 +11,12 @@ use tokio::sync::Mutex;
 
 use crate::{
     catalog::{
-        DEFAULT_MODEL_ID, DEFAULT_PROFILE_ID, PROVIDER_LABEL, PROVIDER_REPO_ID, PROVIDER_REVISION,
-        RETRY_PROFILE_ID, SHARED_MMPROJ_FILE, SHARED_MMPROJ_SIZE_BYTES, choose_runtime_id,
-        find_model, find_profile, model_catalog, ocr_profiles, runtime_record, runtime_variants,
+        DEFAULT_MODEL_ID, DEFAULT_PROFILE_ID, PROVIDER_LABEL, PROVIDER_REPO_ID, RETRY_PROFILE_ID,
+        SHARED_MMPROJ_FILE, choose_runtime_id, embedding_model_catalog, find_model, find_profile,
+        model_catalog, ocr_profiles, runtime_record, runtime_variants,
     },
     config::ServerConfig,
+    embedding::{EmbeddingPurpose, generate_embeddings, profile_from_model_row},
     error::{AppError, Result},
     ids::new_persistence_id,
     logger::AppLogger,
@@ -27,29 +28,34 @@ use crate::{
     },
     shutdown::{BackgroundTasks, ShutdownCoordinator},
     storage::{
-        AnnotationIdentityDraft, CompletedRunPage, DiagnosticEventInsert, DiagnosticEventRow,
-        DiagnosticModelLeaseInsert, DiagnosticModelLeaseRow, DiagnosticRunRow,
+        AnnotationIdentityDraft, CompletedRunPage, DbExtensionCapabilities, DiagnosticEventInsert,
+        DiagnosticEventRow, DiagnosticModelLeaseInsert, DiagnosticModelLeaseRow, DiagnosticRunRow,
         DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
-        DownloadEventInsert, OcrPageMetrics, Repository, StoredDocument, StoredPage,
-        StoredRealtimeEvent, StoredRun, StoredRunCompletionManifest, WorkUnitUpsert,
+        DownloadEventInsert, OcrPageMetrics, PipelineTaskRow, RagEmbeddingModelRow,
+        RagEmbeddingRunRow, RagEmbeddingVectorRow, RagSearchHitRow, RagTextIndexRunRow,
+        RagTextSegmentRow, Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun,
+        StoredRunCompletionManifest, WorkUnitUpsert,
     },
     types::{
-        HealthPayload, ModelAssetRecord, ModelDownloadEvent, ModelDownloadFileRecord,
-        ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord, ModelsPayload,
-        SettingsPayload, SettingsUpdateRequest, ShutdownPayload, StatusPayload,
+        DuckDbExtensionsRecord, HealthPayload, ModelAssetRecord, ModelDownloadEvent,
+        ModelDownloadFileRecord, ModelDownloadRecord, ModelDownloadRequest, ModelSelectRecord,
+        ModelsPayload, SettingsPayload, SettingsUpdateRequest, ShutdownPayload, StatusPayload,
         WorkbenchUiSettings,
     },
     workbench_types::{
         DiagnosticAnalyticsPayload, DiagnosticAnalyticsSummary, DiagnosticBreakdownRecord,
         DiagnosticEventRecord, DiagnosticModelLeaseRecord, DiagnosticModelsPayload,
-        DiagnosticProgressPayload, DiagnosticProgressSummary, DiagnosticRecommendationRecord,
-        DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSlowSpanRecord, DiagnosticSpanRecord,
-        DiagnosticTracePayload, DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail,
-        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
-        FolderDialogResponse, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
-        IngestStartResponse, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
-        OcrReplayPayload, PageTextRecord, PreviewImagesPayload, RealtimeEventRecord,
-        RunCompletionManifestRecord,
+        DiagnosticPipelineTaskRecord, DiagnosticProgressPayload, DiagnosticProgressSummary,
+        DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
+        DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
+        DiagnosticTraceSummary, DiagnosticWorkUnitRecord, DocumentDetail, DocumentRegionsPayload,
+        DocumentSummary, DocumentTextPayload, DocumentsPayload, FolderDialogResponse,
+        GenerateEmbeddingRequest, GenerateEmbeddingResponse, HybridSearchFileResult,
+        HybridSearchHit, HybridSearchRequest, HybridSearchResponse, IngestRunRecord,
+        IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogsPayload,
+        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord,
+        PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
+        TextIndexRequest, TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -198,6 +204,9 @@ include!("app/page_diagnostics.rs");
 include!("app/region_snippets.rs");
 include!("app/page_completion.rs");
 include!("app/page_pipeline.rs");
+include!("app/rag_methods.rs");
+include!("app/rag_execution.rs");
+include!("app/rag_records.rs");
 include!("app/download_helpers.rs");
 include!("app/shutdown.rs");
 include!("app/logging.rs");

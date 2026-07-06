@@ -27,12 +27,15 @@ describe('IngestStartPanel', () => {
         models={fixtureModels}
         onModelChange={() => undefined}
         onPickFolder={() => undefined}
+        onGenerateEmbedding={() => undefined}
         onProfileChange={() => undefined}
         onRootPathChange={() => undefined}
         onStart={() => undefined}
+        onStartTextIndex={() => undefined}
         onStop={() => undefined}
         profiles={fixtureModels.profiles}
         rootPath="C:\\data\\incoming"
+        runs={fixtureRuns}
         selectedProfile="experimental-exact-prefill-q4"
         status={{
           active_run_id: fixtureRuns[0]?.run_id,
@@ -57,12 +60,15 @@ describe('IngestStartPanel', () => {
         models={fixtureModels}
         onModelChange={() => undefined}
         onPickFolder={() => undefined}
+        onGenerateEmbedding={() => undefined}
         onProfileChange={() => undefined}
         onRootPathChange={() => undefined}
         onStart={() => undefined}
+        onStartTextIndex={() => undefined}
         onStop={() => undefined}
         profiles={fixtureModels.profiles}
         rootPath=""
+        runs={fixtureRuns}
         selectedProfile="experimental-exact-prefill-q4"
       />,
     );

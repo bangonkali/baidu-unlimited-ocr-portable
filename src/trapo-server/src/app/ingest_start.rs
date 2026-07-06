@@ -5,6 +5,8 @@ impl AppState {
     ) -> Result<IngestStartResponse> {
         self.ensure_not_shutting_down()?;
         self.ensure_no_active_ingest().await?;
+        self.ensure_no_active_pipeline_task().await?;
+        Self::validate_start_ingest_request(&request)?;
         let root = PathBuf::from(&request.root_path);
         let files = discover_supported_files(&root)?;
         let run_id = now_id();
@@ -21,56 +23,94 @@ impl AppState {
             })
             .await?;
 
-        for document in &prepared.stored_documents {
-            self.inner.repository.upsert_document(document).await?;
-        }
-        for (file_hash, metadata) in prepared.diagnostics {
-            self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
-                run_id: &run_id,
-                file_hash: &file_hash,
-                page_no: None,
-                phase: "render",
-                model: &model_id,
-                profile: &profile_id,
-                metadata,
-            });
-        }
-        self.inner.repository.upsert_run(&prepared.run_to_store).await?;
-        self.inner
-            .repository
-            .replace_run_documents(&run_id, &prepared.run_file_hashes)
-            .await?;
-        self.log_info(
-            "ingest",
-            format!(
-                "scan requested for {} found {} supported files",
-                request.root_path,
-                files.len()
-            ),
-        );
-        self.inner
-            .hub
-            .publish("run.changed", serde_json::to_value(&prepared.run_record)?);
-        for event in &prepared.document_events {
-            self.inner
-                .hub
-                .publish("document.changed", serde_json::to_value(event)?);
-        }
+        self.persist_prepared_ingest_run(PersistPreparedIngestInput {
+            request: &request,
+            run_id: &run_id,
+            profile_id: &profile_id,
+            model_id: &model_id,
+            file_count: files.len(),
+            prepared: &prepared,
+        })
+        .await?;
         self.publish_status_changed().await;
         let replay_since_sequence = self.inner.hub.last_sequence();
         self.spawn_ingest(IngestExecution {
             completed_pages: BTreeSet::new(),
+            embedding_after_ingest: request.embedding_after_ingest == Some(true),
+            embedding_dimension: request.embedding_dimension,
+            embedding_model_id: request.embedding_model_id.clone(),
             files,
             model_id,
             profile_id,
             run_id: run_id.clone(),
             runtime_id,
+            text_index_after_ingest: request.text_index_after_ingest == Some(true),
         });
         Ok(IngestStartResponse {
             run: self.get_run(&run_id).await?,
             documents: prepared.document_events,
             replay_since_sequence,
         })
+    }
+
+    fn validate_start_ingest_request(request: &IngestStartRequest) -> Result<()> {
+        if request.embedding_after_ingest != Some(true)
+            || !request
+                .embedding_model_id
+                .as_deref()
+                .unwrap_or_default()
+                .is_empty()
+        {
+            return Ok(());
+        }
+        Err(AppError::BadRequest(
+            "embedding_model_id is required when embedding_after_ingest is enabled".to_string(),
+        ))
+    }
+
+    async fn persist_prepared_ingest_run(
+        &self,
+        input: PersistPreparedIngestInput<'_>,
+    ) -> Result<()> {
+        for document in &input.prepared.stored_documents {
+            self.inner.repository.upsert_document(document).await?;
+        }
+        for (file_hash, metadata) in &input.prepared.diagnostics {
+            self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
+                run_id: input.run_id,
+                file_hash,
+                page_no: None,
+                phase: "render",
+                model: input.model_id,
+                profile: input.profile_id,
+                metadata: metadata.clone(),
+            });
+        }
+        self.inner
+            .repository
+            .upsert_run(&input.prepared.run_to_store)
+            .await?;
+        self.inner
+            .repository
+            .replace_run_documents(input.run_id, &input.prepared.run_file_hashes)
+            .await?;
+        self.log_info(
+            "ingest",
+            format!(
+                "scan requested for {} found {} supported files",
+                input.request.root_path, input.file_count
+            ),
+        );
+        self.inner.hub.publish(
+            "run.changed",
+            serde_json::to_value(&input.prepared.run_record)?,
+        );
+        for event in &input.prepared.document_events {
+            self.inner
+                .hub
+                .publish("document.changed", serde_json::to_value(event)?);
+        }
+        Ok(())
     }
 
     async fn resolve_ingest_selection(
@@ -103,8 +143,13 @@ impl AppState {
                 "unknown OCR profile: {profile_id}"
             )));
         }
-        if find_model(&model_id).is_none() {
+        let Some(model) = find_model(&model_id) else {
             return Err(AppError::BadRequest(format!("unknown model id: {model_id}")));
+        };
+        if model.model_kind != "ocr" {
+            return Err(AppError::BadRequest(format!(
+                "model is not an OCR model: {model_id}"
+            )));
         }
         if !runtime_selectable {
             return Err(AppError::BadRequest(format!(
@@ -175,6 +220,15 @@ impl AppState {
             document_events,
         })
     }
+}
+
+struct PersistPreparedIngestInput<'a> {
+    request: &'a IngestStartRequest,
+    run_id: &'a str,
+    profile_id: &'a str,
+    model_id: &'a str,
+    file_count: usize,
+    prepared: &'a PreparedIngestRun,
 }
 
 struct IngestPrepareInput<'a> {

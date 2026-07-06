@@ -4,6 +4,7 @@ import type {
   IngestRouteSearch,
   ModelRouteSearch,
   RootRouteSearch,
+  SearchRouteSearch,
   SettingsRouteSearch,
   WorkbenchRouteSearch,
 } from '../../routeSearch';
@@ -31,6 +32,7 @@ export type CommandRouteTarget =
       search?: RouteSearchWithRoot<ModelRouteSearch>;
     }
   | { to: '/models/downloads'; search?: RouteSearchWithRoot<ModelRouteSearch> }
+  | { to: '/search'; search?: RouteSearchWithRoot<SearchRouteSearch> }
   | { to: '/settings'; search?: RouteSearchWithRoot<SettingsRouteSearch> }
   | { to: '/workbench'; search?: RouteSearchWithRoot<WorkbenchRouteSearch> };
 
@@ -98,6 +100,9 @@ function navigationCommands(): AppCommand[] {
     }),
     nav('nav.models', 'Model Library', 'Browse all available Unlimited-OCR model variants.', {
       to: '/models',
+    }),
+    nav('nav.search', 'Search', 'Search OCR text with FTS and embedding vectors.', {
+      to: '/search',
     }),
     nav('nav.downloads', 'Active Downloads', 'Show queued and in-progress file downloads.', {
       search: { downloads: true, status: 'all' },
@@ -198,16 +203,20 @@ function modelCommands(models: ModelAssetRecord[]): AppCommand[] {
         keywords: modelKeywords(model),
         label: `Re-download ${model.display_name}`,
       });
-      commands.push({
-        action: { kind: 'selectModel', modelId: model.model_id },
-        description: model.selected ? 'This model is already selected.' : 'Use this model for OCR.',
-        disabled: model.selected,
-        group: 'Models',
-        icon: 'model',
-        id: `model.select.${model.model_id}`,
-        keywords: modelKeywords(model),
-        label: model.selected ? `${model.display_name} is In Use` : `Use ${model.display_name}`,
-      });
+      if (model.model_kind !== 'embedding') {
+        commands.push({
+          action: { kind: 'selectModel', modelId: model.model_id },
+          description: model.selected
+            ? 'This model is already selected.'
+            : 'Use this model for OCR.',
+          disabled: model.selected,
+          group: 'Models',
+          icon: 'model',
+          id: `model.select.${model.model_id}`,
+          keywords: modelKeywords(model),
+          label: model.selected ? `${model.display_name} is In Use` : `Use ${model.display_name}`,
+        });
+      }
       return commands;
     }
     if (['downloading', 'queued', 'cancelling'].includes(model.status)) {

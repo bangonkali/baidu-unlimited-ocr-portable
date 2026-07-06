@@ -16,6 +16,13 @@ pub(crate) struct ModelCatalogEntry {
     pub(crate) model_id: &'static str,
     pub(crate) display_name: &'static str,
     pub(crate) model_file: &'static str,
+    pub(crate) repo_id: &'static str,
+    pub(crate) revision: &'static str,
+    pub(crate) provider_label: &'static str,
+    pub(crate) routing_origin: &'static str,
+    pub(crate) model_kind: &'static str,
+    pub(crate) mmproj_file: Option<&'static str>,
+    pub(crate) mmproj_size_bytes: u64,
     pub(crate) quantization: &'static str,
     pub(crate) quality: &'static str,
     pub(crate) hardware_tier: &'static str,
@@ -23,6 +30,14 @@ pub(crate) struct ModelCatalogEntry {
     pub(crate) bits: u8,
     pub(crate) model_size_bytes: u64,
     pub(crate) recommended: bool,
+    pub(crate) embedding_dimension: Option<u32>,
+    pub(crate) context_tokens: Option<u32>,
+    pub(crate) pooling: &'static str,
+    pub(crate) normalize_embeddings: bool,
+    pub(crate) query_prefix: &'static str,
+    pub(crate) document_prefix: &'static str,
+    pub(crate) llama_params_json: &'static str,
+    pub(crate) recommended_vram_gb: f64,
 }
 
 #[derive(Debug, Clone)]

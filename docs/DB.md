@@ -1,7 +1,7 @@
 # Trapo DuckDB Query Inventory and Test Coverage
 
-Runtime storage query call sites: `65`
-Migration SQL bundles: `12`
+Runtime storage query call sites: `91`
+Migration SQL bundles: `13`
 
 This file is the required manifest for DuckDB-backed reads and writes in the
 Trapo server. Any new storage query, API route backed by storage, or migration
@@ -19,7 +19,7 @@ Coverage terms:
 
 | ID | Direction | Source methods | Tables and query summary | Positive coverage | Negative coverage | Boundary coverage |
 | --- | --- | --- | --- | --- | --- | --- |
-| DB-OPEN-001 | read/write | `open`, `migrate_generated_ids_to_uuid_v7` | Opens DuckDB, creates `schema_migrations`, selects applied migration ids, executes migration SQL, inserts migration records, runs UUID v7 migration. | `migrates_and_persists_settings`; `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Re-opening an already migrated DB skips applied migrations. | Nested database path creation; migration idempotency. |
+| DB-OPEN-001 | read/write | `open`, `extension_capabilities`, `migrate_generated_ids_to_uuid_v7` | Opens DuckDB, loads available `fts` and `vss`, records DuckPGQ deferral capability state, creates `schema_migrations`, selects applied migration ids, executes migration SQL, inserts migration records, runs UUID v7 migration. | `migrates_and_persists_settings`; `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Re-opening an already migrated DB skips applied migrations; extension load failures are recorded as capabilities rather than panics. | Nested database path creation; migration idempotency. |
 | DB-SET-001 | read/write | `setting_value`, `put_setting` | Reads and upserts `settings` JSON by key. | `migrates_and_persists_settings`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing setting returns `None`. | JSON value overwrite. |
 | DB-SHUTDOWN-001 | write | `checkpoint` | Runs a DuckDB checkpoint during clean server shutdown after realtime and annotation queues drain. | `shutdown_route_requires_confirmation_and_blocks_new_work` | Shutdown without active work still completes. | Empty queue drain plus checkpoint is idempotent. |
 | DB-RUN-001 | write | `upsert_run` | Upserts `ingest_runs`, including terminal `finished_at`; clears `finished_at` when a stopped/completed run is requeued or running again. | `reloads_run_document_membership`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits`; `upsert_run_clears_finished_at_when_resume_requeues_run` | Missing stop route is covered at API level by not-found behavior. | Status conflict update from queued to completed, then completed back to queued for resume. |
@@ -37,6 +37,10 @@ Coverage terms:
 | DB-DIAG-EVENT-001 | read/write | `insert_diagnostic_event`, `diagnostic_trace` | Inserts `ingest_diagnostic_events`; filters by run, file, page, query, and limit. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | No-match query returns empty. | `limit=0` clamps to one. |
 | DB-DIAG-LEASE-001 | read/write | `insert_model_lease`, `diagnostic_model_leases` | Upserts `ingest_model_leases` by run and execution key; lists by run. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Missing run filter returns empty. | Duplicate execution key updates the existing lease; `limit=0` clamps to one. |
 | DB-DIAG-RUN-001 | read | `diagnostic_runs` | Aggregates `ingest_runs` with diagnostic spans for duration, span counts, errors, files, and pages. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Empty DB returns empty through API smoke coverage. | `limit=0` clamps to one. |
+| DB-RAG-TASK-001 | read/write | `create_pipeline_task`, `start_pipeline_task`, `finish_pipeline_task`, `active_pipeline_task`, `pipeline_tasks_for_diagnostics` | Inserts, transitions, completes, and lists global pipeline queue rows in `pipeline_tasks` for text index and embedding tasks. | `pipeline_task_allows_only_one_active_task` | Creating a second queued/running pipeline task returns a conflict. | Completed tasks no longer block the queue; diagnostics listing filters by origin run and clamps limit. |
+| DB-RAG-MODEL-001 | read/write | `upsert_rag_embedding_models`, `list_rag_embedding_models`, `list_used_rag_embedding_models` | Upserts supported embedding model metadata in `rag_embedding_models`, lists active models, and lists models with completed embedding runs. | `embedding_models_and_used_models_round_trip` | Unused models are absent from the used-model list. | Duplicate model upsert updates metadata and preserves one row. |
+| DB-RAG-TEXT-001 | read/write | `replace_rag_text_segments`, `load_rag_text_segments`, `upsert_rag_text_index_run`, `refresh_rag_fts_index`, `rag_fts_search` | Replaces page text segments, records text-index runs, refreshes DuckDB FTS via `PRAGMA create_fts_index`, records snapshots, and searches BM25 with LIKE fallback. | `text_segments_index_and_fts_search_round_trip` | Segment source-run mismatch is rejected; missing FTS macro degrades to fallback search. | Empty replacement is accepted; search limit is bounded by callers. |
+| DB-RAG-VSS-001 | read/write | `upsert_rag_embedding_run`, `insert_rag_embedding_vectors`, `rag_vss_search` | Records embedding runs, writes fixed-dimension `FLOAT[N]` vector rows, best-effort creates HNSW indexes, and searches via cosine distance. | `embedding_vectors_and_vss_search_round_trip` | Vector dimension mismatch is rejected. | Supported dimensions are bounded to 128, 256, 512, 768, 1024, 2560, and 4096. |
 
 ## Migration Queries
 
@@ -49,6 +53,7 @@ Coverage terms:
 | DB-MIG-005 | read/write | `migrate_generated_ids_to_uuid_v7` | Backfills `document_annotation_identities` from existing `document_regions` and finds run ids through `ocr_page_metrics`. | `uuid_v7_migration_queries_cover_legacy_rows_payloads_and_backfills` | Existing annotation identity is not duplicated. | Backfilled id is UUID v7 and matches the migrated region id. |
 | DB-MIG-006 | read/write | `migrate` | Adds run scope to `document_regions` and `document_text_region_links`, creates `document_run_page_ocr`, backfills run-scoped OCR rows from metrics or annotation identities, and indexes run/file/page reads. | `run_scoped_document_reads_do_not_mix_ocr_outputs` | Missing run reads return empty. | Existing file-level OCR rows remain available as compatibility cache while new rows are run-scoped. |
 | DB-MIG-007 | write | `migrate` | Creates `ingest_run_completion_manifests` and its `completed_at` index for restart-prefill manifests. | `reloads_completion_manifest_and_completed_run_pages` | Fresh databases with no manifests load an empty manifest list. | Migration is idempotent through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
+| DB-MIG-008 | write | `migrate` | Adds OCR category columns and creates RAG pipeline task, embedding model, text segment, text index, FTS snapshot, embedding run, and fixed-dimension vector tables. | `pipeline_task_allows_only_one_active_task`; `embedding_models_and_used_models_round_trip`; `text_segments_index_and_fts_search_round_trip`; `embedding_vectors_and_vss_search_round_trip` | Existing OCR labels backfill categories without changing cleaned text. | Migration is idempotent and vector dimensions are predeclared for supported embedding families. |
 
 ## API Routes Covered By DB Tests
 
@@ -60,7 +65,8 @@ Routes are listed here so route additions cannot bypass the query manifest:
 `/api/ingest/runs/{run_id}/events`,
 `/api/ocr/events`, `/api/diagnostics/runs`, `/api/diagnostics/trace`,
 `/api/diagnostics/progress`, `/api/diagnostics/analytics`,
-`/api/diagnostics/models`, `/api/documents`, `/api/search`,
+`/api/diagnostics/models`, `/api/rag/text-index`, `/api/rag/embeddings`,
+`/api/rag/embedding-models/used`, `/api/rag/search`, `/api/documents`, `/api/search`,
 `/api/documents/{file_hash}`, `/api/documents/{file_hash}/regions`,
 `/api/documents/{file_hash}/regions/{region_id}/snippet`,
 `/api/documents/{file_hash}/text`,

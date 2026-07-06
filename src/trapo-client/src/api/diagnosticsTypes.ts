@@ -130,10 +130,25 @@ export interface DiagnosticProgressSummary {
   cancelled: number;
 }
 
+export interface DiagnosticPipelineTaskRecord {
+  task_id: string;
+  task_kind: string;
+  origin_run_id?: string | null;
+  status: string;
+  params: Record<string, unknown>;
+  result: Record<string, unknown>;
+  queued_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  runner_id?: string | null;
+  error?: string | null;
+}
+
 export interface DiagnosticProgressPayload {
   summary: DiagnosticProgressSummary;
   work_units: DiagnosticWorkUnitRecord[];
   model_leases: DiagnosticModelLeaseRecord[];
+  pipeline_tasks: DiagnosticPipelineTaskRecord[];
 }
 
 export interface DiagnosticBreakdownRecord {

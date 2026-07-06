@@ -28,6 +28,16 @@ export function selectedModel(models?: ModelsPayload, preferredModelId?: string)
   );
 }
 
+export function selectedOcrModel(models?: ModelsPayload, preferredModelId?: string) {
+  const ocrModels = models?.models.filter((item) => item.model_kind !== 'embedding') ?? [];
+  return (
+    ocrModels.find((item) => item.model_id === preferredModelId) ??
+    ocrModels.find((item) => item.selected) ??
+    ocrModels.find((item) => item.model_id === models?.selected_model_id) ??
+    ocrModels[0]
+  );
+}
+
 export function profileOptions(profiles: OcrProfileRecord[] | undefined, selectedProfile: string) {
   return profiles?.length
     ? profiles

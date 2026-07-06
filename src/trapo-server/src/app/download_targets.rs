@@ -14,18 +14,19 @@ fn model_download_targets(
     model_dir: &Path,
     entry: &crate::catalog::ModelCatalogEntry,
 ) -> Vec<DownloadTarget> {
-    [
-        ("model", entry.model_file, entry.model_size_bytes),
-        ("mmproj", SHARED_MMPROJ_FILE, SHARED_MMPROJ_SIZE_BYTES),
-    ]
-    .into_iter()
+    let mut files = vec![("model", entry.model_file, entry.model_size_bytes)];
+    if let Some(mmproj_file) = entry.mmproj_file {
+        files.push(("mmproj", mmproj_file, entry.mmproj_size_bytes));
+    }
+    files
+        .into_iter()
     .map(|(file_id, file_name, total_bytes)| DownloadTarget {
         download_key: model_download_key(entry.model_id, file_id),
         owner_kind: "model".to_string(),
         owner_id: entry.model_id.to_string(),
         file_id: file_id.to_string(),
         file_name: file_name.to_string(),
-        source_url: hf_resolve_url(file_name),
+        source_url: hf_resolve_url(entry.repo_id, entry.revision, file_name),
         target_path: model_dir.join(file_name),
         total_bytes,
     })
@@ -36,9 +37,9 @@ fn model_download_key(model_id: &str, file_id: &str) -> String {
     format!("model:{model_id}:{file_id}")
 }
 
-fn hf_resolve_url(file_name: &str) -> String {
+fn hf_resolve_url(repo_id: &str, revision: &str, file_name: &str) -> String {
     format!(
-        "https://huggingface.co/{PROVIDER_REPO_ID}/resolve/{PROVIDER_REVISION}/{file_name}"
+        "https://huggingface.co/{repo_id}/resolve/{revision}/{file_name}"
     )
 }
 

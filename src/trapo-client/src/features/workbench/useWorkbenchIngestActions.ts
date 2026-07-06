@@ -10,6 +10,14 @@ import {
   setSelection,
 } from '../../stores/workbenchStore';
 
+export interface StartScanOptions {
+  embeddingAfterIngest?: boolean;
+  embeddingDimension?: number;
+  embeddingModelId?: string;
+  reprocess?: boolean;
+  textIndexAfterIngest?: boolean;
+}
+
 export function useWorkbenchIngestActions(args: {
   folderDialog: ReturnType<typeof useOpenFolderDialog>;
   model?: ModelAssetRecord;
@@ -41,7 +49,7 @@ export function useWorkbenchIngestActions(args: {
         setFolderDialogError(manualPathFallbackMessage(errorMessage(error)));
       });
   };
-  const startScan = (options?: { reprocess?: boolean }) => {
+  const startScan = (options?: StartScanOptions) => {
     clearFolderDialogError();
     void args.startIngest
       .mutateAsync({
@@ -49,6 +57,10 @@ export function useWorkbenchIngestActions(args: {
         profile_id: args.selectedProfile,
         reprocess: options?.reprocess ?? false,
         root_path: args.rootPath,
+        ...(options?.textIndexAfterIngest ? { text_index_after_ingest: true } : {}),
+        ...(options?.embeddingAfterIngest ? { embedding_after_ingest: true } : {}),
+        ...(options?.embeddingModelId ? { embedding_model_id: options.embeddingModelId } : {}),
+        ...(options?.embeddingDimension ? { embedding_dimension: options.embeddingDimension } : {}),
         ...(args.engineId ? { engine_id: args.engineId } : {}),
         ...(args.runtimeId ? { runtime_id: args.runtimeId } : {}),
       })

@@ -193,6 +193,7 @@ fn annotation_identity_draft(
         source_region_key: box_record.source_region_key.clone(),
         discovery_index: u32::try_from(index).unwrap_or(u32::MAX),
         label: box_record.label.clone(),
+        category: box_record.category.clone(),
         x1: box_record.left_percent / 100.0 * 999.0,
         y1: box_record.top_percent / 100.0 * 999.0,
         x2: (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,

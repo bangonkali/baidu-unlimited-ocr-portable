@@ -48,6 +48,11 @@ impl AppState {
             .repository
             .diagnostic_model_leases(run_id.as_deref(), limit_u32(limit, 2_000))
             .await?;
+        let pipeline_tasks = self
+            .inner
+            .repository
+            .pipeline_tasks_for_diagnostics(run_id.as_deref(), limit_u32(limit, 2_000))
+            .await?;
         let summary = diagnostic_progress_summary(&work_units);
         Ok(DiagnosticProgressPayload {
             summary,
@@ -55,6 +60,10 @@ impl AppState {
             model_leases: model_leases
                 .into_iter()
                 .map(diagnostic_model_lease_record)
+                .collect(),
+            pipeline_tasks: pipeline_tasks
+                .into_iter()
+                .map(diagnostic_pipeline_task_record)
                 .collect(),
         })
     }

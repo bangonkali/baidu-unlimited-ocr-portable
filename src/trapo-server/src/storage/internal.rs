@@ -98,9 +98,9 @@ impl Repository {
                 .find(|span| span.annotation_id == box_record.annotation_id);
             conn.execute(
                 "INSERT INTO document_regions(run_id, region_id, annotation_id, source_region_key,
-                  file_hash, page_no, engine_id, profile_id, label,
+                  file_hash, page_no, engine_id, profile_id, label, category,
                   x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     run_id,
                     box_record.region_id,
@@ -111,6 +111,7 @@ impl Repository {
                     engine_id,
                     profile_id,
                     box_record.label,
+                    box_record.category,
                     box_record.left_percent / 100.0 * 999.0,
                     box_record.top_percent / 100.0 * 999.0,
                     (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,

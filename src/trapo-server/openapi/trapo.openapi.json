@@ -1157,6 +1157,166 @@
         }
       }
     },
+    "/api/rag/embedding-models/used": {
+      "get": {
+        "tags": [
+          "rag"
+        ],
+        "operationId": "used_embedding_models_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsedEmbeddingModelsPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/embeddings": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "operationId": "generate_embedding_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateEmbeddingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Embedding generation task completed or queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateEmbeddingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/search": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "operationId": "hybrid_search_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HybridSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HybridSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rag/text-index": {
+      "post": {
+        "tags": [
+          "rag"
+        ],
+        "operationId": "start_text_index_doc",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextIndexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Text index task completed or queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextIndexResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/search": {
       "get": {
         "tags": [
@@ -1577,18 +1737,86 @@
           }
         }
       },
+      "DiagnosticPipelineTaskRecord": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "task_kind",
+          "status",
+          "params",
+          "result",
+          "queued_at"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "params": {
+            "type": "object"
+          },
+          "queued_at": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "runner_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "task_kind": {
+            "type": "string"
+          }
+        }
+      },
       "DiagnosticProgressPayload": {
         "type": "object",
         "required": [
           "summary",
           "work_units",
-          "model_leases"
+          "model_leases",
+          "pipeline_tasks"
         ],
         "properties": {
           "model_leases": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DiagnosticModelLeaseRecord"
+            }
+          },
+          "pipeline_tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticPipelineTaskRecord"
             }
           },
           "summary": {
@@ -2243,6 +2471,43 @@
           }
         }
       },
+      "DuckDbExtensionsRecord": {
+        "type": "object",
+        "required": [
+          "fts_loaded",
+          "vss_loaded",
+          "duckpgq_loaded"
+        ],
+        "properties": {
+          "duckpgq_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duckpgq_loaded": {
+            "type": "boolean"
+          },
+          "fts_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fts_loaded": {
+            "type": "boolean"
+          },
+          "vss_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "vss_loaded": {
+            "type": "boolean"
+          }
+        }
+      },
       "ErrorPayload": {
         "type": "object",
         "required": [
@@ -2279,6 +2544,68 @@
           }
         }
       },
+      "GenerateEmbeddingRequest": {
+        "type": "object",
+        "required": [
+          "source_run_id",
+          "model_id"
+        ],
+        "properties": {
+          "dimension": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "source_run_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GenerateEmbeddingResponse": {
+        "type": "object",
+        "required": [
+          "task",
+          "embedding_run_id",
+          "source_run_id",
+          "model_id",
+          "dimension",
+          "segments_embedded",
+          "status"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "embedding_run_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "segments_embedded": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "source_run_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "task": {
+            "$ref": "#/components/schemas/PipelineTaskRecord"
+          }
+        }
+      },
       "HealthPayload": {
         "type": "object",
         "required": [
@@ -2290,6 +2617,129 @@
             "type": "boolean"
           },
           "service": {
+            "type": "string"
+          }
+        }
+      },
+      "HybridSearchFileResult": {
+        "type": "object",
+        "required": [
+          "file_hash",
+          "hit_count",
+          "hits"
+        ],
+        "properties": {
+          "file_hash": {
+            "type": "string"
+          },
+          "hit_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HybridSearchHit"
+            }
+          }
+        }
+      },
+      "HybridSearchHit": {
+        "type": "object",
+        "required": [
+          "segment_id",
+          "file_hash",
+          "page_no",
+          "category",
+          "text",
+          "score",
+          "hit_source"
+        ],
+        "properties": {
+          "annotation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "file_hash": {
+            "type": "string"
+          },
+          "hit_source": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page_no": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "segment_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "HybridSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "embedding_model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "query": {
+            "type": "string"
+          },
+          "source_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "HybridSearchResponse": {
+        "type": "object",
+        "required": [
+          "query",
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HybridSearchFileResult"
+            }
+          },
+          "query": {
             "type": "string"
           }
         }
@@ -2411,6 +2861,26 @@
           "root_path"
         ],
         "properties": {
+          "embedding_after_ingest": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "embedding_dimension": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "embedding_model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "engine_id": {
             "type": [
               "string",
@@ -2441,6 +2911,12 @@
           "runtime_id": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "text_index_after_ingest": {
+            "type": [
+              "boolean",
               "null"
             ]
           }
@@ -2516,6 +2992,8 @@
         "required": [
           "model_id",
           "display_name",
+          "model_kind",
+          "routing_origin",
           "status",
           "repo_id",
           "revision",
@@ -2535,6 +3013,7 @@
           "recommended",
           "selected",
           "provider_name",
+          "normalize_embeddings",
           "downloaded_file_count",
           "total_file_count"
         ],
@@ -2557,6 +3036,14 @@
             "type": "number",
             "format": "double"
           },
+          "context_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
           "current_file": {
             "type": [
               "string",
@@ -2566,6 +3053,12 @@
           "display_name": {
             "type": "string"
           },
+          "document_prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "downloaded_bytes": {
             "type": "integer",
             "format": "int64",
@@ -2573,6 +3066,14 @@
           },
           "downloaded_file_count": {
             "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "embedding_dimension": {
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int32",
             "minimum": 0
           },
@@ -2620,6 +3121,12 @@
           "model_id": {
             "type": "string"
           },
+          "model_kind": {
+            "type": "string"
+          },
+          "normalize_embeddings": {
+            "type": "boolean"
+          },
           "notes": {
             "type": "string"
           },
@@ -2640,6 +3147,12 @@
             "format": "int64",
             "minimum": 0
           },
+          "pooling": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "provider_name": {
             "type": "string"
           },
@@ -2649,13 +3162,29 @@
           "quantization": {
             "type": "string"
           },
+          "query_prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "recommended": {
             "type": "boolean"
+          },
+          "recommended_vram_gb": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
           },
           "repo_id": {
             "type": "string"
           },
           "revision": {
+            "type": "string"
+          },
+          "routing_origin": {
             "type": "string"
           },
           "selected": {
@@ -3008,6 +3537,7 @@
           "region_id",
           "annotation_id",
           "label",
+          "category",
           "content_markdown",
           "page_no",
           "left_percent",
@@ -3018,6 +3548,9 @@
         ],
         "properties": {
           "annotation_id": {
+            "type": "string"
+          },
+          "category": {
             "type": "string"
           },
           "content_html": {
@@ -3081,6 +3614,67 @@
             }
           },
           "text": {
+            "type": "string"
+          }
+        }
+      },
+      "PipelineTaskRecord": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "task_kind",
+          "status",
+          "params",
+          "result",
+          "queued_at"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin_run_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "params": {
+            "type": "object"
+          },
+          "queued_at": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "runner_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "task_kind": {
             "type": "string"
           }
         }
@@ -3434,6 +4028,7 @@
           "inference_engine",
           "log_path",
           "database_path",
+          "duckdb_extensions",
           "realtime_path",
           "selected_model_id"
         ],
@@ -3455,6 +4050,9 @@
           },
           "default_profile": {
             "type": "string"
+          },
+          "duckdb_extensions": {
+            "$ref": "#/components/schemas/DuckDbExtensionsRecord"
           },
           "git_sha": {
             "type": "string"
@@ -3506,6 +4104,46 @@
           }
         }
       },
+      "TextIndexRequest": {
+        "type": "object",
+        "required": [
+          "source_run_id"
+        ],
+        "properties": {
+          "source_run_id": {
+            "type": "string"
+          }
+        }
+      },
+      "TextIndexResponse": {
+        "type": "object",
+        "required": [
+          "task",
+          "text_index_run_id",
+          "source_run_id",
+          "segments_indexed",
+          "status"
+        ],
+        "properties": {
+          "segments_indexed": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "source_run_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "task": {
+            "$ref": "#/components/schemas/PipelineTaskRecord"
+          },
+          "text_index_run_id": {
+            "type": "string"
+          }
+        }
+      },
       "TextRegionSpan": {
         "type": "object",
         "required": [
@@ -3536,6 +4174,45 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "UsedEmbeddingModelRecord": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "display_name",
+          "dimension",
+          "provider"
+        ],
+        "properties": {
+          "dimension": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        }
+      },
+      "UsedEmbeddingModelsPayload": {
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsedEmbeddingModelRecord"
+            }
           }
         }
       },
@@ -3655,6 +4332,9 @@
     },
     {
       "name": "ingest"
+    },
+    {
+      "name": "rag"
     },
     {
       "name": "diagnostics"

@@ -64,6 +64,7 @@ export function useDiagnosticProgress(runId?: string, limit = 5000) {
   return useQuery({
     placeholderData: {
       model_leases: [],
+      pipeline_tasks: [],
       summary: {
         cancelled: 0,
         completed: 0,

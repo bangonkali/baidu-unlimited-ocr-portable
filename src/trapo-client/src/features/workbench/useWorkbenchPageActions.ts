@@ -79,7 +79,17 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
     changeProfile,
     commandController,
     downloadModel,
-    ingestBusy: args.data.startIngest.isPending || args.data.folderDialog.isPending,
+    generateEmbedding: ({ dimension, modelId, sourceRunId }) =>
+      args.data.generateEmbedding.mutate({
+        dimension,
+        model_id: modelId,
+        source_run_id: sourceRunId,
+      }),
+    ingestBusy:
+      args.data.startIngest.isPending ||
+      args.data.folderDialog.isPending ||
+      args.data.startTextIndex.isPending ||
+      args.data.generateEmbedding.isPending,
     modelBusy:
       args.data.downloadModel.isPending ||
       args.data.cancelModelDownload.isPending ||
@@ -99,6 +109,8 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
       }),
     selectModel: args.data.selectModel,
     settingsBusy: args.data.selectModel.isPending || args.data.updateSettings.isPending,
+    startTextIndex: (sourceRunId: string) =>
+      args.data.startTextIndex.mutate({ source_run_id: sourceRunId }),
     stopRun: (runId?: string) => {
       const targetRunId = runId ?? args.activeRunId;
       if (targetRunId) {
@@ -107,6 +119,11 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
     },
     updateRuntime: (runtimeId: string) =>
       args.data.updateSettings.mutate({ selected_runtime_id: runtimeId }),
+    updateSearchRouteSearch: (patch) =>
+      void args.navigate({
+        search: (current) => ({ ...current, ...patch }),
+        to: '/search',
+      }),
   };
 }
 

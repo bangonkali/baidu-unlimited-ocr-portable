@@ -1,4 +1,4 @@
-import { FolderOpen, Play, Square, Workflow } from 'lucide-react';
+import { Workflow } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type {
@@ -10,10 +10,20 @@ import type {
 } from '../../api/types';
 import type { IngestRouteSearch } from '../../routeSearch';
 import styles from './IngestStartPanel.module.css';
-import { clampProgress, percentLabel, runPageLabel } from './progressFormat';
+import { isIngestBusy, latestCompletedRunId, RunStatus } from './IngestStartPanelParts';
+import {
+  FolderSection,
+  OcrConfigurationSection,
+  RunTaskSection,
+  StartStopActions,
+} from './IngestTaskSections';
 
 interface IngestStartOptions {
+  embeddingAfterIngest?: boolean;
+  embeddingDimension?: number;
+  embeddingModelId?: string;
   reprocess?: boolean;
+  textIndexAfterIngest?: boolean;
 }
 
 interface IngestStartPanelProps {
@@ -32,121 +42,148 @@ interface IngestStartPanelProps {
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
   onRootPathChange: (value: string) => void;
+  onStartTextIndex: (sourceRunId: string) => void;
+  onGenerateEmbedding: (input: {
+    dimension?: number;
+    modelId: string;
+    sourceRunId: string;
+  }) => void;
   onStart: (options?: IngestStartOptions) => void;
   onStop: () => void;
+  runs: IngestRunRecord[];
 }
 
 export function IngestStartPanel(props: IngestStartPanelProps) {
   const [reprocess, setReprocess] = useState(props.ingestSearch?.reprocess ?? false);
+  const [textIndexAfterIngest, setTextIndexAfterIngest] = useState(
+    props.ingestSearch?.index ?? false,
+  );
+  const [embeddingAfterIngest, setEmbeddingAfterIngest] = useState(
+    props.ingestSearch?.embed ?? false,
+  );
+  const latestRunId = latestCompletedRunId(props.runs);
+  const [selectedRunId, setSelectedRunId] = useState(latestRunId ?? '');
   const active = isIngestBusy(props.status, props.activeRun);
-  const modelReady = props.model?.status === 'downloaded';
+  const models = props.models?.models ?? [];
+  const ocrModels = models.filter((model) => model.model_kind !== 'embedding');
+  const embeddingModels = models.filter((model) => model.model_kind === 'embedding');
+  const downloadedEmbeddingModels = embeddingModels.filter(
+    (model) => model.status === 'downloaded',
+  );
+  const defaultEmbeddingModel =
+    downloadedEmbeddingModels.find(
+      (model) => model.model_id === props.ingestSearch?.embedding_model,
+    ) ?? downloadedEmbeddingModels[0];
+  const [selectedEmbeddingModelId, setSelectedEmbeddingModelId] = useState(
+    defaultEmbeddingModel?.model_id ?? '',
+  );
+  const selectedEmbeddingModel =
+    embeddingModels.find((model) => model.model_id === selectedEmbeddingModelId) ??
+    defaultEmbeddingModel;
+  const modelReady = props.model?.status === 'downloaded' && props.model.model_kind !== 'embedding';
+  const embeddingReady = Boolean(
+    selectedEmbeddingModelId && selectedEmbeddingModel?.status === 'downloaded',
+  );
   const canStart =
     Boolean(props.rootPath.trim()) &&
     modelReady &&
+    (!embeddingAfterIngest || embeddingReady) &&
     !props.busy &&
     !active &&
     props.profiles.length > 0;
+  const canRunPostStep = Boolean(selectedRunId) && !props.busy && !active;
+  const canGenerateEmbedding = canRunPostStep && embeddingReady;
 
   useEffect(() => {
     setReprocess(props.ingestSearch?.reprocess ?? false);
   }, [props.ingestSearch?.reprocess]);
+  useEffect(() => {
+    setTextIndexAfterIngest(props.ingestSearch?.index ?? false);
+  }, [props.ingestSearch?.index]);
+  useEffect(() => {
+    setEmbeddingAfterIngest(props.ingestSearch?.embed ?? false);
+  }, [props.ingestSearch?.embed]);
+  useEffect(() => {
+    if (latestRunId && !selectedRunId) {
+      setSelectedRunId(latestRunId);
+    }
+  }, [latestRunId, selectedRunId]);
+  useEffect(() => {
+    if (defaultEmbeddingModel && !selectedEmbeddingModelId) {
+      setSelectedEmbeddingModelId(defaultEmbeddingModel.model_id);
+    }
+  }, [defaultEmbeddingModel, selectedEmbeddingModelId]);
+
+  const embeddingDimension = selectedEmbeddingModel?.embedding_dimension ?? undefined;
+  const startIngest = () =>
+    props.onStart({
+      embeddingAfterIngest,
+      embeddingDimension,
+      embeddingModelId: selectedEmbeddingModelId || undefined,
+      reprocess,
+      textIndexAfterIngest,
+    });
+  const generateEmbedding = () =>
+    props.onGenerateEmbedding({
+      dimension: embeddingDimension,
+      modelId: selectedEmbeddingModelId,
+      sourceRunId: selectedRunId,
+    });
 
   return (
     <section className={styles.panel} aria-label="Start ingest">
       <header className={styles.header}>
         <Workflow size={16} />
         <span>Start Ingest</span>
+        <span className={styles.workflowStep}>Text Index</span>
+        <span className={styles.workflowStep}>Generate Embedding</span>
       </header>
       <div className={styles.body}>
         <div className={styles.form}>
-          <section className={styles.group} data-tour="folder">
-            <h2>Folder</h2>
-            <p>Select the local folder to scan recursively for PDFs and images.</p>
-            <div className={styles.actions}>
-              <button
-                className={styles.button}
-                disabled={props.busy}
-                onClick={props.onPickFolder}
-                type="button"
-              >
-                <FolderOpen size={15} />
-                Choose Folder
-              </button>
-            </div>
-            {props.folderDialogError ? (
-              <p className={styles.error} role="alert">
-                {props.folderDialogError}
-              </p>
-            ) : null}
-            <label className={styles.field}>
-              <span>Folder path</span>
-              <input
-                onChange={(event) => props.onRootPathChange(event.target.value)}
-                placeholder="Paste a folder path"
-                value={props.rootPath}
-              />
-            </label>
-          </section>
-          <section className={styles.group}>
-            <h2>OCR Configuration</h2>
-            <label className={styles.field}>
-              <span>Model</span>
-              <select
-                disabled={props.busy}
-                onChange={(event) => props.onModelChange(event.target.value)}
-                value={props.model?.model_id ?? props.models?.selected_model_id ?? ''}
-              >
-                {(props.models?.models ?? []).map((model) => (
-                  <option key={model.model_id} value={model.model_id}>
-                    {model.display_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.field}>
-              <span>Profile</span>
-              <select
-                disabled={props.busy}
-                onChange={(event) => props.onProfileChange(event.target.value)}
-                value={props.selectedProfile}
-              >
-                {props.profiles.map((profile) => (
-                  <option key={profile.key} value={profile.key}>
-                    {profile.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={styles.checkbox}>
-              <input
-                checked={reprocess}
-                onChange={(event) => setReprocess(event.target.checked)}
-                type="checkbox"
-              />
-              Reprocess completed compatible outputs
-            </label>
-          </section>
-          <div className={styles.actions}>
-            <button
-              className={styles.primaryButton}
-              data-tour="start"
-              disabled={!canStart}
-              onClick={() => props.onStart({ reprocess })}
-              type="button"
-            >
-              <Play size={15} />
-              Start Ingest
-            </button>
-            <button
-              className={styles.button}
-              disabled={!active}
-              onClick={props.onStop}
-              type="button"
-            >
-              <Square size={15} />
-              Stop Active Run
-            </button>
-          </div>
+          <FolderSection
+            busy={props.busy}
+            folderDialogError={props.folderDialogError}
+            rootPath={props.rootPath}
+            onPickFolder={props.onPickFolder}
+            onRootPathChange={props.onRootPathChange}
+          />
+          <OcrConfigurationSection
+            busy={props.busy}
+            embeddingAfterIngest={embeddingAfterIngest}
+            embeddingModels={downloadedEmbeddingModels}
+            modelValue={props.model?.model_id ?? props.models?.selected_model_id ?? ''}
+            ocrModels={ocrModels}
+            profiles={props.profiles}
+            reprocess={reprocess}
+            selectedEmbeddingModelId={selectedEmbeddingModelId}
+            selectedProfile={props.selectedProfile}
+            textIndexAfterIngest={textIndexAfterIngest}
+            onEmbeddingAfterIngestChange={setEmbeddingAfterIngest}
+            onEmbeddingModelChange={setSelectedEmbeddingModelId}
+            onModelChange={props.onModelChange}
+            onProfileChange={props.onProfileChange}
+            onReprocessChange={setReprocess}
+            onTextIndexAfterIngestChange={setTextIndexAfterIngest}
+          />
+          <RunTaskSection
+            busy={props.busy}
+            canGenerateEmbedding={canGenerateEmbedding}
+            canRunPostStep={canRunPostStep}
+            embeddingModels={downloadedEmbeddingModels}
+            runs={props.runs}
+            selectedEmbeddingModelId={selectedEmbeddingModelId}
+            selectedRunId={selectedRunId}
+            onEmbeddingModelChange={setSelectedEmbeddingModelId}
+            onGenerateEmbedding={generateEmbedding}
+            onRunChange={setSelectedRunId}
+            onStartTextIndex={() => props.onStartTextIndex(selectedRunId)}
+          />
+          <StartStopActions
+            active={active}
+            canStart={canStart}
+            onStart={startIngest}
+            onStop={props.onStop}
+          />
         </div>
         <RunStatus
           activeRun={props.activeRun}
@@ -158,59 +195,4 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
   );
 }
 
-export function isIngestBusy(status?: StatusPayload, activeRun?: IngestRunRecord) {
-  const state = String(activeRun?.status ?? status?.state ?? '');
-  return (
-    Boolean(status?.active_run_id ?? activeRun?.run_id) && ['queued', 'running'].includes(state)
-  );
-}
-
-function RunStatus({
-  activeRun,
-  activeRunId,
-  status,
-}: {
-  activeRun?: IngestRunRecord;
-  activeRunId?: string | null;
-  status?: StatusPayload;
-}) {
-  const progress = clampProgress(activeRun?.progress_percent);
-  return (
-    <aside className={styles.status}>
-      <section className={styles.group}>
-        <h2>Run Status</h2>
-        <p>
-          {isIngestBusy(status, activeRun)
-            ? 'An ingest is active. Start is locked until it completes or stops.'
-            : 'No ingest is currently blocking a new run.'}
-        </p>
-        <span
-          aria-label={`Workflow progress ${percentLabel(activeRun?.progress_percent)}`}
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={Math.round(progress)}
-          className={styles.progressTrack}
-          role="progressbar"
-        >
-          <span style={{ width: `${progress}%` }} />
-        </span>
-        <dl className={styles.statusGrid}>
-          <dt>State</dt>
-          <dd>{activeRun?.status ?? status?.state ?? 'idle'}</dd>
-          <dt>Run</dt>
-          <dd>{activeRunId ?? activeRun?.run_id ?? 'No active run'}</dd>
-          <dt>Pages</dt>
-          <dd>{runPageLabel(activeRun)}</dd>
-          <dt>Progress</dt>
-          <dd>{percentLabel(activeRun?.progress_percent)}</dd>
-          <dt>Profile</dt>
-          <dd>{activeRun?.profile_id ?? status?.default_profile ?? 'default'}</dd>
-          <dt>Runtime</dt>
-          <dd>
-            {status?.runtime_platform ?? 'runtime'} / {status?.accelerator ?? 'accelerator'}
-          </dd>
-        </dl>
-      </section>
-    </aside>
-  );
-}
+export { isIngestBusy };

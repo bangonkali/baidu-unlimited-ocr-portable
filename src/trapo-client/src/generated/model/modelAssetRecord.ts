@@ -14,13 +14,25 @@ export interface ModelAssetRecord {
   /** @minimum 0 */
   bits: number;
   bytes_per_second: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  context_tokens?: number | null;
   /** @nullable */
   current_file?: string | null;
   display_name: string;
+  /** @nullable */
+  document_prefix?: string | null;
   /** @minimum 0 */
   downloaded_bytes: number;
   /** @minimum 0 */
   downloaded_file_count: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  embedding_dimension?: number | null;
   /** @nullable */
   error?: string | null;
   /**
@@ -37,6 +49,8 @@ export interface ModelAssetRecord {
   mmproj_file: string;
   model_file: string;
   model_id: string;
+  model_kind: string;
+  normalize_embeddings: boolean;
   notes: string;
   /** @minimum 0 */
   overall_downloaded_bytes: number;
@@ -46,12 +60,19 @@ export interface ModelAssetRecord {
      * @nullable
      */
   overall_total_bytes?: number | null;
+  /** @nullable */
+  pooling?: string | null;
   provider_name: string;
   quality: string;
   quantization: string;
+  /** @nullable */
+  query_prefix?: string | null;
   recommended: boolean;
+  /** @nullable */
+  recommended_vram_gb?: number | null;
   repo_id: string;
   revision: string;
+  routing_origin: string;
   selected: boolean;
   /**
      * @minimum 0

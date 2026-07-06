@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Bot, Database, FileSearch, Hammer, Settings } from 'lucide-react';
+import { Bot, Database, FileSearch, Hammer, Search, Settings } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 import type { ActiveView } from '../../stores/workbenchStore';
@@ -31,6 +31,7 @@ export function ActivityBar({
           label="Workbench"
           to="/workbench"
         />
+        <ActivityLink active={activeView === 'search'} icon={Search} label="Search" to="/search" />
         <div data-tour="models">
           <ActivityLink
             active={activeView === 'models'}
@@ -65,7 +66,7 @@ function ActivityLink({
   active: boolean;
   icon: ComponentType<{ size?: number; strokeWidth?: number }>;
   label: string;
-  to: '/workbench' | '/models' | '/settings' | '/diagnostics';
+  to: '/workbench' | '/search' | '/models' | '/settings' | '/diagnostics';
 }) {
   return (
     <Link

@@ -110,9 +110,12 @@ fn span_is_inside(start: usize, end: usize, segments: &[MarkerSegment]) -> bool 
 }
 
 fn remove_marker_tokens(value: &str) -> String {
+    static REF_BLOCK_PATTERN: LazyLock<Regex> =
+        LazyLock::new(|| compiled_regex(r"(?s)<\|ref\|>.*?<\|/ref\|>"));
     static MARKER_PATTERN: LazyLock<Regex> =
         LazyLock::new(|| compiled_regex(r"<\|/?(?:ref|det)\|>"));
-    MARKER_PATTERN.replace_all(value, "").into_owned()
+    let without_ref_labels = REF_BLOCK_PATTERN.replace_all(value, "");
+    MARKER_PATTERN.replace_all(&without_ref_labels, "").into_owned()
 }
 
 fn trim(value: &str) -> String {

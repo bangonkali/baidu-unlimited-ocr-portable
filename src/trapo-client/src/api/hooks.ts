@@ -13,10 +13,6 @@ import type {
   IngestStartRequest,
   IngestStartResponse,
   LogsPayload,
-  ModelDownloadRecord,
-  ModelDownloadRequest,
-  ModelSelectRecord,
-  ModelsPayload,
   PreviewImagesPayload,
   SettingsPayload,
   SettingsUpdateRequest,
@@ -33,6 +29,18 @@ export {
   useDiagnosticTrace,
   useOcrReplay,
 } from './diagnosticsHooks';
+export {
+  useCancelModelDownload,
+  useDownloadModel,
+  useModels,
+  useSelectModel,
+} from './modelHooks';
+export {
+  useGenerateEmbedding,
+  useHybridSearch,
+  useStartTextIndex,
+  useUsedEmbeddingModels,
+} from './ragHooks';
 export { queryKeys };
 
 export function useStatus() {
@@ -91,65 +99,6 @@ export function useDocumentPreviewImages(fileHash?: string) {
         signal,
       ),
     queryKey: queryKeys.documentPreviewImages(fileHash),
-  });
-}
-
-export function useModels() {
-  return useQuery({
-    placeholderData: { models: [], profiles: [] },
-    queryFn: ({ signal }) => getJson<ModelsPayload>('/api/models', signal),
-    queryKey: queryKeys.models,
-  });
-}
-
-export interface DownloadModelInput {
-  modelId: string;
-  force?: boolean;
-}
-
-export function useDownloadModel() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: DownloadModelInput) =>
-      postJson<ModelDownloadRecord, ModelDownloadRequest>(
-        `/api/models/${encodeURIComponent(input.modelId)}/download`,
-        { force: input.force ?? false },
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-    },
-  });
-}
-
-export function useCancelModelDownload() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (modelId: string) =>
-      postJson<ModelDownloadRecord, Record<string, never>>(
-        `/api/models/${encodeURIComponent(modelId)}/cancel`,
-        {},
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-    },
-  });
-}
-
-export function useSelectModel() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (modelId: string) =>
-      postJson<ModelSelectRecord, Record<string, never>>(
-        `/api/models/${encodeURIComponent(modelId)}/select`,
-        {},
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.models });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.logs });
-    },
   });
 }
 

@@ -12,6 +12,10 @@ pub(crate) struct IngestStartRequest {
     pub(crate) runtime_id: Option<String>,
     pub(crate) engine_id: Option<String>,
     pub(crate) reprocess: Option<bool>,
+    pub(crate) text_index_after_ingest: Option<bool>,
+    pub(crate) embedding_after_ingest: Option<bool>,
+    pub(crate) embedding_model_id: Option<String>,
+    pub(crate) embedding_dimension: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -64,6 +68,102 @@ pub(crate) struct IngestStartResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct IngestRunsPayload {
     pub(crate) runs: Vec<IngestRunRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct PipelineTaskRecord {
+    pub(crate) task_id: String,
+    pub(crate) task_kind: String,
+    pub(crate) origin_run_id: Option<String>,
+    pub(crate) status: String,
+    #[schema(value_type = Object)]
+    pub(crate) params: Value,
+    #[schema(value_type = Object)]
+    pub(crate) result: Value,
+    pub(crate) queued_at: String,
+    pub(crate) started_at: Option<String>,
+    pub(crate) finished_at: Option<String>,
+    pub(crate) runner_id: Option<String>,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct TextIndexRequest {
+    pub(crate) source_run_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct TextIndexResponse {
+    pub(crate) task: PipelineTaskRecord,
+    pub(crate) text_index_run_id: String,
+    pub(crate) source_run_id: String,
+    pub(crate) segments_indexed: u32,
+    pub(crate) status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct GenerateEmbeddingRequest {
+    pub(crate) source_run_id: String,
+    pub(crate) model_id: String,
+    pub(crate) dimension: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct GenerateEmbeddingResponse {
+    pub(crate) task: PipelineTaskRecord,
+    pub(crate) embedding_run_id: String,
+    pub(crate) source_run_id: String,
+    pub(crate) model_id: String,
+    pub(crate) dimension: u32,
+    pub(crate) segments_embedded: u32,
+    pub(crate) status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct UsedEmbeddingModelsPayload {
+    pub(crate) models: Vec<UsedEmbeddingModelRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct UsedEmbeddingModelRecord {
+    pub(crate) model_id: String,
+    pub(crate) display_name: String,
+    pub(crate) dimension: u32,
+    pub(crate) provider: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct HybridSearchRequest {
+    pub(crate) query: String,
+    pub(crate) source_run_id: Option<String>,
+    pub(crate) embedding_model_id: Option<String>,
+    pub(crate) limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct HybridSearchResponse {
+    pub(crate) query: String,
+    pub(crate) files: Vec<HybridSearchFileResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct HybridSearchFileResult {
+    pub(crate) file_hash: String,
+    pub(crate) hit_count: u32,
+    pub(crate) hits: Vec<HybridSearchHit>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct HybridSearchHit {
+    pub(crate) segment_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) page_no: u32,
+    pub(crate) annotation_id: Option<String>,
+    pub(crate) category: String,
+    pub(crate) text: String,
+    pub(crate) score: f64,
+    pub(crate) hit_source: String,
+    pub(crate) model_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -134,6 +234,7 @@ pub(crate) struct OverlayBox {
     #[schema(value_type = String)]
     pub(crate) annotation_id: String,
     pub(crate) label: String,
+    pub(crate) category: String,
     pub(crate) content_markdown: String,
     pub(crate) content_html: Option<String>,
     pub(crate) page_no: u32,

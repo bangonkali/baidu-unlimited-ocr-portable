@@ -56,6 +56,7 @@ mod test_fixtures {
                 region_id: "region-a".to_string(),
                 source_region_key: "source-a".to_string(),
                 label: "total".to_string(),
+                category: "total".to_string(),
                 content_markdown: "Invoice Total".to_string(),
                 content_html: None,
                 page_no,

@@ -8,6 +8,7 @@ impl AppState {
     pub async fn new(config: ServerConfig) -> Result<Self> {
         config.ensure_directories()?;
         let repository = Repository::open(config.database_path.clone()).await?;
+        seed_embedding_models(&repository).await?;
         let logger = AppLogger::open(&config.log_dir)?;
         let hub = RealtimeHub::new();
         hub.attach_repository(repository.clone());
@@ -111,6 +112,9 @@ impl AppState {
             inference_engine: "Unlimited-OCR FFI".to_string(),
             log_path: self.inner.logger.path().to_string_lossy().to_string(),
             database_path: self.inner.repository.path().to_string_lossy().to_string(),
+            duckdb_extensions: duckdb_extensions_record(
+                self.inner.repository.extension_capabilities(),
+            ),
             realtime_path: "/api/events".to_string(),
             selected_model_id: state.selected_model_id.clone(),
         }
@@ -178,4 +182,42 @@ impl AppState {
         self.publish_status_changed().await;
         Ok(payload)
     }
+}
+
+fn duckdb_extensions_record(capabilities: DbExtensionCapabilities) -> DuckDbExtensionsRecord {
+    DuckDbExtensionsRecord {
+        fts_loaded: capabilities.fts_loaded,
+        fts_error: capabilities.fts_error,
+        vss_loaded: capabilities.vss_loaded,
+        vss_error: capabilities.vss_error,
+        duckpgq_loaded: capabilities.duckpgq_loaded,
+        duckpgq_error: capabilities.duckpgq_error,
+    }
+}
+
+async fn seed_embedding_models(repository: &Repository) -> Result<()> {
+    let rows = embedding_model_catalog()
+        .iter()
+        .map(|entry| RagEmbeddingModelRow {
+            model_id: entry.model_id.to_string(),
+            display_name: entry.display_name.to_string(),
+            provider: entry.provider_label.to_string(),
+            repo_id: entry.repo_id.to_string(),
+            filename: entry.model_file.to_string(),
+            revision: entry.revision.to_string(),
+            routing_origin: entry.routing_origin.to_string(),
+            model_family: entry.quality.to_string(),
+            dimension: entry.embedding_dimension.unwrap_or_default(),
+            context_tokens: entry.context_tokens.unwrap_or_default(),
+            pooling: entry.pooling.to_string(),
+            normalize: entry.normalize_embeddings,
+            query_prefix: entry.query_prefix.to_string(),
+            document_prefix: entry.document_prefix.to_string(),
+            llama_params: serde_json::from_str(entry.llama_params_json)
+                .unwrap_or_else(|_| Value::Object(serde_json::Map::default())),
+            recommended_vram_gb: entry.recommended_vram_gb,
+            active: true,
+        })
+        .collect::<Vec<_>>();
+    repository.upsert_rag_embedding_models(&rows).await
 }

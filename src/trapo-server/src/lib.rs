@@ -3,6 +3,7 @@
 pub(crate) mod app;
 pub(crate) mod catalog;
 pub(crate) mod config;
+pub(crate) mod embedding;
 pub(crate) mod error;
 pub(crate) mod folder_dialog;
 pub(crate) mod ids;

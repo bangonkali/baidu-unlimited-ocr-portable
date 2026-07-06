@@ -15,7 +15,7 @@ interface WorkbenchSelection {
   runId?: string;
 }
 
-export type ActiveView = 'workbench' | 'models' | 'settings' | 'diagnostics' | 'ingest';
+export type ActiveView = 'workbench' | 'search' | 'models' | 'settings' | 'diagnostics' | 'ingest';
 export type WorkbenchSelectionSource = 'manual' | 'realtime';
 export type ThemeMode = 'dark' | 'light';
 export type WorkbenchPaneId = 'details' | 'diagnostics' | 'explorer';
