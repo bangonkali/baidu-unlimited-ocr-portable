@@ -79,7 +79,7 @@ fn hide_worker_window(command: &mut Command) {
 }
 
 #[cfg(not(windows))]
-fn hide_worker_window(_command: &mut Command) {}
+const fn hide_worker_window(_command: &mut Command) {}
 
 fn read_worker_response(response_path: &Path) -> Result<Vec<Vec<f32>>> {
     let response_bytes = std::fs::read(response_path) // skylos: ignore[SKY-D215] response path is generated under the canonical temp worker directory.
