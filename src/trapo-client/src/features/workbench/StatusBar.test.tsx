@@ -34,6 +34,7 @@ describe('StatusBar shutdown controls', () => {
   test('uses explicit status bar contrast tokens for light theme', () => {
     const css = readFileSync(new URL('../../styles/base.css', import.meta.url), 'utf8');
 
+    expect(css).toContain('--status: #005fb8');
     expect(css).toContain('--status-foreground: #ffffff');
     expect(css).toContain('--status-border');
     expect(css).toContain('--status-hover');

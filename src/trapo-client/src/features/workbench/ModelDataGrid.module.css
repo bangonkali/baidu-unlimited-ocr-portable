@@ -58,8 +58,8 @@
 }
 
 .statusBadge[data-status="downloaded"] {
-  color: #9ee7b7;
-  border-color: rgba(66, 168, 99, 0.55);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
 }
 
 .statusBadge[data-status="downloading"] {
