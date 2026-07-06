@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { annotationDomId, annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox } from '../../api/types';
 import styles from './PreviewPane.module.css';
+import { needsRevealScroll } from './scrollVisibility';
 
 interface ScrollGeometry {
   rootScroll: number;
@@ -123,6 +124,9 @@ function PagePreview(props: {
     }
     const rootRect = root.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
+    if (!needsRevealScroll(rootRect, targetRect)) {
+      return;
+    }
     root.scrollTo({
       behavior: 'smooth',
       left: centeredScrollOffset({

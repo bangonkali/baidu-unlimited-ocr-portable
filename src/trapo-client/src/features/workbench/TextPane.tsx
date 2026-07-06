@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { DocumentSummary, OverlayBox, PageTextRecord } from '../../api/types';
+import { isScrolledToBottom, needsRevealScroll } from './scrollVisibility';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
 import { fileMarkdown, filePlainText, isPageTextComplete, pageMarkdown } from './textExport';
@@ -171,7 +172,13 @@ function useTextAutoScroll(
     }
     const selected = selectedRegionId ? findTraceElement(root, selectedRegionId) : null;
     if (selected) {
+      if (!needsRevealScroll(root.getBoundingClientRect(), selected.getBoundingClientRect())) {
+        return;
+      }
       selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      return;
+    }
+    if (isScrolledToBottom(root)) {
       return;
     }
     root.scrollTo({ behavior: 'smooth', top: root.scrollHeight });
