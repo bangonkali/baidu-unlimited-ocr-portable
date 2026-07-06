@@ -107,12 +107,6 @@ export function folderChildren(folder: FolderBucket): TreeGridNode[] {
   return [...folders, ...[...folder.files.values()].sort(labelSort).map(fileNode)];
 }
 
-export function taskDurationMs(task: DiagnosticPipelineTaskRecord) {
-  const start = Date.parse(task.started_at ?? task.queued_at);
-  const end = Date.parse(task.finished_at ?? task.started_at ?? task.queued_at);
-  return Number.isFinite(start) && Number.isFinite(end) && end >= start ? end - start : 0;
-}
-
 export function shortId(value: string) {
   return value.length > 8 ? value.slice(0, 8) : value;
 }

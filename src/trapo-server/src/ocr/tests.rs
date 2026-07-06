@@ -54,6 +54,7 @@ mod tests {
                 profile_id: "profile".to_string(),
             },
         );
+        assert_eq!(parsed.cleaned_text, "");
         assert_close(parsed.boxes[0].left_percent, 100.0 / 999.0 * 100.0);
         assert_close(parsed.boxes[0].width_percent, 800.0 / 999.0 * 100.0);
     }

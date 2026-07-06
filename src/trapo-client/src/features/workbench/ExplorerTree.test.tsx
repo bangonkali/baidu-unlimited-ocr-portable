@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { renderToString } from 'react-dom/server';
 
-import type { DocumentSummary, IngestRunRecord } from '../../api/types';
+import type {
+  DiagnosticPipelineTaskRecord,
+  DocumentSummary,
+  IngestRunRecord,
+} from '../../api/types';
 import { buildDocumentTree } from './ExplorerTree';
 
 describe('buildDocumentTree', () => {
@@ -94,6 +99,29 @@ describe('buildDocumentTree', () => {
     tree.nodes[0]?.children[0]?.onSelect?.();
     expect(selections).toEqual([['hash-a', 1, 'run-a']]);
   });
+
+  test('marks documents and pages while a rag pipeline task is active', () => {
+    const tree = buildDocumentTree({
+      documents: [documentSummary({ page_count: 2 })],
+      onSelectDocument: () => undefined,
+      pipelineTasks: [pipelineTask()],
+      runId: 'run-a',
+      runs: [ingestRun({ file_hashes: ['hash-long-document'], run_id: 'run-a' })],
+      scope: 'run',
+    });
+
+    const documentNode = tree.nodes[0]?.children[0];
+    const firstPageNode = documentNode?.children?.[0];
+    const html = renderToString(
+      <>
+        {documentNode?.badge}
+        {firstPageNode?.badge}
+      </>,
+    );
+
+    expect(html.match(/data-task-kind="text_index"/g)).toHaveLength(2);
+    expect(html).toContain('data-task-status="running"');
+  });
 });
 
 function documentSummary(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
@@ -119,6 +147,25 @@ function ingestRun(overrides: Partial<IngestRunRecord> = {}): IngestRunRecord {
     root_path: 'C:\\incoming',
     run_id: 'run-a',
     status: 'completed',
+    ...overrides,
+  };
+}
+
+function pipelineTask(
+  overrides: Partial<DiagnosticPipelineTaskRecord> = {},
+): DiagnosticPipelineTaskRecord {
+  return {
+    error: null,
+    finished_at: null,
+    origin_run_id: 'run-a',
+    params: { source_run_id: 'run-a' },
+    queued_at: '2026-07-07T00:00:00Z',
+    result: {},
+    runner_id: 'local-runner-1',
+    started_at: '2026-07-07T00:00:01Z',
+    status: 'running',
+    task_id: 'task-a',
+    task_kind: 'text_index',
     ...overrides,
   };
 }

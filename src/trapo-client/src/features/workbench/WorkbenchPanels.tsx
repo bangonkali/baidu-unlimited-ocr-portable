@@ -4,6 +4,7 @@ import type { ImperativePanelHandle } from 'react-resizable-panels';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { annotationIdOf } from '../../api/annotationIdentity';
 import type {
+  DiagnosticPipelineTaskRecord,
   DocumentSummary,
   IngestRunRecord,
   LogRecord,
@@ -34,6 +35,7 @@ export interface WorkbenchPanelsProps {
   onRestartRun: (run: IngestRunRecord) => void;
   onStart: () => void;
   onStopRun: (runId?: string) => void;
+  pipelineTasks: DiagnosticPipelineTaskRecord[];
   previewPages: number[];
   regions: OverlayBox[];
   rootPath: string;
@@ -75,6 +77,7 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
             filter={props.explorerFilter}
             onFilterChange={props.onExplorerFilterChange}
             onSelectDocument={props.onSelectDocument}
+            pipelineTasks={props.pipelineTasks}
             rootPath={props.rootPath}
             runs={props.runs}
             selectedFileHash={props.workbench.selection.fileHash}

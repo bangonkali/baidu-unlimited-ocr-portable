@@ -59,7 +59,7 @@ export function DiagnosticsPanel({
     run_id: selectedRun,
     status: search?.status === 'all' ? undefined : search?.status,
   });
-  const progress = useDiagnosticProgress(selectedRun);
+  const progress = useDiagnosticProgress(selectedRun, 5000, 1500);
   const analytics = useDiagnosticAnalytics(selectedRun);
   const models = useDiagnosticModels(selectedRun);
   const [expandedIds, setExpandedIds] = useState(() => new Set<string>());
@@ -109,17 +109,22 @@ export function DiagnosticsPanel({
         {tab === 'waterfall' ? (
           <div className={styles.waterfallStack}>
             <div className={styles.waterfallControls}>
-              {expandedIds.size > 0 ? (
-                <button
-                  aria-label="Collapse all"
-                  className={styles.collapseButton}
-                  onClick={() => setExpandedIds(new Set())}
-                  title="Collapse all"
-                  type="button"
-                >
-                  <Minimize2 size={13} />
-                </button>
-              ) : null}
+              <span>Name</span>
+              <span>Time</span>
+              <span className={styles.waterfallActionHeader}>
+                Waterfall
+                {expandedIds.size > 0 ? (
+                  <button
+                    aria-label="Collapse all"
+                    className={styles.collapseButton}
+                    onClick={() => setExpandedIds(new Set())}
+                    title="Collapse all"
+                    type="button"
+                  >
+                    <Minimize2 size={13} />
+                  </button>
+                ) : null}
+              </span>
             </div>
             <TreeGrid
               className={styles.tree}

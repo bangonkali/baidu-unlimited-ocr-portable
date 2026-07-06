@@ -30,7 +30,7 @@
 
 .treeGridRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px 132px;
+  grid-template-columns: var(--tree-grid-columns, minmax(0, 1fr) 82px 132px);
   min-height: 24px;
 }
 
@@ -108,7 +108,8 @@
   display: flex;
   gap: 3px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: var(--tree-grid-actions-justify, flex-end);
+  min-width: 0;
   padding-right: 8px;
 }
 

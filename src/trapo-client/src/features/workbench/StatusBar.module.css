@@ -1,7 +1,7 @@
 .statusBar {
   position: relative;
   display: grid;
-  grid-template-columns: auto auto auto auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: repeat(8, auto) minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
   height: 24px;
@@ -13,6 +13,27 @@
 
 .realtime {
   text-transform: capitalize;
+}
+
+.pipelineTask {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  color: var(--status-foreground);
+  white-space: nowrap;
+}
+
+.pipelineDot {
+  width: 7px;
+  height: 7px;
+  background: var(--warning);
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 22%, transparent);
+}
+
+.pipelineTask[data-status="running"] .pipelineDot {
+  animation: pulse 900ms ease-in-out infinite;
 }
 
 .shutdownButton {
@@ -128,4 +149,10 @@
   color: #fff;
   background: var(--danger);
   border-color: var(--danger);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
 }

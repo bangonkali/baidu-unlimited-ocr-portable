@@ -60,7 +60,11 @@ export function useDiagnosticTrace(params: {
   });
 }
 
-export function useDiagnosticProgress(runId?: string, limit = 5000) {
+export function useDiagnosticProgress(
+  runId?: string,
+  limit = 5000,
+  refetchInterval?: number | false,
+) {
   return useQuery({
     placeholderData: {
       model_leases: [],
@@ -80,7 +84,8 @@ export function useDiagnosticProgress(runId?: string, limit = 5000) {
         buildApiUrl('/api/diagnostics/progress', { limit, run_id: runId }),
         signal,
       ),
-    queryKey: queryKeys.diagnosticProgress(runId),
+    queryKey: queryKeys.diagnosticProgress(runId, limit),
+    refetchInterval,
   });
 }
 

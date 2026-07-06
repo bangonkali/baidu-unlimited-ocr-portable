@@ -206,6 +206,7 @@ include!("app/page_completion.rs");
 include!("app/page_pipeline.rs");
 include!("app/rag_methods.rs");
 include!("app/rag_execution.rs");
+include!("app/rag_text_segments.rs");
 include!("app/rag_records.rs");
 include!("app/download_helpers.rs");
 include!("app/shutdown.rs");
@@ -221,3 +222,5 @@ include!("app/document_records.rs");
 
 #[cfg(test)]
 include!("app/tests.rs");
+#[cfg(test)]
+include!("app/rag_text_segments_tests.rs");

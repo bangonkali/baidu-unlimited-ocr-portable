@@ -30,9 +30,6 @@ impl AppState {
             page_work.image_path,
             &mut parsed.boxes,
         )?;
-        if parsed.cleaned_text.is_empty() {
-            parsed.cleaned_text.clone_from(&raw_text);
-        }
         Ok(ParsedPageOutput {
             annotation_drafts,
             parsed,

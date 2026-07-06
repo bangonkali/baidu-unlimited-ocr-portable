@@ -66,6 +66,12 @@
   animation: spin 900ms linear infinite;
 }
 
+.activeTask {
+  color: var(--warning);
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--warning) 55%, transparent));
+  animation: spin 900ms linear infinite;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

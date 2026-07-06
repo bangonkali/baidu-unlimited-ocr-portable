@@ -17,6 +17,7 @@ import {
   setSelectedProfile,
 } from '../../stores/workbenchStore';
 import { useDownloadsPane } from './downloadsPaneContext';
+import type { PipelineTaskActivity } from './pipelineTaskActivity';
 import { StatusBar } from './StatusBar';
 
 export function selectedModel(models?: ModelsPayload, preferredModelId?: string) {
@@ -89,6 +90,7 @@ export function WorkbenchFooter(props: {
   accelerator?: string;
   documentCount: number;
   logPath?: string;
+  pipelineTask?: PipelineTaskActivity;
   realtimeState: string;
   runState: string;
   runtimePlatform?: string;
@@ -105,6 +107,7 @@ export function WorkbenchFooter(props: {
       logPath={props.logPath}
       onDownloadsToggle={downloadsPane.toggle}
       onShutdown={() => shutdown.mutate()}
+      pipelineTask={props.pipelineTask}
       realtimeState={props.realtimeState}
       runState={props.runState}
       runtime={`${props.runtimePlatform ?? 'windows-x86_64-cuda13'} / ${

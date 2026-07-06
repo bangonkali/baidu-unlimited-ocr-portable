@@ -1,6 +1,7 @@
 import { CommandPalette } from '../commands/CommandPalette';
 import { ActivityBar } from './ActivityBar';
 import { GuidedTour } from './GuidedTour';
+import type { PipelineTaskActivity } from './pipelineTaskActivity';
 import type { WorkbenchPageProps } from './useWorkbenchPageController';
 import { useWorkbenchPageController } from './useWorkbenchPageController';
 import styles from './WorkbenchPage.module.css';
@@ -34,11 +35,13 @@ export function WorkbenchPage(props: WorkbenchPageProps) {
 
 function PageFooter({
   documentCount,
+  pipelineTask,
   realtimeState,
   selectedRoot,
   status,
 }: {
   documentCount: number;
+  pipelineTask?: PipelineTaskActivity;
   realtimeState: string;
   selectedRoot: string;
   status?: {
@@ -53,6 +56,7 @@ function PageFooter({
       accelerator={status?.accelerator}
       documentCount={documentCount}
       logPath={status?.log_path}
+      pipelineTask={pipelineTask}
       realtimeState={realtimeState}
       runState={status?.state ?? 'offline'}
       runtimePlatform={status?.runtime_platform}

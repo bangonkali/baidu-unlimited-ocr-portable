@@ -1,22 +1,21 @@
-import {
-  CircleAlert,
-  CircleCheck,
-  Clock3,
-  FileText,
-  Folder,
-  FolderOpen,
-  LoaderCircle,
-} from 'lucide-react';
+import { FileText, Folder, FolderOpen } from 'lucide-react';
 
-import type { DocumentSummary, IngestRunRecord } from '../../api/types';
+import type {
+  DiagnosticPipelineTaskRecord,
+  DocumentSummary,
+  IngestRunRecord,
+} from '../../api/types';
 import type { TreeNode } from '../../components/workbench';
-import styles from './ExplorerTree.module.css';
+import { documentBadge, pageBadge } from './ExplorerTreeBadges';
+import type { PipelineTaskActivity } from './pipelineTaskActivity';
+import { activePipelineActivityForRun } from './pipelineTaskActivity';
 import type { WorkbenchExplorerScope } from './workbenchExplorerFilter';
 
 export interface ExplorerTreeBuildOptions {
   documents: DocumentSummary[];
   fallbackRootPath?: string;
   onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  pipelineTasks?: DiagnosticPipelineTaskRecord[];
   runId?: string;
   runs: IngestRunRecord[];
   scope: WorkbenchExplorerScope;
@@ -34,6 +33,15 @@ interface TreeRootSource {
   documents: DocumentSummary[];
   id: string;
   rootPath?: string;
+  runId?: string;
+}
+
+interface PageNodeArgs {
+  document: DocumentSummary;
+  documentSelected: boolean;
+  options: ExplorerTreeBuildOptions;
+  pageNo: number;
+  pipelineActivity?: PipelineTaskActivity;
   runId?: string;
 }
 
@@ -150,12 +158,20 @@ function documentNode(
   const documentId = document.file_hash;
   const pageCount = Math.max(document.page_count || 1, 1);
   const selected = isSelectedDocument(documentId, runId, options);
+  const pipelineActivity = activePipelineActivityForRun(options.pipelineTasks, runId);
   return {
-    badge: <StatusIcon status={document.status} />,
+    badge: documentBadge(document.status, pipelineActivity),
     children:
       pageCount > 1
         ? Array.from({ length: pageCount }, (_, index) =>
-            pageNode(document, runId, index + 1, selected, options),
+            pageNode({
+              document,
+              documentSelected: selected,
+              options,
+              pageNo: index + 1,
+              pipelineActivity,
+              runId,
+            }),
           )
         : [],
     icon: <FileText size={14} />,
@@ -167,23 +183,17 @@ function documentNode(
   };
 }
 
-function pageNode(
-  document: DocumentSummary,
-  runId: string | undefined,
-  pageNo: number,
-  documentSelected: boolean,
-  options: ExplorerTreeBuildOptions,
-): MutableTreeNode {
+function pageNode(args: PageNodeArgs): MutableTreeNode {
   return {
-    badge: pageBadge(document, pageNo),
+    badge: pageBadge(args.document, args.pageNo, args.pipelineActivity),
     children: [],
     icon: <FileText size={13} />,
-    id: nodeId('page', runId, document.file_hash, pageNo),
+    id: nodeId('page', args.runId, args.document.file_hash, args.pageNo),
     kind: 'page',
-    label: `Page ${pageNo}`,
-    onSelect: () => options.onSelectDocument(document.file_hash, pageNo, runId),
-    pageNo,
-    selected: documentSelected && document.current_page === pageNo,
+    label: `Page ${args.pageNo}`,
+    onSelect: () => args.options.onSelectDocument(args.document.file_hash, args.pageNo, args.runId),
+    pageNo: args.pageNo,
+    selected: args.documentSelected && args.document.current_page === args.pageNo,
   };
 }
 
@@ -196,29 +206,6 @@ function isSelectedDocument(
     options.selectedFileHash === documentId && // skylos: ignore[SKY-D253] file_hash is a public workbench selection identifier, not a secret token.
     (options.selectedRunId === undefined || options.selectedRunId === runId) // skylos: ignore[SKY-D253] run_id is public route/UI state, not a secret token.
   );
-}
-
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'completed') {
-    return <CircleCheck className={styles.ok} size={13} />;
-  }
-  if (status === 'failed' || status === 'completed_with_errors') {
-    return <CircleAlert className={styles.bad} size={13} />;
-  }
-  if (status === 'running' || status === 'rendering') {
-    return <LoaderCircle className={styles.spin} size={13} />;
-  }
-  return <Clock3 className={styles.queued} size={13} />;
-}
-
-function pageBadge(document: DocumentSummary, pageNo: number) {
-  if (document.current_page === pageNo && document.status === 'running') {
-    return <LoaderCircle className={styles.spin} size={12} />;
-  }
-  if ((document.processed_pages ?? 0) >= pageNo) {
-    return <CircleCheck className={styles.ok} size={12} />;
-  }
-  return <Clock3 className={styles.queued} size={12} />;
 }
 
 function sortedDocuments(documents: DocumentSummary[]) {

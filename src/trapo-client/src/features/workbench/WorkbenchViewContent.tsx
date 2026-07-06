@@ -1,4 +1,5 @@
 import type {
+  DiagnosticPipelineTaskRecord,
   DocumentSummary,
   IngestRunRecord,
   LogRecord,
@@ -46,6 +47,7 @@ export interface WorkbenchViewContentProps {
   searchSearch?: SearchRouteSearch;
   models?: ModelsPayload;
   previewPages: number[];
+  pipelineTasks: DiagnosticPipelineTaskRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
   rootPath: string;
@@ -193,6 +195,7 @@ function renderSearchView(props: WorkbenchViewContentProps) {
       onAutoFollowChange={props.onAutoFollowChange}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
+      pipelineTasks={props.pipelineTasks}
       onResumeRun={props.onResumeRun}
       onRestartRun={props.onRestartRun}
       onRouteSearchChange={props.onSearchRouteSearchChange}
@@ -245,6 +248,7 @@ function renderWorkbenchView(props: WorkbenchViewContentProps) {
       onSelectRegion={props.onSelectRegion}
       onStopRun={props.onStop}
       onStart={props.onOpenIngest}
+      pipelineTasks={props.pipelineTasks}
       previewPages={props.previewPages}
       regions={props.regions}
       rootPath={props.rootPath}

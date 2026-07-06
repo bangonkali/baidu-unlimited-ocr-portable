@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import type { DocumentSummary, IngestRunRecord } from '../../api/types';
+import type {
+  DiagnosticPipelineTaskRecord,
+  DocumentSummary,
+  IngestRunRecord,
+} from '../../api/types';
 import type { TreeNode } from '../../components/workbench';
 import { TreeView } from '../../components/workbench';
 import styles from './ExplorerTree.module.css';
@@ -17,6 +21,7 @@ interface ExplorerTreeProps {
   selectedRunId?: string;
   onFilterChange: (filter: WorkbenchExplorerFilter) => void;
   onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  pipelineTasks?: DiagnosticPipelineTaskRecord[];
 }
 
 export { buildDocumentTree };
@@ -26,6 +31,7 @@ export function ExplorerTree({
   filter,
   onFilterChange,
   onSelectDocument,
+  pipelineTasks,
   rootPath,
   runs,
   selectedFileHash,
@@ -37,13 +43,23 @@ export function ExplorerTree({
         documents,
         fallbackRootPath: rootPath,
         onSelectDocument,
+        pipelineTasks,
         runId: filter.runId,
         runs,
         scope: filter.scope,
         selectedFileHash,
         selectedRunId,
       }),
-    [documents, filter, onSelectDocument, rootPath, runs, selectedFileHash, selectedRunId],
+    [
+      documents,
+      filter,
+      onSelectDocument,
+      pipelineTasks,
+      rootPath,
+      runs,
+      selectedFileHash,
+      selectedRunId,
+    ],
   );
   const [expandedIds, setExpandedIds] = useState(() => defaultExpandedIds(tree.nodes));
 

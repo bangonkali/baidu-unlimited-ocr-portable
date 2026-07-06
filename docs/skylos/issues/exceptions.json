@@ -519,7 +519,7 @@
       "id": "rag-segment-file-hash-digest",
       "rule_id": "SKY-D215",
       "category": "danger",
-      "path_glob": "src/trapo-server/src/app/rag_records.rs",
+      "path_glob": "src/trapo-server/src/app/rag_text_segments.rs",
       "reason": "The flagged file_hash assignment stores a content digest identity in DuckDB RAG segment rows, not a filesystem path or filesystem sink."
     },
     {

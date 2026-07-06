@@ -1,4 +1,5 @@
 import type {
+  DiagnosticPipelineTaskRecord,
   DocumentSummary,
   IngestRunRecord,
   LogRecord,
@@ -70,6 +71,7 @@ export interface WorkbenchViewData {
   model?: ModelAssetRecord;
   models?: ModelsPayload;
   previewPages: number[];
+  pipelineTasks: DiagnosticPipelineTaskRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
   runs: IngestRunRecord[];

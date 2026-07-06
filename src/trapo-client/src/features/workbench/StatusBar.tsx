@@ -2,6 +2,7 @@ import { DownloadCloud, Power } from 'lucide-react';
 import { useState } from 'react';
 
 import { NotificationBell } from './NotificationBell';
+import type { PipelineTaskActivity } from './pipelineTaskActivity';
 import styles from './StatusBar.module.css';
 
 interface StatusBarProps {
@@ -16,6 +17,7 @@ interface StatusBarProps {
   selectedRoot: string;
   onDownloadsToggle: () => void;
   onShutdown: () => void;
+  pipelineTask?: PipelineTaskActivity;
   shutdownPending?: boolean;
 }
 
@@ -27,6 +29,7 @@ export function StatusBar({
   logPath,
   onDownloadsToggle,
   onShutdown,
+  pipelineTask,
   realtimeState,
   runState,
   runtime,
@@ -42,6 +45,16 @@ export function StatusBar({
     <footer className={styles.statusBar}>
       <span>{runState}</span>
       <span className={styles.realtime}>{realtimeState}</span>
+      {pipelineTask ? (
+        <span
+          className={styles.pipelineTask}
+          data-status={pipelineTask.status}
+          title={pipelineTask.title}
+        >
+          <span className={styles.pipelineDot} />
+          {pipelineTask.label} {pipelineTask.status}
+        </span>
+      ) : null}
       <button
         aria-label="Shut down Trapo"
         className={styles.shutdownButton}

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import {
   useCancelModelDownload,
+  useDiagnosticProgress,
   useDocumentPreviewImages,
   useDocumentRegions,
   useDocuments,
@@ -41,6 +42,7 @@ import {
   setSelectedRoot,
   useWorkbenchState,
 } from '../../stores/workbenchStore';
+import { primaryPipelineActivity } from './pipelineTaskActivity';
 import { startOcrEntry } from './startOcrEntry';
 import { visibleTextPages } from './textPreviewPages';
 import { useSelectedPageReplay } from './useOcrReplayHydration';
@@ -91,6 +93,8 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
+  const pipelineTasks = data.progress.data?.pipeline_tasks ?? [];
+  const pipelineTask = primaryPipelineActivity(pipelineTasks);
   const explorerFilter = explorerFilterFromSearch(
     props.workbenchSearch,
     data.runs.data?.runs ?? [],
@@ -175,6 +179,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     }),
     footerProps: {
       documentCount: data.documents.data?.documents.length ?? 0,
+      pipelineTask,
       realtimeState: realtime.connectionState,
       selectedRoot: workbench.selectedRoot,
       status: data.status.data,
@@ -199,6 +204,7 @@ export function useWorkbenchData(
     generateEmbedding: useGenerateEmbedding(),
     logs: useLogs(220),
     models: useModels(),
+    progress: useDiagnosticProgress(undefined, 5000, 1500),
     previewImages: useDocumentPreviewImages(fileHash),
     documentRunId,
     regions: useDocumentRegions(fileHash, documentRunId),
@@ -243,6 +249,7 @@ function viewData(
     models: data.models.data,
     previewPages: data.previewImages.data?.pages ?? [],
     profiles,
+    pipelineTasks: data.progress.data?.pipeline_tasks ?? [],
     regions: data.regions.data?.boxes ?? [],
     runs: data.runs.data?.runs ?? [],
     selectedDocument,
