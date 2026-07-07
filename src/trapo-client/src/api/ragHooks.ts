@@ -47,7 +47,7 @@ export function useUsedEmbeddingModels() {
 export function useHybridSearch(request: HybridSearchRequest, enabled: boolean) {
   return useQuery({
     enabled,
-    placeholderData: { files: [], query: request.query },
+    placeholderData: { files: [], hits: [], query: request.query },
     queryFn: ({ signal }) =>
       postJson<HybridSearchResponse, HybridSearchRequest>('/api/rag/search', request, signal),
     queryKey: queryKeys.ragSearch({ ...request }),

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { renderToString } from 'react-dom/server';
 
 import type { DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord } from '../../api/types';
@@ -77,7 +78,9 @@ describe('diagnostics waterfall', () => {
       'Generate page embeddings - file-a - p1',
     );
   });
+});
 
+describe('diagnostics waterfall layout', () => {
   test('renders waterfall grid with resizable metadata columns before the waterfall', () => {
     const nodes = buildWaterfallRunNodes({
       payload: waterfallPayload([
@@ -106,9 +109,36 @@ describe('diagnostics waterfall', () => {
     expect(html).toContain('Waterfall</div>');
     expect(html).toContain('Resize timestamp column');
     expect(html).toContain('Resize timespan column');
+    expect(html).toContain('Waterfall rows');
+    expect(html).toContain('Waterfall metadata horizontal scroll');
+    expect(html.match(/data-waterfall-row-id="span:operation"/g)).toHaveLength(2);
     expect(html.match(/Waterfall metadata columns/g)).toHaveLength(1);
   });
 
+  test('keeps waterfall rows aligned with a pinned metadata scrollbar', () => {
+    const panelCss = readFileSync(
+      new URL('./DiagnosticsPanel.module.css', import.meta.url),
+      'utf8',
+    );
+    const css = readFileSync(new URL('./DiagnosticsWaterfall.module.css', import.meta.url), 'utf8');
+
+    expect(panelCss).toContain('.body[data-tab="waterfall"]');
+    expect(panelCss).toContain('max-height: 100%;');
+    expect(css).toContain('--waterfall-header-height: 24px;');
+    expect(css).toContain('--waterfall-row-height: 22px;');
+    expect(css).toContain('grid-template-rows: minmax(0, 1fr) var(--waterfall-scrollbar-height);');
+    expect(css).toContain('.waterfallVerticalScrollArea');
+    expect(css).toContain('align-items: start;');
+    expect(css).toContain('.waterfallLeftScrollbar');
+    expect(css).toContain('height: var(--waterfall-scrollbar-height);');
+    expect(css).toContain('.waterfallLeftRow[data-hovered="true"]');
+    expect(css).toContain('.waterfallRightRow[data-hovered="true"]');
+    expect(css).toContain('position: sticky;');
+    expect(css).toContain('height: var(--waterfall-row-height);');
+  });
+});
+
+describe('diagnostics waterfall rendering', () => {
   test('does not duplicate file group labels', () => {
     const nodes = buildWaterfallRunNodes({
       payload: waterfallPayload([
@@ -157,6 +187,21 @@ describe('diagnostics waterfall', () => {
     expect(html).toContain('second 2.00s');
     expect(html).toContain('left:50%');
     expect(html).toContain('width:50%');
+  });
+
+  test('styles waterfall bars as full-height row fills', () => {
+    const css = readFileSync(
+      new URL('./DiagnosticsWaterfallBars.module.css', import.meta.url),
+      'utf8',
+    );
+
+    expect(css).toContain('--waterfall-bar-fill: var(--accent);');
+    expect(css).toContain('height: 100%;');
+    expect(css).toContain('top: 0;');
+    expect(css).toContain('bottom: 0;');
+    expect(css).toContain('inset 0 -1px 0');
+    expect(css).not.toContain('height: 10px;');
+    expect(css).not.toContain('height: 6px;');
   });
 
   test('formats nonzero sub-millisecond spans as less than one millisecond', () => {

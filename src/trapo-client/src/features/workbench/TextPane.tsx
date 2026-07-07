@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { annotationTextDomId } from '../../api/annotationIdentity';
 import type { DocumentSummary, OverlayBox, PageTextRecord } from '../../api/types';
 import { OCR_FOCUS_THROTTLE_MS } from '../../stores/workbenchRealtimeFocus';
+import { revealWhenAvailable } from './deferredReveal';
 import { isScrolledToBottom, needsRevealScroll } from './scrollVisibility';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
@@ -180,27 +181,31 @@ function useTextAutoScroll(
   useEffect(() => {
     const root = bodyRef.current;
     if (!root) {
-      return;
+      return undefined;
     }
     const revealGeneration = focusRevision;
     if (selectedRegionId && revealGeneration >= 0) {
-      const selected = findAnnotationTextElement(root, selectedRegionId);
-      if (!selected) {
-        return;
-      }
-      if (needsRevealScroll(root.getBoundingClientRect(), selected.getBoundingClientRect())) {
-        selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-      }
-      return;
+      return revealWhenAvailable({
+        findTarget: () => findAnnotationTextElement(root, selectedRegionId),
+        reveal: (selected) => revealTextTarget(root, selected),
+        root,
+      });
     }
     if (!autoFollowRegions || !fingerprint) {
-      return;
+      return undefined;
     }
     if (isScrolledToBottom(root)) {
-      return;
+      return undefined;
     }
     root.scrollTo({ behavior: 'smooth', top: root.scrollHeight });
+    return undefined;
   }, [autoFollowRegions, bodyRef, fingerprint, focusRevision, selectedRegionId]);
+}
+
+function revealTextTarget(root: HTMLElement, selected: HTMLElement) {
+  if (needsRevealScroll(root.getBoundingClientRect(), selected.getBoundingClientRect())) {
+    selected.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  }
 }
 
 function useRegionFocusGlow(selectedRegionId: string | undefined, focusRevision: number) {

@@ -12,4 +12,5 @@ export interface HybridSearchFileResult {
   /** @minimum 0 */
   hit_count: number;
   hits: HybridSearchHit[];
+  relevance_score: number;
 }

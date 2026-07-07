@@ -281,6 +281,8 @@ export interface HybridSearchHit {
   category: string;
   text: string;
   score: number;
+  relevance_score: number;
+  rank: number;
   hit_source: string;
   model_id?: string | null;
 }
@@ -288,11 +290,13 @@ export interface HybridSearchHit {
 export interface HybridSearchFileResult {
   file_hash: string;
   hit_count: number;
+  relevance_score: number;
   hits: HybridSearchHit[];
 }
 
 export interface HybridSearchResponse {
   query: string;
+  hits: HybridSearchHit[];
   files: HybridSearchFileResult[];
 }
 

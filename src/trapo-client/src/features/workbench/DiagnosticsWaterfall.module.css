@@ -1,36 +1,78 @@
 .waterfallGrid {
+  --waterfall-left-pane-width: minmax(320px, clamp(340px, 38vw, 560px));
   --waterfall-timestamp-column: 190px;
   --waterfall-name-column: 380px;
   --waterfall-timespan-column: 92px;
+  --waterfall-header-height: 24px;
+  --waterfall-row-height: 22px;
+  --waterfall-scrollbar-height: 14px;
   flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--waterfall-left-pane-width) minmax(360px, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--waterfall-scrollbar-height);
+  height: 100%;
+  max-height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
 .waterfallGridViewport {
-  flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(320px, clamp(340px, 38vw, 560px)) minmax(360px, 1fr);
+  grid-template-columns: var(--waterfall-left-pane-width) minmax(360px, 1fr);
   align-items: start;
   min-width: 0;
-  min-height: 0;
+  min-height: 100%;
+}
+
+.waterfallVerticalScrollArea {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  height: 100%;
   max-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.waterfallVerticalViewport {
+  width: 100%;
+  height: 100%;
 }
 
 .waterfallLeftPane {
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  min-height: 100%;
+  overflow: visible;
   border-right: 1px solid var(--subtle-border);
 }
 
 .waterfallLeftContent {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.waterfallLeftContent::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.waterfallLeftHeaderViewport {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: var(--waterfall-header-height);
+  min-height: var(--waterfall-header-height);
+  overflow: hidden;
+  background: var(--panel);
+  border-bottom: 1px solid var(--subtle-border);
+}
+
+.waterfallLeftHeader,
+.waterfallLeftRow,
+.waterfallLeftScrollbarContent {
   min-width: calc(
     var(--waterfall-name-column) +
     var(--waterfall-timestamp-column) +
@@ -46,17 +88,13 @@
     var(--waterfall-name-column) 6px var(--waterfall-timestamp-column) 6px
     var(--waterfall-timespan-column) 6px;
   align-items: center;
-  min-width: 0;
 }
 
 .waterfallLeftHeader {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  min-height: 28px;
+  height: var(--waterfall-header-height);
+  min-height: var(--waterfall-header-height);
   color: var(--muted);
   background: var(--panel);
-  border-bottom: 1px solid var(--subtle-border);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -74,7 +112,17 @@
 
 .waterfallRightPane {
   min-width: 0;
-  overflow: hidden;
+  min-height: 100%;
+  overflow: visible;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(20% - 1px),
+      color-mix(in srgb, var(--subtle-border) 48%, transparent) calc(20% - 1px),
+      color-mix(in srgb, var(--subtle-border) 48%, transparent) 20%
+    ),
+    color-mix(in srgb, var(--panel) 94%, var(--control-bg));
 }
 
 .waterfallGridActionHeader {
@@ -84,7 +132,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 28px;
+  height: var(--waterfall-header-height);
+  min-height: var(--waterfall-header-height);
   padding: 0 8px;
   overflow: hidden;
   color: var(--muted);
@@ -96,40 +145,6 @@
   white-space: nowrap;
 }
 
-.waterfallResizeHandle {
-  width: 6px;
-  padding: 0;
-  cursor: col-resize;
-  background: transparent;
-  border: 0;
-  border-left: 1px solid transparent;
-  border-right: 1px solid transparent;
-}
-
-.waterfallResizeHandle:hover,
-.waterfallResizeHandle:focus-visible {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  outline: 0;
-}
-
-.waterfallCollapseButton {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 22px;
-  padding: 0;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-}
-
-.waterfallCollapseButton:hover {
-  color: var(--text);
-  background: var(--panel-3);
-}
-
 .waterfallLeftRows,
 .waterfallRightRows {
   min-width: 0;
@@ -137,16 +152,33 @@
 
 .waterfallLeftRow,
 .waterfallRightRow {
+  position: relative;
   align-items: center;
-  min-height: 24px;
+  box-sizing: border-box;
+  height: var(--waterfall-row-height);
+  min-height: var(--waterfall-row-height);
+  overflow: hidden;
   color: var(--text);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--subtle-border) 62%, transparent);
 }
 
 .waterfallLeftRow[data-active="true"],
-.waterfallRightRow[data-active="true"],
+.waterfallRightRow[data-active="true"] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel-3));
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 42%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 24%, transparent),
+    inset 3px 0 0 var(--accent);
+}
+
+.waterfallLeftRow[data-hovered="true"],
+.waterfallRightRow[data-hovered="true"],
 .waterfallLeftRow:hover,
 .waterfallRightRow:hover {
-  background: var(--panel-3);
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel-3));
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 32%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .waterfallTimestampCell,
@@ -173,7 +205,7 @@
 
 .waterfallRowDivider {
   width: 6px;
-  height: 24px;
+  height: var(--waterfall-row-height);
   border-left: 1px solid transparent;
   border-right: 1px solid transparent;
 }
@@ -183,7 +215,7 @@
   grid-template-columns: 16px max-content;
   align-items: center;
   min-width: max-content;
-  height: 22px;
+  height: calc(var(--waterfall-row-height) - 2px);
   padding-left: calc(4px + (var(--tree-level, 0) * 14px));
 }
 
@@ -198,7 +230,7 @@
   display: grid;
   place-items: center;
   width: 16px;
-  height: 22px;
+  height: calc(var(--waterfall-row-height) - 2px);
   padding: 0;
 }
 
@@ -206,7 +238,7 @@
   display: inline-flex;
   gap: 5px;
   align-items: center;
-  height: 22px;
+  height: calc(var(--waterfall-row-height) - 2px);
   padding: 0;
   text-align: left;
   white-space: nowrap;
@@ -220,4 +252,34 @@
   display: flex;
   min-width: 0;
   padding-right: 8px;
+}
+
+.waterfallLeftScrollbar {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: stretch;
+  box-sizing: border-box;
+  height: var(--waterfall-scrollbar-height);
+  min-width: 0;
+  min-height: var(--waterfall-scrollbar-height);
+  background: var(--panel);
+  border-top: 1px solid var(--subtle-border);
+  border-right: 1px solid var(--subtle-border);
+}
+
+.waterfallLeftScrollbarViewport {
+  width: 100%;
+  height: 100%;
+}
+
+.waterfallLeftScrollbarContent {
+  height: var(--waterfall-scrollbar-height);
+}
+
+.waterfallScrollbarSpacer {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--subtle-border);
 }

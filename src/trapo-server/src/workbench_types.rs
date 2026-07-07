@@ -143,6 +143,7 @@ pub(crate) struct HybridSearchRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct HybridSearchResponse {
     pub(crate) query: String,
+    pub(crate) hits: Vec<HybridSearchHit>,
     pub(crate) files: Vec<HybridSearchFileResult>,
 }
 
@@ -150,6 +151,7 @@ pub(crate) struct HybridSearchResponse {
 pub(crate) struct HybridSearchFileResult {
     pub(crate) file_hash: String,
     pub(crate) hit_count: u32,
+    pub(crate) relevance_score: f64,
     pub(crate) hits: Vec<HybridSearchHit>,
 }
 
@@ -162,6 +164,8 @@ pub(crate) struct HybridSearchHit {
     pub(crate) category: String,
     pub(crate) text: String,
     pub(crate) score: f64,
+    pub(crate) relevance_score: f64,
+    pub(crate) rank: u32,
     pub(crate) hit_source: String,
     pub(crate) model_id: Option<String>,
 }

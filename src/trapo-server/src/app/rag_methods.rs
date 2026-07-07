@@ -141,9 +141,11 @@ impl AppState {
                 );
             }
         }
+        let results = ranked_search_results(hits, limit);
         Ok(HybridSearchResponse {
             query,
-            files: grouped_search_hits(hits),
+            files: results.files,
+            hits: results.hits,
         })
     }
 

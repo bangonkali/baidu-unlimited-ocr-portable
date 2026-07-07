@@ -9,6 +9,7 @@ import { IngestStartPanel } from '../features/workbench/IngestStartPanel';
 import { ModelDetailPanel } from '../features/workbench/ModelDetailPanel';
 import { ModelManager } from '../features/workbench/ModelManager';
 import { PreviewPane } from '../features/workbench/PreviewPane';
+import { SearchPane } from '../features/workbench/SearchPane';
 import { SettingsPanel } from '../features/workbench/SettingsPanel';
 import { StartHere } from '../features/workbench/StartHere';
 import { TextPane } from '../features/workbench/TextPane';
@@ -23,6 +24,11 @@ import {
   fixtureRuns,
   fixtureSettings,
 } from './fixtures/workbenchFixtures';
+import {
+  fixtureSearchFiles,
+  fixtureSearchHits,
+  fixtureUsedEmbeddingModels,
+} from './fixtures/workbenchSearchFixtures';
 import './storybook.css';
 
 const meta = {
@@ -86,6 +92,26 @@ export const Explorer: Story = {
         runs={fixtureRuns}
         selectedRunId={fixtureRuns[0]?.run_id}
         selectedFileHash="hash-invoice-014"
+      />
+    </div>
+  ),
+};
+
+export const Search: Story = {
+  render: () => (
+    <div className="storyTall">
+      <SearchPane
+        documents={new Map(fixtureDocuments.map((document) => [document.file_hash, document]))}
+        files={fixtureSearchFiles}
+        hits={fixtureSearchHits}
+        loading={false}
+        models={fixtureUsedEmbeddingModels}
+        query="asuka"
+        runs={fixtureRuns}
+        selectedModelId="nomic-embed-text-v1-5-q4-k-m"
+        view="tree"
+        onChange={() => undefined}
+        onSelectHit={() => undefined}
       />
     </div>
   ),

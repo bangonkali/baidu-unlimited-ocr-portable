@@ -27,6 +27,7 @@ export type ModelSortKey =
 export type SortDirection = 'asc' | 'desc';
 export type DownloadStatusFilter = 'active' | 'queued' | 'all';
 export type ModelOriginFilter = 'all' | 'unlimited_ocr' | 'embedding';
+export type SearchResultViewMode = 'tree' | 'ranked';
 
 export interface ModelRouteSearch {
   dir?: SortDirection;
@@ -69,6 +70,7 @@ export interface SearchRouteSearch {
   model?: string;
   q?: string;
   run?: string;
+  view?: SearchResultViewMode;
 }
 
 export function validateRootSearch(search: Record<string, unknown>): RootRouteSearch {
@@ -165,6 +167,7 @@ export function validateSearchSearch(search: Record<string, unknown>): SearchRou
     model: stringValue(search.model) ?? stringValue(search.embedding_model),
     q: stringValue(search.q),
     run: stringValue(search.run) ?? stringValue(search.run_id),
+    view: searchResultViewValue(search.view),
   };
 }
 
@@ -215,6 +218,10 @@ function downloadStatusValue(value: unknown): DownloadStatusFilter | undefined {
 
 function modelOriginValue(value: unknown): ModelOriginFilter | undefined {
   return value === 'all' || value === 'unlimited_ocr' || value === 'embedding' ? value : undefined;
+}
+
+function searchResultViewValue(value: unknown): SearchResultViewMode | undefined {
+  return value === 'tree' || value === 'ranked' ? value : undefined;
 }
 
 function runScopeValue(value: unknown): 'all' | undefined {

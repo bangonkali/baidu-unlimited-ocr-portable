@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.5
  */
 import type { HybridSearchFileResult } from './hybridSearchFileResult';
+import type { HybridSearchHit } from './hybridSearchHit';
 
 export interface HybridSearchResponse {
   files: HybridSearchFileResult[];
+  hits: HybridSearchHit[];
   query: string;
 }

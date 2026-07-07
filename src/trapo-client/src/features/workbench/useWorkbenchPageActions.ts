@@ -1,6 +1,7 @@
 import type { useNavigate } from '@tanstack/react-router';
 
 import type { ModelAssetRecord } from '../../api/types';
+import type { RootRouteSearch, SearchRouteSearch } from '../../routeSearch';
 import type { useWorkbenchState } from '../../stores/workbenchStore';
 import { setAutoFollowRegions, setSelection } from '../../stores/workbenchStore';
 import { useDownloadModelWithPane } from './downloadsPaneContext';
@@ -123,9 +124,24 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
       args.data.updateSettings.mutate({ selected_runtime_id: runtimeId }),
     updateSearchRouteSearch: (patch) =>
       void args.navigate({
-        search: (current) => ({ ...current, ...patch }),
+        search: (current) =>
+          searchRouteSearchPatch(current as RootRouteSearch & Partial<SearchRouteSearch>, patch),
         to: '/search',
       }),
+  };
+}
+
+function searchRouteSearchPatch(
+  current: RootRouteSearch & Partial<SearchRouteSearch>,
+  patch: Partial<SearchRouteSearch>,
+): RootRouteSearch & SearchRouteSearch {
+  return {
+    downloads: current.downloads,
+    model: current.model,
+    q: current.q,
+    run: current.run,
+    view: current.view,
+    ...patch,
   };
 }
 

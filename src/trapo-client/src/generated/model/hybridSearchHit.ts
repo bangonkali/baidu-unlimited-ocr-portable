@@ -16,6 +16,9 @@ export interface HybridSearchHit {
   model_id?: string | null;
   /** @minimum 0 */
   page_no: number;
+  /** @minimum 0 */
+  rank: number;
+  relevance_score: number;
   score: number;
   segment_id: string;
   text: string;

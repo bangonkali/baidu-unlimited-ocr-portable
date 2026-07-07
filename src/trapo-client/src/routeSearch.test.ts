@@ -5,6 +5,7 @@ import {
   validateIngestSearch,
   validateModelSearch,
   validateRootSearch,
+  validateSearchSearch,
   validateSettingsSearch,
   validateWorkbenchSearch,
   withDownloadsPaneSearch,
@@ -118,5 +119,22 @@ describe('route search validators', () => {
       root: '/data/incoming',
       runtime: 'cuda',
     });
+  });
+
+  test('validates search route presentation state', () => {
+    expect(
+      validateSearchSearch({
+        embedding_model: 'nomic-embed-text-v1-5-q4-k-m',
+        q: 'asuka',
+        run_id: 'run-a',
+        view: 'ranked',
+      }),
+    ).toEqual({
+      model: 'nomic-embed-text-v1-5-q4-k-m',
+      q: 'asuka',
+      run: 'run-a',
+      view: 'ranked',
+    });
+    expect(validateSearchSearch({ view: 'cards' }).view).toBeUndefined();
   });
 });

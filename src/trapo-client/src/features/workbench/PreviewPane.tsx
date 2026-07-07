@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { annotationBoxDomId, annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox } from '../../api/types';
+import { revealWhenAvailable } from './deferredReveal';
 import styles from './PreviewPane.module.css';
 import { needsRevealScroll } from './scrollVisibility';
 
@@ -122,7 +123,6 @@ function PagePreview(props: {
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }) {
   const pageRef = useRef<HTMLElement>(null);
-  const activeBoxRef = useRef<HTMLButtonElement>(null);
   const selectedRegionId = props.selectedRegionId;
   const scrollRootRef = props.scrollRootRef;
   const imageUrl =
@@ -131,41 +131,30 @@ function PagePreview(props: {
 
   useEffect(() => {
     if (props.pageNo !== props.selectedPageNo) {
-      return;
+      return undefined;
     }
     const revealGeneration = props.focusRevision;
     const root = scrollRootRef.current;
-    const activeBox =
-      root && selectedRegionId && revealGeneration >= 0
-        ? findAnnotationBox(root, selectedRegionId)
-        : null;
-    const target = activeBox ?? activeBoxRef.current ?? pageRef.current;
-    if (!target || !root) {
-      return;
+    if (!root) {
+      return undefined;
     }
-    const rootRect = root.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
-    if (!needsRevealScroll(rootRect, targetRect)) {
-      return;
+    if (selectedRegionId && revealGeneration >= 0) {
+      const pageTarget = pageRef.current;
+      if (pageTarget) {
+        revealPreviewTarget(root, pageTarget, false);
+      }
+      return revealWhenAvailable({
+        findTarget: () => findAnnotationBox(root, selectedRegionId),
+        reveal: (target) => revealPreviewTarget(root, target, true),
+        root,
+      });
     }
-    const scrollOffset = activeBox ? centeredScrollOffset : nearestScrollOffset;
-    root.scrollTo({
-      behavior: 'smooth',
-      left: scrollOffset({
-        rootScroll: root.scrollLeft,
-        rootSize: rootRect.width,
-        rootStart: rootRect.left,
-        targetSize: targetRect.width,
-        targetStart: targetRect.left,
-      }),
-      top: scrollOffset({
-        rootScroll: root.scrollTop,
-        rootSize: rootRect.height,
-        rootStart: rootRect.top,
-        targetSize: targetRect.height,
-        targetStart: targetRect.top,
-      }),
-    });
+    const target = pageRef.current;
+    if (!target) {
+      return undefined;
+    }
+    revealPreviewTarget(root, target, false);
+    return undefined;
   }, [props.focusRevision, props.pageNo, props.selectedPageNo, scrollRootRef, selectedRegionId]);
 
   return (
@@ -187,7 +176,6 @@ function PagePreview(props: {
                   id={annotationBoxDomId(annotationId)}
                   key={annotationId}
                   onClick={() => props.onSelectRegion(box.page_no, annotationId)}
-                  ref={annotationId === props.selectedRegionId ? activeBoxRef : undefined}
                   style={{
                     height: `${box.height_percent}%`,
                     left: `${box.left_percent}%`,
@@ -204,6 +192,32 @@ function PagePreview(props: {
       </div>
     </article>
   );
+}
+
+function revealPreviewTarget(root: HTMLElement, target: HTMLElement, centered: boolean) {
+  const rootRect = root.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (!needsRevealScroll(rootRect, targetRect)) {
+    return;
+  }
+  const scrollOffset = centered ? centeredScrollOffset : nearestScrollOffset;
+  root.scrollTo({
+    behavior: 'smooth',
+    left: scrollOffset({
+      rootScroll: root.scrollLeft,
+      rootSize: rootRect.width,
+      rootStart: rootRect.left,
+      targetSize: targetRect.width,
+      targetStart: targetRect.left,
+    }),
+    top: scrollOffset({
+      rootScroll: root.scrollTop,
+      rootSize: rootRect.height,
+      rootStart: rootRect.top,
+      targetSize: targetRect.height,
+      targetStart: targetRect.top,
+    }),
+  });
 }
 
 export function findAnnotationBox(root: HTMLElement, annotationId: string) {

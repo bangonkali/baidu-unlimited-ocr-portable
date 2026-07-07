@@ -80,7 +80,7 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
         status={search?.status ?? 'all'}
         onChange={onSearchChange}
       />
-      <div className={styles.body}>
+      <div className={styles.body} data-tab={tab}>
         {tab === 'waterfall' ? (
           <div className={styles.waterfallStack}>
             {!hasEmbeddingWaterfallRows ? (

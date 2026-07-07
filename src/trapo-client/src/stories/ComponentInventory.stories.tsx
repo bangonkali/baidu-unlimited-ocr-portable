@@ -18,6 +18,7 @@ const components = [
   'TextPane',
   'DetailsPane',
   'DiagnosticsPanel',
+  'SearchPane',
   'ModelManager',
   'ModelDetailPanel',
   'SettingsPanel',

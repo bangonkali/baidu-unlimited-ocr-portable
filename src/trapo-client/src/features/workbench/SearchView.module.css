@@ -61,17 +61,33 @@
 }
 
 .fileHeader {
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 4px;
   align-items: center;
   min-height: 28px;
   padding: 0 10px;
   color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
   font-size: 12px;
+  cursor: pointer;
 }
 
-.fileHeader span {
+.fileHeader:hover {
+  background: var(--panel-3);
+}
+
+.fileChevron {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  color: var(--muted);
+}
+
+.fileLabel {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -90,17 +106,26 @@
   font-weight: 600;
 }
 
+.fileHits {
+  padding-bottom: 2px;
+}
+
+.searchTree,
+.rankedResults {
+  min-width: 0;
+  padding: 4px 0;
+}
+
 .hit {
   display: grid;
   gap: 3px;
   width: 100%;
   min-width: 0;
-  padding: 6px 10px 7px 22px;
+  padding: 6px 10px 7px 30px;
   color: var(--text);
   text-align: left;
   background: transparent;
   border: 0;
-  border-left: 2px solid transparent;
   cursor: pointer;
 }
 
@@ -108,13 +133,8 @@
   background: var(--panel-3);
 }
 
-.hit[data-source="fts"] {
-  border-left-color: var(--accent);
-}
-
-.hit[data-source="vss"] {
-  border-left-color: var(--success);
-  background: color-mix(in srgb, var(--success) 8%, transparent);
+.rankedHit {
+  padding-left: 10px;
 }
 
 .hitMeta {
@@ -124,6 +144,15 @@
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hitRank {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hitSource {
+  color: var(--text);
 }
 
 .snippet {

@@ -1,88 +1,78 @@
 .diagnosticWaterfallBar {
+  --waterfall-bar-fill: var(--accent);
+  --waterfall-bar-rule: color-mix(in srgb, #020617 24%, transparent);
   display: block;
   width: 100%;
   min-width: 0;
-  height: 22px;
+  height: 100%;
 }
 
 .waterfallLane {
   position: relative;
   display: block;
-  height: 18px;
+  height: 100%;
   overflow: hidden;
-  background:
-    repeating-linear-gradient(
-      to right,
-      transparent 0,
-      transparent calc(20% - 1px),
-      color-mix(in srgb, var(--border) 65%, transparent) calc(20% - 1px),
-      color-mix(in srgb, var(--border) 65%, transparent) 20%
-    ),
-    color-mix(in srgb, var(--panel) 78%, var(--control-bg));
-  border-left: 1px solid var(--subtle-border);
-  border-right: 1px solid var(--subtle-border);
+  background: color-mix(in srgb, var(--panel) 34%, transparent);
+  box-shadow: inset 0 -1px 0 var(--subtle-border);
 }
 
 .waterfallEnvelope,
 .waterfallSegment {
   position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
   display: block;
   min-width: 2px;
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 .waterfallEnvelope {
-  top: 2px;
-  height: 14px;
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  background: color-mix(in srgb, var(--waterfall-bar-fill) 18%, transparent);
+  box-shadow: inset 0 -1px 0 var(--waterfall-bar-rule);
 }
 
 .waterfallSegment {
-  top: 4px;
-  height: 10px;
-  background: var(--accent);
-  border-radius: 1px;
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--accent) 55%, #38bdf8);
+  background: var(--waterfall-bar-fill);
+  box-shadow:
+    inset 0 -1px 0 var(--waterfall-bar-rule),
+    inset -1px 0 0 color-mix(in srgb, var(--waterfall-bar-fill) 55%, #38bdf8);
 }
 
 .diagnosticWaterfallBar[data-parent="true"] .waterfallSegment {
-  top: 6px;
-  height: 6px;
   opacity: 0.75;
 }
 
-.diagnosticWaterfallBar[data-status="completed"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="ok"] .waterfallSegment {
-  background: var(--success);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--success) 55%, #38bdf8);
+:global([data-waterfall-row-id][data-active="true"]) .waterfallLane {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 48%, transparent);
 }
 
-.diagnosticWaterfallBar[data-status="completed"] .waterfallEnvelope,
-.diagnosticWaterfallBar[data-status="ok"] .waterfallEnvelope {
-  border-color: color-mix(in srgb, var(--success) 55%, transparent);
+:global([data-waterfall-row-id][data-hovered="true"]) .waterfallLane,
+:global([data-waterfall-row-id]:hover) .waterfallLane {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
-.diagnosticWaterfallBar[data-status="failed"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="error"] .waterfallSegment {
-  background: var(--danger);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--danger) 45%, #38bdf8);
+.diagnosticWaterfallBar[data-status="completed"],
+.diagnosticWaterfallBar[data-status="ok"] {
+  --waterfall-bar-fill: var(--success);
+  --waterfall-bar-rule: color-mix(in srgb, var(--success) 42%, #020617);
 }
 
-.diagnosticWaterfallBar[data-status="failed"] .waterfallEnvelope,
-.diagnosticWaterfallBar[data-status="error"] .waterfallEnvelope {
-  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+.diagnosticWaterfallBar[data-status="failed"],
+.diagnosticWaterfallBar[data-status="error"] {
+  --waterfall-bar-fill: var(--danger);
+  --waterfall-bar-rule: color-mix(in srgb, var(--danger) 40%, #020617);
 }
 
-.diagnosticWaterfallBar[data-status="running"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="queued"] .waterfallSegment,
-.diagnosticWaterfallBar[data-status="planned"] .waterfallSegment {
-  background: var(--warning);
-  box-shadow: inset -2px 0 0 color-mix(in srgb, var(--warning) 45%, #38bdf8);
-}
-
-.diagnosticWaterfallBar[data-status="running"] .waterfallEnvelope,
-.diagnosticWaterfallBar[data-status="queued"] .waterfallEnvelope,
-.diagnosticWaterfallBar[data-status="planned"] .waterfallEnvelope {
-  border-color: color-mix(in srgb, var(--warning) 55%, transparent);
+.diagnosticWaterfallBar[data-status="running"],
+.diagnosticWaterfallBar[data-status="queued"],
+.diagnosticWaterfallBar[data-status="planned"] {
+  --waterfall-bar-fill: var(--warning);
+  --waterfall-bar-rule: color-mix(in srgb, var(--warning) 40%, #020617);
 }
