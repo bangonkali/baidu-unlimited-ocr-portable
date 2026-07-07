@@ -8,7 +8,7 @@ import { fixtureLogs, fixtureRuns } from '../../stories/fixtures/workbenchFixtur
 import { filterLogs, filterRuns } from './DiagnosticsPanel';
 import { formatMs } from './DiagnosticsPanel.helpers';
 import { LogList } from './DiagnosticsPanel.views';
-import { DiagnosticsWaterfallGrid } from './DiagnosticsWaterfallGrid';
+import { clampWaterfallColumnWidth, DiagnosticsWaterfallGrid } from './DiagnosticsWaterfallGrid';
 import { buildWaterfallRunNodes } from './DiagnosticsWaterfallTree';
 
 describe('diagnostics filters', () => {
@@ -102,13 +102,13 @@ describe('diagnostics waterfall layout', () => {
     );
     expect(html.indexOf('Name')).toBeLessThan(html.indexOf('Timestamp'));
     expect(html.indexOf('Timestamp')).toBeLessThan(html.indexOf('Timespan'));
-    expect(html.indexOf('Timespan')).toBeLessThan(html.indexOf('Waterfall</div>'));
     expect(html).toContain('2026-07-07 01:02:03.004');
     expect(html).toContain('1.00s');
     expect(html).toContain('Resize name column');
-    expect(html).toContain('Waterfall</div>');
     expect(html).toContain('Resize timestamp column');
     expect(html).toContain('Resize timespan column');
+    expect(html).toContain('Resize waterfall column');
+    expect(html).toContain('Waterfall</span>');
     expect(html).toContain('Waterfall rows');
     expect(html).toContain('Waterfall metadata horizontal scroll');
     expect(html.match(/data-waterfall-row-id="span:operation"/g)).toHaveLength(2);
@@ -135,6 +135,15 @@ describe('diagnostics waterfall layout', () => {
     expect(css).toContain('.waterfallRightRow[data-hovered="true"]');
     expect(css).toContain('position: sticky;');
     expect(css).toContain('height: var(--waterfall-row-height);');
+  });
+
+  test('clamps waterfall split and metadata column resizing', () => {
+    expect(clampWaterfallColumnWidth('leftPane', 120, 1000)).toBe(320);
+    expect(clampWaterfallColumnWidth('leftPane', 900, 1000)).toBe(640);
+    expect(clampWaterfallColumnWidth('leftPane', 500, 1000)).toBe(500);
+    expect(clampWaterfallColumnWidth('timestamp', 320, 1000)).toBe(280);
+    expect(clampWaterfallColumnWidth('timespan', 48, 1000)).toBe(72);
+    expect(clampWaterfallColumnWidth('name', 900, 1000)).toBe(820);
   });
 });
 

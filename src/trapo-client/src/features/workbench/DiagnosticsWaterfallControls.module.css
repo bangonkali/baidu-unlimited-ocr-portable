@@ -1,5 +1,8 @@
 .resizeHandle {
+  align-self: stretch;
+  box-sizing: border-box;
   width: 6px;
+  height: 100%;
   padding: 0;
   cursor: col-resize;
   background: transparent;

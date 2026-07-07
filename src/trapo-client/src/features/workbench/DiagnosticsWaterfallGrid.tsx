@@ -17,10 +17,17 @@ interface DiagnosticsWaterfallGridProps {
 }
 
 interface WaterfallColumns {
+  leftPane: number;
   name: number;
   timespan: number;
   timestamp: number;
 }
+
+type WaterfallColumnKey = keyof WaterfallColumns;
+
+const DEFAULT_LEFT_PANE_WIDTH = 548;
+const LEFT_PANE_MIN_WIDTH = 320;
+const WATERFALL_MIN_WIDTH = 360;
 
 interface VisibleWaterfallNode {
   level: number;
@@ -33,11 +40,7 @@ export function DiagnosticsWaterfallGrid({
   onCollapseAll,
   onToggle,
 }: DiagnosticsWaterfallGridProps) {
-  const [columns, setColumns] = useState<WaterfallColumns>({
-    name: 420,
-    timespan: 92,
-    timestamp: 190,
-  });
+  const { beginResize, columns, gridRef } = useResizableWaterfallColumns();
   const [hoveredRowId, setHoveredRowId] = useState<string>();
   const [leftHeaderElement, setLeftHeaderElement] = useState<HTMLDivElement | null>(null);
   const [leftPaneElement, setLeftPaneElement] = useState<HTMLDivElement | null>(null);
@@ -47,25 +50,11 @@ export function DiagnosticsWaterfallGrid({
   const bottomScrollbarRef = useRef<HTMLDivElement>(null);
   const rows = visibleWaterfallRows(nodes, expandedIds);
   const style = {
+    '--waterfall-left-pane-width': `${columns.leftPane}px`,
     '--waterfall-name-column': `${columns.name}px`,
     '--waterfall-timespan-column': `${columns.timespan}px`,
     '--waterfall-timestamp-column': `${columns.timestamp}px`,
   } as CSSProperties;
-  const beginResize = (column: keyof WaterfallColumns, event: PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = columns[column];
-    const handlePointerMove = (moveEvent: globalThis.PointerEvent) => {
-      const width = clampColumnWidth(column, startWidth + moveEvent.clientX - startX);
-      setColumns((current) => ({ ...current, [column]: width }));
-    };
-    const handlePointerUp = () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-  };
   const syncFromLeftPane = (event: UIEvent<HTMLDivElement>) => {
     syncHorizontalScroll(event.currentTarget, bottomScrollbarRef.current, leftHeaderRef.current);
   };
@@ -105,7 +94,7 @@ export function DiagnosticsWaterfallGrid({
     };
   }, [bottomScrollbarElement, leftHeaderElement, leftPaneElement]);
   return (
-    <div className={styles.waterfallGrid} style={style}>
+    <div className={styles.waterfallGrid} ref={gridRef} style={style}>
       <ScrollArea
         aria-label="Waterfall rows"
         className={styles.waterfallVerticalScrollArea}
@@ -158,7 +147,11 @@ export function DiagnosticsWaterfallGrid({
           </section>
           <div className={styles.waterfallRightPane}>
             <div className={styles.waterfallGridActionHeader}>
-              Waterfall
+              <ResizeHandle
+                label="Resize waterfall column"
+                onPointerDown={(event) => beginResize('leftPane', event)}
+              />
+              <span className={styles.waterfallHeaderLabel}>Waterfall</span>
               {expandedIds.size > 0 ? (
                 <button
                   aria-label="Collapse all"
@@ -205,7 +198,45 @@ export function DiagnosticsWaterfallGrid({
   );
 }
 
-function clampColumnWidth(column: keyof WaterfallColumns, width: number) {
+function useResizableWaterfallColumns() {
+  const [columns, setColumns] = useState<WaterfallColumns>({
+    leftPane: DEFAULT_LEFT_PANE_WIDTH,
+    name: 420,
+    timespan: 92,
+    timestamp: 190,
+  });
+  const gridRef = useRef<HTMLDivElement>(null);
+  const beginResize = (column: WaterfallColumnKey, event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columns[column];
+    const gridWidth = gridRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    const handlePointerMove = (moveEvent: globalThis.PointerEvent) => {
+      const width = clampWaterfallColumnWidth(
+        column,
+        startWidth + moveEvent.clientX - startX,
+        gridWidth,
+      );
+      setColumns((current) => ({ ...current, [column]: width }));
+    };
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+  };
+  return { beginResize, columns, gridRef };
+}
+
+export function clampWaterfallColumnWidth(
+  column: WaterfallColumnKey,
+  width: number,
+  gridWidth = Number.POSITIVE_INFINITY,
+) {
+  if (column === 'leftPane') {
+    return clampLeftPaneWidth(width, gridWidth);
+  }
   if (column === 'timestamp') {
     return clamp(width, 150, 280);
   }
@@ -213,6 +244,13 @@ function clampColumnWidth(column: keyof WaterfallColumns, width: number) {
     return clamp(width, 72, 160);
   }
   return clamp(width, 180, 820);
+}
+
+function clampLeftPaneWidth(width: number, gridWidth: number) {
+  const maximum = Number.isFinite(gridWidth)
+    ? Math.max(LEFT_PANE_MIN_WIDTH, gridWidth - WATERFALL_MIN_WIDTH)
+    : Number.POSITIVE_INFINITY;
+  return clamp(width, LEFT_PANE_MIN_WIDTH, maximum);
 }
 
 function syncHorizontalScroll(source: HTMLElement, ...targets: Array<HTMLElement | null>) {

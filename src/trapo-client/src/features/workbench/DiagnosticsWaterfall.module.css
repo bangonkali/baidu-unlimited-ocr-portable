@@ -129,12 +129,13 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr) auto;
+  column-gap: 8px;
   align-items: center;
   height: var(--waterfall-header-height);
   min-height: var(--waterfall-header-height);
-  padding: 0 8px;
+  padding: 0 8px 0 0;
   overflow: hidden;
   color: var(--muted);
   background: var(--panel);
@@ -143,6 +144,12 @@
   font-weight: 600;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.waterfallHeaderLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .waterfallLeftRows,
