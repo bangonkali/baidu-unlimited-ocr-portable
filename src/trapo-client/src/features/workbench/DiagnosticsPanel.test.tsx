@@ -121,11 +121,16 @@ describe('diagnostics waterfall layout', () => {
       'utf8',
     );
     const css = readFileSync(new URL('./DiagnosticsWaterfall.module.css', import.meta.url), 'utf8');
+    const controlCss = readFileSync(
+      new URL('./DiagnosticsWaterfallControls.module.css', import.meta.url),
+      'utf8',
+    );
 
     expect(panelCss).toContain('.body[data-tab="waterfall"]');
     expect(panelCss).toContain('max-height: 100%;');
     expect(css).toContain('--waterfall-header-height: 24px;');
     expect(css).toContain('--waterfall-row-height: 22px;');
+    expect(css).toContain('--waterfall-divider: color-mix');
     expect(css).toContain('grid-template-rows: minmax(0, 1fr) var(--waterfall-scrollbar-height);');
     expect(css).toContain('.waterfallVerticalScrollArea');
     expect(css).toContain('align-items: start;');
@@ -135,6 +140,13 @@ describe('diagnostics waterfall layout', () => {
     expect(css).toContain('.waterfallRightRow[data-hovered="true"]');
     expect(css).toContain('position: sticky;');
     expect(css).toContain('height: var(--waterfall-row-height);');
+    expect(css).toContain('border-right: 1px solid var(--waterfall-divider);');
+    expect(css).toContain('border-left: 1px solid var(--waterfall-divider);');
+    expect(controlCss).toContain('border-left: 1px solid var(--waterfall-divider, transparent);');
+    expect(css).toContain('grid-template-columns: 16px minmax(0, 1fr);');
+    expect(css).toMatch(/\.waterfallNameCell\s*\{[^}]*overflow: hidden;/);
+    expect(css).toMatch(/\.waterfallTimestampCell,[\s\S]*overflow: hidden;/);
+    expect(css).toMatch(/\.waterfallNameButton span\s*\{[^}]*text-overflow: ellipsis;/);
   });
 
   test('clamps waterfall split and metadata column resizing', () => {
@@ -198,7 +210,7 @@ describe('diagnostics waterfall rendering', () => {
     expect(html).toContain('width:50%');
   });
 
-  test('styles waterfall bars as full-height row fills', () => {
+  test('styles waterfall bars as centered compact row bars', () => {
     const css = readFileSync(
       new URL('./DiagnosticsWaterfallBars.module.css', import.meta.url),
       'utf8',
@@ -206,11 +218,12 @@ describe('diagnostics waterfall rendering', () => {
 
     expect(css).toContain('--waterfall-bar-fill: var(--accent);');
     expect(css).toContain('height: 100%;');
-    expect(css).toContain('top: 0;');
-    expect(css).toContain('bottom: 0;');
+    expect(css).toContain('top: 4px;');
+    expect(css).toContain('bottom: 4px;');
+    expect(css).toContain('border-radius: 2px;');
     expect(css).toContain('inset 0 -1px 0');
-    expect(css).not.toContain('height: 10px;');
-    expect(css).not.toContain('height: 6px;');
+    expect(css).not.toContain('top: 0;');
+    expect(css).not.toContain('bottom: 0;');
   });
 
   test('formats nonzero sub-millisecond spans as less than one millisecond', () => {

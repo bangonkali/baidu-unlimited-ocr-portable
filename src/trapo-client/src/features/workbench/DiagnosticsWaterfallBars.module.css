@@ -19,12 +19,12 @@
 .waterfallEnvelope,
 .waterfallSegment {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 4px;
+  bottom: 4px;
   box-sizing: border-box;
   display: block;
   min-width: 2px;
-  border-radius: 0;
+  border-radius: 2px;
 }
 
 .waterfallEnvelope {
