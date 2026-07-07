@@ -228,6 +228,7 @@ include!("app/download_runtime.rs");
 include!("app/annotation_identity_runtime.rs");
 include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
+include!("app/ocr_worker_adapters.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/process_document.rs");
 include!("app/process_document_render.rs");
@@ -268,5 +269,7 @@ include!("app/document_records.rs");
 
 #[cfg(test)]
 include!("app/tests.rs");
+#[cfg(test)]
+include!("app/ocr_worker_tests.rs");
 #[cfg(test)]
 include!("app/rag_text_segments_tests.rs");

@@ -178,7 +178,10 @@ impl AppState {
             return (
                 true,
                 "fallback_adapter".to_string(),
-                Some("native runner integration is pending; fallback output will be diagnostic".to_string()),
+                Some(
+                    "compatibility adapter will run until the native runner is installed"
+                        .to_string(),
+                ),
             );
         }
         (true, "ready".to_string(), None)

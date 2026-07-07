@@ -9,6 +9,9 @@ enum OcrRunWorkerState {
         sender: mpsc::Sender<OcrWorkerMessage>,
         join: Option<thread::JoinHandle<()>>,
     },
+    Adapter {
+        reason: String,
+    },
     Fallback(String),
 }
 
@@ -97,7 +100,13 @@ impl OcrRunWorker {
 
     fn recognize(&self, image_path: &Path, context: OcrStreamContext) -> crate::ocr::OcrResult {
         let OcrRunWorkerState::Ready { sender, .. } = &self.state else {
-            return ocr_failure(self.fallback_reason());
+            return match &self.state {
+                OcrRunWorkerState::Adapter { reason } => {
+                    ocr_adapter_result(image_path, &context, reason)
+                }
+                OcrRunWorkerState::Fallback(_) => ocr_failure(self.fallback_reason()),
+                OcrRunWorkerState::Ready { .. } => unreachable!(),
+            };
         };
         let (response, receiver) = mpsc::channel();
         let request = OcrWorkerRequest {
@@ -119,13 +128,14 @@ impl OcrRunWorker {
     fn fallback_reason(&self) -> String {
         match &self.state {
             OcrRunWorkerState::Ready { .. } => "OCR worker is running".to_string(),
+            OcrRunWorkerState::Adapter { reason } => reason.clone(),
             OcrRunWorkerState::Fallback(reason) => reason.clone(),
         }
     }
 
     fn fallback_error(&self) -> Option<&str> {
         match &self.state {
-            OcrRunWorkerState::Ready { .. } => None,
+            OcrRunWorkerState::Ready { .. } | OcrRunWorkerState::Adapter { .. } => None,
             OcrRunWorkerState::Fallback(reason) => Some(reason),
         }
     }
@@ -151,10 +161,18 @@ impl AppState {
         model_id: &str,
     ) -> OcrRunWorker {
         if engine_id != ENGINE_ID {
-            return OcrRunWorker::fallback(format!(
-                "{engine_id} native runner is not wired yet"
-            ));
+            return self.create_adapter_ocr_worker(engine_id, runtime_id).await;
         }
+        self.create_unlimited_ocr_worker(runtime_id, profile_id, model_id)
+            .await
+    }
+
+    async fn create_unlimited_ocr_worker(
+        &self,
+        runtime_id: &str,
+        profile_id: &str,
+        model_id: &str,
+    ) -> OcrRunWorker {
         let (runtime, profile, model_file) = {
             let state = self.inner.state.lock().await;
             (
@@ -253,37 +271,5 @@ fn ocr_failure(message: impl Into<String>) -> crate::ocr::OcrResult {
         ok: false,
         text: String::new(),
         error: Some(message.into()),
-    }
-}
-
-#[cfg(test)]
-mod ocr_worker_tests {
-    use super::*;
-
-    #[test]
-    fn fallback_worker_returns_failure_result() {
-        let worker = OcrRunWorker::fallback("native OCR assets are not installed");
-        let result = worker.recognize(Path::new("missing.png"), stream_context());
-
-        assert!(!result.ok);
-        assert_eq!(
-            result.error.as_deref(),
-            Some("native OCR assets are not installed")
-        );
-    }
-
-    fn stream_context() -> OcrStreamContext {
-        OcrStreamContext {
-            run_id: "run-a".to_string(),
-            run_engine_id: "01980a3d-a4fc-7000-8000-000000000001".to_string(),
-            file_hash: "file-a".to_string(),
-            page_no: 1,
-            engine_id: ENGINE_ID.to_string(),
-            profile_id: "experimental-exact-prefill-q4".to_string(),
-            model_id: "unlimited-ocr-q4-k-m".to_string(),
-            runtime_id: "windows-x86_64-cuda13".to_string(),
-            runtime_platform: "windows-x86_64-cuda13".to_string(),
-            accelerator: "cuda".to_string(),
-        }
     }
 }

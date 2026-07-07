@@ -18,7 +18,7 @@ fn metrics_tree(rows: Vec<OcrPageMetrics>) -> OcrMetricsTreePayload {
 
 fn fallback_text(image_path: &Path, reason: &str) -> String {
     format!(
-        "OCR was not executed for {} because {reason}.",
+        "OCR fallback output for {}. Reason: {reason}.",
         image_path.file_name().map_or_else(
             || image_path.to_string_lossy().to_string(),
             |value| value.to_string_lossy().to_string()
