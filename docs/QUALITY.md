@@ -32,6 +32,8 @@ The required gates are:
 - `rust`: `cargo fmt`, strict Clippy, server tests, OpenAPI export, and tracked
   schema comparison.
 - `python`: Ruff format/lint, Python compile checks, and Python unit tests.
+- `runtime`: runtime matrix guard, native runner release build, and local
+  runtime engine command smoke when an installed runtime is available.
 - `scc`: repository line-count/complexity threshold enforcement.
 - `skylos`: raw Skylos scan plus first-party triage with zero open findings.
 

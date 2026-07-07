@@ -39,7 +39,9 @@ export function buildWaterfallRunNodes(args: WaterfallTraceNodesArgs): Diagnosti
   }
   const toNode = (row: DiagnosticWaterfallRowRecord): DiagnosticWaterfallNode => ({
     actions: waterfallBar(row, timeline),
-    badge: <span>{formatTimestamp(row.visual_start_ms ?? row.start_ms)}</span>,
+    badge: (
+      <span title={rowTooltip(row)}>{formatTimestamp(row.visual_start_ms ?? row.start_ms)}</span>
+    ),
     children: sortRows(byParent.get(row.row_id) ?? []).map(toNode),
     icon: iconForRow(row),
     id: row.row_id,
@@ -84,6 +86,10 @@ function rowLabel(row: DiagnosticWaterfallRowRecord) {
   if (row.page_no) {
     parts.push(`p${row.page_no}`);
   }
+  const detail = rowActivityDetail(row);
+  if (detail) {
+    parts.push(detail);
+  }
   return parts.join(' - ');
 }
 
@@ -104,6 +110,17 @@ function sourceLabel(row: DiagnosticWaterfallRowRecord) {
     return `Work unit: ${row.label}`;
   }
   return row.label;
+}
+
+function rowActivityDetail(row: DiagnosticWaterfallRowRecord) {
+  if (row.row_source !== 'diagnostic_span') {
+    return '';
+  }
+  const parts = [row.activity_kind, row.span_kind].filter(Boolean);
+  if (row.status_code && row.status_code !== 'unset') {
+    parts.push(row.status_code);
+  }
+  return parts.join('/');
 }
 
 function formatTimestamp(value: number | null | undefined) {
@@ -152,7 +169,8 @@ function waterfallBar(row: DiagnosticWaterfallRowRecord, timeline: WaterfallTime
       className={styles.diagnosticWaterfallBar}
       data-parent={row.child_count > 0}
       data-status={row.status}
-      title={`${row.label} ${formatMs(row.visual_duration_ms || row.duration_ms)}`}
+      data-status-code={row.status_code}
+      title={rowTooltip(row)}
     >
       <span className={styles.waterfallLane}>
         <span className={styles.waterfallEnvelope} style={envelope} />
@@ -160,6 +178,22 @@ function waterfallBar(row: DiagnosticWaterfallRowRecord, timeline: WaterfallTime
       </span>
     </span>
   );
+}
+
+function rowTooltip(row: DiagnosticWaterfallRowRecord) {
+  const duration = formatMs(row.visual_duration_ms || row.duration_ms);
+  const parts = [
+    `${row.label} ${duration}`,
+    `status ${row.status}`,
+    `activity ${row.activity_kind}/${row.span_kind}`,
+  ];
+  if (row.status_code && row.status_code !== 'unset') {
+    parts.push(`status code ${row.status_code}`);
+  }
+  if (row.status_message) {
+    parts.push(row.status_message);
+  }
+  return parts.join(' · ');
 }
 
 function barStyle(

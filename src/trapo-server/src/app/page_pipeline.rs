@@ -50,7 +50,7 @@ impl AppState {
         image_path: &Path,
         context: &OcrStreamContext,
         ocr_worker: &OcrRunWorker,
-    ) -> String {
+    ) -> Result<String> {
         let mut started = stream_context_payload(context);
         started["started_at"] = json!(Utc::now().to_rfc3339());
         self.inner.hub.publish("ocr.page.stream.started", started);
@@ -60,7 +60,7 @@ impl AppState {
                 "ocr.page.stream.completed",
                 stream_terminal_payload(context, "completed", None),
             );
-            result.text
+            Ok(result.text)
         } else {
             let message = result
                 .error
@@ -69,7 +69,7 @@ impl AppState {
                 "ocr.page.stream.failed",
                 stream_terminal_payload(context, "failed", Some(&message)),
             );
-            fallback_text(image_path, &message)
+            Err(AppError::Internal(message))
         }
     }
 

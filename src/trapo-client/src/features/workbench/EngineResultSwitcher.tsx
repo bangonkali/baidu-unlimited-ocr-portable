@@ -25,9 +25,10 @@ export function EngineResultSwitcher({
           aria-pressed={result.run_engine_id === selectedId}
           className={styles.resultButton}
           data-active={result.run_engine_id === selectedId}
+          data-runner={result.runner_status}
           key={result.run_engine_id}
           onClick={() => onSelect(result.run_engine_id)}
-          title={`${result.label} · ${result.status}`}
+          title={resultTitle(result)}
           type="button"
         >
           {result.previewer === 'document_markdown' ? (
@@ -39,10 +40,36 @@ export function EngineResultSwitcher({
           <span className={styles.meta}>
             {result.page_count}p · {statusLabel(result.status)}
           </span>
+          <span className={styles.runner}>{runnerLabel(result)}</span>
         </button>
       ))}
     </div>
   );
+}
+
+function resultTitle(result: IngestPreviewResultRecord) {
+  const parts = [
+    result.label,
+    `status: ${statusLabel(result.status)}`,
+    `runner: ${runnerLabel(result)}`,
+  ];
+  if (result.model_id) {
+    parts.push(`model: ${result.model_id}`);
+  }
+  if (result.runtime_id) {
+    parts.push(`runtime: ${result.runtime_id}`);
+  }
+  if (result.runner_detail) {
+    parts.push(result.runner_detail);
+  }
+  return parts.join(' · ');
+}
+
+function runnerLabel(result: IngestPreviewResultRecord) {
+  if (result.runner_status === 'ready') {
+    return result.runner_kind;
+  }
+  return result.runner_status.replaceAll('_', ' ');
 }
 
 function statusLabel(status: string) {

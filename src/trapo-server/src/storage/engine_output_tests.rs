@@ -51,6 +51,14 @@ mod engine_output_tests {
         assert_eq!(results[0].run_engine_id, config_id);
         assert_eq!(results[0].output_count, 1);
         assert_eq!(results[0].page_count, 1);
+        assert_eq!(
+            results[0].provenance.as_ref().and_then(|value| value["engine_id"].as_str()),
+            Some("unlimited-ocr-ffi")
+        );
+        assert_eq!(
+            results[0].provenance.as_ref().and_then(|value| value["runtime_id"].as_str()),
+            Some("runtime-a")
+        );
 
         let text = repo
             .load_document_text_for_run_engine("file-engine", &results[0].run_engine_id)

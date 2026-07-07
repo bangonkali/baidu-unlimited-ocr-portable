@@ -189,6 +189,34 @@
       "reason": "Install and download paths are rooted through safe_child_path, and archive members are traversal-checked before extraction."
     },
     {
+      "id": "ppocrv6-installer-bounded-writes",
+      "rule_id": "SKY-D324",
+      "category": "danger",
+      "path_glob": "scripts/install_ppocrv6_runtime.py",
+      "reason": "PP-OCRv6 model manifests and downloaded model files are written under the operator-selected runtime output directory after fixed host and file-size validation."
+    },
+    {
+      "id": "ppocrv6-installer-bounded-local-files",
+      "rule_id": "SKY-D325",
+      "category": "danger",
+      "path_glob": "scripts/install_ppocrv6_runtime.py",
+      "reason": "PP-OCRv6 model reads use the fixed embedded-ocr bundle shape or the fixed Hugging Face manifest declared in the installer."
+    },
+    {
+      "id": "ppocrv6-installer-bounded-paths",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "scripts/install_ppocrv6_runtime.py",
+      "reason": "PP-OCRv6 staging paths are derived from the installer output root and fixed model module/file names before copy or download."
+    },
+    {
+      "id": "tesseract-installer-bounded-paths",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "scripts/install_tesseract_runtime.py",
+      "reason": "Tesseract staging copies a discovered system/build binary and tessdata into fixed children of the runtime output directory."
+    },
+    {
       "id": "setup-build-repo-local-paths",
       "rule_id": "SKY-D215",
       "category": "danger",
@@ -208,6 +236,20 @@
       "category": "danger",
       "path_glob": "scripts/package_runtime.py",
       "reason": "Packaging reads fixed repo manifests, release artifacts, and GitHub-provided env files in CI-controlled locations."
+    },
+    {
+      "id": "runtime-engine-guard-local-files",
+      "rule_id": "SKY-D325",
+      "category": "danger",
+      "path_glob": "scripts/runtime_engine_guard*.py",
+      "reason": "The runtime engine guard reads fixed repo manifests, workflow YAML, runtime sidecars, and release archives produced by CI or local quality gates."
+    },
+    {
+      "id": "native-runner-staging-paths",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "scripts/stage_native_runners.py",
+      "reason": "Native runner staging copies fixed Cargo release binaries into the runtime package staging directory selected by CI or the local release operator."
     },
     {
       "id": "workbench-packager-github-network",

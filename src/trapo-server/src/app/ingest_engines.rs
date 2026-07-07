@@ -98,12 +98,18 @@ impl AppState {
         let runtime_id = selection
             .runtime_id
             .filter(|value| !value.is_empty())
-            .or_else(|| model_id.as_ref().map(|_| selected_runtime_id));
+            .or_else(|| model_id.as_ref().map(|_| selected_runtime_id.clone()));
 
         validate_engine_model(model_id.as_deref(), &engine_kind)?;
         validate_engine_profile(profile_id.as_deref())?;
         validate_engine_runtime(runtime_id.as_deref(), &runtime_variants)?;
+        validate_engine_runner(&preset)?;
         self.validate_engine_downloads(preset.engine_id, model_id.as_deref())?;
+        self.validate_engine_runner_binary(
+            preset.engine_id,
+            runtime_id.as_deref(),
+            &selected_runtime_id,
+        )?;
 
         Ok(RunEngineConfigState {
             run_engine_id: new_persistence_id(),
@@ -130,6 +136,7 @@ impl AppState {
         preset: EnginePresetDefinition,
         selected_runtime_id: &str,
     ) -> IngestEnginePresetRecord {
+        let runner = runner_capability(preset.engine_id);
         let (available, availability, availability_detail) =
             self.engine_availability(&preset, selected_runtime_id);
         IngestEnginePresetRecord {
@@ -142,12 +149,15 @@ impl AppState {
             profile_id: preset.profile_id.map(ToString::to_string),
             runtime_id: preset.model_id.map(|_| selected_runtime_id.to_string()),
             previewer: preset.previewer.to_string(),
-            default_enabled: true,
+            default_enabled: available && availability == "ready",
             requires_model: preset.model_id.is_some(),
             download_model_ids: preset.model_id.into_iter().map(ToString::to_string).collect(),
             available,
             availability,
             availability_detail,
+            runner_kind: runner.kind.to_string(),
+            runner_status: runner.status.to_string(),
+            runner_detail: runner.detail.map(ToString::to_string),
             parameter_schema: json!({ "type": "object", "additionalProperties": true }),
             default_parameters: preset.default_parameters,
         }
@@ -174,14 +184,19 @@ impl AppState {
                 Some("select an installed runtime".to_string()),
             );
         }
-        if preset.engine_id != ENGINE_ID {
+        if let Some(expected) = expected_runner_binary(preset.engine_id)
+            && !runner_binary_is_installed(
+                &self.inner.config.app_root,
+                selected_runtime_id,
+                preset.engine_id,
+            )
+        {
             return (
-                true,
-                "fallback_adapter".to_string(),
-                Some(
-                    "compatibility adapter will run until the native runner is installed"
-                        .to_string(),
-                ),
+                false,
+                "native_runner_missing".to_string(),
+                Some(format!(
+                    "build or install the native runner binary: {expected}"
+                )),
             );
         }
         (true, "ready".to_string(), None)
@@ -198,6 +213,26 @@ impl AppState {
         Ok(())
     }
 
+    fn validate_engine_runner_binary(
+        &self,
+        engine_id: &str,
+        runtime_id: Option<&str>,
+        selected_runtime_id: &str,
+    ) -> Result<()> {
+        let Some(expected) = expected_runner_binary(engine_id) else {
+            return Ok(());
+        };
+        let runtime_id = runtime_id
+            .filter(|value| !value.is_empty())
+            .unwrap_or(selected_runtime_id);
+        if runner_binary_is_installed(&self.inner.config.app_root, runtime_id, engine_id) {
+            return Ok(());
+        }
+        Err(AppError::BadRequest(format!(
+            "native runner is missing for engine {engine_id}: expected {expected}"
+        )))
+    }
+
     fn model_files_ready(&self, model_id: &str) -> bool {
         let Some(model) = find_model(model_id) else {
             return false;
@@ -206,53 +241,4 @@ impl AppState {
             .iter()
             .all(|target| file_is_present(&target.target_path))
     }
-}
-
-fn validate_engine_model(model_id: Option<&str>, engine_kind: &str) -> Result<()> {
-    let Some(model_id) = model_id else {
-        return Ok(());
-    };
-    let Some(model) = find_model(model_id) else {
-        return Err(AppError::BadRequest(format!("unknown model id: {model_id}")));
-    };
-    let valid_kind = match engine_kind {
-        "ocr" => model.model_kind == "ocr",
-        "document_understanding" => model.model_kind == "document_understanding",
-        _ => false,
-    };
-    if !valid_kind {
-        return Err(AppError::BadRequest(format!(
-            "model {model_id} is not valid for {engine_kind}"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_engine_profile(profile_id: Option<&str>) -> Result<()> {
-    if let Some(profile_id) = profile_id
-        && find_profile(profile_id).is_none()
-    {
-        return Err(AppError::BadRequest(format!(
-            "unknown OCR profile: {profile_id}"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_engine_runtime(
-    runtime_id: Option<&str>,
-    variants: &[crate::catalog::RuntimeVariant],
-) -> Result<()> {
-    let Some(runtime_id) = runtime_id else {
-        return Ok(());
-    };
-    if variants
-        .iter()
-        .any(|item| item.runtime_id == *runtime_id && item.selectable)
-    {
-        return Ok(());
-    }
-    Err(AppError::BadRequest(format!(
-        "runtime is not supported on this device or is not installed: {runtime_id}"
-    )))
 }

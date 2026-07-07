@@ -26,5 +26,7 @@ export interface DiagnosticEventRecord {
   /** @nullable */
   span_id?: string | null;
   timestamp: string;
+  /** @nullable */
+  timestamp_ms?: number | null;
   trace_id: string;
 }

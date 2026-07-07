@@ -5,6 +5,7 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.5
  */
+import type { IngestPreviewResultRecordProvenance } from './ingestPreviewResultRecordProvenance';
 
 export interface IngestPreviewResultRecord {
   engine_id: string;
@@ -23,8 +24,13 @@ export interface IngestPreviewResultRecord {
   previewer: string;
   /** @nullable */
   profile_id?: string | null;
+  provenance: IngestPreviewResultRecordProvenance;
   run_engine_id: string;
   run_id: string;
+  /** @nullable */
+  runner_detail?: string | null;
+  runner_kind: string;
+  runner_status: string;
   /** @nullable */
   runtime_id?: string | null;
   status: string;

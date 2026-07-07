@@ -18,6 +18,13 @@ fn engine_config_record(config: &RunEngineConfigState) -> IngestEngineConfigReco
 }
 
 fn preview_result_from_engine_config(config: &RunEngineConfigState) -> IngestPreviewResultRecord {
+    let provenance = engine_result_provenance(
+        &config.engine_id,
+        config.model_id.as_deref(),
+        config.profile_id.as_deref(),
+        config.runtime_id.as_deref(),
+    );
+    let runner = runner_capability(&config.engine_id);
     IngestPreviewResultRecord {
         run_engine_id: config.run_engine_id.clone(),
         run_id: config.run_id.clone(),
@@ -33,10 +40,23 @@ fn preview_result_from_engine_config(config: &RunEngineConfigState) -> IngestPre
         output_count: config.usable_output_count,
         page_count: config.usable_output_count,
         error: config.error.clone(),
+        runner_kind: runner.kind.to_string(),
+        runner_status: runner.status.to_string(),
+        runner_detail: runner.detail.map(ToString::to_string),
+        provenance,
     }
 }
 
 fn preview_result_record(row: StoredPreviewResult) -> IngestPreviewResultRecord {
+    let provenance = row.provenance.clone().unwrap_or_else(|| {
+        engine_result_provenance(
+            &row.engine_id,
+            row.model_id.as_deref(),
+            row.profile_id.as_deref(),
+            row.runtime_id.as_deref(),
+        )
+    });
+    let runner = runner_capability(&row.engine_id);
     IngestPreviewResultRecord {
         run_engine_id: row.run_engine_id,
         run_id: row.run_id,
@@ -52,6 +72,10 @@ fn preview_result_record(row: StoredPreviewResult) -> IngestPreviewResultRecord 
         output_count: row.output_count,
         page_count: row.page_count,
         error: row.error,
+        runner_kind: runner.kind.to_string(),
+        runner_status: runner.status.to_string(),
+        runner_detail: runner.detail.map(ToString::to_string),
+        provenance,
     }
 }
 
@@ -124,4 +148,22 @@ fn engine_label(engine_id: &str) -> String {
         "infinity-parser2-flash-gguf" => "Infinity Parser2 Flash".to_string(),
         _ => engine_id.to_string(),
     }
+}
+
+fn engine_result_provenance(
+    engine_id: &str,
+    model_id: Option<&str>,
+    profile_id: Option<&str>,
+    runtime_id: Option<&str>,
+) -> Value {
+    let runner = runner_capability(engine_id);
+    json!({
+        "engine_id": engine_id,
+        "model_id": model_id,
+        "profile_id": profile_id,
+        "runtime_id": runtime_id,
+        "runner_kind": runner.kind,
+        "runner_status": runner.status,
+        "runner_detail": runner.detail
+    })
 }

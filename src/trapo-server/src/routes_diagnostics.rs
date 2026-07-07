@@ -1,6 +1,7 @@
 #[derive(Debug, Deserialize)]
 struct OcrEventsQuery {
     run_id: Option<String>,
+    run_engine_id: Option<String>,
     file_hash: Option<String>,
     page_no: Option<u32>,
     since_sequence: Option<u64>,
@@ -29,13 +30,14 @@ async fn ocr_events(
 ) -> Result<Json<crate::workbench_types::OcrReplayPayload>> {
     Ok(Json(
         state
-            .ocr_replay(
-                query.run_id,
-                query.file_hash,
-                query.page_no,
-                query.since_sequence,
-                query.limit.unwrap_or(5_000),
-            )
+            .ocr_replay(crate::app::OcrReplayRequest {
+                run_id: query.run_id,
+                run_engine_id: query.run_engine_id,
+                file_hash: query.file_hash,
+                page_no: query.page_no,
+                since_sequence: query.since_sequence,
+                limit: query.limit.unwrap_or(5_000),
+            })
             .await?,
     ))
 }

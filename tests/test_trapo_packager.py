@@ -61,6 +61,22 @@ class TrapoPackagerTests(unittest.TestCase):
             self.assertIn("LD_LIBRARY_PATH", launcher)
             self.assertIn("runtime_lib_path", launcher)
 
+    def test_native_runner_names_match_platform_suffixes(self) -> None:
+        self.assertEqual(
+            package_trapo_workbench.native_runner_names("windows-x86_64-cpu"),
+            [
+                "trapo-tesseract-rs-runner.exe",
+                "trapo-pp-ocrv6-runner.exe",
+            ],
+        )
+        self.assertEqual(
+            package_trapo_workbench.native_runner_names("linux-x86_64-cpu"),
+            [
+                "trapo-tesseract-rs-runner",
+                "trapo-pp-ocrv6-runner",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

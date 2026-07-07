@@ -65,7 +65,8 @@
 }
 
 .diagnosticWaterfallBar[data-status="failed"],
-.diagnosticWaterfallBar[data-status="error"] {
+.diagnosticWaterfallBar[data-status="error"],
+.diagnosticWaterfallBar[data-status-code="error"] {
   --waterfall-bar-fill: var(--danger);
   --waterfall-bar-rule: color-mix(in srgb, var(--danger) 40%, #020617);
 }

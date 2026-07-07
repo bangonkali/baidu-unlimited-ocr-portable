@@ -11,6 +11,7 @@ export function useSelectedPageReplay(args: {
   fileHash?: string;
   pageNo: number;
   queryClient: QueryClient;
+  runEngineId?: string;
   runId?: string;
 }) {
   const replay = useOcrReplay(selectedPageReplayRequest(args));
@@ -21,6 +22,7 @@ export function selectedPageReplayRequest(args: {
   enabled: boolean;
   fileHash?: string;
   pageNo: number;
+  runEngineId?: string;
   runId?: string;
 }) {
   return {
@@ -28,6 +30,7 @@ export function selectedPageReplayRequest(args: {
     file_hash: args.fileHash,
     limit: 10_000,
     page_no: args.pageNo,
+    run_engine_id: args.runEngineId,
     run_id: args.runId,
   };
 }

@@ -37,6 +37,7 @@ export interface DiagnosticSpanRecord {
   task_id?: string | null;
   work_unit_id?: string | null;
   span_kind: string;
+  activity_kind: string;
   run_id?: string | null;
   file_hash?: string | null;
   page_no?: number | null;
@@ -45,10 +46,16 @@ export interface DiagnosticSpanRecord {
   category: string;
   annotation_engine?: string | null;
   status: string;
+  status_code: string;
+  status_message?: string | null;
   started_at: string;
   ended_at: string;
+  started_at_ms?: number | null;
+  ended_at_ms?: number | null;
   duration_ms: number;
   attributes: Record<string, unknown>;
+  resource: Record<string, unknown>;
+  links: Record<string, unknown>;
   error_type?: string | null;
   error_message?: string | null;
   error_stack?: string | null;
@@ -62,6 +69,7 @@ export interface DiagnosticEventRecord {
   file_hash?: string | null;
   page_no?: number | null;
   timestamp: string;
+  timestamp_ms?: number | null;
   event_type: string;
   name: string;
   severity: string;
@@ -99,7 +107,10 @@ export interface DiagnosticWaterfallRowRecord {
   pipeline_step: string;
   category: string;
   span_kind: string;
+  activity_kind: string;
   status: string;
+  status_code: string;
+  status_message?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
   duration_ms: number;

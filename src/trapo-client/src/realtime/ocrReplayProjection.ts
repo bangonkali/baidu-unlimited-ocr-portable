@@ -229,7 +229,6 @@ function replayScopeKey(
 function textProjectionKeys(payload: DocumentTextPayload) {
   return payload.run_engine_id
     ? [
-        queryKeys.documentText(payload.file_hash, payload.run_id ?? undefined),
         queryKeys.documentText(
           payload.file_hash,
           payload.run_id ?? undefined,
@@ -242,7 +241,6 @@ function textProjectionKeys(payload: DocumentTextPayload) {
 function regionProjectionKeys(payload: DocumentRegionsPayload) {
   return payload.run_engine_id
     ? [
-        queryKeys.documentRegions(payload.file_hash, payload.run_id ?? undefined),
         queryKeys.documentRegions(
           payload.file_hash,
           payload.run_id ?? undefined,

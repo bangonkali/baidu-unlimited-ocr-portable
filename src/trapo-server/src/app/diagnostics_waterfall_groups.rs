@@ -177,6 +177,7 @@ fn maybe_reparent_rag_file_row(row: &mut WaterfallDraft) -> bool {
 fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {
     WaterfallDraft {
         attributes: input.attributes,
+        activity_kind: "internal".to_string(),
         category: input.category,
         child_count: 0,
         depth: 0,
@@ -200,6 +201,8 @@ fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {
         start_ms: None,
         started_at: None,
         status: input.status,
+        status_code: "unset".to_string(),
+        status_message: None,
         task_id: None,
         trace_id: input.trace_id,
         visual_end_ms: None,

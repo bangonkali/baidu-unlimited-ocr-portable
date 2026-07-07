@@ -146,6 +146,18 @@ def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]
     return unique
 
 
+def collect_runtime_asset_files(build_dir: Path, target: dict[str, Any]) -> list[tuple[Path, str]]:
+    files: list[tuple[Path, str]] = []
+    for asset_dir in target.get("engine_asset_dirs", []):
+        source_dir = build_dir / asset_dir
+        if not source_dir.is_dir():
+            die(f"could not find required runtime asset directory: {source_dir}")
+        for path in source_dir.rglob("*"):
+            if path.is_file():
+                files.append((path, str(path.relative_to(build_dir)).replace("\\", "/")))
+    return files
+
+
 def executable_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
     by_name = {path.name: f"bin/{path.name}" for path in files}
     return {exe: by_name[exe] for exe in target["executables"] if exe in by_name}
@@ -177,6 +189,7 @@ def make_package_manifest(
     repo_root: Path,
     build_dir: Path,
     files: list[Path],
+    asset_files: list[tuple[Path, str]],
     archive_name: str,
     archive_sha256: str | None = None,
     archive_size: int | None = None,
@@ -234,7 +247,9 @@ def make_package_manifest(
             "required_libraries": required_libraries,
             "dependency_libraries": dependency_libraries,
             "ffi_library": next(iter(required_libraries.values()), ""),
-            "files": sorted(f"bin/{path.name}" for path in files),
+            "files": sorted(
+                [f"bin/{path.name}" for path in files] + [relative for _, relative in asset_files]
+            ),
         },
     }
 
@@ -265,6 +280,7 @@ def package_runtime(args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     runtime_files = collect_runtime_files(build_dir, target)
+    runtime_asset_files = collect_runtime_asset_files(build_dir, target)
     if not runtime_files:
         die("no runtime files were collected")
     if target.get("os") == "macos":
@@ -285,6 +301,7 @@ def package_runtime(args: argparse.Namespace) -> None:
         repo_root=repo_root,
         build_dir=build_dir,
         files=runtime_files,
+        asset_files=runtime_asset_files,
         archive_name=archive_name,
     )
 
@@ -302,8 +319,8 @@ def package_runtime(args: argparse.Namespace) -> None:
                     f"Unlimited-OCR native runtime: {args.platform}",
                     f"Version: {version}",
                     "",
-                    "This archive contains native llama.cpp runtime binaries only.",
-                    "GGUF model files are downloaded separately by the setup scripts.",
+                    "This archive contains native Trapo OCR runtime binaries and engine payloads.",
+                    "Large GGUF model files are downloaded separately by the setup scripts.",
                     "",
                 ]
             ),
@@ -314,12 +331,16 @@ def package_runtime(args: argparse.Namespace) -> None:
             with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
                 for source in runtime_files:
                     add_zip_member(zipf, source, f"{root_name}/bin/{source.name}")
+                for source, relative in runtime_asset_files:
+                    add_zip_member(zipf, source, f"{root_name}/{relative}")
                 zipf.write(manifest_path, f"{root_name}/manifest.json")
                 zipf.write(readme_path, f"{root_name}/README.txt")
         elif archive_ext == "tar.gz":
             with tarfile.open(archive_path, "w:gz") as tar:
                 for source in runtime_files:
                     add_tar_member(tar, source, f"{root_name}/bin/{source.name}")
+                for source, relative in runtime_asset_files:
+                    add_tar_member(tar, source, f"{root_name}/{relative}")
                 add_tar_member(tar, manifest_path, f"{root_name}/manifest.json")
                 add_tar_member(tar, readme_path, f"{root_name}/README.txt")
         else:
@@ -334,6 +355,7 @@ def package_runtime(args: argparse.Namespace) -> None:
         repo_root=repo_root,
         build_dir=build_dir,
         files=runtime_files,
+        asset_files=runtime_asset_files,
         archive_name=archive_name,
         archive_sha256=archive_hash,
         archive_size=archive_size,

@@ -21,13 +21,20 @@ from quality_scc import gate_scc
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLIENT_ROOT = REPO_ROOT / "src" / "trapo-client"
-DEFAULT_GATES = ("frontend", "rust", "python", "scc", "skylos")
+DEFAULT_GATES = ("frontend", "rust", "python", "runtime", "scc", "skylos")
 PY_COMPILE_FILES = (
     "scripts/package_runtime.py",
     "scripts/install_runtime.py",
     "scripts/test_ctypes_runtime.py",
     "scripts/package_trapo_workbench.py",
     "scripts/package_runtime_macos.py",
+    "scripts/stage_native_runners.py",
+    "scripts/install_ppocrv6_runtime.py",
+    "scripts/install_tesseract_runtime.py",
+    "scripts/ppocrv6_engine.py",
+    "scripts/runtime_engine_guard.py",
+    "scripts/runtime_engine_guard_manifest.py",
+    "scripts/runtime_engine_guard_runtime.py",
     "scripts/skylos_triage.py",
     "scripts/quality_core.py",
     "scripts/quality_scc.py",
@@ -105,7 +112,26 @@ def gate_rust(report_dir: Path, _: argparse.Namespace) -> GateResult:
             ],
             REPO_ROOT,
         ),
+        CommandSpec(
+            "Clippy native runners",
+            [
+                "cargo",
+                "clippy",
+                "-p",
+                "trapo-native-runners",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+            REPO_ROOT,
+        ),
         CommandSpec("Tests", ["cargo", "test", "-p", "trapo-server"], REPO_ROOT),
+        CommandSpec(
+            "Native runner tests",
+            ["cargo", "test", "-p", "trapo-native-runners"],
+            REPO_ROOT,
+        ),
     ]
     steps = run_commands("rust", specs if include_linux_only else specs[1:], report_dir)
     if steps and steps[-1].passed and include_linux_only:
@@ -153,6 +179,32 @@ def gate_rust(report_dir: Path, _: argparse.Namespace) -> GateResult:
                 )
             )
     return GateResult("rust", tuple(steps), time.monotonic() - start)
+
+
+def gate_runtime(report_dir: Path, _: argparse.Namespace) -> GateResult:
+    start = time.monotonic()
+    specs = [
+        CommandSpec(
+            "Runtime manifest guard",
+            [sys.executable, "scripts/runtime_engine_guard.py", "manifest"],
+            REPO_ROOT,
+        ),
+        CommandSpec(
+            "Build native runner wrappers",
+            ["cargo", "build", "-p", "trapo-native-runners", "--release"],
+            REPO_ROOT,
+        ),
+        CommandSpec(
+            "Local runtime engine smoke",
+            [sys.executable, "scripts/runtime_engine_guard.py", "local-smoke"],
+            REPO_ROOT,
+        ),
+    ]
+    return GateResult(
+        "runtime",
+        tuple(run_commands("runtime", specs, report_dir)),
+        time.monotonic() - start,
+    )
 
 
 def gate_skylos(report_dir: Path, args: argparse.Namespace) -> GateResult:
@@ -225,6 +277,7 @@ GATES: dict[str, Callable[[Path, argparse.Namespace], GateResult]] = {
     "frontend": gate_frontend,
     "rust": gate_rust,
     "python": gate_python,
+    "runtime": gate_runtime,
     "scc": gate_scc,
     "skylos": gate_skylos,
 }

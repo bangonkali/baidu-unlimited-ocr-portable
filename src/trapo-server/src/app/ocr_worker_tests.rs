@@ -15,18 +15,21 @@ mod ocr_worker_tests {
     }
 
     #[test]
-    fn adapter_worker_returns_successful_compatibility_output() {
-        let worker = OcrRunWorker::adapter(
-            "tesseract-rs compatibility adapter active; native runtime not installed",
+    fn missing_native_runner_returns_failure_result() {
+        let worker = OcrRunWorker::fallback(
+            "tesseract-rs native runner binary is not installed; expected trapo-tesseract-rs-runner or tesseract in a runtime bin directory",
         );
         let mut context = stream_context();
         context.engine_id = "tesseract-rs".to_string();
         let result = worker.recognize(Path::new("page-1.png"), context);
 
-        assert!(result.ok);
-        assert!(worker.fallback_error().is_none());
-        assert!(result.text.contains("Compatibility adapter output"));
-        assert!(result.text.contains("tesseract-rs"));
+        assert!(!result.ok);
+        assert_eq!(
+            result.error.as_deref(),
+            Some(
+                "tesseract-rs native runner binary is not installed; expected trapo-tesseract-rs-runner or tesseract in a runtime bin directory"
+            )
+        );
     }
 
     fn stream_context() -> OcrStreamContext {

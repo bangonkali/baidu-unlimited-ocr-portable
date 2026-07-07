@@ -8,6 +8,15 @@ struct PageDiagnosticFinish<'a> {
     result: &'a Result<()>,
 }
 
+struct RenderedPagesInput<'a> {
+    completed_pages: &'a BTreeSet<(String, u32)>,
+    file_hash: &'a str,
+    ocr_context: &'a OcrRunContext<'a>,
+    parent_activity: &'a ActivityContext,
+    rendered: Vec<RenderedPage>,
+    run_id: &'a str,
+}
+
 fn queued_page_state(page: &RenderedPage) -> PageState {
     PageState {
         page_no: page.page_no,

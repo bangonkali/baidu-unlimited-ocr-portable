@@ -1326,6 +1326,14 @@
             }
           },
           {
+            "name": "run_engine_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "file_hash",
             "in": "query",
             "required": false,
@@ -1878,6 +1886,13 @@
           "timestamp": {
             "type": "string"
           },
+          "timestamp_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "trace_id": {
             "type": "string"
           }
@@ -2234,16 +2249,23 @@
           "span_id",
           "trace_id",
           "span_kind",
+          "activity_kind",
           "name",
           "pipeline_step",
           "category",
           "status",
+          "status_code",
           "started_at",
           "ended_at",
           "duration_ms",
-          "attributes"
+          "attributes",
+          "resource",
+          "links"
         ],
         "properties": {
+          "activity_kind": {
+            "type": "string"
+          },
           "annotation_engine": {
             "type": [
               "string",
@@ -2262,6 +2284,13 @@
           },
           "ended_at": {
             "type": "string"
+          },
+          "ended_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           },
           "error_message": {
             "type": [
@@ -2287,6 +2316,9 @@
               "null"
             ]
           },
+          "links": {
+            "type": "object"
+          },
           "name": {
             "type": "string"
           },
@@ -2307,6 +2339,9 @@
           "pipeline_step": {
             "type": "string"
           },
+          "resource": {
+            "type": "object"
+          },
           "run_id": {
             "type": [
               "string",
@@ -2322,8 +2357,24 @@
           "started_at": {
             "type": "string"
           },
+          "started_at_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "status": {
             "type": "string"
+          },
+          "status_code": {
+            "type": "string"
+          },
+          "status_message": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "task_id": {
             "type": [
@@ -2431,7 +2482,9 @@
           "pipeline_step",
           "category",
           "span_kind",
+          "activity_kind",
           "status",
+          "status_code",
           "duration_ms",
           "visual_duration_ms",
           "depth",
@@ -2440,6 +2493,9 @@
           "attributes"
         ],
         "properties": {
+          "activity_kind": {
+            "type": "string"
+          },
           "attributes": {
             "type": "object"
           },
@@ -2558,6 +2614,15 @@
           },
           "status": {
             "type": "string"
+          },
+          "status_code": {
+            "type": "string"
+          },
+          "status_message": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "task_id": {
             "type": [
@@ -3395,6 +3460,8 @@
           "download_model_ids",
           "available",
           "availability",
+          "runner_kind",
+          "runner_status",
           "parameter_schema",
           "default_parameters"
         ],
@@ -3458,6 +3525,18 @@
           },
           "requires_model": {
             "type": "boolean"
+          },
+          "runner_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runner_kind": {
+            "type": "string"
+          },
+          "runner_status": {
+            "type": "string"
           },
           "runtime_id": {
             "type": [
@@ -3544,7 +3623,10 @@
           "status",
           "previewer",
           "output_count",
-          "page_count"
+          "page_count",
+          "runner_kind",
+          "runner_status",
+          "provenance"
         ],
         "properties": {
           "engine_id": {
@@ -3592,10 +3674,25 @@
               "null"
             ]
           },
+          "provenance": {
+            "type": "object"
+          },
           "run_engine_id": {
             "type": "string"
           },
           "run_id": {
+            "type": "string"
+          },
+          "runner_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runner_kind": {
+            "type": "string"
+          },
+          "runner_status": {
             "type": "string"
           },
           "runtime_id": {

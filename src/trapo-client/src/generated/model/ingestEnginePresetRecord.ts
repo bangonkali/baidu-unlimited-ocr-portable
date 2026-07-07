@@ -29,5 +29,9 @@ export interface IngestEnginePresetRecord {
   profile_id?: string | null;
   requires_model: boolean;
   /** @nullable */
+  runner_detail?: string | null;
+  runner_kind: string;
+  runner_status: string;
+  /** @nullable */
   runtime_id?: string | null;
 }

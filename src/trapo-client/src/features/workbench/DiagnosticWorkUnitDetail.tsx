@@ -105,10 +105,13 @@ function DetailSection({
 
 function spanRow(span: DiagnosticSpanRecord): DetailRow {
   return {
-    detail: span.pipeline_step,
+    detail: `${span.pipeline_step} · ${span.activity_kind}/${span.span_kind}`,
     id: span.span_id,
     label: span.name,
-    meta: formatMs(span.duration_ms),
+    meta:
+      span.status_code && span.status_code !== 'unset'
+        ? `${span.status_code} · ${formatMs(span.duration_ms)}`
+        : formatMs(span.duration_ms),
   };
 }
 
@@ -117,6 +120,16 @@ function eventRow(event: DiagnosticEventRecord): DetailRow {
     detail: event.message,
     id: event.event_id,
     label: event.name,
-    meta: event.severity,
+    meta: event.timestamp_ms
+      ? `${event.severity} · ${formatEventTime(event.timestamp_ms)}`
+      : event.severity,
   };
+}
+
+function formatEventTime(timestampMs: number) {
+  const date = new Date(timestampMs);
+  return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(
+    2,
+    '0',
+  )}:${String(date.getUTCSeconds()).padStart(2, '0')}`;
 }

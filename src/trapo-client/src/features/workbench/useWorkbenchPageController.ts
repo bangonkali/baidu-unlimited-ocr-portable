@@ -118,6 +118,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     fileHash: workbench.selection.fileHash,
     pageNo: workbench.selection.pageNo,
     queryClient,
+    runEngineId: data.selectedRunEngineId,
     runId: data.documentRunId,
   });
 

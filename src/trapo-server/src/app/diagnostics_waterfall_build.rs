@@ -1,6 +1,7 @@
 #[derive(Clone, Debug)]
 struct WaterfallDraft {
     attributes: Value,
+    activity_kind: String,
     category: String,
     child_count: u32,
     depth: u32,
@@ -24,6 +25,8 @@ struct WaterfallDraft {
     start_ms: Option<f64>,
     started_at: Option<String>,
     status: String,
+    status_code: String,
+    status_message: Option<String>,
     task_id: Option<String>,
     trace_id: String,
     visual_end_ms: Option<f64>,
@@ -76,6 +79,7 @@ fn task_waterfall_row(task: PipelineTaskRow, now_ms: f64) -> WaterfallDraft {
         .or_else(|| active_status_end_ms(&task.status, now_ms));
     WaterfallDraft {
         attributes: json!({"params": task.params, "result": task.result, "runner_id": task.runner_id}),
+        activity_kind: "internal".to_string(),
         category: "pipeline_task".to_string(),
         child_count: 0,
         depth: 0,
@@ -99,6 +103,11 @@ fn task_waterfall_row(task: PipelineTaskRow, now_ms: f64) -> WaterfallDraft {
         start_ms: start,
         started_at: task.started_at.or(Some(task.queued_at)),
         status: task.status,
+        status_code: task
+            .error
+            .as_ref()
+            .map_or_else(|| "unset".to_string(), |_| "error".to_string()),
+        status_message: task.error.clone(),
         task_id: Some(task.task_id),
         trace_id: task.origin_run_id.unwrap_or_else(|| "unscoped".to_string()),
         visual_end_ms: end,
@@ -125,6 +134,7 @@ fn work_unit_waterfall_row(unit: DiagnosticWorkUnitRow, now_ms: f64) -> Waterfal
         .map_or_else(|| unit.phase.clone(), |page| format!("{} page {page}", unit.phase));
     WaterfallDraft {
         attributes: json!({"result": unit.result, "metadata": unit.metadata}),
+        activity_kind: "internal".to_string(),
         category: "work_unit".to_string(),
         child_count: 0,
         depth: 0,
@@ -148,6 +158,11 @@ fn work_unit_waterfall_row(unit: DiagnosticWorkUnitRow, now_ms: f64) -> Waterfal
         start_ms: start,
         started_at: unit.started_at,
         status: unit.status,
+        status_code: unit
+            .error
+            .as_ref()
+            .map_or_else(|| "unset".to_string(), |_| "error".to_string()),
+        status_message: unit.error.clone(),
         task_id: None,
         trace_id: unit.run_id,
         visual_end_ms: end,
@@ -162,8 +177,14 @@ fn span_waterfall_row(
     now_ms: f64,
     work_unit_matches: &HashMap<String, DiagnosticWorkUnitRow>,
 ) -> WaterfallDraft {
-    let start = parse_timestamp_ms(&span.started_at, true);
-    let end = parse_timestamp_ms(&span.ended_at, false)
+    let start = span
+        .started_at_ms
+        .map(timestamp_millis_f64)
+        .or_else(|| parse_timestamp_ms(&span.started_at, true));
+    let end = span
+        .ended_at_ms
+        .map(timestamp_millis_f64)
+        .or_else(|| parse_timestamp_ms(&span.ended_at, false))
         .or_else(|| active_status_end_ms(&span.status, now_ms));
     let parent_row_id = span
         .parent_span_id
@@ -188,6 +209,7 @@ fn span_waterfall_row(
     }).or_else(|| span.filename.clone());
     WaterfallDraft {
         attributes,
+        activity_kind: span.activity_kind,
         category: span.category,
         child_count: 0,
         depth: 0,
@@ -211,6 +233,8 @@ fn span_waterfall_row(
         start_ms: start,
         started_at: Some(span.started_at),
         status: span.status,
+        status_code: span.status_code,
+        status_message: span.status_message,
         task_id: span.task_id,
         trace_id: span.trace_id,
         visual_end_ms: end,

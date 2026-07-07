@@ -17,12 +17,14 @@ impl AppState {
             run_id,
             text_index_after_ingest,
         } = execution;
+        let run_scope = DiagnosticSpanScope::start_root(&run_id);
+        let run_activity = run_scope.context(&run_id);
         self.mark_run_status(&run_id, "running", None).await;
         for engine_config in engine_configs {
             if self.run_cancelled(&run_id).await {
                 break;
             }
-            self.run_ingest_engine(&run_id, &files, &completed_pages, engine_config)
+            self.run_ingest_engine(&run_id, &files, &completed_pages, engine_config, &run_activity)
                 .await;
         }
         let final_status = self.finish_ingest_run(&run_id).await;
@@ -36,6 +38,28 @@ impl AppState {
             )
             .await;
         }
+        self.record_span(
+            run_scope,
+            SpanFinish {
+                run_id: &run_id,
+                task_id: None,
+                work_unit_id: None,
+                parent_span_id: None,
+                file_hash: None,
+                page_no: None,
+                name: "Ingest run",
+                pipeline_step: "ingest.run",
+                category: "run",
+                engine: None,
+                status: final_status.as_str(),
+                error: None,
+                attributes: json!({
+                    "file_count": files.len(),
+                    "post_ingest_text_index": text_index_after_ingest,
+                    "post_ingest_embedding": embedding_after_ingest
+                }),
+            },
+        );
     }
 
     async fn run_ingest_engine(
@@ -44,7 +68,10 @@ impl AppState {
         files: &[DiscoveredFile],
         completed_pages: &BTreeSet<(String, u32)>,
         engine_config: RunEngineConfigState,
+        parent_activity: &ActivityContext,
     ) {
+        let engine_scope = DiagnosticSpanScope::start_child(parent_activity);
+        let engine_activity = engine_scope.context(run_id);
         let profile_id = engine_config.profile_id.clone().unwrap_or_default();
         let model_id = engine_config.model_id.clone().unwrap_or_default();
         let runtime_id = engine_config.runtime_id.clone().unwrap_or_default();
@@ -68,7 +95,7 @@ impl AppState {
         if let Some(reason) = fallback_reason.as_deref() {
             self.log_warn(
                 "ocr",
-                format!("using fallback output for {}: {reason}", engine_config.engine_id),
+                format!("OCR worker unavailable for {}: {reason}", engine_config.engine_id),
             );
         }
         let (runtime_platform, accelerator) = self.runtime_stream_metadata(&runtime_id).await;
@@ -82,23 +109,58 @@ impl AppState {
             runtime_platform: &runtime_platform,
             accelerator: &accelerator,
             worker: &ocr_worker,
+            activity_context: engine_activity,
         };
-        let mut output_count = 0_u32;
-        let mut failed = false;
+        let outcome = self
+            .run_ingest_engine_files(run_id, files, completed_pages, &ocr_context)
+            .await;
+        let status = engine_completion_status(
+            outcome.output_count,
+            outcome.failed,
+            fallback_reason.is_some(),
+        );
+        self.mark_engine_status(
+            &engine_config.run_engine_id,
+            status,
+            fallback_reason.as_deref(),
+            outcome.output_count,
+        )
+        .await;
+        self.record_ingest_engine_span(
+            engine_scope,
+            &IngestEngineSpanFinish {
+                config: &engine_config,
+                fallback_reason: fallback_reason.as_deref(),
+                model_id: &model_id,
+                output_count: outcome.output_count,
+                profile_id: &profile_id,
+                run_id,
+                runtime_id: &runtime_id,
+                status,
+            },
+        );
+    }
+
+    async fn run_ingest_engine_files(
+        &self,
+        run_id: &str,
+        files: &[DiscoveredFile],
+        completed_pages: &BTreeSet<(String, u32)>,
+        ocr_context: &OcrRunContext<'_>,
+    ) -> EngineRunOutcome {
+        let mut outcome = EngineRunOutcome::default();
         for file in files {
             if self.run_cancelled(run_id).await {
                 break;
             }
             let file_hash = stable_hash(file);
             match self
-                .process_document(run_id, &file_hash, &ocr_context, completed_pages)
+                .process_document(run_id, &file_hash, ocr_context, completed_pages)
                 .await
             {
-                Ok(()) => {
-                    output_count = output_count.saturating_add(1);
-                }
+                Ok(()) => outcome.output_count = outcome.output_count.saturating_add(1),
                 Err(error) => {
-                    failed = true;
+                    outcome.failed = true;
                     self.record_diagnostic_event(
                         run_id,
                         Some(&file_hash),
@@ -111,14 +173,40 @@ impl AppState {
                 }
             }
         }
-        let status = engine_completion_status(output_count, failed, fallback_reason.is_some());
-        self.mark_engine_status(
-            &engine_config.run_engine_id,
-            status,
-            fallback_reason.as_deref(),
-            output_count,
-        )
-        .await;
+        outcome
+    }
+
+    fn record_ingest_engine_span(
+        &self,
+        scope: DiagnosticSpanScope,
+        finish: &IngestEngineSpanFinish<'_>,
+    ) {
+        let engine_name = engine_label(&finish.config.engine_id);
+        self.record_span(
+            scope,
+            SpanFinish {
+                run_id: finish.run_id,
+                task_id: None,
+                work_unit_id: None,
+                parent_span_id: None,
+                file_hash: None,
+                page_no: None,
+                name: engine_name.as_str(),
+                pipeline_step: "ingest.engine",
+                category: "engine",
+                engine: Some(&finish.config.engine_id),
+                status: finish.status,
+                error: finish.fallback_reason,
+                attributes: json!({
+                    "run_engine_id": finish.config.run_engine_id.as_str(),
+                    "engine_kind": finish.config.engine_kind.as_str(),
+                    "model_id": finish.model_id,
+                    "profile_id": finish.profile_id,
+                    "runtime_id": finish.runtime_id,
+                    "output_count": finish.output_count
+                }),
+            },
+        );
     }
 
     async fn finish_ingest_run(&self, run_id: &str) -> String {
@@ -179,25 +267,4 @@ impl AppState {
             self.log_warn("rag", format!("post-ingest embedding failed: {error}"));
         }
     }
-}
-
-const fn engine_completion_status(output_count: u32, failed: bool, fallback: bool) -> &'static str {
-    if output_count == 0 && failed {
-        "failed"
-    } else if failed || fallback {
-        "completed_with_errors"
-    } else {
-        "completed"
-    }
-}
-
-struct IngestExecution {
-    completed_pages: BTreeSet<(String, u32)>,
-    embedding_after_ingest: bool,
-    embedding_dimension: Option<u32>,
-    embedding_model_id: Option<String>,
-    engine_configs: Vec<RunEngineConfigState>,
-    files: Vec<DiscoveredFile>,
-    run_id: String,
-    text_index_after_ingest: bool,
 }

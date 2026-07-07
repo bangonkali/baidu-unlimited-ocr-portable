@@ -1,31 +1,36 @@
+pub(crate) struct OcrReplayRequest {
+    pub(crate) run_id: Option<String>,
+    pub(crate) run_engine_id: Option<String>,
+    pub(crate) file_hash: Option<String>,
+    pub(crate) page_no: Option<u32>,
+    pub(crate) since_sequence: Option<u64>,
+    pub(crate) limit: usize,
+}
+
 impl AppState {
-    pub(crate) async fn ocr_replay(
-        &self,
-        run_id: Option<String>,
-        file_hash: Option<String>,
-        page_no: Option<u32>,
-        since_sequence: Option<u64>,
-        limit: usize,
-    ) -> Result<OcrReplayPayload> {
-        let limit = limit.min(10_000);
+    pub(crate) async fn ocr_replay(&self, request: OcrReplayRequest) -> Result<OcrReplayPayload> {
+        let limit = request.limit.min(10_000);
         let mut events = self
             .inner
             .repository
             .list_ocr_stream_events(
-                run_id.as_deref(),
-                file_hash.as_deref(),
-                page_no,
-                since_sequence,
+                request.run_id.as_deref(),
+                request.file_hash.as_deref(),
+                request.page_no,
+                request.since_sequence,
                 limit_u32(limit, 10_000),
             )
             .await?;
         events.extend(self.inner.hub.recent_ocr_events(
-            run_id.as_deref(),
-            file_hash.as_deref(),
-            page_no,
-            since_sequence,
+            request.run_id.as_deref(),
+            request.file_hash.as_deref(),
+            request.page_no,
+            request.since_sequence,
             limit,
         ));
+        if let Some(run_engine_id) = request.run_engine_id.as_deref() {
+            events.retain(|event| event_run_engine_id(event) == Some(run_engine_id));
+        }
         events.sort_by_key(|event| event.sequence);
         events.dedup_by_key(|event| event.sequence);
         events.truncate(limit);
@@ -35,6 +40,10 @@ impl AppState {
             next_since_sequence,
         })
     }
+}
+
+fn event_run_engine_id(event: &StoredRealtimeEvent) -> Option<&str> {
+    event.payload.get("run_engine_id").and_then(Value::as_str)
 }
 
 fn realtime_event_record(row: StoredRealtimeEvent) -> RealtimeEventRecord {

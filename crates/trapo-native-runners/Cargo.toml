@@ -1,0 +1,21 @@
+[package]
+name = "trapo-native-runners"
+version = "0.1.5"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Small process-contract wrappers for Trapo OCR native engines"
+readme = "README.md"
+keywords = ["ocr", "runtime", "trapo"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "trapo-tesseract-rs-runner"
+path = "src/bin/trapo-tesseract-rs-runner.rs"
+
+[[bin]]
+name = "trapo-pp-ocrv6-runner"
+path = "src/bin/trapo-pp-ocrv6-runner.rs"
+
+[lints]
+workspace = true

@@ -245,6 +245,10 @@ mod coverage_tests {
         assert!(is_uuid_v7(spans[0].task_id.as_deref().unwrap_or_default()));
         assert!(is_uuid_v7(spans[0].work_unit_id.as_deref().unwrap_or_default()));
         assert_eq!(spans[0].span_kind, "ocr_page");
+        assert_eq!(spans[0].activity_kind, "internal");
+        assert_eq!(spans[0].status_code, "error");
+        assert_eq!(spans[0].started_at_ms, Some(1_783_036_800_000));
+        assert_eq!(events[0].timestamp_ms, Some(1_783_036_801_000));
         let (spans, events) = repo
             .diagnostic_trace(&DiagnosticTraceFilter {
                 run_id: Some("run-d"),

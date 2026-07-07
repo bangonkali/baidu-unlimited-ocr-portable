@@ -15,6 +15,7 @@ import type {
 
 export function useOcrReplay(params: {
   run_id?: string;
+  run_engine_id?: string;
   file_hash?: string;
   page_no?: number;
   since_sequence?: number;

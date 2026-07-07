@@ -49,6 +49,7 @@ pub(crate) struct DiagnosticSpanRecord {
     pub(crate) task_id: Option<String>,
     pub(crate) work_unit_id: Option<String>,
     pub(crate) span_kind: String,
+    pub(crate) activity_kind: String,
     pub(crate) run_id: Option<String>,
     pub(crate) file_hash: Option<String>,
     pub(crate) page_no: Option<u32>,
@@ -57,11 +58,19 @@ pub(crate) struct DiagnosticSpanRecord {
     pub(crate) category: String,
     pub(crate) annotation_engine: Option<String>,
     pub(crate) status: String,
+    pub(crate) status_code: String,
+    pub(crate) status_message: Option<String>,
     pub(crate) started_at: String,
     pub(crate) ended_at: String,
+    pub(crate) started_at_ms: Option<i64>,
+    pub(crate) ended_at_ms: Option<i64>,
     pub(crate) duration_ms: f64,
     #[schema(value_type = Object)]
     pub(crate) attributes: Value,
+    #[schema(value_type = Object)]
+    pub(crate) resource: Value,
+    #[schema(value_type = Object)]
+    pub(crate) links: Value,
     pub(crate) error_type: Option<String>,
     pub(crate) error_message: Option<String>,
     pub(crate) error_stack: Option<String>,
@@ -76,6 +85,7 @@ pub(crate) struct DiagnosticEventRecord {
     pub(crate) file_hash: Option<String>,
     pub(crate) page_no: Option<u32>,
     pub(crate) timestamp: String,
+    pub(crate) timestamp_ms: Option<i64>,
     pub(crate) event_type: String,
     pub(crate) name: String,
     pub(crate) severity: String,
@@ -117,7 +127,10 @@ pub(crate) struct DiagnosticWaterfallRowRecord {
     pub(crate) pipeline_step: String,
     pub(crate) category: String,
     pub(crate) span_kind: String,
+    pub(crate) activity_kind: String,
     pub(crate) status: String,
+    pub(crate) status_code: String,
+    pub(crate) status_message: Option<String>,
     pub(crate) started_at: Option<String>,
     pub(crate) ended_at: Option<String>,
     pub(crate) duration_ms: f64,
@@ -242,48 +255,4 @@ pub(crate) struct DiagnosticWorkUnitDetailPayload {
     pub(crate) model_leases: Vec<DiagnosticModelLeaseRecord>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticBreakdownRecord {
-    pub(crate) key: String,
-    pub(crate) count: u32,
-    pub(crate) total_duration_ms: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticSlowSpanRecord {
-    pub(crate) span_id: String,
-    pub(crate) name: String,
-    pub(crate) pipeline_step: String,
-    pub(crate) duration_ms: f64,
-    pub(crate) status: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticRecommendationRecord {
-    pub(crate) severity: String,
-    pub(crate) title: String,
-    pub(crate) detail: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticAnalyticsSummary {
-    pub(crate) span_count: u32,
-    pub(crate) event_count: u32,
-    pub(crate) error_count: u32,
-    pub(crate) total_duration_ms: f64,
-    pub(crate) average_span_ms: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticAnalyticsPayload {
-    pub(crate) summary: DiagnosticAnalyticsSummary,
-    pub(crate) by_pipeline_step: Vec<DiagnosticBreakdownRecord>,
-    pub(crate) by_category: Vec<DiagnosticBreakdownRecord>,
-    pub(crate) slow_spans: Vec<DiagnosticSlowSpanRecord>,
-    pub(crate) recommendations: Vec<DiagnosticRecommendationRecord>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub(crate) struct DiagnosticModelsPayload {
-    pub(crate) model_leases: Vec<DiagnosticModelLeaseRecord>,
-}
+include!("workbench_diagnostics_analytics_types.rs");

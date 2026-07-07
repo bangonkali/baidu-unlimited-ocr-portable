@@ -12,11 +12,11 @@
 
 .resultButton {
   display: inline-grid;
-  grid-template-columns: auto minmax(72px, max-content) auto;
-  gap: 7px;
+  grid-template-columns: auto minmax(72px, max-content) auto auto;
+  gap: 6px;
   align-items: center;
   height: 26px;
-  max-width: 280px;
+  max-width: 360px;
   padding: 0 9px;
   color: var(--muted);
   white-space: nowrap;
@@ -39,7 +39,8 @@
 }
 
 .label,
-.meta {
+.meta,
+.runner {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -53,4 +54,20 @@
 .meta {
   color: var(--subtle);
   font-size: 11px;
+}
+
+.runner {
+  max-width: 116px;
+  padding: 1px 5px;
+  color: var(--subtle);
+  font-size: 10px;
+  line-height: 14px;
+  background: color-mix(in srgb, var(--panel-3) 72%, transparent);
+  border: 1px solid var(--subtle-border);
+  border-radius: 3px;
+}
+
+.resultButton[data-runner="ready"] .runner {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 36%, var(--subtle-border));
 }

@@ -9,15 +9,17 @@ enum OcrRunWorkerState {
         sender: mpsc::Sender<OcrWorkerMessage>,
         join: Option<thread::JoinHandle<()>>,
     },
-    Adapter {
-        reason: String,
-    },
     Fallback(String),
 }
 
 enum OcrWorkerMessage {
     Recognize(Box<OcrWorkerRequest>),
     Shutdown,
+}
+
+enum OcrWorkerBackend {
+    Unlimited(crate::ocr::UnlimitedOcrFfiEngine),
+    Adapter(ocr_engines::EngineRunner),
 }
 
 struct OcrWorkerRequest {
@@ -36,6 +38,7 @@ struct OcrRunContext<'a> {
     runtime_platform: &'a str,
     accelerator: &'a str,
     worker: &'a OcrRunWorker,
+    activity_context: ActivityContext,
 }
 
 struct PageWork<'a> {
@@ -53,7 +56,7 @@ impl OcrRunWorker {
         }
     }
 
-    fn spawn(
+    fn spawn_unlimited(
         paths: crate::ocr::OcrRuntimePaths,
         profile: crate::types::OcrProfileRecord,
         hub: Arc<RealtimeHub>,
@@ -65,7 +68,7 @@ impl OcrRunWorker {
         let join = match thread::Builder::new()
             .name("trapo-ocr-worker".to_string())
             .spawn(move || {
-                let mut engine = match crate::ocr::UnlimitedOcrFfiEngine::load(&paths, &profile) {
+                let engine = match crate::ocr::UnlimitedOcrFfiEngine::load(&paths, &profile) {
                     Ok(engine) => engine,
                     Err(error) => {
                         let _ = ready_sender.send(Err(error.to_string()));
@@ -73,7 +76,13 @@ impl OcrRunWorker {
                     }
                 };
                 let _ = ready_sender.send(Ok(()));
-                run_worker_loop(&mut engine, receiver, max_tokens, &hub, &annotation_identities);
+                run_worker_loop(
+                    OcrWorkerBackend::Unlimited(engine),
+                    receiver,
+                    max_tokens,
+                    &hub,
+                    &annotation_identities,
+                );
             }) {
             Ok(join) => join,
             Err(error) => {
@@ -98,12 +107,39 @@ impl OcrRunWorker {
         }
     }
 
+    fn spawn_adapter(
+        runner: ocr_engines::EngineRunner,
+        hub: Arc<RealtimeHub>,
+        annotation_identities: AnnotationIdentityRuntime,
+    ) -> Self {
+        let (sender, receiver) = mpsc::channel();
+        let join = match thread::Builder::new()
+            .name(format!("trapo-{}-worker", runner.engine_id()))
+            .spawn(move || {
+                run_worker_loop(
+                    OcrWorkerBackend::Adapter(runner),
+                    receiver,
+                    0,
+                    &hub,
+                    &annotation_identities,
+                );
+            }) {
+            Ok(join) => join,
+            Err(error) => {
+                return Self::fallback(format!("could not start OCR adapter worker thread: {error}"));
+            }
+        };
+        Self {
+            state: OcrRunWorkerState::Ready {
+                sender,
+                join: Some(join),
+            },
+        }
+    }
+
     fn recognize(&self, image_path: &Path, context: OcrStreamContext) -> crate::ocr::OcrResult {
         let OcrRunWorkerState::Ready { sender, .. } = &self.state else {
             return match &self.state {
-                OcrRunWorkerState::Adapter { reason } => {
-                    ocr_adapter_result(image_path, &context, reason)
-                }
                 OcrRunWorkerState::Fallback(_) => ocr_failure(self.fallback_reason()),
                 OcrRunWorkerState::Ready { .. } => unreachable!(),
             };
@@ -128,14 +164,13 @@ impl OcrRunWorker {
     fn fallback_reason(&self) -> String {
         match &self.state {
             OcrRunWorkerState::Ready { .. } => "OCR worker is running".to_string(),
-            OcrRunWorkerState::Adapter { reason } => reason.clone(),
             OcrRunWorkerState::Fallback(reason) => reason.clone(),
         }
     }
 
     fn fallback_error(&self) -> Option<&str> {
         match &self.state {
-            OcrRunWorkerState::Ready { .. } | OcrRunWorkerState::Adapter { .. } => None,
+            OcrRunWorkerState::Ready { .. } => None,
             OcrRunWorkerState::Fallback(reason) => Some(reason),
         }
     }
@@ -161,7 +196,9 @@ impl AppState {
         model_id: &str,
     ) -> OcrRunWorker {
         if engine_id != ENGINE_ID {
-            return self.create_adapter_ocr_worker(engine_id, runtime_id).await;
+            return self
+                .create_adapter_ocr_worker(engine_id, runtime_id, model_id)
+                .await;
         }
         self.create_unlimited_ocr_worker(runtime_id, profile_id, model_id)
             .await
@@ -198,7 +235,7 @@ impl AppState {
         if !paths.model.is_file() || !paths.mmproj.is_file() || !paths.ffi_library.is_file() {
             return OcrRunWorker::fallback("native OCR assets are not installed");
         }
-        OcrRunWorker::spawn(
+        OcrRunWorker::spawn_unlimited(
             paths,
             profile,
             self.inner.hub.clone(),
@@ -212,64 +249,5 @@ impl AppState {
             .runtime_variants
             .iter()
             .find(|item| item.runtime_id == runtime_id).map_or_else(|| (runtime_id.to_string(), String::new()), |item| (item.platform.clone(), item.accelerator.clone()))
-    }
-}
-
-fn run_worker_loop(
-    engine: &mut crate::ocr::UnlimitedOcrFfiEngine,
-    receiver: mpsc::Receiver<OcrWorkerMessage>,
-    max_tokens: i32,
-    hub: &RealtimeHub,
-    annotation_identities: &AnnotationIdentityRuntime,
-) {
-    for message in receiver {
-        match message {
-            OcrWorkerMessage::Recognize(request) => {
-                let result =
-                    recognize_on_worker(
-                        engine,
-                        request.image_path.as_path(),
-                        &request,
-                        max_tokens,
-                        hub,
-                        annotation_identities,
-                    );
-                let _ = request.response.send(result);
-            }
-            OcrWorkerMessage::Shutdown => break,
-        }
-    }
-}
-
-fn recognize_on_worker(
-    engine: &mut crate::ocr::UnlimitedOcrFfiEngine,
-    image_path: &Path,
-    request: &OcrWorkerRequest,
-    max_tokens: i32,
-    hub: &RealtimeHub,
-    annotation_identities: &AnnotationIdentityRuntime,
-) -> crate::ocr::OcrResult {
-    let mut telemetry = OcrStreamTelemetry::new();
-    let result = engine.recognize_image(image_path, max_tokens, |event| {
-        if let crate::ocr::OcrEvent::Token { text, index } = event {
-            publish_token_events(
-                hub,
-                Some(annotation_identities),
-                &request.context,
-                &mut telemetry,
-                &text,
-                index,
-            );
-        }
-    });
-    finish_token_events(hub, &request.context, &mut telemetry);
-    result
-}
-
-fn ocr_failure(message: impl Into<String>) -> crate::ocr::OcrResult {
-    crate::ocr::OcrResult {
-        ok: false,
-        text: String::new(),
-        error: Some(message.into()),
     }
 }

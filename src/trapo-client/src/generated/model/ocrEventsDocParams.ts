@@ -8,6 +8,7 @@
 
 export type OcrEventsDocParams = {
 run_id?: string;
+run_engine_id?: string;
 file_hash?: string;
 /**
  * @minimum 0

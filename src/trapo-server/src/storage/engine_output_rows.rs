@@ -171,5 +171,18 @@ fn preview_result_from_row(row: &duckdb::Row<'_>) -> duckdb::Result<StoredPrevie
         error: row.get(9)?,
         output_count: i64_to_u32(row.get::<_, i64>(10)?),
         page_count: i64_to_u32(row.get::<_, i64>(11)?),
+        provenance: row
+            .get::<_, Option<String>>(12)?
+            .map(|value| json_value(value.as_str())),
+    })
+}
+
+fn page_output_provenance(config: &StoredRunEngineConfig) -> Value {
+    serde_json::json!({
+        "engine_id": config.engine_id,
+        "engine_kind": config.engine_kind,
+        "model_id": config.model_id,
+        "profile_id": config.profile_id,
+        "runtime_id": config.runtime_id
     })
 }

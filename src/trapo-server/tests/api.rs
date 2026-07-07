@@ -195,18 +195,142 @@ async fn ingest_engines_route_returns_default_presets() -> anyhow::Result<()> {
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("engines missing: {payload}"))?;
     assert_eq!(engines.len(), 6);
+    let unlimited = find_engine(engines, "unlimited-ocr-ffi")?;
+    assert_eq!(unlimited["available"], true);
+    assert_eq!(unlimited["runner_status"], "ready");
+
+    let tesseract = find_engine(engines, "tesseract-rs")?;
+    assert_eq!(tesseract["available"], false);
+    assert_eq!(tesseract["availability"], "native_runner_missing");
+    assert_eq!(tesseract["runner_status"], "wired");
+
+    let dots = find_engine(engines, "dots-mocr-gguf")?;
+    assert_eq!(dots["available"], false);
+    assert_eq!(dots["availability"], "missing_model");
+    assert_eq!(dots["runner_status"], "wired");
+    Ok(())
+}
+
+#[tokio::test]
+async fn ingest_start_rejects_missing_native_runner_selection() -> anyhow::Result<()> {
+    let state = test_state().await?;
+    let app = build_router(state.clone());
+    let scan_root = state.config().app_root.join("native-runner-missing");
+    std::fs::create_dir_all(&scan_root)?;
+    let request = serde_json::json!({
+        "root_path": scan_root.to_string_lossy().to_string(),
+        "engines": [
+            {
+                "preset_id": "ocr-tesseract-rs",
+                "engine_id": "tesseract-rs",
+                "engine_kind": "ocr",
+                "parameters": {}
+            }
+        ]
+    });
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/ingest/start")
+                .header("content-type", "application/json")
+                .body(Body::from(request.to_string()))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
     assert!(
-        engines
-            .iter()
-            .any(|engine| engine["engine_id"] == "unlimited-ocr-ffi"
-                && engine["available"] == true)
+        payload["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("native runner is missing for engine tesseract-rs"),
+        "unexpected error payload: {payload}"
     );
-    assert!(
-        engines
-            .iter()
-            .any(|engine| engine["engine_id"] == "dots-mocr-gguf"
-                && engine["availability"] == "missing_model")
-    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn ingest_start_accepts_all_registered_native_engines_when_assets_exist() -> anyhow::Result<()>
+{
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    install_placeholder_all_engine_assets(&root)?;
+    let app = build_router(AppState::new(config.clone()).await?);
+    let scan_root = config.app_root.join("all-engines-wired");
+    std::fs::create_dir_all(&scan_root)?;
+    let request = serde_json::json!({
+        "root_path": scan_root.to_string_lossy().to_string(),
+        "engines": [
+            engine_selection("ocr-tesseract-rs", "tesseract-rs", "ocr"),
+            engine_selection("ocr-unlimited-ocr-ffi", "unlimited-ocr-ffi", "ocr"),
+            engine_selection("ocr-pp-ocrv6", "pp-ocrv6", "ocr"),
+            engine_selection("ocr-paddleocr-vl-1-6-gguf", "paddleocr-vl-1.6-gguf", "ocr"),
+            engine_selection("du-dots-mocr-gguf", "dots-mocr-gguf", "document_understanding"),
+            engine_selection(
+                "du-infinity-parser2-flash-gguf",
+                "infinity-parser2-flash-gguf",
+                "document_understanding",
+            ),
+        ]
+    });
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/ingest/start")
+                .header("content-type", "application/json")
+                .body(Body::from(request.to_string()))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let configs = payload["run"]["engine_configs"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("engine configs missing: {payload}"))?;
+    assert_eq!(configs.len(), 6);
+    for config in configs {
+        let run_engine_id = config["run_engine_id"].as_str().unwrap_or_default();
+        assert!(Uuid::parse_str(run_engine_id).is_ok(), "{run_engine_id}");
+        assert_eq!(run_engine_id.as_bytes().get(14), Some(&b'7'));
+        assert_eq!(config["status"], "queued");
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn ocr_events_route_filters_by_run_engine_id() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    seed_replay_event(&config, 1, &run_id, "engine-a", "engine A text")?;
+    seed_replay_event(&config, 2, &run_id, "engine-b", "engine B text")?;
+    let app = build_router(AppState::new(config).await?);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/ocr/events?run_id={run_id}&file_hash=file-a&run_engine_id=engine-b"
+                ))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let events = payload["events"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("events missing: {payload}"))?;
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["payload"]["run_engine_id"], "engine-b");
+    assert_eq!(events[0]["payload"]["text"], "engine B text");
     Ok(())
 }
 
@@ -797,6 +921,59 @@ fn column_type(conn: &duckdb::Connection, table: &str, column: &str) -> anyhow::
     )?)
 }
 
+fn find_engine<'a>(
+    engines: &'a [serde_json::Value],
+    engine_id: &str,
+) -> anyhow::Result<&'a serde_json::Value> {
+    engines
+        .iter()
+        .find(|engine| engine["engine_id"].as_str() == Some(engine_id))
+        .ok_or_else(|| anyhow::anyhow!("missing engine preset: {engine_id}"))
+}
+
+fn engine_selection(preset_id: &str, engine_id: &str, engine_kind: &str) -> serde_json::Value {
+    serde_json::json!({
+        "preset_id": preset_id,
+        "engine_id": engine_id,
+        "engine_kind": engine_kind,
+        "parameters": {}
+    })
+}
+
+fn seed_replay_event(
+    config: &ServerConfig,
+    sequence: u64,
+    run_id: &str,
+    run_engine_id: &str,
+    text: &str,
+) -> anyhow::Result<()> {
+    let conn = duckdb::Connection::open(&config.database_path)?;
+    let payload = serde_json::json!({
+        "end": 0,
+        "file_hash": "file-a",
+        "op": "append",
+        "page_no": 1,
+        "run_engine_id": run_engine_id,
+        "run_id": run_id,
+        "start": 0,
+        "text": text,
+    });
+    conn.execute(
+        "INSERT INTO ocr_stream_events(
+            event_id, sequence, event_type, occurred_at, run_id, file_hash, page_no, payload_json
+         )
+         VALUES (?, ?, 'ocr.page.text.patch', '2026-07-07T00:00:00Z',
+            ?, 'file-a', 1, ?)",
+        params![
+            Uuid::now_v7().to_string(),
+            sequence,
+            run_id,
+            payload.to_string()
+        ],
+    )?;
+    Ok(())
+}
+
 fn seed_completed_text_run(
     config: &ServerConfig,
     run_id: &str,
@@ -1158,6 +1335,72 @@ fn install_placeholder_default_model(root: &std::path::Path) -> anyhow::Result<(
     std::fs::create_dir_all(&model_dir)?;
     std::fs::write(model_dir.join("Unlimited-OCR-Q4_K_M.gguf"), b"model")?;
     std::fs::write(model_dir.join("mmproj-Unlimited-OCR-F16.gguf"), b"mmproj")?;
+    Ok(())
+}
+
+fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Result<()> {
+    let model_dir = root.join("models");
+    for file_name in [
+        "PaddleOCR-VL-1.6-GGUF.gguf",
+        "PaddleOCR-VL-1.6-GGUF-mmproj.gguf",
+        "dots.ocr-Q8_0.gguf",
+        "mmproj-dots.ocr-Q8_0.gguf",
+        "Infinity-Parser2-Flash-Q6_K.gguf",
+        "Infinity-Parser2-Flash-mmproj-f16.gguf",
+    ] {
+        std::fs::write(model_dir.join(file_name), b"model")?;
+    }
+    for platform in [
+        "windows-x86_64-cpu",
+        "windows-arm64-cpu",
+        "linux-x86_64-cpu",
+        "linux-arm64-cpu",
+        "macos-arm64-cpu",
+    ] {
+        let runtime_dir = root
+            .join("thirdparty")
+            .join("uocr-runtime")
+            .join(platform)
+            .join("bin");
+        std::fs::create_dir_all(&runtime_dir)?;
+        let suffix = if platform.starts_with("windows-") {
+            ".exe"
+        } else {
+            ""
+        };
+        for runner in [
+            "trapo-tesseract-rs-runner",
+            "trapo-pp-ocrv6-runner",
+            "llama-mtmd-cli",
+        ] {
+            std::fs::write(runtime_dir.join(format!("{runner}{suffix}")), b"runner")?;
+        }
+        let runtime_root = runtime_dir
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("runtime bin has no parent"))?;
+        let ppocrv6_dir = runtime_root.join("ppocrv6");
+        std::fs::create_dir_all(ppocrv6_dir.join("bin"))?;
+        std::fs::create_dir_all(ppocrv6_dir.join("models"))?;
+        std::fs::write(ppocrv6_dir.join("trapo_ppocrv6_engine.py"), b"print('ok')")?;
+        std::fs::write(ppocrv6_dir.join("models").join("manifest.json"), b"{}")?;
+        std::fs::write(
+            ppocrv6_dir
+                .join("bin")
+                .join(format!("trapo_ppocrv6_engine{suffix}")),
+            b"ppocrv6",
+        )?;
+        let tesseract_dir = runtime_root.join("tesseract");
+        std::fs::create_dir_all(tesseract_dir.join("bin"))?;
+        std::fs::create_dir_all(tesseract_dir.join("tessdata"))?;
+        std::fs::write(
+            tesseract_dir.join("bin").join(format!("tesseract{suffix}")),
+            b"tesseract",
+        )?;
+        std::fs::write(
+            tesseract_dir.join("tessdata").join("eng.traineddata"),
+            b"eng",
+        )?;
+    }
     Ok(())
 }
 

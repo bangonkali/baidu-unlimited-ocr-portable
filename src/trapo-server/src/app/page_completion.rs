@@ -8,7 +8,7 @@ impl AppState {
             page_work.image_path,
             &page_work.stream_context(ocr),
             ocr.worker,
-        );
+        )?;
         let mut parsed = crate::ocr::parse_ocr_markers(
             &raw_text,
             &crate::ocr::ParseContext {

@@ -27,7 +27,6 @@ describe('diagnostics filters', () => {
 
   test('renders logs with timestamps and bulk copy action', () => {
     const html = renderToString(<LogList logs={fixtureLogs} />);
-
     expect(html).toContain('Copy All');
     expect(html).toContain('Time');
     expect(html).toContain('Component');
@@ -69,13 +68,12 @@ describe('diagnostics waterfall', () => {
         }),
       ]),
     });
-
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.label).toBe('Run run-a');
     expect(nodes[0]?.actions).toBeDefined();
     expect(nodes[0]?.children?.[0]?.label).toBe('Task: generate_embedding - completed');
     expect(nodes[0]?.children?.[0]?.children?.[0]?.label).toBe(
-      'Generate page embeddings - file-a - p1',
+      'Generate page embeddings - file-a - p1 - internal/embedding_page/ok',
     );
   });
 });
@@ -250,6 +248,7 @@ function waterfallRow(
   overrides: Partial<DiagnosticWaterfallRowRecord> = {},
 ): DiagnosticWaterfallRowRecord {
   return {
+    activity_kind: 'internal',
     attributes: {},
     category: 'operation',
     child_count: 0,
@@ -274,6 +273,8 @@ function waterfallRow(
     start_ms: 0,
     started_at: '2026-07-07T00:00:00.000Z',
     status: 'ok',
+    status_code: 'ok',
+    status_message: null,
     task_id: null,
     trace_id: 'run-a',
     visual_duration_ms: 1000,

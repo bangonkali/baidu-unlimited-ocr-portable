@@ -258,6 +258,9 @@ export interface IngestEnginePresetRecord {
   available: boolean;
   availability: string;
   availability_detail?: string | null;
+  runner_kind: string;
+  runner_status: string;
+  runner_detail?: string | null;
   parameter_schema: Record<string, unknown>;
   default_parameters: Record<string, unknown>;
 }
@@ -281,6 +284,10 @@ export interface IngestPreviewResultRecord {
   output_count: number;
   page_count: number;
   error?: string | null;
+  runner_kind: string;
+  runner_status: string;
+  runner_detail?: string | null;
+  provenance: Record<string, unknown>;
 }
 
 export interface IngestPreviewResultsPayload {

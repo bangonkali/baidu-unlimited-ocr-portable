@@ -21,7 +21,9 @@
       "executables": [
         "llama-uocr-parity",
         "llama-mtmd-cli",
-        "llama-server"
+        "llama-server",
+        "trapo-tesseract-rs-runner",
+        "trapo-pp-ocrv6-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -29,6 +31,10 @@
       ],
       "library_globs": [
         "*.dylib"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "notes": "Prebuilt runtime for Apple Silicon Macs using the Metal backend."
     },
@@ -67,7 +73,9 @@
       "executables": [
         "llama-uocr-parity",
         "llama-mtmd-cli",
-        "llama-server"
+        "llama-server",
+        "trapo-tesseract-rs-runner",
+        "trapo-pp-ocrv6-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -76,6 +84,10 @@
       "library_globs": [
         "*.so",
         "*.so.*"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
       "notes": "Prebuilt runtime for Linux x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
@@ -96,7 +108,9 @@
       "executables": [
         "llama-uocr-parity",
         "llama-mtmd-cli",
-        "llama-server"
+        "llama-server",
+        "trapo-tesseract-rs-runner",
+        "trapo-pp-ocrv6-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -105,6 +119,10 @@
       "library_globs": [
         "*.so",
         "*.so.*"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "accelerator_probe": "rocminfo",
       "notes": "Best-effort runtime label for AMD ROCm/HIP builds. Validate on AMD hardware before publishing as supported."
@@ -124,7 +142,9 @@
       "executables": [
         "llama-uocr-parity",
         "llama-mtmd-cli",
-        "llama-server"
+        "llama-server",
+        "trapo-tesseract-rs-runner",
+        "trapo-pp-ocrv6-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -133,6 +153,10 @@
       "library_globs": [
         "*.so",
         "*.so.*"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "notes": "CPU-only fallback runtime for machines with enough RAM and no supported GPU."
     },
@@ -151,7 +175,9 @@
       "executables": [
         "llama-uocr-parity",
         "llama-mtmd-cli",
-        "llama-server"
+        "llama-server",
+        "trapo-tesseract-rs-runner",
+        "trapo-pp-ocrv6-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -160,6 +186,10 @@
       "library_globs": [
         "*.so",
         "*.so.*"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "notes": "CPU-only runtime for Ubuntu 24.04 arm64 hosted runners and ARM Linux machines."
     },
@@ -198,7 +228,9 @@
       "executables": [
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
-        "llama-server.exe"
+        "llama-server.exe",
+        "trapo-tesseract-rs-runner.exe",
+        "trapo-pp-ocrv6-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -206,6 +238,10 @@
       ],
       "library_globs": [
         "*.dll"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
       "notes": "Prebuilt runtime for Windows x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
@@ -225,7 +261,9 @@
       ],
       "executables": [
         "llama-uocr-parity.exe",
-        "llama-mtmd-cli.exe"
+        "llama-mtmd-cli.exe",
+        "trapo-tesseract-rs-runner.exe",
+        "trapo-pp-ocrv6-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -233,6 +271,10 @@
       ],
       "library_globs": [
         "*.dll"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "accelerator_probe": "rocminfo",
       "notes": "Best-effort runtime label for Windows AMD ROCm/HIP builds, intended for validation on Radeon RX 9070 XT class hardware."
@@ -252,7 +294,9 @@
       "executables": [
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
-        "llama-server.exe"
+        "llama-server.exe",
+        "trapo-tesseract-rs-runner.exe",
+        "trapo-pp-ocrv6-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -260,6 +304,10 @@
       ],
       "library_globs": [
         "*.dll"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "notes": "CPU-only fallback runtime for Windows machines with enough system RAM and no supported GPU."
     },
@@ -277,7 +325,9 @@
       ],
       "executables": [
         "llama-uocr-parity.exe",
-        "llama-mtmd-cli.exe"
+        "llama-mtmd-cli.exe",
+        "trapo-tesseract-rs-runner.exe",
+        "trapo-pp-ocrv6-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -285,6 +335,10 @@
       ],
       "library_globs": [
         "*.dll"
+      ],
+      "engine_asset_dirs": [
+        "ppocrv6",
+        "tesseract"
       ],
       "notes": "CPU-only runtime for Windows on Arm machines. The package intentionally omits llama-server because upstream llama.cpp web UI asset generation currently fails on hosted Windows ARM64; Trapo uses uocr-ffi directly."
     }

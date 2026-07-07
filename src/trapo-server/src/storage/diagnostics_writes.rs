@@ -104,15 +104,19 @@ impl Repository {
     pub(crate) async fn insert_diagnostic_span(&self, span: &DiagnosticSpanInsert) -> Result<()> {
         let span = span.clone();
         let attributes = span.attributes.to_string();
+        let resource = span.resource.to_string();
+        let links = span.links.to_string();
         self.with_write(move |conn| {
             conn.execute(
                 "INSERT INTO ingest_diagnostic_spans(
                     span_id, run_id, parent_span_id, name, started_at, finished_at, attributes,
                     trace_id, file_hash, page_no, pipeline_step, category, annotation_engine, status,
                     ended_at, duration_ms, attributes_json, error_type, error_message, error_stack,
-                    task_id, work_unit_id, span_kind
+                    task_id, work_unit_id, span_kind, activity_kind, status_code, status_message,
+                    started_at_ms, ended_at_ms, resource_json, links_json
                  )
-                 VALUES (?, ?, ?, ?, ?, ?, ?::JSON, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?, ?::JSON, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(span_id) DO UPDATE SET
                     finished_at = excluded.finished_at, attributes = excluded.attributes,
                     trace_id = excluded.trace_id, file_hash = excluded.file_hash, page_no = excluded.page_no,
@@ -122,7 +126,10 @@ impl Repository {
                     attributes_json = excluded.attributes_json, error_type = excluded.error_type,
                     error_message = excluded.error_message, error_stack = excluded.error_stack,
                     task_id = excluded.task_id, work_unit_id = excluded.work_unit_id,
-                    span_kind = excluded.span_kind",
+                    span_kind = excluded.span_kind, activity_kind = excluded.activity_kind,
+                    status_code = excluded.status_code, status_message = excluded.status_message,
+                    started_at_ms = excluded.started_at_ms, ended_at_ms = excluded.ended_at_ms,
+                    resource_json = excluded.resource_json, links_json = excluded.links_json",
                 params![
                     span.span_id.as_str(),
                     span.run_id.as_deref(),
@@ -146,7 +153,14 @@ impl Repository {
                     span.error_stack.as_deref(),
                     span.task_id.as_deref(),
                     span.work_unit_id.as_deref(),
-                    span.span_kind.as_str()
+                    span.span_kind.as_str(),
+                    span.activity_kind.as_str(),
+                    span.status_code.as_str(),
+                    span.status_message.as_deref(),
+                    span.started_at_ms,
+                    span.ended_at_ms,
+                    resource.as_str(),
+                    links.as_str()
                 ],
             )?;
             Ok(())
@@ -161,9 +175,10 @@ impl Repository {
             conn.execute(
                 "INSERT INTO ingest_diagnostic_events(
                     event_id, run_id, span_id, level, message, attributes, created_at,
-                    trace_id, file_hash, page_no, timestamp, event_type, name, severity, attributes_json
+                    trace_id, file_hash, page_no, timestamp, event_type, name, severity, attributes_json,
+                    timestamp_ms
                  )
-                 VALUES (?, ?, ?, ?, ?, ?::JSON, current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, ?::JSON, current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(event_id) DO NOTHING",
                 params![
                     event.event_id.as_str(),
@@ -179,7 +194,8 @@ impl Repository {
                     event.event_type.as_str(),
                     event.name.as_str(),
                     event.severity.as_str(),
-                    attributes.as_str()
+                    attributes.as_str(),
+                    event.timestamp_ms
                 ],
             )?;
             Ok(())

@@ -6,14 +6,19 @@
  * OpenAPI spec version: 0.1.5
  */
 import type { DiagnosticSpanRecordAttributes } from './diagnosticSpanRecordAttributes';
+import type { DiagnosticSpanRecordLinks } from './diagnosticSpanRecordLinks';
+import type { DiagnosticSpanRecordResource } from './diagnosticSpanRecordResource';
 
 export interface DiagnosticSpanRecord {
+  activity_kind: string;
   /** @nullable */
   annotation_engine?: string | null;
   attributes: DiagnosticSpanRecordAttributes;
   category: string;
   duration_ms: number;
   ended_at: string;
+  /** @nullable */
+  ended_at_ms?: number | null;
   /** @nullable */
   error_message?: string | null;
   /** @nullable */
@@ -22,6 +27,7 @@ export interface DiagnosticSpanRecord {
   error_type?: string | null;
   /** @nullable */
   file_hash?: string | null;
+  links: DiagnosticSpanRecordLinks;
   name: string;
   /**
      * @minimum 0
@@ -31,12 +37,18 @@ export interface DiagnosticSpanRecord {
   /** @nullable */
   parent_span_id?: string | null;
   pipeline_step: string;
+  resource: DiagnosticSpanRecordResource;
   /** @nullable */
   run_id?: string | null;
   span_id: string;
   span_kind: string;
   started_at: string;
+  /** @nullable */
+  started_at_ms?: number | null;
   status: string;
+  status_code: string;
+  /** @nullable */
+  status_message?: string | null;
   /** @nullable */
   task_id?: string | null;
   trace_id: string;

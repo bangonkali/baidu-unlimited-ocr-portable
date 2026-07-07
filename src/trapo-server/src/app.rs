@@ -71,6 +71,9 @@ use crate::{
 const ENGINE_ID: &str = "unlimited-ocr-ffi";
 const PDF_DPI: u32 = 200;
 
+mod ocr_engines;
+use ocr_engines::{expected_runner_binary, runner_binary_is_installed, runner_capability};
+
 /// Shared server state used by the Axum router.
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -221,6 +224,7 @@ include!("app/download_targets.rs");
 include!("app/model_methods.rs");
 include!("app/ingest_engine_presets.rs");
 include!("app/ingest_engines.rs");
+include!("app/ingest_engine_validation.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");
 include!("app/run_resume_methods.rs");
@@ -228,7 +232,8 @@ include!("app/download_runtime.rs");
 include!("app/annotation_identity_runtime.rs");
 include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
-include!("app/ocr_worker_adapters.rs");
+include!("app/ocr_worker_runtime.rs");
+include!("app/ingest_pipeline_types.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/process_document.rs");
 include!("app/process_document_render.rs");

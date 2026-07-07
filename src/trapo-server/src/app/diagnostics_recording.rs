@@ -1,15 +1,52 @@
+#[derive(Clone, Debug)]
+struct ActivityContext {
+    trace_id: String,
+    span_id: String,
+}
+
 struct DiagnosticSpanScope {
     span_id: String,
+    trace_id: Option<String>,
+    parent_span_id: Option<String>,
     started_at: String,
+    started_at_ms: i64,
     started: Instant,
+    activity_kind: String,
 }
 
 impl DiagnosticSpanScope {
     fn start() -> Self {
+        Self::start_internal(None, None)
+    }
+
+    fn start_root(trace_id: &str) -> Self {
+        Self::start_internal(Some(trace_id), None)
+    }
+
+    fn start_child(parent: &ActivityContext) -> Self {
+        Self::start_internal(Some(parent.trace_id.as_str()), Some(parent.span_id.as_str()))
+    }
+
+    fn context(&self, fallback_trace_id: &str) -> ActivityContext {
+        ActivityContext {
+            trace_id: self
+                .trace_id
+                .clone()
+                .unwrap_or_else(|| fallback_trace_id.to_string()),
+            span_id: self.span_id.clone(),
+        }
+    }
+
+    fn start_internal(trace_id: Option<&str>, parent_span_id: Option<&str>) -> Self {
+        let now = Utc::now();
         Self {
             span_id: new_persistence_id(),
-            started_at: Utc::now().to_rfc3339(),
+            trace_id: trace_id.map(ToString::to_string),
+            parent_span_id: parent_span_id.map(ToString::to_string),
+            started_at: now.to_rfc3339(),
+            started_at_ms: now.timestamp_millis(),
             started: Instant::now(),
+            activity_kind: "internal".to_string(),
         }
     }
 }
@@ -50,15 +87,22 @@ struct DiagnosticWorkUnitHandle {
 
 impl AppState {
     fn record_span(&self, scope: DiagnosticSpanScope, finish: SpanFinish<'_>) {
-        let now = Utc::now().to_rfc3339();
+        let now = Utc::now();
+        let ended_at_ms = now.timestamp_millis();
+        let error_message = finish.error.map(ToString::to_string);
+        let status_code = activity_status_code(finish.status, error_message.as_deref());
         let repository = self.inner.repository.clone();
         let span = DiagnosticSpanInsert {
             span_id: scope.span_id,
-            trace_id: finish.run_id.to_string(),
-            parent_span_id: finish.parent_span_id.map(ToString::to_string),
+            trace_id: scope.trace_id.unwrap_or_else(|| finish.run_id.to_string()),
+            parent_span_id: finish
+                .parent_span_id
+                .map(ToString::to_string)
+                .or(scope.parent_span_id),
             task_id: finish.task_id.map(ToString::to_string),
             work_unit_id: finish.work_unit_id.map(ToString::to_string),
             span_kind: finish.category.to_string(),
+            activity_kind: scope.activity_kind,
             run_id: Some(finish.run_id.to_string()),
             file_hash: finish.file_hash.map(ToString::to_string),
             page_no: finish.page_no,
@@ -67,12 +111,18 @@ impl AppState {
             category: finish.category.to_string(),
             annotation_engine: finish.engine.map(ToString::to_string),
             status: finish.status.to_string(),
+            status_code,
+            status_message: error_message.clone(),
             started_at: scope.started_at,
-            ended_at: now,
+            ended_at: now.to_rfc3339(),
+            started_at_ms: scope.started_at_ms,
+            ended_at_ms,
             duration_ms: scope.started.elapsed().as_secs_f64() * 1000.0,
             attributes: finish.attributes,
+            resource: diagnostic_resource(),
+            links: json!([]),
             error_type: finish.error.map(|_| "AppError".to_string()),
-            error_message: finish.error.map(ToString::to_string),
+            error_message,
             error_stack: None,
         };
         self.spawn_background(async move {
@@ -90,6 +140,7 @@ impl AppState {
         severity: &str,
         message: &str,
     ) {
+        let now = Utc::now();
         let repository = self.inner.repository.clone();
         let event = DiagnosticEventInsert {
             event_id: new_persistence_id(),
@@ -98,7 +149,8 @@ impl AppState {
             run_id: Some(run_id.to_string()),
             file_hash: file_hash.map(ToString::to_string),
             page_no,
-            timestamp: Utc::now().to_rfc3339(),
+            timestamp: now.to_rfc3339(),
+            timestamp_ms: now.timestamp_millis(),
             event_type: "log".to_string(),
             name: severity.to_string(),
             severity: severity.to_string(),
@@ -199,6 +251,24 @@ impl AppState {
             }
         });
     }
+}
+
+fn activity_status_code(status: &str, error: Option<&str>) -> String {
+    if error.is_some() || matches!(status, "error" | "failed") {
+        return "error".to_string();
+    }
+    if matches!(status, "ok" | "completed" | "completed_with_errors") {
+        return "ok".to_string();
+    }
+    "unset".to_string()
+}
+
+fn diagnostic_resource() -> Value {
+    json!({
+        "service.name": "trapo-server",
+        "telemetry.sdk.name": "trapo-activity",
+        "telemetry.sdk.language": "rust"
+    })
 }
 
 #[derive(Clone, Copy)]

@@ -204,6 +204,14 @@ def runtime_ffi_name(platform_id: str) -> str:
     return "libuocr-ffi.so"
 
 
+def native_runner_names(platform_id: str) -> list[str]:
+    suffix = ".exe" if platform_id.startswith("windows-") else ""
+    return [
+        f"trapo-tesseract-rs-runner{suffix}",
+        f"trapo-pp-ocrv6-runner{suffix}",
+    ]
+
+
 def ensure_runtime(
     platform_id: str, args: argparse.Namespace, *, optional: bool = False
 ) -> Path | None:
@@ -259,7 +267,67 @@ def build_outputs(args: argparse.Namespace) -> None:
         cwd=REPO_ROOT / "src" / "trapo-client",
     )
     run(["bun", "run", "build"], cwd=REPO_ROOT / "src" / "trapo-client")
-    run(["cargo", "build", "-p", "trapo-server", "--release"], env=env)
+    run(
+        ["cargo", "build", "-p", "trapo-server", "-p", "trapo-native-runners", "--release"], env=env
+    )
+
+
+def stage_native_runners(runtime_dir: Path, platform_id: str, *, required: bool) -> None:
+    bin_dir = runtime_dir / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    for name in native_runner_names(platform_id):
+        source = REPO_ROOT / "target" / "release" / name
+        if not source.exists():
+            message = f"native runner binary is missing: {source}"
+            if required:
+                die(message)
+            print(f"warning: {message}", file=sys.stderr)
+            continue
+        destination = bin_dir / name
+        shutil.copy2(source, destination)
+        if not platform_id.startswith("windows-"):
+            destination.chmod(
+                destination.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
+
+
+def ensure_ppocrv6_engine(runtime_dir: Path, platform_id: str) -> None:
+    engine_dir = runtime_dir / "ppocrv6"
+    binary = (
+        "trapo_ppocrv6_engine.exe" if platform_id.startswith("windows-") else "trapo_ppocrv6_engine"
+    )
+    if (
+        (engine_dir / "trapo_ppocrv6_engine.py").is_file()
+        and (engine_dir / "models" / "manifest.json").is_file()
+        and (engine_dir / "bin" / binary).is_file()
+    ):
+        return
+    run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "install_ppocrv6_runtime.py"),
+            "--output-dir",
+            str(engine_dir),
+            "--frozen",
+        ]
+    )
+
+
+def ensure_tesseract_engine(runtime_dir: Path, platform_id: str) -> None:
+    engine_dir = runtime_dir / "tesseract"
+    binary = "tesseract.exe" if platform_id.startswith("windows-") else "tesseract"
+    if (engine_dir / "bin" / binary).is_file() and (
+        engine_dir / "tessdata" / "eng.traineddata"
+    ).is_file():
+        return
+    run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "install_tesseract_runtime.py"),
+            "--output-dir",
+            str(engine_dir),
+        ]
+    )
 
 
 def copy_tree(source: Path, destination: Path) -> None:
@@ -395,6 +463,9 @@ def package(args: argparse.Namespace) -> None:
         runtime_dir = ensure_runtime(platform_id, args, optional=index > 0)
         if runtime_dir is None:
             continue
+        stage_native_runners(runtime_dir, platform_id, required=not args.no_build)
+        ensure_ppocrv6_engine(runtime_dir, platform_id)
+        ensure_tesseract_engine(runtime_dir, platform_id)
         copy_tree(runtime_dir, runtime_stage / platform_id)
         copied_runtimes.append(platform_id)
 

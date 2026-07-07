@@ -68,6 +68,9 @@ pub(crate) struct IngestEnginePresetRecord {
     pub(crate) available: bool,
     pub(crate) availability: String,
     pub(crate) availability_detail: Option<String>,
+    pub(crate) runner_kind: String,
+    pub(crate) runner_status: String,
+    pub(crate) runner_detail: Option<String>,
     #[schema(value_type = Object)]
     pub(crate) parameter_schema: Value,
     #[schema(value_type = Object)]
@@ -95,6 +98,11 @@ pub(crate) struct IngestPreviewResultRecord {
     pub(crate) output_count: u32,
     pub(crate) page_count: u32,
     pub(crate) error: Option<String>,
+    pub(crate) runner_kind: String,
+    pub(crate) runner_status: String,
+    pub(crate) runner_detail: Option<String>,
+    #[schema(value_type = Object)]
+    pub(crate) provenance: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

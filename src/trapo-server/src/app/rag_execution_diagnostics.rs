@@ -62,6 +62,7 @@ impl AppState {
                 task_id: Some(input.task.task_id.clone()),
                 work_unit_id: None,
                 span_kind: input.span_kind.to_string(),
+                activity_kind: "internal".to_string(),
                 run_id: Some(run_id.to_string()),
                 file_hash: input.file_hash.map(ToString::to_string),
                 page_no: input.page_no,
@@ -70,10 +71,20 @@ impl AppState {
                 category: input.span_kind.to_string(),
                 annotation_engine: Some(input.engine.to_string()),
                 status: status.to_string(),
+                status_code: activity_status_code(status, error),
+                status_message: error.map(ToString::to_string),
                 started_at: scope.started_at.clone(),
                 ended_at,
+                started_at_ms: scope.started_at_ms,
+                ended_at_ms: if status == "running" {
+                    scope.started_at_ms
+                } else {
+                    Utc::now().timestamp_millis()
+                },
                 duration_ms,
                 attributes,
+                resource: diagnostic_resource(),
+                links: json!([]),
                 error_type: error.map(|_| "RagTask".to_string()),
                 error_message: error.map(ToString::to_string),
                 error_stack: None,

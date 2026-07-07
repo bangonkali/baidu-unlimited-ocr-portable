@@ -31,6 +31,25 @@ coercion.
 
 ## Waterfall View
 
+Diagnostics use an Activity-style model. New instrumentation should start an
+activity, attach attributes and events, set status, record errors, link related
+work, and end the activity explicitly. Persisted ids remain UUID v7 strings, but
+span rows also carry trace id, span id, parent span id, activity kind, span kind,
+status code, status message, attributes, resource, and links.
+
+Expected hierarchy:
+
+```text
+ingest run
+engine run
+document
+render/page OCR/native process/parse/persist
+post-ingest tasks
+```
+
+Waterfall ordering should prefer explicit parent spans. Synthetic grouping rows
+are display helpers only; they must not replace parent/child span relationships.
+
 The diagnostics route loads runs from `/api/diagnostics/runs` and detailed trace
 data from `/api/diagnostics/trace`. The Workbench renders span rows through the
 shared `TreeGrid` component. Each row shows the span name, page number when

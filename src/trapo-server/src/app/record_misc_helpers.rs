@@ -16,16 +16,6 @@ fn metrics_tree(rows: Vec<OcrPageMetrics>) -> OcrMetricsTreePayload {
     }
 }
 
-fn fallback_text(image_path: &Path, reason: &str) -> String {
-    format!(
-        "OCR fallback output for {}. Reason: {reason}.",
-        image_path.file_name().map_or_else(
-            || image_path.to_string_lossy().to_string(),
-            |value| value.to_string_lossy().to_string()
-        )
-    )
-}
-
 fn percent(done: u32, total: u32) -> f64 {
     if total == 0 {
         0.0

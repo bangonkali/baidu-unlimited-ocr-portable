@@ -211,6 +211,7 @@ function EnginePlanRow({
         <span className={wizardStyles.statusBadge} data-ready={preset?.available}>
           {preset ? availabilityLabel(preset) : 'missing preset'}
         </span>
+        {preset ? <span className={styles.runnerBadge}>{runnerLabel(preset)}</span> : null}
         <span className={wizardStyles.meta}>{preset?.description}</span>
       </div>
       {preset ? (
@@ -238,7 +239,12 @@ function EnginePlanRow({
 
 function availabilityLabel(preset: IngestEnginePresetRecord) {
   if (preset.available) {
-    return preset.availability === 'fallback_adapter' ? 'fallback adapter' : 'ready';
+    return 'ready';
   }
   return preset.availability.replaceAll('_', ' ');
+}
+
+function runnerLabel(preset: IngestEnginePresetRecord) {
+  const status = preset.runner_status === 'ready' ? preset.runner_kind : availabilityLabel(preset);
+  return preset.runner_detail ? `${status} · ${preset.runner_detail}` : status;
 }

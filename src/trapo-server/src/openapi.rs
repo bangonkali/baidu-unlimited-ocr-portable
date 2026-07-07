@@ -132,7 +132,7 @@ const fn resume_run_doc() {}
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}/events", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, description = "Server-sent run snapshots", body = String, content_type = "text/event-stream"), (status = 404, body = ErrorPayload)))]
 const fn run_events_doc() {}
 
-#[utoipa::path(get, path = "/api/ocr/events", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("since_sequence" = Option<u64>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = OcrReplayPayload)))]
+#[utoipa::path(get, path = "/api/ocr/events", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("run_engine_id" = Option<String>, Query), ("file_hash" = Option<String>, Query), ("page_no" = Option<u32>, Query), ("since_sequence" = Option<u64>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = OcrReplayPayload)))]
 const fn ocr_events_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/runs", tag = "diagnostics", params(("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticRunsPayload)))]

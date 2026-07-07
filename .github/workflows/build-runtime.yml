@@ -1,5 +1,4 @@
 name: Build runtime binaries
-
 on:
   workflow_call:
     inputs:
@@ -28,7 +27,6 @@ on:
         required: false
         default: "2"
         type: string
-
 permissions:
   contents: read
 jobs:
@@ -85,6 +83,10 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14.6"
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
       - name: Install CMake with Blackwell CUDA architecture support
         run: |
           python -m pip install --upgrade "cmake>=4.2.1,<5"
@@ -101,7 +103,6 @@ jobs:
         with:
           cuda: ${{ env.CUDA_VERSION }}
           method: network
-
       - name: Show build toolchain
         shell: bash
         run: |
@@ -113,7 +114,6 @@ jobs:
           fi
           echo "BUILD_PARALLEL=${BUILD_PARALLEL}"
           echo "RUNTIME_BUILD_TARGETS=${RUNTIME_BUILD_TARGETS}"
-
       - name: Configure Metal build
         if: matrix.backend == 'metal'
         run: |
@@ -124,7 +124,6 @@ jobs:
             -DLLAMA_OPENSSL=OFF \
             -DCMAKE_BUILD_RPATH="@loader_path" \
             -DCMAKE_BUILD_TYPE=Release
-
       - name: Configure CUDA build on Linux
         if: matrix.backend == 'cuda' && runner.os == 'Linux'
         run: |
@@ -135,7 +134,6 @@ jobs:
             -DLLAMA_OPENSSL=OFF \
             "-DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}" \
             -DCMAKE_BUILD_TYPE=Release
-
       - name: Configure CUDA build on Windows
         if: matrix.backend == 'cuda' && runner.os == 'Windows'
         run: |
@@ -147,7 +145,6 @@ jobs:
             "-DCMAKE_CUDA_ARCHITECTURES=$env:CUDA_ARCHITECTURES" `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
-
       - name: Configure CPU build on Unix
         if: matrix.backend == 'cpu' && runner.os != 'Windows'
         run: |
@@ -157,7 +154,6 @@ jobs:
             -DLLAMA_OPENSSL=OFF \
             -DCMAKE_BUILD_TYPE=Release
         shell: bash
-
       - name: Configure CPU build on Windows ARM64
         if: matrix.backend == 'cpu' && matrix.platform == 'windows-arm64-cpu'
         run: |
@@ -169,7 +165,6 @@ jobs:
             -DLLAMA_OPENSSL=OFF `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
-
       - name: Configure CPU build on Windows
         if: matrix.backend == 'cpu' && runner.os == 'Windows' && matrix.platform != 'windows-arm64-cpu'
         run: |
@@ -179,13 +174,33 @@ jobs:
             -DLLAMA_OPENSSL=OFF `
             -DCMAKE_BUILD_TYPE=Release
         shell: pwsh
-
       - name: Build runtime targets
         shell: bash
         run: |
           read -r -a targets <<< "$RUNTIME_BUILD_TARGETS"
           cmake --build thirdparty/llama.cpp/build --config Release --target "${targets[@]}" --parallel "${BUILD_PARALLEL:-2}"
-
+      - name: Build native OCR runner wrappers
+        shell: bash
+        run: |
+          cargo build -p trapo-native-runners --release
+          python scripts/stage_native_runners.py --platform "${{ matrix.platform }}" --output-dir thirdparty/llama.cpp/build/bin --required
+      - name: Install Tesseract runtime dependency
+        shell: bash
+        run: |
+          if [[ "${RUNNER_OS}" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+          elif [[ "${RUNNER_OS}" == "macOS" ]]; then
+            brew install tesseract
+          elif [[ "${RUNNER_OS}" == "Windows" ]]; then
+            choco install tesseract -y --no-progress
+          fi
+      - name: Build OCR runtime engines
+        shell: bash
+        run: |
+          python scripts/install_tesseract_runtime.py --output-dir thirdparty/llama.cpp/build/tesseract --prefetch
+          python scripts/install_ppocrv6_runtime.py --output-dir thirdparty/llama.cpp/build/ppocrv6 --frozen --prefetch
+          python scripts/runtime_engine_guard.py smoke-runners --platform "${{ matrix.platform }}" --build-dir thirdparty/llama.cpp/build
       - name: Validate FFI ABI
         run: |
           set +e
@@ -210,12 +225,11 @@ jobs:
           raise SystemExit(1)
           PY
         shell: bash
-
       - name: Package runtime
         run: |
           python scripts/package_runtime.py package --platform "${{ matrix.platform }}" --version "${{ env.UOCR_RUNTIME_VERSION }}" --output-dir dist
+          python scripts/runtime_engine_guard.py packaged-runtime --platform "${{ matrix.platform }}" --version "${{ env.UOCR_RUNTIME_VERSION }}" --dist-dir dist
         shell: bash
-
       - name: Upload packaged runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -223,7 +237,6 @@ jobs:
           path: |
             dist/*
           if-no-files-found: error
-
   release:
     name: Publish GitHub Release
     needs: build
@@ -238,17 +251,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14.6"
-
       - name: Download packaged runtimes
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: dist
-
       - name: Set release tag
         shell: bash
         run: |
@@ -262,7 +272,6 @@ jobs:
             exit 1
           fi
           echo "UOCR_RELEASE_TAG=${tag//\//-}" >> "$GITHUB_ENV"
-
       - name: Merge runtime manifests
         run: |
           python scripts/package_runtime.py merge --input-dir dist --output dist/uocr-runtime-manifest.json
@@ -275,23 +284,12 @@ jobs:
           release_notes="$(mktemp)"
           cat > "$release_notes" <<'EOF'
           Prebuilt Unlimited-OCR native runtime binaries.
-
-          Supported platform labels:
-          - macos-arm64-metal
-          - linux-x86_64-cuda13
-          - linux-x86_64-cpu
-          - linux-arm64-cpu
-          - windows-x86_64-cuda13
-          - windows-x86_64-cpu
-          - windows-arm64-cpu
-
+          Supported platform labels are listed in uocr-runtime-manifest.json.
           GGUF model files are downloaded separately by the setup scripts from Hugging Face.
           EOF
-
           if ! gh release view "$UOCR_RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$UOCR_RELEASE_TAG" --target "$GITHUB_SHA" --title "Runtime binaries $UOCR_RELEASE_TAG" --notes-file "$release_notes"
           fi
-
           mapfile -t files < <(find dist -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' -o -name 'uocr-runtime-manifest.json' \) | sort)
           if [[ "${#files[@]}" -eq 0 ]]; then
             echo "No release files found." >&2

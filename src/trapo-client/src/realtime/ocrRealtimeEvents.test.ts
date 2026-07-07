@@ -50,113 +50,61 @@ describe('realtime OCR replay projection', () => {
       run_id: 'run-a',
     });
   });
-});
 
-describe('realtime OCR text events', () => {
-  test('applies live OCR text patches to document text cache', () => {
+  test('projects scoped replay payloads only into scoped query keys', () => {
     const client = new QueryClient();
-
-    applyRealtimeEventToQueryClient(client, {
-      occurred_at: '2026-06-30T00:00:05Z',
-      payload: {
-        file_hash: 'abc',
-        page_no: 1,
-        run_id: 'run-a',
-      },
-      sequence: 12,
-      type: 'ocr.page.stream.started',
-      version: 1,
-    });
-    applyRealtimeEventToQueryClient(client, {
-      occurred_at: '2026-06-30T00:00:06Z',
-      payload: {
-        avg_tps: 125,
-        delta: 'Invoice',
-        elapsed_ms: 8,
-        file_hash: 'abc',
-        page_no: 1,
-        raw_end: 7,
-        raw_start: 0,
-        run_id: 'run-a',
-        token_index: 0,
-      },
-      sequence: 13,
-      type: 'ocr.page.raw.delta',
-      version: 1,
-    });
-    applyRealtimeEventToQueryClient(client, {
-      occurred_at: '2026-06-30T00:00:07Z',
-      payload: {
-        end: 0,
-        file_hash: 'abc',
-        op: 'append',
-        page_no: 1,
-        run_id: 'run-a',
-        start: 0,
-        text: 'Invoice',
-      },
-      sequence: 14,
-      type: 'ocr.page.text.patch',
-      version: 1,
-    });
-
-    expect(
-      client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc', 'run-a')),
-    ).toEqual({
+    client.setQueryData<DocumentTextPayload>(queryKeys.documentText('abc', 'run-a'), {
       file_hash: 'abc',
-      pages: [{ page_no: 1, spans: [], text: 'Invoice' }],
+      pages: [{ page_no: 1, spans: [], text: 'unscoped text' }],
       run_id: 'run-a',
     });
-  });
-
-  test('keeps live OCR text caches isolated by run id for the same file', () => {
-    const client = new QueryClient();
-
-    for (const [runId, text] of [
-      ['run-a', 'First run'],
-      ['run-b', 'Second run'],
-    ] as const) {
-      applyRealtimeEventToQueryClient(client, {
+    const events: RealtimeEvent[] = [
+      {
         occurred_at: '2026-06-30T00:00:05Z',
         payload: {
           file_hash: 'abc',
           page_no: 1,
-          run_id: runId,
+          run_engine_id: 'engine-a',
+          run_id: 'run-a',
         },
-        sequence: runId === 'run-a' ? 12 : 13,
+        sequence: 12,
         type: 'ocr.page.stream.started',
         version: 1,
-      });
-      applyRealtimeEventToQueryClient(client, {
+      },
+      {
         occurred_at: '2026-06-30T00:00:07Z',
         payload: {
           end: 0,
           file_hash: 'abc',
           op: 'append',
           page_no: 1,
-          run_id: runId,
+          run_engine_id: 'engine-a',
+          run_id: 'run-a',
           start: 0,
-          text,
+          text: 'engine text',
         },
-        sequence: runId === 'run-a' ? 14 : 15,
+        sequence: 14,
         type: 'ocr.page.text.patch',
         version: 1,
-      });
-    }
+      },
+    ];
+
+    applyProjectedOcrReplay(client, events);
 
     expect(
       client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc', 'run-a')),
     ).toEqual({
       file_hash: 'abc',
-      pages: [{ page_no: 1, spans: [], text: 'First run' }],
+      pages: [{ page_no: 1, spans: [], text: 'unscoped text' }],
       run_id: 'run-a',
     });
     expect(
-      client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc', 'run-b')),
+      client.getQueryData<DocumentTextPayload>(queryKeys.documentText('abc', 'run-a', 'engine-a')),
     ).toEqual({
       file_hash: 'abc',
-      pages: [{ page_no: 1, spans: [], text: 'Second run' }],
-      run_id: 'run-b',
+      pages: [{ page_no: 1, spans: [], text: 'engine text' }],
+      run_engine_id: 'engine-a',
+      run_id: 'run-a',
     });
   });
 });

@@ -81,6 +81,21 @@
   min-width: 0;
 }
 
+.runnerBadge {
+  min-width: 0;
+  max-width: 220px;
+  padding: 1px 6px;
+  overflow: hidden;
+  color: var(--subtle);
+  font-size: 10px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--panel-3) 70%, transparent);
+  border: 1px solid var(--subtle-border);
+  border-radius: 3px;
+}
+
 .statusLine > span:last-child {
   min-width: 0;
   overflow: hidden;

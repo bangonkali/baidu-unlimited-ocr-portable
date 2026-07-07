@@ -64,18 +64,12 @@ export function updateRegionsPayload(
 
 function textPayloadKeys(fileHash: string, runId?: string | null, runEngineId?: string | null) {
   return runEngineId
-    ? [
-        queryKeys.documentText(fileHash, runId ?? undefined),
-        queryKeys.documentText(fileHash, runId ?? undefined, runEngineId),
-      ]
+    ? [queryKeys.documentText(fileHash, runId ?? undefined, runEngineId)]
     : [queryKeys.documentText(fileHash, runId ?? undefined)];
 }
 
 function regionPayloadKeys(fileHash: string, runId?: string | null, runEngineId?: string | null) {
   return runEngineId
-    ? [
-        queryKeys.documentRegions(fileHash, runId ?? undefined),
-        queryKeys.documentRegions(fileHash, runId ?? undefined, runEngineId),
-      ]
+    ? [queryKeys.documentRegions(fileHash, runId ?? undefined, runEngineId)]
     : [queryKeys.documentRegions(fileHash, runId ?? undefined)];
 }

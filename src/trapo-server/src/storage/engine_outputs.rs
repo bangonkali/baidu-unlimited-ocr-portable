@@ -100,13 +100,14 @@ impl Repository {
                 ],
             )?;
             let output_id = new_persistence_id();
+            let metadata = page_output_provenance(&config).to_string();
             conn.execute(
                 "INSERT INTO document_page_outputs(
                     output_id, run_id, run_engine_id, work_unit_id, file_hash, page_no,
                     output_kind, engine_id, engine_kind, model_id, profile_id, runtime_id,
                     status, markdown, raw_text, error, elapsed_ms, metadata_json
                  )
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     output_id.as_str(),
                     config.run_id.as_str(),
@@ -125,7 +126,7 @@ impl Repository {
                     page.raw_text.as_str(),
                     page.error.as_deref(),
                     u64_to_i64_saturating(elapsed_ms),
-                    "{}"
+                    metadata.as_str()
                 ],
             )?;
             insert_output_elements(&conn, &output_id, &config, &page)?;
@@ -147,7 +148,8 @@ impl Repository {
                 "SELECT c.run_engine_id, c.run_id, c.ordinal, c.engine_kind, c.engine_id,
                   c.model_id, c.profile_id, c.runtime_id, c.status, c.error,
                   count(o.output_id) AS output_count,
-                  count(DISTINCT o.page_no) AS page_count
+                  count(DISTINCT o.page_no) AS page_count,
+                  max(o.metadata_json) AS provenance_json
                  FROM ingest_run_engine_configs c
                  JOIN document_page_outputs o
                    ON o.run_engine_id = c.run_engine_id

@@ -8,6 +8,7 @@
 import type { DiagnosticWaterfallRowRecordAttributes } from './diagnosticWaterfallRowRecordAttributes';
 
 export interface DiagnosticWaterfallRowRecord {
+  activity_kind: string;
   attributes: DiagnosticWaterfallRowRecordAttributes;
   category: string;
   /** @minimum 0 */
@@ -50,6 +51,9 @@ export interface DiagnosticWaterfallRowRecord {
   /** @nullable */
   started_at?: string | null;
   status: string;
+  status_code: string;
+  /** @nullable */
+  status_message?: string | null;
   /** @nullable */
   task_id?: string | null;
   trace_id: string;
