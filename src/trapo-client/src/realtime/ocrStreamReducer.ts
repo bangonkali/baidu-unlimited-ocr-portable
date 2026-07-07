@@ -18,10 +18,16 @@ export function ensureTextPage(
   current: DocumentTextPayload | undefined,
   context: OcrPageStreamContext,
 ): DocumentTextPayload {
-  const payload = current ?? { file_hash: context.file_hash, pages: [], run_id: context.run_id };
+  const payload = current ?? {
+    file_hash: context.file_hash,
+    pages: [],
+    ...(context.run_engine_id ? { run_engine_id: context.run_engine_id } : {}),
+    run_id: context.run_id,
+  };
   return {
     ...payload,
     file_hash: context.file_hash,
+    ...(context.run_engine_id ? { run_engine_id: context.run_engine_id } : {}),
     run_id: context.run_id,
     pages: upsertPage(payload.pages, { page_no: context.page_no, spans: [], text: '' }),
   };
@@ -91,13 +97,19 @@ export function applyRegionUpsert(
   const existing = current ?? {
     boxes: [],
     file_hash: payload.file_hash,
+    ...(payload.run_engine_id ? { run_engine_id: payload.run_engine_id } : {}),
     run_id: payload.run_id,
   };
   const incomingId = annotationIdOf(payload.region);
   const boxes = existing.boxes.some((box) => annotationIdOf(box) === incomingId)
     ? existing.boxes.map((box) => (annotationIdOf(box) === incomingId ? payload.region : box))
     : [...existing.boxes, payload.region];
-  return { boxes, file_hash: payload.file_hash, run_id: payload.run_id };
+  return {
+    boxes,
+    file_hash: payload.file_hash,
+    ...(payload.run_engine_id ? { run_engine_id: payload.run_engine_id } : {}),
+    run_id: payload.run_id,
+  };
 }
 
 export function applyRegionRemove(
@@ -107,11 +119,13 @@ export function applyRegionRemove(
   const existing = current ?? {
     boxes: [],
     file_hash: payload.file_hash,
+    ...(payload.run_engine_id ? { run_engine_id: payload.run_engine_id } : {}),
     run_id: payload.run_id,
   };
   return {
     boxes: existing.boxes.filter((box) => annotationIdOf(box) !== payload.region_id),
     file_hash: payload.file_hash,
+    ...(payload.run_engine_id ? { run_engine_id: payload.run_engine_id } : {}),
     run_id: payload.run_id,
   };
 }

@@ -177,6 +177,38 @@ async fn parity_mutation_routes_return_accepted() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn ingest_engines_route_returns_default_presets() -> anyhow::Result<()> {
+    let app = build_router(test_state().await?);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/ingest/engines")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let engines = payload["engines"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("engines missing: {payload}"))?;
+    assert_eq!(engines.len(), 6);
+    assert!(
+        engines
+            .iter()
+            .any(|engine| engine["engine_id"] == "unlimited-ocr-ffi"
+                && engine["available"] == true)
+    );
+    assert!(
+        engines
+            .iter()
+            .any(|engine| engine["engine_id"] == "dots-mocr-gguf"
+                && engine["availability"] == "missing_model")
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn text_index_route_chunks_long_cjk_pages_for_embedding_safety() -> anyhow::Result<()> {
     let temp = tempfile::tempdir()?;
     let root = temp.keep();
@@ -230,8 +262,10 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/status",
         "/api/search",
         "/api/system/shutdown",
+        "/api/ingest/engines",
         "/api/ingest/start",
         "/api/ingest/runs/{run_id}/events",
+        "/api/ingest/runs/{run_id}/preview-results",
         "/api/ingest/runs/{run_id}/resume",
         "/api/diagnostics/waterfall",
         "/api/logs/export",
@@ -919,6 +953,7 @@ fn test_config(root: &std::path::Path) -> anyhow::Result<ServerConfig> {
     std::fs::create_dir_all(&client_dist)?;
     std::fs::write(client_dist.join("index.html"), "<!doctype html>")?;
     install_placeholder_cpu_runtime(root)?;
+    install_placeholder_default_model(root)?;
     Ok(ServerConfig {
         app_root: root.to_path_buf(),
         client_dist,
@@ -932,6 +967,14 @@ fn test_config(root: &std::path::Path) -> anyhow::Result<ServerConfig> {
         port: 0,
         open_browser: false,
     })
+}
+
+fn install_placeholder_default_model(root: &std::path::Path) -> anyhow::Result<()> {
+    let model_dir = root.join("models");
+    std::fs::create_dir_all(&model_dir)?;
+    std::fs::write(model_dir.join("Unlimited-OCR-Q4_K_M.gguf"), b"model")?;
+    std::fs::write(model_dir.join("mmproj-Unlimited-OCR-F16.gguf"), b"mmproj")?;
+    Ok(())
 }
 
 fn install_placeholder_cpu_runtime(root: &std::path::Path) -> anyhow::Result<()> {

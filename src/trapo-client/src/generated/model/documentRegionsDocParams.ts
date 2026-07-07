@@ -9,4 +9,6 @@
 export type DocumentRegionsDocParams = {
 run_id?: string;
 run?: string;
+run_engine_id?: string;
+result?: string;
 };

@@ -9,6 +9,7 @@ interface WorkbenchSelectionPatch {
   fileHash?: string;
   pageNo?: number;
   regionId?: string;
+  runEngineId?: string;
   runId?: string;
 }
 
@@ -16,6 +17,7 @@ interface WorkbenchSelectionValue {
   fileHash?: string;
   pageNo: number;
   regionId?: string;
+  runEngineId?: string;
   runId?: string;
 }
 
@@ -72,7 +74,13 @@ export function useWorkbenchSelectionActions({
 
   const selectDocument = useCallback(
     (fileHash: string, pageNo = 1, runId?: string) =>
-      selectWorkbenchTarget({ fileHash, pageNo, regionId: undefined, runId }),
+      selectWorkbenchTarget({
+        fileHash,
+        pageNo,
+        regionId: undefined,
+        runEngineId: undefined,
+        runId,
+      }),
     [selectWorkbenchTarget],
   );
 
@@ -88,15 +96,19 @@ function selectionFromPatch(state: WorkbenchState, patch: WorkbenchSelectionPatc
   const fileChanged = patch.fileHash !== undefined && patch.fileHash !== state.selection.fileHash; // skylos: ignore[SKY-D253] fileHash is public route state, not a secret token.
   const pageChanged = patch.pageNo !== undefined && patch.pageNo !== state.selection.pageNo;
   const runChanged = patch.runId !== undefined && patch.runId !== state.selection.runId;
+  const runEngineChanged =
+    patch.runEngineId !== undefined && patch.runEngineId !== state.selection.runEngineId;
   return {
     fileHash: patch.fileHash ?? state.selection.fileHash,
     pageNo: patch.pageNo ?? state.selection.pageNo,
     regionId:
       patch.regionId !== undefined
         ? patch.regionId
-        : fileChanged || pageChanged || runChanged
+        : fileChanged || pageChanged || runChanged || runEngineChanged
           ? undefined
           : state.selection.regionId,
+    runEngineId:
+      patch.runEngineId ?? (fileChanged || runChanged ? undefined : state.selection.runEngineId),
     runId: patch.runId ?? state.selection.runId,
   };
 }
@@ -115,6 +127,7 @@ export function routeSearchFromSelection(
     page: selection.fileHash ? selection.pageNo : undefined,
     q: searchText.trim() || undefined,
     region: selection.regionId,
+    result: selection.runEngineId,
     run: selection.runId,
     run_scope: options.runScope === 'all' ? 'all' : undefined,
   };

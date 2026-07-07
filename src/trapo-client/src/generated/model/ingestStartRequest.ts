@@ -5,6 +5,7 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.5
  */
+import type { IngestEngineSelection } from './ingestEngineSelection';
 
 export interface IngestStartRequest {
   /** @nullable */
@@ -18,6 +19,8 @@ export interface IngestStartRequest {
   embedding_model_id?: string | null;
   /** @nullable */
   engine_id?: string | null;
+  /** @nullable */
+  engines?: IngestEngineSelection[] | null;
   /** @nullable */
   model_id?: string | null;
   /** @nullable */

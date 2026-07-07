@@ -48,11 +48,13 @@ impl AppState {
     ) -> Result<Vec<RenderedPage>> {
         let work_unit_id = self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
             run_id,
+            run_engine_id: None,
             file_hash,
             page_no: None,
             phase: "render",
+            engine: "pdfium",
             model: ocr_context.model_id,
-            profile: ocr_context.profile_id,
+            profile: Some(ocr_context.profile_id),
             metadata: json!({ "source_path": document_path.to_string_lossy().to_string() }),
         })
         .await;
@@ -70,92 +72,6 @@ impl AppState {
                 Err(error)
             }
         }
-    }
-
-    fn render_document_file(
-        &self,
-        file_hash: &str,
-        document_path: &Path,
-    ) -> Result<Vec<RenderedPage>> {
-        if is_pdf(document_path) {
-            self.log_info(
-                "pdfium",
-                format!(
-                    "rendering {} at {PDF_DPI} DPI with PDFium",
-                    document_path.display()
-                ),
-            );
-            self.inner.renderer.render_pdf(file_hash, document_path)
-        } else {
-            PdfRenderer::image_page(document_path).map(|page| vec![page])
-        }
-    }
-
-    async fn finish_render_diagnostics(
-        &self,
-        run_id: &str,
-        file_hash: &str,
-        work_unit_id: &str,
-        span: DiagnosticSpanScope,
-        rendered: &[RenderedPage],
-    ) {
-        self.record_span(
-            span,
-            SpanFinish {
-                run_id,
-                task_id: None,
-                work_unit_id: Some(work_unit_id),
-                parent_span_id: None,
-                file_hash: Some(file_hash),
-                page_no: None,
-                name: "Render document",
-                pipeline_step: "render",
-                category: "file",
-                engine: Some("pdfium"),
-                status: "ok",
-                error: None,
-                attributes: json!({ "page_count": rendered.len() }),
-            },
-        );
-        self.finish_diagnostic_work_unit(
-            run_id,
-            work_unit_id,
-            "completed",
-            None,
-            json!({ "page_count": rendered.len() }),
-        )
-        .await;
-    }
-
-    async fn fail_render_diagnostics(
-        &self,
-        run_id: &str,
-        file_hash: &str,
-        work_unit_id: &str,
-        span: DiagnosticSpanScope,
-        error: &AppError,
-    ) {
-        let message = error.to_string();
-        self.record_span(
-            span,
-            SpanFinish {
-                run_id,
-                task_id: None,
-                work_unit_id: Some(work_unit_id),
-                parent_span_id: None,
-                file_hash: Some(file_hash),
-                page_no: None,
-                name: "Render document",
-                pipeline_step: "render",
-                category: "file",
-                engine: Some("pdfium"),
-                status: "failed",
-                error: Some(&message),
-                attributes: json!({}),
-            },
-        );
-        self.finish_diagnostic_work_unit(run_id, work_unit_id, "failed", Some(&message), json!({}))
-            .await;
     }
 
     async fn queue_rendered_pages(
@@ -181,11 +97,13 @@ impl AppState {
         for (page_no, metadata) in page_diagnostics {
             self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
                 run_id,
+                run_engine_id: Some(ocr_context.run_engine_id),
                 file_hash,
                 page_no: Some(page_no),
                 phase: "ocr",
+                engine: ocr_context.engine_id,
                 model: ocr_context.model_id,
-                profile: ocr_context.profile_id,
+                profile: Some(ocr_context.profile_id),
                 metadata,
             })
             .await;
@@ -269,13 +187,26 @@ impl AppState {
         page: &RenderedPage,
         ocr_context: &OcrRunContext<'_>,
     ) -> Result<()> {
-        let work_unit_id = diagnostic_work_key(run_id, file_hash, Some(page.page_no), "ocr");
+        let work_unit_id = self
+            .upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
+                run_id,
+                run_engine_id: Some(ocr_context.run_engine_id),
+                file_hash,
+                page_no: Some(page.page_no),
+                phase: "ocr",
+                engine: ocr_context.engine_id,
+                model: ocr_context.model_id,
+                profile: Some(ocr_context.profile_id),
+                metadata: json!({ "image_path": page.image_path.to_string_lossy().to_string() }),
+            })
+            .await;
         self.start_diagnostic_work_unit(run_id, &work_unit_id).await;
         let span = DiagnosticSpanScope::start();
         let result = self
             .process_page(
                 PageWork {
                     run_id,
+                    work_unit_id: &work_unit_id.id,
                     file_hash,
                     image_path: &page.image_path,
                     page_no: page.page_no,
@@ -288,7 +219,8 @@ impl AppState {
                 run_id,
                 file_hash,
                 page,
-                work_unit_id: &work_unit_id,
+                work_unit: &work_unit_id,
+                engine_id: ocr_context.engine_id,
                 result: &result,
             },
             span,

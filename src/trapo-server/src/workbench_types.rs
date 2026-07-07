@@ -11,11 +11,97 @@ pub(crate) struct IngestStartRequest {
     pub(crate) model_id: Option<String>,
     pub(crate) runtime_id: Option<String>,
     pub(crate) engine_id: Option<String>,
+    pub(crate) engines: Option<Vec<IngestEngineSelection>>,
     pub(crate) reprocess: Option<bool>,
     pub(crate) text_index_after_ingest: Option<bool>,
     pub(crate) embedding_after_ingest: Option<bool>,
     pub(crate) embedding_model_id: Option<String>,
     pub(crate) embedding_dimension: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+pub(crate) struct IngestEngineSelection {
+    pub(crate) preset_id: Option<String>,
+    pub(crate) engine_id: String,
+    pub(crate) engine_kind: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    #[schema(value_type = Object)]
+    pub(crate) parameters: Option<Value>,
+    pub(crate) ordinal: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct IngestEngineConfigRecord {
+    pub(crate) run_engine_id: String,
+    pub(crate) run_id: String,
+    pub(crate) ordinal: u32,
+    pub(crate) engine_kind: String,
+    pub(crate) engine_id: String,
+    pub(crate) label: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    #[schema(value_type = Object)]
+    pub(crate) parameters: Value,
+    pub(crate) status: String,
+    pub(crate) error: Option<String>,
+    pub(crate) usable_output_count: u32,
+    pub(crate) previewer: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct IngestEnginePresetRecord {
+    pub(crate) preset_id: String,
+    pub(crate) engine_id: String,
+    pub(crate) engine_kind: String,
+    pub(crate) label: String,
+    pub(crate) description: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) previewer: String,
+    pub(crate) default_enabled: bool,
+    pub(crate) requires_model: bool,
+    pub(crate) download_model_ids: Vec<String>,
+    pub(crate) available: bool,
+    pub(crate) availability: String,
+    pub(crate) availability_detail: Option<String>,
+    #[schema(value_type = Object)]
+    pub(crate) parameter_schema: Value,
+    #[schema(value_type = Object)]
+    pub(crate) default_parameters: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct IngestEnginesPayload {
+    pub(crate) engines: Vec<IngestEnginePresetRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct IngestPreviewResultRecord {
+    pub(crate) run_engine_id: String,
+    pub(crate) run_id: String,
+    pub(crate) ordinal: u32,
+    pub(crate) engine_kind: String,
+    pub(crate) engine_id: String,
+    pub(crate) label: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) status: String,
+    pub(crate) previewer: String,
+    pub(crate) output_count: u32,
+    pub(crate) page_count: u32,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct IngestPreviewResultsPayload {
+    pub(crate) run_id: String,
+    pub(crate) file_hash: String,
+    pub(crate) results: Vec<IngestPreviewResultRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -55,6 +141,8 @@ pub(crate) struct IngestRunRecord {
     pub(crate) error: Option<String>,
     pub(crate) can_resume: bool,
     pub(crate) can_restart: bool,
+    pub(crate) engine_configs: Vec<IngestEngineConfigRecord>,
+    pub(crate) preview_results: Vec<IngestPreviewResultRecord>,
     pub(crate) completion_manifest: Option<RunCompletionManifestRecord>,
 }
 
@@ -229,6 +317,8 @@ pub(crate) struct DocumentRegionsPayload {
     pub(crate) file_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) run_engine_id: Option<String>,
     pub(crate) boxes: Vec<OverlayBox>,
 }
 
@@ -277,6 +367,8 @@ pub(crate) struct DocumentTextPayload {
     pub(crate) file_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) run_engine_id: Option<String>,
     pub(crate) pages: Vec<PageTextRecord>,
 }
 

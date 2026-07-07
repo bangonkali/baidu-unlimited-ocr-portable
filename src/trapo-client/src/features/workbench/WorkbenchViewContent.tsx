@@ -1,6 +1,9 @@
 import type {
   DiagnosticPipelineTaskRecord,
   DocumentSummary,
+  IngestEnginePresetRecord,
+  IngestEngineSelection,
+  IngestPreviewResultRecord,
   IngestRunRecord,
   LogRecord,
   ModelAssetRecord,
@@ -35,6 +38,7 @@ export interface WorkbenchViewContentProps {
   diagnosticsSearch?: DiagnosticsRouteSearch;
   documents: DocumentSummary[];
   explorerFilter: WorkbenchExplorerFilter;
+  enginePresets: IngestEnginePresetRecord[];
   folderDialogError?: string;
   ingestBusy: boolean;
   ingestSearch?: IngestRouteSearch;
@@ -47,12 +51,14 @@ export interface WorkbenchViewContentProps {
   searchSearch?: SearchRouteSearch;
   models?: ModelsPayload;
   previewPages: number[];
+  previewResults: IngestPreviewResultRecord[];
   pipelineTasks: DiagnosticPipelineTaskRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
   rootPath: string;
   runs: IngestRunRecord[];
   selectedDocument?: DocumentSummary;
+  selectedRunEngineId?: string;
   selectedProfile: string;
   settings?: SettingsPayload;
   settingsBusy: boolean;
@@ -80,11 +86,13 @@ export interface WorkbenchViewContentProps {
   onRuntimeChange: (runtimeId: string) => void;
   onSelectModel: (modelId: string) => void;
   onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectPreviewResult: (runEngineId: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
   onStart: (options?: {
     embeddingAfterIngest?: boolean;
     embeddingDimension?: number;
     embeddingModelId?: string;
+    engines?: IngestEngineSelection[];
     reprocess?: boolean;
     textIndexAfterIngest?: boolean;
   }) => void;
@@ -167,6 +175,7 @@ function renderIngestView(props: WorkbenchViewContentProps) {
       busy={props.ingestBusy}
       folderDialogError={props.folderDialogError}
       ingestSearch={props.ingestSearch}
+      enginePresets={props.enginePresets}
       model={props.model}
       models={props.models}
       onCancelModel={props.onCancelModel}
@@ -196,6 +205,7 @@ function renderSearchView(props: WorkbenchViewContentProps) {
       logs={props.logs}
       model={props.model}
       onAutoFollowChange={props.onAutoFollowChange}
+      onSelectPreviewResult={props.onSelectPreviewResult}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
       pipelineTasks={props.pipelineTasks}
@@ -204,11 +214,13 @@ function renderSearchView(props: WorkbenchViewContentProps) {
       onRouteSearchChange={props.onSearchRouteSearchChange}
       onStopRun={props.onStop}
       previewPages={props.previewPages}
+      previewResults={props.previewResults}
       regions={props.regions}
       rootPath={props.rootPath}
       runs={props.runs}
       search={props.searchSearch}
       selectedDocument={props.selectedDocument}
+      selectedRunEngineId={props.selectedRunEngineId}
       textPages={props.textPages}
       workbench={props.workbench}
     />
@@ -249,15 +261,18 @@ function renderWorkbenchView(props: WorkbenchViewContentProps) {
       onResumeRun={props.onResumeRun}
       onRestartRun={props.onRestartRun}
       onSelectDocument={props.onSelectDocument}
+      onSelectPreviewResult={props.onSelectPreviewResult}
       onSelectRegion={props.onSelectRegion}
       onStopRun={props.onStop}
       onStart={props.onOpenIngest}
       pipelineTasks={props.pipelineTasks}
       previewPages={props.previewPages}
+      previewResults={props.previewResults}
       regions={props.regions}
       rootPath={props.rootPath}
       runs={props.runs}
       selectedDocument={props.selectedDocument}
+      selectedRunEngineId={props.selectedRunEngineId}
       textPages={props.textPages}
       workbench={props.workbench}
     />

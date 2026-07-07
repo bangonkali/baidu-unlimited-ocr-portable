@@ -4,7 +4,7 @@ impl AppState {
         self.mark_page_started(page_work.file_hash, page_work.page_no)
             .await?;
         let parsed = self.parse_page_output(&page_work, ocr)?;
-        let completed = self.complete_page_state(&page_work, parsed).await?;
+        let completed = self.complete_page_state(&page_work, ocr, parsed).await?;
         self.persist_completed_page(&page_work, ocr, started, completed)
             .await?;
         Ok(())
@@ -157,6 +157,58 @@ impl AppState {
         );
     }
 
+    async fn mark_engine_status(
+        &self,
+        run_engine_id: &str,
+        status: &str,
+        error: Option<&str>,
+        usable_output_count: u32,
+    ) {
+        let (stored, event) = {
+            let mut state = self.inner.state.lock().await;
+            let Some(run) = state.runs.values_mut().find(|run| {
+                run.engine_configs
+                    .iter()
+                    .any(|config| config.run_engine_id == run_engine_id)
+            }) else {
+                return;
+            };
+            let stored = {
+                let Some(config) = run
+                    .engine_configs
+                    .iter_mut()
+                    .find(|config| config.run_engine_id == run_engine_id)
+                else {
+                    return;
+                };
+                config.status = status.to_string();
+                config.error = error.map(ToString::to_string);
+                config.usable_output_count = usable_output_count;
+                stored_run_engine_config(config)
+            };
+            let event = run_record(run);
+            drop(state);
+            (stored, event)
+        };
+        if let Err(error) = self
+            .inner
+            .repository
+            .update_run_engine_config_status(
+                run_engine_id,
+                status,
+                error,
+                stored.usable_output_count,
+            )
+            .await
+        {
+            tracing::warn!(%error, run_engine_id, "failed to persist engine status");
+        }
+        self.inner.hub.publish(
+            "run.changed",
+            serde_json::to_value(event).unwrap_or_else(|_| json!({})),
+        );
+    }
+
     async fn run_cancelled(&self, run_id: &str) -> bool {
         let state = self.inner.state.lock().await;
         let cancelled = state
@@ -189,9 +241,10 @@ impl PageWork<'_> {
     fn stream_context(&self, ocr: &OcrRunContext<'_>) -> OcrStreamContext {
         OcrStreamContext {
             run_id: self.run_id.to_string(),
+            run_engine_id: ocr.run_engine_id.to_string(),
             file_hash: self.file_hash.to_string(),
             page_no: self.page_no,
-            engine_id: ENGINE_ID.to_string(),
+            engine_id: ocr.engine_id.to_string(),
             profile_id: ocr.profile_id.to_string(),
             model_id: ocr.model_id.to_string(),
             runtime_id: ocr.runtime_id.to_string(),

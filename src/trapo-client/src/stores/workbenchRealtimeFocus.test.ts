@@ -12,7 +12,13 @@ import {
 
 beforeEach(() => {
   setAutoFollowRegions(true);
-  setSelection({ fileHash: 'start-doc', pageNo: 1, regionId: undefined, runId: undefined });
+  setSelection({
+    fileHash: 'start-doc',
+    pageNo: 1,
+    regionId: undefined,
+    runEngineId: undefined,
+    runId: undefined,
+  });
   resetRealtimeFocusThrottleForTest();
 });
 
@@ -93,6 +99,25 @@ describe('workbenchStore realtime focus throttling', () => {
       fileHash: 'live-doc',
       pageNo: 2,
       runId: 'run-a',
+    });
+  });
+
+  test('carries realtime run engine ids through pending focus', () => {
+    withMockedClock(50_000, () => {
+      followLatestRegion('live-doc', [box('reg-first', 1)], 'run-a', 'engine-a');
+      followLatestRegion('live-doc', [box('reg-latest', 2)], 'run-a', 'engine-b');
+    });
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      regionId: 'reg-first',
+      runEngineId: 'engine-a',
+    });
+
+    flushRealtimeFocusForTest();
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      regionId: 'reg-latest',
+      runEngineId: 'engine-b',
     });
   });
 });

@@ -16,6 +16,13 @@ import {
 
 beforeEach(() => {
   setAutoFollowRegions(true);
+  setSelection({
+    fileHash: undefined,
+    pageNo: 1,
+    regionId: undefined,
+    runEngineId: undefined,
+    runId: undefined,
+  });
   resetRealtimeFocusThrottleForTest();
 });
 
@@ -122,6 +129,27 @@ describe('workbenchStore auto-follow basics', () => {
       pageNo: 2,
       regionId: undefined,
       runId: 'run-b',
+    });
+  });
+
+  test('carries realtime run engine ids and clears stale regions when the result changes', () => {
+    setAutoFollowRegions(true);
+    setSelection({
+      fileHash: 'live-doc',
+      pageNo: 2,
+      regionId: 'old-engine-region',
+      runEngineId: 'engine-a',
+      runId: 'run-a',
+    });
+
+    followLatestPage('live-doc', 2, 'run-a', 'engine-b');
+
+    expect(getWorkbenchSnapshot().selection).toMatchObject({
+      fileHash: 'live-doc',
+      pageNo: 2,
+      regionId: undefined,
+      runEngineId: 'engine-b',
+      runId: 'run-a',
     });
   });
 });

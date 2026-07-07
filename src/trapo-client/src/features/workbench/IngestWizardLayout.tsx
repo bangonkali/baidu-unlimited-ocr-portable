@@ -1,6 +1,7 @@
 import { Workflow } from 'lucide-react';
 
 import type {
+  IngestEnginePresetRecord,
   IngestRunRecord,
   ModelAssetRecord,
   OcrProfileRecord,
@@ -10,6 +11,7 @@ import styles from './IngestWizard.module.css';
 import { IngestWizardFlow } from './IngestWizardFlow';
 import { IngestWizardRail } from './IngestWizardRail';
 import type { WizardStepRecord } from './IngestWizardStepper';
+import type { EnginePlanItem } from './ingestEnginePlan';
 
 interface IngestWizardLayoutProps {
   active: boolean;
@@ -19,6 +21,9 @@ interface IngestWizardLayoutProps {
   canRunPostStep: boolean;
   canStart: boolean;
   embeddingAfterIngest: boolean;
+  enginePlan: EnginePlanItem[];
+  enginePlanIssue?: string;
+  enginePresets: IngestEnginePresetRecord[];
   embeddingModelOptions: ModelAssetRecord[];
   embeddingReady: boolean;
   folderDialogError?: string;
@@ -32,6 +37,7 @@ interface IngestWizardLayoutProps {
   selectedEmbeddingModel?: ModelAssetRecord;
   selectedOcrModel?: ModelAssetRecord;
   selectedProfile: string;
+  selectedRuntimeId?: string;
   selectedRunId: string;
   status?: StatusPayload;
   steps: WizardStepRecord[];
@@ -42,6 +48,7 @@ interface IngestWizardLayoutProps {
   onEmbeddingModelChange: (modelId: string) => void;
   onGenerateEmbedding: () => void;
   onModelChange: (modelId: string) => void;
+  onPlanChange: (plan: EnginePlanItem[]) => void;
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
   onReprocessChange: (value: boolean) => void;
@@ -70,6 +77,7 @@ export function IngestWizardLayout(props: IngestWizardLayoutProps) {
         />
         <IngestWizardRail
           {...props}
+          enginePlanCount={props.enginePlan.length}
           embeddingModel={props.selectedEmbeddingModel}
           ocrModel={props.selectedOcrModel}
           selectedEmbeddingModelId={props.selectedEmbeddingModel?.model_id ?? ''}

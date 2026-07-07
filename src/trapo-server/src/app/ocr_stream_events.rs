@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 struct OcrStreamContext {
     run_id: String,
+    run_engine_id: String,
     file_hash: String,
     page_no: u32,
     engine_id: String,
@@ -187,10 +188,13 @@ fn apply_stream_annotation_identities(
             .iter()
             .find(|item| item.source_region_key == box_record.source_region_key);
         let draft = annotation_identity_draft(
-            &context.run_id,
-            &context.file_hash,
-            &context.profile_id,
-            index,
+            AnnotationDraftScope {
+                run_id: &context.run_id,
+                file_hash: &context.file_hash,
+                engine_id: &context.engine_id,
+                profile_id: &context.profile_id,
+                index,
+            },
             box_record,
             span,
         );
@@ -211,6 +215,7 @@ fn stream_parse_context(context: &OcrStreamContext) -> crate::ocr::ParseContext 
 fn stream_context_payload(context: &OcrStreamContext) -> serde_json::Value {
     json!({
         "run_id": context.run_id,
+        "run_engine_id": context.run_engine_id,
         "file_hash": context.file_hash,
         "page_no": context.page_no,
         "engine_id": context.engine_id,

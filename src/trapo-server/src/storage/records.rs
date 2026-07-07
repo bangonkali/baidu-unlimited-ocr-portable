@@ -24,6 +24,38 @@ pub(crate) struct StoredRun {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct StoredRunEngineConfig {
+    pub(crate) run_engine_id: String,
+    pub(crate) run_id: String,
+    pub(crate) ordinal: u32,
+    pub(crate) engine_kind: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) parameters: Value,
+    pub(crate) status: String,
+    pub(crate) error: Option<String>,
+    pub(crate) usable_output_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct StoredPreviewResult {
+    pub(crate) run_engine_id: String,
+    pub(crate) run_id: String,
+    pub(crate) ordinal: u32,
+    pub(crate) engine_kind: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) status: String,
+    pub(crate) output_count: u32,
+    pub(crate) page_count: u32,
+    pub(crate) error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct StoredRunCompletionManifest {
     pub(crate) run_id: String,
     pub(crate) completed_at: String,
@@ -236,6 +268,7 @@ pub(crate) struct DiagnosticModelLeaseRow {
 pub(crate) struct WorkUnitUpsert {
     pub(crate) work_unit_id: String,
     pub(crate) run_id: String,
+    pub(crate) run_engine_id: Option<String>,
     pub(crate) work_key: String,
     pub(crate) file_hash: Option<String>,
     pub(crate) page_no: Option<u32>,
@@ -419,6 +452,7 @@ pub(crate) struct DiagnosticEventInsert {
 #[derive(Debug, Default)]
 pub(crate) struct StoredSnapshot {
     pub(crate) runs: Vec<StoredRun>,
+    pub(crate) engine_configs: Vec<StoredRunEngineConfig>,
     pub(crate) completion_manifests: Vec<StoredRunCompletionManifest>,
     pub(crate) run_documents: Vec<StoredRunDocument>,
     pub(crate) documents: Vec<StoredDocument>,

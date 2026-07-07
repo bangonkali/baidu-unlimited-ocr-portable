@@ -1,14 +1,19 @@
-import type { ModelAssetRecord, OcrProfileRecord } from '../../api/types';
+import type { IngestEnginePresetRecord, ModelAssetRecord, OcrProfileRecord } from '../../api/types';
 import styles from './IngestWizard.module.css';
+import { IngestWizardEnginePlan } from './IngestWizardEnginePlan';
 import { IngestWizardModelChoice } from './IngestWizardModelChoice';
 import { IngestWizardPipelineOptions } from './IngestWizardPipelineOptions';
 import { IngestWizardSource } from './IngestWizardSource';
 import type { WizardStepRecord } from './IngestWizardStepper';
 import { IngestWizardStepper } from './IngestWizardStepper';
+import type { EnginePlanItem } from './ingestEnginePlan';
 
 interface IngestWizardFlowProps {
   busy?: boolean;
   embeddingAfterIngest: boolean;
+  enginePlan: EnginePlanItem[];
+  enginePlanIssue?: string;
+  enginePresets: IngestEnginePresetRecord[];
   embeddingModelOptions: ModelAssetRecord[];
   embeddingReady: boolean;
   folderDialogError?: string;
@@ -21,6 +26,7 @@ interface IngestWizardFlowProps {
   selectedEmbeddingModel?: ModelAssetRecord;
   selectedOcrModel?: ModelAssetRecord;
   selectedProfile: string;
+  selectedRuntimeId?: string;
   steps: WizardStepRecord[];
   textIndexAfterIngest: boolean;
   onCancelModel: (modelId: string) => void;
@@ -28,6 +34,7 @@ interface IngestWizardFlowProps {
   onEmbeddingAfterIngestChange: (value: boolean) => void;
   onEmbeddingModelChange: (modelId: string) => void;
   onModelChange: (modelId: string) => void;
+  onPlanChange: (plan: EnginePlanItem[]) => void;
   onPickFolder: () => void;
   onProfileChange: (profileId: string) => void;
   onReprocessChange: (value: boolean) => void;
@@ -51,17 +58,34 @@ export function IngestWizardFlow(props: IngestWizardFlowProps) {
         onReprocessChange={props.onReprocessChange}
         onRootPathChange={props.onRootPathChange}
       />
-      <IngestWizardModelChoice
-        busy={props.busy}
-        description="Use a downloaded Unlimited OCR model, or confirm a download before starting."
-        label="OCR model"
-        models={props.ocrModelOptions}
-        recommendedModelId={props.recommendedOcr?.model_id}
-        selectedModelId={props.selectedOcrModel?.model_id ?? ''}
-        onCancelModel={props.onCancelModel}
-        onChange={props.onModelChange}
-        onDownloadModel={props.onDownloadModel}
-      />
+      {props.enginePresets.length > 0 ? (
+        <>
+          <IngestWizardEnginePlan
+            busy={props.busy}
+            models={props.ocrModelOptions}
+            plan={props.enginePlan}
+            presets={props.enginePresets}
+            selectedProfile={props.selectedProfile}
+            selectedRuntimeId={props.selectedRuntimeId}
+            onCancelModel={props.onCancelModel}
+            onDownloadModel={props.onDownloadModel}
+            onPlanChange={props.onPlanChange}
+          />
+          {props.enginePlanIssue ? <p className={styles.error}>{props.enginePlanIssue}</p> : null}
+        </>
+      ) : (
+        <IngestWizardModelChoice
+          busy={props.busy}
+          description="Use a downloaded Unlimited OCR model, or confirm a download before starting."
+          label="OCR model"
+          models={props.ocrModelOptions}
+          recommendedModelId={props.recommendedOcr?.model_id}
+          selectedModelId={props.selectedOcrModel?.model_id ?? ''}
+          onCancelModel={props.onCancelModel}
+          onChange={props.onModelChange}
+          onDownloadModel={props.onDownloadModel}
+        />
+      )}
       <IngestWizardPipelineOptions
         embeddingAfterIngest={props.embeddingAfterIngest}
         embeddingReady={props.embeddingReady}

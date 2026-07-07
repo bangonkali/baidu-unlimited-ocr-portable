@@ -1,15 +1,16 @@
 impl Repository {
-    pub(crate) async fn upsert_work_unit(&self, unit: &WorkUnitUpsert) -> Result<()> {
+    pub(crate) async fn upsert_work_unit(&self, unit: &WorkUnitUpsert) -> Result<String> {
         let unit = unit.clone();
         let metadata = unit.metadata.to_string();
         self.with_write(move |conn| {
             conn.execute(
                 "INSERT INTO ingest_work_units(
-                    work_unit_id, run_id, file_hash, page_no, status, queued_at, work_key, phase,
+                    work_unit_id, run_id, run_engine_id, file_hash, page_no, status, queued_at, work_key, phase,
                     engine, provider, model, profile, execution_key, artifact_variant, metadata_json
                  )
-                 VALUES (?, ?, ?, ?, 'planned', current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, ?, ?, 'planned', current_timestamp, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON CONFLICT(run_id, work_key) DO UPDATE SET
+                    run_engine_id = excluded.run_engine_id,
                     file_hash = excluded.file_hash, page_no = excluded.page_no,
                     work_key = excluded.work_key, phase = excluded.phase, engine = excluded.engine,
                     provider = excluded.provider, model = excluded.model, profile = excluded.profile,
@@ -22,6 +23,7 @@ impl Repository {
                 params![
                     unit.work_unit_id.as_str(),
                     unit.run_id.as_str(),
+                    unit.run_engine_id.as_deref(),
                     unit.file_hash.as_deref(),
                     unit.page_no.map_or(0, i64::from),
                     unit.work_key.as_str(),
@@ -35,7 +37,12 @@ impl Repository {
                     metadata.as_str()
                 ],
             )?;
-            Ok(())
+            let work_unit_id = conn.query_row(
+                "SELECT work_unit_id FROM ingest_work_units WHERE run_id = ? AND work_key = ?",
+                params![unit.run_id.as_str(), unit.work_key.as_str()],
+                |row| row.get(0),
+            )?;
+            Ok(work_unit_id)
         })
         .await
     }

@@ -1,7 +1,11 @@
-import type { ModelAssetRecord } from '../../api/types';
+import type { IngestEnginePresetRecord, ModelAssetRecord } from '../../api/types';
+import type { EnginePlanItem } from './ingestEnginePlan';
+import { enginePlanSelections } from './ingestEnginePlan';
 
 export interface IngestWizardStartInput {
   embeddingAfterIngest: boolean;
+  enginePlan?: EnginePlanItem[];
+  enginePresets?: IngestEnginePresetRecord[];
   reprocess: boolean;
   selectedEmbeddingModel?: ModelAssetRecord;
   selectedEmbeddingModelId: string;
@@ -13,6 +17,10 @@ export function buildIngestWizardStartOptions(input: IngestWizardStartInput) {
     embeddingAfterIngest: input.embeddingAfterIngest,
     embeddingDimension: input.selectedEmbeddingModel?.embedding_dimension ?? undefined,
     embeddingModelId: input.selectedEmbeddingModelId || undefined,
+    engines:
+      input.enginePresets && input.enginePresets.length > 0 && input.enginePlan
+        ? enginePlanSelections(input.enginePlan)
+        : undefined,
     reprocess: input.reprocess,
     textIndexAfterIngest: input.textIndexAfterIngest,
   };

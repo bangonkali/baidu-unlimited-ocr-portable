@@ -9,6 +9,8 @@ interface IngestWizardSummaryProps {
   canStart: boolean;
   embeddingAfterIngest: boolean;
   embeddingModel?: ModelAssetRecord;
+  enginePlanCount: number;
+  enginePlanIssue?: string;
   rootPath: string;
   selectedProfile: string;
   textIndexAfterIngest: boolean;
@@ -22,6 +24,8 @@ export function IngestWizardSummary({
   canStart,
   embeddingAfterIngest,
   embeddingModel,
+  enginePlanCount,
+  enginePlanIssue,
   ocrModel,
   onStart,
   onStop,
@@ -33,19 +37,34 @@ export function IngestWizardSummary({
     <section className={styles.summary} aria-label="Ingest summary">
       <h2>Ready Check</h2>
       <p>
-        {summaryMessage({ canStart, embeddingAfterIngest, embeddingModel, ocrModel, rootPath })}
+        {summaryMessage({
+          canStart,
+          embeddingAfterIngest,
+          embeddingModel,
+          enginePlanCount,
+          enginePlanIssue,
+          ocrModel,
+          rootPath,
+        })}
       </p>
       <dl className={styles.summaryList}>
         <div>
           <dt>Folder</dt>
           <dd>{rootPath || 'Choose a folder'}</dd>
         </div>
-        <div>
-          <dt>OCR model</dt>
-          <dd>
-            {ocrModel?.display_name ?? 'Select a model'} · {modelStatusLabel(ocrModel)}
-          </dd>
-        </div>
+        {enginePlanCount > 0 ? (
+          <div>
+            <dt>Engines</dt>
+            <dd>{enginePlanCount}</dd>
+          </div>
+        ) : (
+          <div>
+            <dt>OCR model</dt>
+            <dd>
+              {ocrModel?.display_name ?? 'Select a model'} · {modelStatusLabel(ocrModel)}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Profile</dt>
           <dd>{selectedProfile}</dd>
@@ -87,6 +106,8 @@ function summaryMessage(args: {
   canStart: boolean;
   embeddingAfterIngest: boolean;
   embeddingModel?: ModelAssetRecord;
+  enginePlanCount: number;
+  enginePlanIssue?: string;
   ocrModel?: ModelAssetRecord;
   rootPath: string;
 }) {
@@ -96,7 +117,10 @@ function summaryMessage(args: {
   if (!args.rootPath.trim()) {
     return 'Choose a folder before starting.';
   }
-  if (!isModelReady(args.ocrModel)) {
+  if (args.enginePlanIssue) {
+    return args.enginePlanIssue;
+  }
+  if (args.enginePlanCount === 0 && !isModelReady(args.ocrModel)) {
     return 'Download or select a ready OCR model.';
   }
   if (args.embeddingAfterIngest && !isModelReady(args.embeddingModel)) {

@@ -206,11 +206,87 @@ export interface IngestStartRequest {
   model_id?: string;
   runtime_id?: string;
   engine_id?: string;
+  engines?: IngestEngineSelection[];
   reprocess?: boolean;
   text_index_after_ingest?: boolean;
   embedding_after_ingest?: boolean;
   embedding_model_id?: string;
   embedding_dimension?: number;
+}
+
+export interface IngestEngineSelection {
+  preset_id?: string;
+  engine_id: string;
+  engine_kind: string;
+  model_id?: string | null;
+  profile_id?: string | null;
+  runtime_id?: string | null;
+  parameters?: Record<string, unknown>;
+  ordinal?: number;
+}
+
+export interface IngestEngineConfigRecord {
+  run_engine_id: string;
+  run_id: string;
+  ordinal: number;
+  engine_kind: string;
+  engine_id: string;
+  label: string;
+  model_id?: string | null;
+  profile_id?: string | null;
+  runtime_id?: string | null;
+  parameters: Record<string, unknown>;
+  status: string;
+  error?: string | null;
+  usable_output_count: number;
+  previewer: string;
+}
+
+export interface IngestEnginePresetRecord {
+  preset_id: string;
+  engine_id: string;
+  engine_kind: string;
+  label: string;
+  description: string;
+  model_id?: string | null;
+  profile_id?: string | null;
+  runtime_id?: string | null;
+  previewer: string;
+  default_enabled: boolean;
+  requires_model: boolean;
+  download_model_ids: string[];
+  available: boolean;
+  availability: string;
+  availability_detail?: string | null;
+  parameter_schema: Record<string, unknown>;
+  default_parameters: Record<string, unknown>;
+}
+
+export interface IngestEnginesPayload {
+  engines: IngestEnginePresetRecord[];
+}
+
+export interface IngestPreviewResultRecord {
+  run_engine_id: string;
+  run_id: string;
+  ordinal: number;
+  engine_kind: string;
+  engine_id: string;
+  label: string;
+  model_id?: string | null;
+  profile_id?: string | null;
+  runtime_id?: string | null;
+  status: string;
+  previewer: string;
+  output_count: number;
+  page_count: number;
+  error?: string | null;
+}
+
+export interface IngestPreviewResultsPayload {
+  run_id: string;
+  file_hash: string;
+  results: IngestPreviewResultRecord[];
 }
 
 export interface PipelineTaskRecord {
@@ -334,6 +410,8 @@ export interface IngestRunRecord {
   error?: string | null;
   can_resume?: boolean;
   can_restart?: boolean;
+  engine_configs?: IngestEngineConfigRecord[];
+  preview_results?: IngestPreviewResultRecord[];
   completion_manifest?: RunCompletionManifestRecord | null;
 }
 
@@ -367,6 +445,7 @@ export interface DocumentsPayload {
 export interface DocumentRegionsPayload {
   file_hash: string;
   run_id?: string | null;
+  run_engine_id?: string | null;
   boxes: OverlayBox[];
 }
 
@@ -402,6 +481,7 @@ export interface PageTextRecord {
 export interface DocumentTextPayload {
   file_hash: string;
   run_id?: string | null;
+  run_engine_id?: string | null;
   pages: PageTextRecord[];
 }
 

@@ -12,6 +12,8 @@ import {
   useDocumentText,
   useDownloadModel,
   useGenerateEmbedding,
+  useIngestEngines,
+  useIngestPreviewResults,
   useIngestRuns,
   useLogs,
   useModels,
@@ -89,6 +91,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const data = useWorkbenchData(
     workbench.selection.fileHash,
     props.workbenchSearch?.run ?? props.searchSearch?.run,
+    props.workbenchSearch?.result,
     debouncedSearch,
   );
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
@@ -192,22 +195,34 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
 export function useWorkbenchData(
   fileHash: string | undefined,
   runId: string | undefined,
+  resultId: string | undefined,
   debouncedSearch: string,
 ) {
   const runs = useIngestRuns();
   const documentRunId = runId ?? latestRunIdFromRuns(runs.data?.runs);
+  const previewResults = useIngestPreviewResults(documentRunId, fileHash);
+  const runPreviewResults =
+    runs.data?.runs.find((run) => run.run_id === documentRunId)?.preview_results ?? [];
+  const selectedRunEngineId =
+    resultId ??
+    previewResults.data?.results[0]?.run_engine_id ??
+    runPreviewResults[0]?.run_engine_id;
   return {
     cancelModelDownload: useCancelModelDownload(),
     documents: useDocuments(debouncedSearch),
     downloadModel: useDownloadModel(),
     folderDialog: useOpenFolderDialog(),
     generateEmbedding: useGenerateEmbedding(),
+    ingestEngines: useIngestEngines(),
     logs: useLogs(220),
     models: useModels(),
     progress: useDiagnosticProgress(undefined, 5000, 1500),
     previewImages: useDocumentPreviewImages(fileHash),
+    previewResults,
+    runPreviewResults,
     documentRunId,
-    regions: useDocumentRegions(fileHash, documentRunId),
+    selectedRunEngineId,
+    regions: useDocumentRegions(fileHash, documentRunId, selectedRunEngineId),
     resumeRun: useResumeRun(),
     runs,
     selectModel: useSelectModel(),
@@ -216,7 +231,7 @@ export function useWorkbenchData(
     startTextIndex: useStartTextIndex(),
     status: useStatus(),
     stopRun: useRunCommand('stop'),
-    text: useDocumentText(fileHash, documentRunId),
+    text: useDocumentText(fileHash, documentRunId, selectedRunEngineId),
     usedEmbeddingModels: useUsedEmbeddingModels(),
     updateSettings: useUpdateSettings(),
   };
@@ -244,15 +259,20 @@ function viewData(
 ): WorkbenchViewData {
   return {
     documents: data.documents.data?.documents ?? [],
+    enginePresets: data.ingestEngines.data?.engines ?? [],
     logs: data.logs.data?.logs ?? [],
     model,
     models: data.models.data,
     previewPages: data.previewImages.data?.pages ?? [],
+    previewResults: data.previewResults.data?.results.length
+      ? data.previewResults.data.results
+      : data.runPreviewResults,
     profiles,
     pipelineTasks: data.progress.data?.pipeline_tasks ?? [],
     regions: data.regions.data?.boxes ?? [],
     runs: data.runs.data?.runs ?? [],
     selectedDocument,
+    selectedRunEngineId: data.selectedRunEngineId,
     settings: data.settings.data,
     status: data.status.data,
     textPages: visibleTextPages(data.text.data?.pages ?? [], selectedDocument),

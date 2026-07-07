@@ -41,6 +41,16 @@ async fn hydrate_snapshot(repository: &Repository, state: &mut WorkbenchState) -
         }
         state.runs.insert(hydrated.run_id.clone(), hydrated);
     }
+    for engine_config in snapshot.engine_configs {
+        if let Some(run) = state.runs.get_mut(&engine_config.run_id) {
+            run.engine_configs
+                .push(run_engine_config_from_stored(engine_config));
+            run.engine_configs.sort_by_key(|config| config.ordinal);
+        }
+    }
+    for run in state.runs.values_mut().filter(|run| run.engine_configs.is_empty()) {
+        run.engine_configs.push(legacy_engine_config_for_run(run));
+    }
     for run_document in snapshot.run_documents {
         if let Some(run) = state.runs.get_mut(&run_document.run_id) {
             let ordinal = usize::try_from(run_document.ordinal).unwrap_or(usize::MAX);

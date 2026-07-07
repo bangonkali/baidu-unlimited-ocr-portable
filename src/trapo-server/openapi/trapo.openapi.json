@@ -505,6 +505,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "run_engine_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -600,6 +616,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "run_engine_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -629,6 +661,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/engines": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "ingest_engines_doc",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestEnginesPayload"
                 }
               }
             }
@@ -791,6 +843,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OcrMetricsTreePayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/runs/{run_id}/preview-results": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "operationId": "preview_results_doc",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "file_hash",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestPreviewResultsPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
                 }
               }
             }
@@ -2714,6 +2814,12 @@
           "file_hash": {
             "type": "string"
           },
+          "run_engine_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "run_id": {
             "type": [
               "string",
@@ -2803,6 +2909,12 @@
             "items": {
               "$ref": "#/components/schemas/PageTextRecord"
             }
+          },
+          "run_engine_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "run_id": {
             "type": [
@@ -3122,6 +3234,331 @@
           }
         }
       },
+      "IngestEngineConfigRecord": {
+        "type": "object",
+        "required": [
+          "run_engine_id",
+          "run_id",
+          "ordinal",
+          "engine_kind",
+          "engine_id",
+          "label",
+          "parameters",
+          "status",
+          "usable_output_count",
+          "previewer"
+        ],
+        "properties": {
+          "engine_id": {
+            "type": "string"
+          },
+          "engine_kind": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "previewer": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "run_engine_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "usable_output_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "IngestEnginePresetRecord": {
+        "type": "object",
+        "required": [
+          "preset_id",
+          "engine_id",
+          "engine_kind",
+          "label",
+          "description",
+          "previewer",
+          "default_enabled",
+          "requires_model",
+          "download_model_ids",
+          "available",
+          "availability",
+          "parameter_schema",
+          "default_parameters"
+        ],
+        "properties": {
+          "availability": {
+            "type": "string"
+          },
+          "availability_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "default_enabled": {
+            "type": "boolean"
+          },
+          "default_parameters": {
+            "type": "object"
+          },
+          "description": {
+            "type": "string"
+          },
+          "download_model_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "engine_id": {
+            "type": "string"
+          },
+          "engine_kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parameter_schema": {
+            "type": "object"
+          },
+          "preset_id": {
+            "type": "string"
+          },
+          "previewer": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requires_model": {
+            "type": "boolean"
+          },
+          "runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "IngestEngineSelection": {
+        "type": "object",
+        "required": [
+          "engine_id",
+          "engine_kind",
+          "parameters"
+        ],
+        "properties": {
+          "engine_id": {
+            "type": "string"
+          },
+          "engine_kind": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ordinal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "preset_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "IngestEnginesPayload": {
+        "type": "object",
+        "required": [
+          "engines"
+        ],
+        "properties": {
+          "engines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestEnginePresetRecord"
+            }
+          }
+        }
+      },
+      "IngestPreviewResultRecord": {
+        "type": "object",
+        "required": [
+          "run_engine_id",
+          "run_id",
+          "ordinal",
+          "engine_kind",
+          "engine_id",
+          "label",
+          "status",
+          "previewer",
+          "output_count",
+          "page_count"
+        ],
+        "properties": {
+          "engine_id": {
+            "type": "string"
+          },
+          "engine_kind": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "output_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "previewer": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "run_engine_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "runtime_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "IngestPreviewResultsPayload": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "file_hash",
+          "results"
+        ],
+        "properties": {
+          "file_hash": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestPreviewResultRecord"
+            }
+          },
+          "run_id": {
+            "type": "string"
+          }
+        }
+      },
       "IngestRunRecord": {
         "type": "object",
         "required": [
@@ -3138,7 +3575,9 @@
           "model_id",
           "runtime_id",
           "can_resume",
-          "can_restart"
+          "can_restart",
+          "engine_configs",
+          "preview_results"
         ],
         "properties": {
           "can_restart": {
@@ -3165,6 +3604,12 @@
             "format": "int32",
             "minimum": 0
           },
+          "engine_configs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestEngineConfigRecord"
+            }
+          },
           "engine_id": {
             "type": "string"
           },
@@ -3182,6 +3627,12 @@
           },
           "model_id": {
             "type": "string"
+          },
+          "preview_results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngestPreviewResultRecord"
+            }
           },
           "processed_pages": {
             "type": "integer",
@@ -3264,6 +3715,15 @@
               "string",
               "null"
             ]
+          },
+          "engines": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/IngestEngineSelection"
+            }
           },
           "model_id": {
             "type": [

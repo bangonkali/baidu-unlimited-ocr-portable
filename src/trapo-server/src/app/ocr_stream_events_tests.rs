@@ -115,6 +115,7 @@ fn streamed_regions_get_uuid_v7_ids_without_database_write() -> anyhow::Result<(
 fn stream_context() -> OcrStreamContext {
     OcrStreamContext {
         run_id: "run-a".to_string(),
+        run_engine_id: "01980a3d-a4fc-7000-8000-000000000001".to_string(),
         file_hash: "file-a".to_string(),
         page_no: 1,
         engine_id: ENGINE_ID.to_string(),

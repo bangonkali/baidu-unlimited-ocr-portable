@@ -38,8 +38,9 @@ use crate::{
         DiagnosticSpanInsert, DiagnosticSpanRow, DiagnosticTraceFilter, DiagnosticWorkUnitRow,
         DownloadEventInsert, OcrPageMetrics, PipelineTaskRow, RagEmbeddingModelRow,
         RagEmbeddingRunRow, RagEmbeddingVectorRow, RagSearchHitRow, RagTextIndexRunRow,
-        RagTextSegmentRow, Repository, StoredDocument, StoredPage, StoredRealtimeEvent, StoredRun,
-        StoredRunCompletionManifest, WorkUnitUpsert,
+        RagTextSegmentRow, Repository, StoredDocument, StoredPage, StoredPreviewResult,
+        StoredRealtimeEvent, StoredRun, StoredRunCompletionManifest, StoredRunEngineConfig,
+        WorkUnitUpsert,
     },
     types::{
         DuckDbExtensionsRecord, HealthPayload, ModelAssetRecord, ModelDownloadEvent,
@@ -58,10 +59,12 @@ use crate::{
         DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
         FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
         HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
-        IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogsPayload,
-        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord,
-        PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
-        TextIndexRequest, TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
+        IngestEngineConfigRecord, IngestEnginePresetRecord, IngestEnginesPayload,
+        IngestPreviewResultRecord, IngestPreviewResultsPayload, IngestRunRecord, IngestRunsPayload,
+        IngestStartRequest, IngestStartResponse, LogsPayload, OcrMetricsTreeNode,
+        OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord, PipelineTaskRecord,
+        PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord, TextIndexRequest,
+        TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -118,7 +121,24 @@ pub(crate) struct RunState {
     pub(crate) error: Option<String>,
     pub(crate) cancel_requested: bool,
     pub(crate) file_hashes: Vec<String>,
+    pub(crate) engine_configs: Vec<RunEngineConfigState>,
     pub(crate) completion_manifest: Option<StoredRunCompletionManifest>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RunEngineConfigState {
+    pub(crate) run_engine_id: String,
+    pub(crate) run_id: String,
+    pub(crate) ordinal: u32,
+    pub(crate) engine_kind: String,
+    pub(crate) engine_id: String,
+    pub(crate) model_id: Option<String>,
+    pub(crate) profile_id: Option<String>,
+    pub(crate) runtime_id: Option<String>,
+    pub(crate) parameters: Value,
+    pub(crate) status: String,
+    pub(crate) error: Option<String>,
+    pub(crate) usable_output_count: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -199,6 +219,8 @@ fn u32_to_i32_saturating(value: u32) -> i32 {
 include!("app/core.rs");
 include!("app/download_targets.rs");
 include!("app/model_methods.rs");
+include!("app/ingest_engine_presets.rs");
+include!("app/ingest_engines.rs");
 include!("app/ingest_start.rs");
 include!("app/run_document_methods.rs");
 include!("app/run_resume_methods.rs");
@@ -208,6 +230,7 @@ include!("app/ocr_stream_events.rs");
 include!("app/ocr_worker.rs");
 include!("app/ingest_pipeline.rs");
 include!("app/process_document.rs");
+include!("app/process_document_render.rs");
 include!("app/process_document_records.rs");
 include!("app/page_diagnostics.rs");
 include!("app/region_snippets.rs");
@@ -238,6 +261,8 @@ include!("app/replay_methods.rs");
 
 include!("app/settings_helpers.rs");
 include!("app/model_records.rs");
+include!("app/engine_result_records.rs");
+include!("app/record_misc_helpers.rs");
 include!("app/document_records.rs");
 
 #[cfg(test)]

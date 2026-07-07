@@ -1,0 +1,133 @@
+.addRow,
+.rowHeader,
+.rowActions,
+.statusLine,
+.modelRow {
+  display: flex;
+  align-items: center;
+}
+
+.addRow {
+  gap: 8px;
+}
+
+.addRow select,
+.rowHeader select {
+  min-width: 0;
+  height: 30px;
+  color: var(--text);
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.addRow select {
+  flex: 1 1 auto;
+}
+
+.planRows {
+  display: grid;
+  gap: 8px;
+}
+
+.planRow {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  background: var(--control-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.rowHeader {
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.rowHeader select {
+  flex: 1 1 auto;
+}
+
+.rowActions {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.iconButton {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: var(--muted);
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.iconButton:hover {
+  color: var(--text);
+  border-color: var(--accent-2);
+}
+
+.iconButton:disabled {
+  color: var(--subtle);
+  cursor: not-allowed;
+  background: var(--panel-3);
+}
+
+.statusLine {
+  gap: 8px;
+  min-width: 0;
+}
+
+.statusLine > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paramsField {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.paramsField textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  color: var(--text);
+  font:
+    12px / 1.45 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  resize: vertical;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.modelActions {
+  display: grid;
+  gap: 6px;
+}
+
+.modelRow {
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.modelRow > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

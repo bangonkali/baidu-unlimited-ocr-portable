@@ -11,5 +11,7 @@ export interface DocumentRegionsPayload {
   boxes: OverlayBox[];
   file_hash: string;
   /** @nullable */
+  run_engine_id?: string | null;
+  /** @nullable */
   run_id?: string | null;
 }

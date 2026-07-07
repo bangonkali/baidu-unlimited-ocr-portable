@@ -11,5 +11,7 @@ export interface DocumentTextPayload {
   file_hash: string;
   pages: PageTextRecord[];
   /** @nullable */
+  run_engine_id?: string | null;
+  /** @nullable */
   run_id?: string | null;
 }

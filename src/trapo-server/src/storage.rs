@@ -1,6 +1,7 @@
 mod migration_sql;
 mod migration_sql_diagnostics;
 mod migration_sql_downloads;
+mod migration_sql_multi_engine;
 mod migrations;
 
 use std::{
@@ -36,6 +37,8 @@ include!("storage/records.rs");
 include!("storage/core.rs");
 include!("storage/writes.rs");
 include!("storage/queries.rs");
+include!("storage/engine_output_rows.rs");
+include!("storage/engine_outputs.rs");
 include!("storage/id_migrations.rs");
 include!("storage/annotation_identities.rs");
 include!("storage/internal.rs");
@@ -62,6 +65,9 @@ include!("storage/tests/basic.rs");
 
 #[cfg(test)]
 include!("storage/coverage_tests.rs");
+
+#[cfg(test)]
+include!("storage/engine_output_tests.rs");
 
 #[cfg(test)]
 include!("storage/migration_tests.rs");

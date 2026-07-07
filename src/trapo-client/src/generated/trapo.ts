@@ -31,6 +31,8 @@ import type {
   HealthPayload,
   HybridSearchRequest,
   HybridSearchResponse,
+  IngestEnginesPayload,
+  IngestPreviewResultsPayload,
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
@@ -46,6 +48,7 @@ import type {
   OcrMetricsTreePayload,
   OcrReplayPayload,
   PreviewImagesPayload,
+  PreviewResultsDocParams,
   RecentMetricsDocParams,
   SearchDocumentsDocParams,
   SettingsPayload,
@@ -715,6 +718,46 @@ export const healthDoc = async ( options?: RequestInit): Promise<healthDocRespon
 
 
 
+export type ingestEnginesDocResponse200 = {
+  data: IngestEnginesPayload
+  status: 200
+}
+
+export type ingestEnginesDocResponseSuccess = (ingestEnginesDocResponse200) & {
+  headers: Headers;
+};
+;
+
+export type ingestEnginesDocResponse = (ingestEnginesDocResponseSuccess)
+
+export const getIngestEnginesDocUrl = () => {
+
+
+
+
+  return `/api/ingest/engines`
+}
+
+export const ingestEnginesDoc = async ( options?: RequestInit): Promise<ingestEnginesDocResponse> => {
+
+  const res = await fetch(getIngestEnginesDocUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: ingestEnginesDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ingestEnginesDocResponse
+}
+
+
+
 export type recentMetricsDocResponse200 = {
   data: OcrMetricsTreePayload
   status: 200
@@ -932,6 +975,62 @@ export const runMetricsDoc = async (runId: string, options?: RequestInit): Promi
 
   const data: runMetricsDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as runMetricsDocResponse
+}
+
+
+
+export type previewResultsDocResponse200 = {
+  data: IngestPreviewResultsPayload
+  status: 200
+}
+
+export type previewResultsDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type previewResultsDocResponseSuccess = (previewResultsDocResponse200) & {
+  headers: Headers;
+};
+export type previewResultsDocResponseError = (previewResultsDocResponse404) & {
+  headers: Headers;
+};
+
+export type previewResultsDocResponse = (previewResultsDocResponseSuccess | previewResultsDocResponseError)
+
+export const getPreviewResultsDocUrl = (runId: string,
+    params: PreviewResultsDocParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ingest/runs/${runId}/preview-results?${stringifiedParams}` : `/api/ingest/runs/${runId}/preview-results`
+}
+
+export const previewResultsDoc = async (runId: string,
+    params: PreviewResultsDocParams, options?: RequestInit): Promise<previewResultsDocResponse> => {
+
+  const res = await fetch(getPreviewResultsDocUrl(runId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewResultsDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as previewResultsDocResponse
 }
 
 

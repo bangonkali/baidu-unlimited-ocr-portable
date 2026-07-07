@@ -39,9 +39,29 @@ describe('shouldFollowLatestRegion', () => {
       ),
     ).toBe(false);
   });
+
+  test('does not follow regions from another engine result for the same run', () => {
+    expect(
+      shouldFollowLatestRegion(
+        {
+          fileHash: 'live-doc',
+          pageNo: 1,
+          regionId: undefined,
+          runEngineId: 'engine-a',
+          runId: 'run-a',
+        },
+        regionsPayload(1, 'page-1-region', 'run-a', 'engine-b'),
+      ),
+    ).toBe(false);
+  });
 });
 
-function regionsPayload(pageNo: number, regionId: string, runId = 'run-a'): DocumentRegionsPayload {
+function regionsPayload(
+  pageNo: number,
+  regionId: string,
+  runId = 'run-a',
+  runEngineId?: string,
+): DocumentRegionsPayload {
   return {
     boxes: [
       {
@@ -55,6 +75,7 @@ function regionsPayload(pageNo: number, regionId: string, runId = 'run-a'): Docu
       },
     ],
     file_hash: 'live-doc',
+    run_engine_id: runEngineId,
     run_id: runId,
   };
 }

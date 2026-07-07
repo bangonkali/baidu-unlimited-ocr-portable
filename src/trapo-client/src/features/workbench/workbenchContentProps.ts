@@ -1,6 +1,9 @@
 import type {
   DiagnosticPipelineTaskRecord,
   DocumentSummary,
+  IngestEnginePresetRecord,
+  IngestEngineSelection,
+  IngestPreviewResultRecord,
   IngestRunRecord,
   LogRecord,
   ModelAssetRecord,
@@ -48,6 +51,7 @@ export interface WorkbenchContentActions {
   resumeRun: (runId: string) => void;
   restartRun: (run: IngestRunRecord) => void;
   selectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  selectPreviewResult: (runEngineId: string) => void;
   selectModel: MutationLike<string>;
   selectRegion: (pageNo: number, regionId: string) => void;
   settingsBusy: boolean;
@@ -55,6 +59,7 @@ export interface WorkbenchContentActions {
     embeddingAfterIngest?: boolean;
     embeddingDimension?: number;
     embeddingModelId?: string;
+    engines?: IngestEngineSelection[];
     reprocess?: boolean;
     textIndexAfterIngest?: boolean;
   }) => void;
@@ -72,11 +77,14 @@ export interface WorkbenchViewData {
   model?: ModelAssetRecord;
   models?: ModelsPayload;
   previewPages: number[];
+  previewResults: IngestPreviewResultRecord[];
+  enginePresets: IngestEnginePresetRecord[];
   pipelineTasks: DiagnosticPipelineTaskRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
   runs: IngestRunRecord[];
   selectedDocument?: DocumentSummary;
+  selectedRunEngineId?: string;
   settings?: SettingsPayload;
   status?: StatusPayload;
   textPages: PageTextRecord[];
@@ -136,6 +144,7 @@ export function buildContentProps(args: {
     },
     onRuntimeChange: args.actions.updateRuntime,
     onSelectDocument: args.actions.selectDocument,
+    onSelectPreviewResult: args.actions.selectPreviewResult,
     onSelectModel: (modelId) => args.actions.selectModel.mutate(modelId),
     onSelectRegion: args.actions.selectRegion,
     onStart: args.actions.startScan,

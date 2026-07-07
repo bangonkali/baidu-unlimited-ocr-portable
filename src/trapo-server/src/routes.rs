@@ -35,6 +35,8 @@ struct SearchQuery {
 struct RunScopeQuery {
     run_id: Option<String>,
     run: Option<String>,
+    run_engine_id: Option<String>,
+    result: Option<String>,
 }
 
 impl RunScopeQuery {
@@ -44,6 +46,18 @@ impl RunScopeQuery {
             .or(self.run.as_deref())
             .filter(|value| !value.is_empty())
     }
+
+    fn run_engine_id(&self) -> Option<&str> {
+        self.run_engine_id
+            .as_deref()
+            .or(self.result.as_deref())
+            .filter(|value| !value.is_empty())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct PreviewResultsQuery {
+    file_hash: String,
 }
 
 pub(crate) fn router(state: AppState) -> Router {
@@ -53,10 +67,15 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/openapi.json", get(openapi_json))
         .route("/api/system/folder-dialog", post(folder_dialog))
         .route("/api/system/shutdown", post(shutdown))
+        .route("/api/ingest/engines", get(ingest_engines))
         .route("/api/ingest/start", post(start_ingest))
         .route("/api/ingest/runs", get(list_runs))
         .route("/api/ingest/metrics/recent", get(recent_metrics))
         .route("/api/ingest/runs/{run_id}", get(get_run))
+        .route(
+            "/api/ingest/runs/{run_id}/preview-results",
+            get(preview_results),
+        )
         .route("/api/ingest/runs/{run_id}/metrics", get(run_metrics))
         .route("/api/ingest/runs/{run_id}/resume", post(resume_run))
         .route("/api/ingest/runs/{run_id}/stop", post(stop_run))
@@ -145,6 +164,12 @@ async fn start_ingest(
     ))
 }
 
+async fn ingest_engines(
+    State(state): State<AppState>,
+) -> Json<crate::workbench_types::IngestEnginesPayload> {
+    Json(state.ingest_engines().await)
+}
+
 async fn list_runs(
     State(state): State<AppState>,
 ) -> Json<crate::workbench_types::IngestRunsPayload> {
@@ -156,6 +181,16 @@ async fn get_run(
     Path(run_id): Path<String>,
 ) -> Result<Json<crate::workbench_types::IngestRunRecord>> {
     Ok(Json(state.get_run(&run_id).await?))
+}
+
+async fn preview_results(
+    State(state): State<AppState>,
+    Path(run_id): Path<String>,
+    Query(query): Query<PreviewResultsQuery>,
+) -> Result<Json<crate::workbench_types::IngestPreviewResultsPayload>> {
+    Ok(Json(
+        state.preview_results(&run_id, &query.file_hash).await?,
+    ))
 }
 
 async fn stop_run(
@@ -259,7 +294,9 @@ async fn document_regions(
     Query(query): Query<RunScopeQuery>,
 ) -> Result<Json<crate::workbench_types::DocumentRegionsPayload>> {
     Ok(Json(
-        state.document_regions(&file_hash, query.run_id()).await?,
+        state
+            .document_regions(&file_hash, query.run_id(), query.run_engine_id())
+            .await?,
     ))
 }
 
@@ -282,7 +319,11 @@ async fn document_text(
     Path(file_hash): Path<String>,
     Query(query): Query<RunScopeQuery>,
 ) -> Result<Json<crate::workbench_types::DocumentTextPayload>> {
-    Ok(Json(state.document_text(&file_hash, query.run_id()).await?))
+    Ok(Json(
+        state
+            .document_text(&file_hash, query.run_id(), query.run_engine_id())
+            .await?,
+    ))
 }
 
 async fn preview_images(

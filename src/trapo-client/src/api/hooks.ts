@@ -8,6 +8,8 @@ import type {
   DocumentsPayload,
   DocumentTextPayload,
   FolderDialogResponse,
+  IngestEnginesPayload,
+  IngestPreviewResultsPayload,
   IngestRunRecord,
   IngestRunsPayload,
   IngestStartRequest,
@@ -60,33 +62,45 @@ export function useDocuments(q: string) {
   });
 }
 
-export function useDocumentRegions(fileHash?: string, runId?: string) {
+export function useDocumentRegions(fileHash?: string, runId?: string, runEngineId?: string) {
   return useQuery({
     enabled: Boolean(fileHash),
-    placeholderData: { boxes: [], file_hash: fileHash ?? '', run_id: runId },
+    placeholderData: {
+      boxes: [],
+      file_hash: fileHash ?? '',
+      run_engine_id: runEngineId,
+      run_id: runId,
+    },
     queryFn: ({ signal }) =>
       getJson<DocumentRegionsPayload>(
         buildApiUrl(`/api/documents/${encodeURIComponent(fileHash ?? '')}/regions`, {
+          run_engine_id: runEngineId,
           run_id: runId,
         }),
         signal,
       ),
-    queryKey: queryKeys.documentRegions(fileHash, runId),
+    queryKey: queryKeys.documentRegions(fileHash, runId, runEngineId),
   });
 }
 
-export function useDocumentText(fileHash?: string, runId?: string) {
+export function useDocumentText(fileHash?: string, runId?: string, runEngineId?: string) {
   return useQuery({
     enabled: Boolean(fileHash),
-    placeholderData: { file_hash: fileHash ?? '', pages: [], run_id: runId },
+    placeholderData: {
+      file_hash: fileHash ?? '',
+      pages: [],
+      run_engine_id: runEngineId,
+      run_id: runId,
+    },
     queryFn: ({ signal }) =>
       getJson<DocumentTextPayload>(
         buildApiUrl(`/api/documents/${encodeURIComponent(fileHash ?? '')}/text`, {
+          run_engine_id: runEngineId,
           run_id: runId,
         }),
         signal,
       ),
-    queryKey: queryKeys.documentText(fileHash, runId),
+    queryKey: queryKeys.documentText(fileHash, runId, runEngineId),
   });
 }
 
@@ -128,6 +142,29 @@ export function useIngestRuns() {
     placeholderData: { runs: [] },
     queryFn: ({ signal }) => getJson<IngestRunsPayload>('/api/ingest/runs', signal),
     queryKey: queryKeys.runs,
+  });
+}
+
+export function useIngestEngines() {
+  return useQuery({
+    placeholderData: { engines: [] },
+    queryFn: ({ signal }) => getJson<IngestEnginesPayload>('/api/ingest/engines', signal),
+    queryKey: queryKeys.ingestEngines,
+  });
+}
+
+export function useIngestPreviewResults(runId?: string, fileHash?: string) {
+  return useQuery({
+    enabled: Boolean(runId && fileHash),
+    placeholderData: { file_hash: fileHash ?? '', results: [], run_id: runId ?? '' },
+    queryFn: ({ signal }) =>
+      getJson<IngestPreviewResultsPayload>(
+        buildApiUrl(`/api/ingest/runs/${encodeURIComponent(runId ?? '')}/preview-results`, {
+          file_hash: fileHash,
+        }),
+        signal,
+      ),
+    queryKey: queryKeys.previewResults(runId, fileHash),
   });
 }
 

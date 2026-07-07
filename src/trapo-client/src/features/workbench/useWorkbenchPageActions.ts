@@ -111,6 +111,7 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
         to: '/ingest/start',
       }),
     selectModel: args.data.selectModel,
+    selectPreviewResult: (runEngineId: string) => selectPreviewResult(args, runEngineId),
     settingsBusy: args.data.selectModel.isPending || args.data.updateSettings.isPending,
     startTextIndex: (sourceRunId: string) =>
       args.data.startTextIndex.mutate({ source_run_id: sourceRunId }),
@@ -129,6 +130,21 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
         to: '/search',
       }),
   };
+}
+
+function selectPreviewResult(args: WorkbenchActionArgs, runEngineId: string) {
+  setAutoFollowRegions(false);
+  setSelection({ regionId: undefined, runEngineId });
+  void args.navigate({
+    replace: true,
+    search: (current) => ({
+      ...(current as RootRouteSearch & Record<string, unknown>),
+      follow: false,
+      result: runEngineId,
+      region: undefined,
+    }),
+    to: '/workbench',
+  });
 }
 
 function searchRouteSearchPatch(
@@ -157,6 +173,7 @@ function changeExplorerFilter(args: WorkbenchActionArgs, filter: WorkbenchExplor
     fileHash: firstDocument?.file_hash,
     pageNo: firstDocument?.current_page ?? 1,
     regionId: undefined,
+    runEngineId: undefined,
     runId,
   };
   setAutoFollowRegions(false);

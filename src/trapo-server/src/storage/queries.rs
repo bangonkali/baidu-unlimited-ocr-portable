@@ -20,6 +20,7 @@ impl Repository {
         self.with_read(move |conn| {
             Ok(StoredSnapshot {
                 runs: Self::load_runs(&conn)?,
+                engine_configs: Self::load_run_engine_configs(&conn)?,
                 completion_manifests: Self::load_run_completion_manifests(&conn)?,
                 run_documents: Self::load_run_documents(&conn)?,
                 documents: Self::load_documents(&conn)?,

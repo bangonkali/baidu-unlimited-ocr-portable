@@ -5,7 +5,6 @@ pub(super) struct Migration {
     pub name: &'static str,
     pub sql: &'static str,
 }
-
 pub(super) const MIGRATIONS: &[Migration] = &[
     Migration {
         id: 1,
@@ -292,5 +291,10 @@ CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_ki
         id: 15,
         name: "diagnostic_trace_rendering",
         sql: migration_sql_diagnostics::DIAGNOSTIC_TRACE_RENDERING,
+    },
+    Migration {
+        id: 16,
+        name: "multi_engine_ingest_outputs",
+        sql: super::migration_sql_multi_engine::MULTI_ENGINE_INGEST,
     },
 ];

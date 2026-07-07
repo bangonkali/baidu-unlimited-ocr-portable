@@ -1,10 +1,11 @@
 export const queryKeys = {
   documents: (q: string) => ['documents', q] as const,
   documentPreviewImages: (fileHash?: string) => ['document-preview-images', fileHash] as const,
-  documentRegions: (fileHash?: string, runId?: string) =>
-    ['document-regions', fileHash, runId ?? 'latest'] as const,
-  documentText: (fileHash?: string, runId?: string) =>
-    ['document-text', fileHash, runId ?? 'latest'] as const,
+  documentRegions: (fileHash?: string, runId?: string, runEngineId?: string) =>
+    ['document-regions', fileHash, runId ?? 'latest', runEngineId ?? 'default'] as const,
+  documentText: (fileHash?: string, runId?: string, runEngineId?: string) =>
+    ['document-text', fileHash, runId ?? 'latest', runEngineId ?? 'default'] as const,
+  ingestEngines: ['ingest-engines'] as const,
   logs: ['logs'] as const,
   models: ['models'] as const,
   ocrReplay: (params: Record<string, unknown>) => ['ocr-replay', params] as const,
@@ -19,6 +20,8 @@ export const queryKeys = {
   ragEmbeddingModelsUsed: ['rag', 'embedding-models', 'used'] as const,
   ragSearch: (params: Record<string, unknown>) => ['rag', 'search', params] as const,
   runs: ['runs'] as const,
+  previewResults: (runId?: string, fileHash?: string) =>
+    ['ingest-preview-results', runId ?? 'latest', fileHash ?? 'none'] as const,
   settings: ['settings'] as const,
   status: ['status'] as const,
 };

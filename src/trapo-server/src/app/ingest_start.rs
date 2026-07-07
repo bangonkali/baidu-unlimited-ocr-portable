@@ -10,13 +10,28 @@ impl AppState {
         let root = PathBuf::from(&request.root_path);
         let files = discover_supported_files(&root)?;
         let run_id = now_id();
-        let (profile_id, model_id, runtime_id) = self.resolve_ingest_selection(&request).await?;
+        let engine_configs = self.resolve_ingest_engine_configs(&request, &run_id).await?;
+        let Some(primary_engine) = engine_configs.first() else {
+            return Err(AppError::BadRequest(
+                "at least one ingest engine is required".to_string(),
+            ));
+        };
+        let profile_id = primary_engine
+            .profile_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROFILE_ID.to_string());
+        let model_id = primary_engine
+            .model_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_MODEL_ID.to_string());
+        let runtime_id = primary_engine.runtime_id.clone().unwrap_or_default();
         let prepared = self
             .prepare_ingest_run(IngestPrepareInput {
                 request: &request,
                 root: &root,
                 files: &files,
                 run_id: &run_id,
+                engine_configs: &engine_configs,
                 profile_id: &profile_id,
                 model_id: &model_id,
                 runtime_id: &runtime_id,
@@ -28,6 +43,7 @@ impl AppState {
             run_id: &run_id,
             profile_id: &profile_id,
             model_id: &model_id,
+            engine_configs: &engine_configs,
             file_count: files.len(),
             prepared: &prepared,
         })
@@ -40,10 +56,8 @@ impl AppState {
             embedding_dimension: request.embedding_dimension,
             embedding_model_id: request.embedding_model_id.clone(),
             files,
-            model_id,
-            profile_id,
+            engine_configs,
             run_id: run_id.clone(),
-            runtime_id,
             text_index_after_ingest: request.text_index_after_ingest == Some(true),
         });
         Ok(IngestStartResponse {
@@ -78,11 +92,13 @@ impl AppState {
         for (file_hash, metadata) in &input.prepared.diagnostics {
             self.upsert_diagnostic_work_unit(DiagnosticWorkUnitDraft {
                 run_id: input.run_id,
+                run_engine_id: None,
                 file_hash,
                 page_no: None,
                 phase: "render",
+                engine: "pdfium",
                 model: input.model_id,
-                profile: input.profile_id,
+                profile: Some(input.profile_id),
                 metadata: metadata.clone(),
             })
             .await;
@@ -90,6 +106,15 @@ impl AppState {
         self.inner
             .repository
             .upsert_run(&input.prepared.run_to_store)
+            .await?;
+        let stored_engine_configs = input
+            .engine_configs
+            .iter()
+            .map(stored_run_engine_config)
+            .collect::<Vec<_>>();
+        self.inner
+            .repository
+            .replace_run_engine_configs(input.run_id, &stored_engine_configs)
             .await?;
         self.inner
             .repository
@@ -186,6 +211,7 @@ impl AppState {
             error: None,
             cancel_requested: false,
             file_hashes: Vec::new(),
+            engine_configs: input.engine_configs.to_vec(),
             completion_manifest: None,
         };
         let mut stored_documents = Vec::new();
@@ -228,6 +254,7 @@ struct PersistPreparedIngestInput<'a> {
     run_id: &'a str,
     profile_id: &'a str,
     model_id: &'a str,
+    engine_configs: &'a [RunEngineConfigState],
     file_count: usize,
     prepared: &'a PreparedIngestRun,
 }
@@ -237,6 +264,7 @@ struct IngestPrepareInput<'a> {
     root: &'a Path,
     files: &'a [DiscoveredFile],
     run_id: &'a str,
+    engine_configs: &'a [RunEngineConfigState],
     profile_id: &'a str,
     model_id: &'a str,
     runtime_id: &'a str,

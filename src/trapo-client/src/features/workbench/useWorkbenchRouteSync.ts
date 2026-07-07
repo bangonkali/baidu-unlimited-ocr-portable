@@ -97,11 +97,13 @@ export function routeSelectionPatchForSync(
     fileHash: workbenchSearch.file,
     pageNo: workbenchSearch.page ?? workbench.selection.pageNo,
     regionId: follow ? undefined : workbenchSearch.region,
+    runEngineId: workbenchSearch.result,
     runId: workbenchSearch.run,
   };
   return routeSelection.fileHash !== workbench.selection.fileHash || // skylos: ignore[SKY-D253] fileHash is route UI state, not a secret token.
     routeSelection.pageNo !== workbench.selection.pageNo ||
     routeSelection.regionId !== workbench.selection.regionId ||
+    routeSelection.runEngineId !== workbench.selection.runEngineId ||
     routeSelection.runId !== workbench.selection.runId
     ? routeSelection
     : undefined;
@@ -116,11 +118,13 @@ function runOnlySelectionPatch(
   }
   return selection.fileHash !== undefined ||
     selection.regionId !== undefined ||
+    selection.runEngineId !== undefined ||
     selection.runId !== workbenchSearch.run
     ? {
         fileHash: undefined,
         pageNo: 1,
         regionId: undefined,
+        runEngineId: undefined,
         runId: workbenchSearch.run,
       }
     : undefined;
@@ -144,10 +148,15 @@ function routeHasManualFocus(workbenchSearch?: WorkbenchRouteSearch) {
     workbenchSearch?.file !== undefined ||
     workbenchSearch?.page !== undefined ||
     workbenchSearch?.region !== undefined ||
+    workbenchSearch?.result !== undefined ||
     workbenchSearch?.run !== undefined
   );
 }
 
 function followScopeKey(workbenchSearch?: WorkbenchRouteSearch) {
-  return [workbenchSearch?.run ?? '', workbenchSearch?.file ?? ''].join(':');
+  return [
+    workbenchSearch?.run ?? '',
+    workbenchSearch?.result ?? '',
+    workbenchSearch?.file ?? '',
+  ].join(':');
 }

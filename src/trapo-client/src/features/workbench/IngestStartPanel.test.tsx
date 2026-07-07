@@ -7,6 +7,7 @@ import {
   fixtureRuns,
 } from '../../stories/fixtures/workbenchFixtures';
 import { IngestStartPanel, isIngestBusy } from './IngestStartPanel';
+import { defaultEnginePlan } from './ingestEnginePlan';
 import { buildIngestWizardStartOptions } from './ingestWizardStart';
 
 describe('IngestStartPanel', () => {
@@ -28,6 +29,7 @@ describe('IngestStartPanel', () => {
     const html = renderToString(
       <IngestStartPanel
         activeRun={fixtureRuns[0]}
+        enginePresets={[]}
         model={fixtureModels.models[0]}
         models={fixtureModels}
         onCancelModel={() => undefined}
@@ -66,6 +68,7 @@ describe('IngestStartPanel', () => {
   test('renders folder picker fallback errors', () => {
     const html = renderToString(
       <IngestStartPanel
+        enginePresets={[]}
         folderDialogError="native Linux folder dialog requires zenity or kdialog. Paste a folder path manually."
         model={fixtureModels.models[0]}
         models={fixtureModels}
@@ -106,4 +109,71 @@ describe('IngestStartPanel', () => {
       textIndexAfterIngest: true,
     });
   });
+
+  test('builds start options with ordered engine selections', () => {
+    const enginePlan = defaultEnginePlan(fixtureEnginePresets, 'experimental-exact-prefill-q4');
+    expect(
+      buildIngestWizardStartOptions({
+        embeddingAfterIngest: false,
+        enginePlan,
+        enginePresets: fixtureEnginePresets,
+        reprocess: true,
+        selectedEmbeddingModelId: '',
+        textIndexAfterIngest: false,
+      }),
+    ).toMatchObject({
+      engines: [
+        {
+          engine_id: 'unlimited-ocr-ffi',
+          engine_kind: 'ocr',
+          ordinal: 0,
+          preset_id: 'ocr-unlimited-ocr-ffi',
+          profile_id: 'experimental-exact-prefill-q4',
+        },
+        {
+          engine_id: 'dots-mocr-gguf',
+          engine_kind: 'document_understanding',
+          ordinal: 1,
+          preset_id: 'du-dots-mocr-gguf',
+        },
+      ],
+      reprocess: true,
+    });
+  });
 });
+
+const fixtureEnginePresets = [
+  {
+    availability: 'ready',
+    available: true,
+    default_enabled: true,
+    default_parameters: { language: 'eng' },
+    description: 'Fixture OCR engine',
+    download_model_ids: ['unlimited-ocr-q4-k-m'],
+    engine_id: 'unlimited-ocr-ffi',
+    engine_kind: 'ocr',
+    label: 'Unlimited OCR',
+    model_id: 'unlimited-ocr-q4-k-m',
+    parameter_schema: {},
+    preset_id: 'ocr-unlimited-ocr-ffi',
+    previewer: 'ocr_annotation',
+    profile_id: 'experimental-exact-prefill-q4',
+    requires_model: true,
+  },
+  {
+    availability: 'fallback_adapter',
+    available: true,
+    default_enabled: true,
+    default_parameters: {},
+    description: 'Fixture document engine',
+    download_model_ids: ['dots-mocr-gguf'],
+    engine_id: 'dots-mocr-gguf',
+    engine_kind: 'document_understanding',
+    label: 'dots.mOCR',
+    model_id: 'dots-mocr-gguf',
+    parameter_schema: {},
+    preset_id: 'du-dots-mocr-gguf',
+    previewer: 'document_markdown',
+    requires_model: true,
+  },
+];

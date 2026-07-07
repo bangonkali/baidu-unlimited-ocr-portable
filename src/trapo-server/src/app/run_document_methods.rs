@@ -74,6 +74,23 @@ impl AppState {
         Ok(metrics_tree(rows))
     }
 
+    pub(crate) async fn preview_results(
+        &self,
+        run_id: &str,
+        file_hash: &str,
+    ) -> Result<IngestPreviewResultsPayload> {
+        let rows = self
+            .inner
+            .repository
+            .preview_results_for_document(run_id, file_hash)
+            .await?;
+        Ok(IngestPreviewResultsPayload {
+            run_id: run_id.to_string(),
+            file_hash: file_hash.to_string(),
+            results: rows.into_iter().map(preview_result_record).collect(),
+        })
+    }
+
     pub(crate) async fn list_documents(&self, query: Option<String>) -> Result<DocumentsPayload> {
         let persisted = if let Some(query) = query.filter(|value| !value.is_empty()) {
             Some(
@@ -117,11 +134,25 @@ impl AppState {
         &self,
         file_hash: &str,
         run_id: Option<&str>,
+        run_engine_id: Option<&str>,
     ) -> Result<DocumentRegionsPayload> {
+        if let Some(run_engine_id) = run_engine_id.filter(|value| !value.is_empty()) {
+            return Ok(DocumentRegionsPayload {
+                file_hash: file_hash.to_string(),
+                run_id: run_id.map(ToString::to_string),
+                run_engine_id: Some(run_engine_id.to_string()),
+                boxes: self
+                    .inner
+                    .repository
+                    .load_document_regions_for_run_engine(file_hash, run_engine_id)
+                    .await?,
+            });
+        }
         if let Some(run_id) = run_id.filter(|value| !value.is_empty()) {
             return Ok(DocumentRegionsPayload {
                 file_hash: file_hash.to_string(),
                 run_id: Some(run_id.to_string()),
+                run_engine_id: None,
                 boxes: self
                     .inner
                     .repository
@@ -145,6 +176,7 @@ impl AppState {
         Ok(DocumentRegionsPayload {
             file_hash: file_hash.to_string(),
             run_id: None,
+            run_engine_id: None,
             boxes,
         })
     }
@@ -153,11 +185,25 @@ impl AppState {
         &self,
         file_hash: &str,
         run_id: Option<&str>,
+        run_engine_id: Option<&str>,
     ) -> Result<DocumentTextPayload> {
+        if let Some(run_engine_id) = run_engine_id.filter(|value| !value.is_empty()) {
+            return Ok(DocumentTextPayload {
+                file_hash: file_hash.to_string(),
+                run_id: run_id.map(ToString::to_string),
+                run_engine_id: Some(run_engine_id.to_string()),
+                pages: self
+                    .inner
+                    .repository
+                    .load_document_text_for_run_engine(file_hash, run_engine_id)
+                    .await?,
+            });
+        }
         if let Some(run_id) = run_id.filter(|value| !value.is_empty()) {
             return Ok(DocumentTextPayload {
                 file_hash: file_hash.to_string(),
                 run_id: Some(run_id.to_string()),
+                run_engine_id: None,
                 pages: self
                     .inner
                     .repository
@@ -175,6 +221,7 @@ impl AppState {
         Ok(DocumentTextPayload {
             file_hash: file_hash.to_string(),
             run_id: None,
+            run_engine_id: None,
             pages,
         })
     }

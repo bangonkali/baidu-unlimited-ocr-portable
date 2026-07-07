@@ -14,6 +14,8 @@ interface IngestWizardRailProps {
   embeddingAfterIngest: boolean;
   embeddingModel?: ModelAssetRecord;
   embeddingModelOptions: ModelAssetRecord[];
+  enginePlanCount: number;
+  enginePlanIssue?: string;
   ocrModel?: ModelAssetRecord;
   rootPath: string;
   runs: IngestRunRecord[];
@@ -38,6 +40,8 @@ export function IngestWizardRail(props: IngestWizardRailProps) {
         canStart={props.canStart}
         embeddingAfterIngest={props.embeddingAfterIngest}
         embeddingModel={props.embeddingModel}
+        enginePlanCount={props.enginePlanCount}
+        enginePlanIssue={props.enginePlanIssue}
         ocrModel={props.ocrModel}
         rootPath={props.rootPath}
         selectedProfile={props.selectedProfile}

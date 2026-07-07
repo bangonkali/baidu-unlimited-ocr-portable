@@ -5,14 +5,19 @@ export function ingestWizardSteps(args: {
   embeddingAfterIngest: boolean;
   embeddingReady: boolean;
   modelReady: boolean;
+  planIssue?: string;
+  planReady?: boolean;
   rootReady: boolean;
   textIndexAfterIngest: boolean;
 }): WizardStepRecord[] {
-  const sourceReady = args.rootReady && args.modelReady;
+  const enginesReady = args.planReady ?? args.modelReady;
+  const sourceReady = args.rootReady && enginesReady;
   const embeddingBlocked = args.embeddingAfterIngest && !args.embeddingReady;
   return [
     {
-      description: sourceReady ? 'Folder and OCR model ready' : 'Choose folder and OCR model',
+      description: sourceReady
+        ? 'Folder and engines ready'
+        : (args.planIssue ?? 'Choose folder and OCR model'),
       label: 'Start Ingest',
       status: sourceReady ? 'ready' : 'blocked',
     },

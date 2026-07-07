@@ -48,6 +48,7 @@ export function SearchView(props: SearchViewProps) {
       fileHash: hit.file_hash,
       pageNo: hit.page_no,
       regionId: hit.annotation_id ?? undefined,
+      runEngineId: undefined,
       runId,
     });
   };
@@ -57,7 +58,13 @@ export function SearchView(props: SearchViewProps) {
     onExplorerFilterChange: () => undefined,
     onSelectDocument: (fileHash, pageNo = 1, targetRunId) => {
       setAutoFollowRegions(false);
-      setSelection({ fileHash, pageNo, regionId: undefined, runId: targetRunId ?? runId });
+      setSelection({
+        fileHash,
+        pageNo,
+        regionId: undefined,
+        runEngineId: undefined,
+        runId: targetRunId ?? runId,
+      });
     },
     onSelectRegion: (pageNo, regionId) => {
       setAutoFollowRegions(false);

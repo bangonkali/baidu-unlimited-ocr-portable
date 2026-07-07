@@ -32,12 +32,20 @@ struct SpanFinish<'a> {
 
 struct DiagnosticWorkUnitDraft<'a> {
     run_id: &'a str,
+    run_engine_id: Option<&'a str>,
     file_hash: &'a str,
     page_no: Option<u32>,
     phase: &'a str,
+    engine: &'a str,
     model: &'a str,
-    profile: &'a str,
+    profile: Option<&'a str>,
     metadata: Value,
+}
+
+#[derive(Debug, Clone)]
+struct DiagnosticWorkUnitHandle {
+    id: String,
+    key: String,
 }
 
 impl AppState {
@@ -104,32 +112,47 @@ impl AppState {
         });
     }
 
-    async fn upsert_diagnostic_work_unit(&self, draft: DiagnosticWorkUnitDraft<'_>) -> String {
-        let work_key =
-            diagnostic_work_key(draft.run_id, draft.file_hash, draft.page_no, draft.phase);
+    async fn upsert_diagnostic_work_unit(
+        &self,
+        draft: DiagnosticWorkUnitDraft<'_>,
+    ) -> DiagnosticWorkUnitHandle {
+        let work_key = diagnostic_work_key(
+            draft.run_id,
+            draft.run_engine_id,
+            draft.file_hash,
+            draft.page_no,
+            draft.phase,
+        );
         let unit = WorkUnitUpsert {
             work_unit_id: new_persistence_id(),
             run_id: draft.run_id.to_string(),
+            run_engine_id: draft.run_engine_id.map(ToString::to_string),
             work_key: work_key.clone(),
             file_hash: Some(draft.file_hash.to_string()),
             page_no: draft.page_no,
             phase: draft.phase.to_string(),
-            engine: ENGINE_ID.to_string(),
+            engine: draft.engine.to_string(),
             provider: "local".to_string(),
             model: draft.model.to_string(),
-            profile: Some(draft.profile.to_string()),
-            execution_key: format!("{}:{}", draft.run_id, draft.phase),
+            profile: draft.profile.map(ToString::to_string),
+            execution_key: draft
+                .run_engine_id
+                .map_or_else(|| format!("{}:{}", draft.run_id, draft.phase), ToString::to_string),
             artifact_variant: None,
             metadata: draft.metadata,
         };
-        if let Err(error) = self.inner.repository.upsert_work_unit(&unit).await {
-            tracing::warn!(%error, "failed to persist diagnostic work unit");
-        }
-        work_key
+        let id = match self.inner.repository.upsert_work_unit(&unit).await {
+            Ok(id) => id,
+            Err(error) => {
+                tracing::warn!(%error, "failed to persist diagnostic work unit");
+                unit.work_unit_id
+            }
+        };
+        DiagnosticWorkUnitHandle { id, key: work_key }
     }
 
-    async fn start_diagnostic_work_unit(&self, run_id: &str, work_key: &str) {
-        if let Err(error) = self.inner.repository.start_work_unit(run_id, work_key).await {
+    async fn start_diagnostic_work_unit(&self, run_id: &str, work: &DiagnosticWorkUnitHandle) {
+        if let Err(error) = self.inner.repository.start_work_unit(run_id, &work.key).await {
             tracing::warn!(%error, "failed to mark diagnostic work unit started");
         }
     }
@@ -137,7 +160,7 @@ impl AppState {
     async fn finish_diagnostic_work_unit(
         &self,
         run_id: &str,
-        work_key: &str,
+        work: &DiagnosticWorkUnitHandle,
         status: &str,
         error: Option<&str>,
         result: Value,
@@ -145,7 +168,7 @@ impl AppState {
         if let Err(error) = self
             .inner
             .repository
-            .finish_work_unit(run_id, work_key, status, &result, error)
+            .finish_work_unit(run_id, &work.key, status, &result, error)
             .await
         {
             tracing::warn!(%error, "failed to mark diagnostic work unit finished");
@@ -189,12 +212,14 @@ struct ModelLeaseDiagnostic<'a> {
 
 fn diagnostic_work_key(
     run_id: &str,
+    run_engine_id: Option<&str>,
     file_hash: &str,
     page_no: Option<u32>,
     phase: &str,
 ) -> String {
+    let engine_scope = run_engine_id.map_or("run", |value| value);
     page_no.map_or_else(
-        || format!("{run_id}:{file_hash}:file:{phase}"),
-        |page_no| format!("{run_id}:{file_hash}:page-{page_no}:{phase}"),
+        || format!("{run_id}:{engine_scope}:{file_hash}:file:{phase}"),
+        |page_no| format!("{run_id}:{engine_scope}:{file_hash}:page-{page_no}:{phase}"),
     )
 }

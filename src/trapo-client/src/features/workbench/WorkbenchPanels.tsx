@@ -6,6 +6,7 @@ import { annotationIdOf } from '../../api/annotationIdentity';
 import type {
   DiagnosticPipelineTaskRecord,
   DocumentSummary,
+  IngestPreviewResultRecord,
   IngestRunRecord,
   LogRecord,
   ModelAssetRecord,
@@ -16,6 +17,7 @@ import type { useWorkbenchState } from '../../stores/workbenchStore';
 import { setPaneCollapsed } from '../../stores/workbenchStore';
 import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { EngineResultSwitcher } from './EngineResultSwitcher';
 import { ExplorerTree } from './ExplorerTree';
 import { PreviewPane } from './PreviewPane';
 import { TextPane } from './TextPane';
@@ -37,15 +39,18 @@ export interface WorkbenchPanelsProps {
   onStopRun: (runId?: string) => void;
   pipelineTasks: DiagnosticPipelineTaskRecord[];
   previewPages: number[];
+  previewResults: IngestPreviewResultRecord[];
   regions: OverlayBox[];
   rootPath: string;
   runs: IngestRunRecord[];
   selectedDocument?: DocumentSummary;
+  selectedRunEngineId?: string;
   textPages: PageTextRecord[];
   workbench: ReturnType<typeof useWorkbenchState>;
   onAutoFollowChange: (enabled: boolean) => void;
   onExplorerFilterChange: (filter: WorkbenchExplorerFilter) => void;
   onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectPreviewResult: (runEngineId: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
@@ -116,58 +121,65 @@ export function DocumentWorkspace(props: WorkbenchPanelsProps) {
   const diagnosticsRef = useRef<ImperativePanelHandle>(null);
   usePanelCollapseSync(diagnosticsRef, props.workbench.panesCollapsed.diagnostics);
   return (
-    <PanelGroup direction="vertical">
-      <Panel defaultSize={68} minSize={40}>
-        <PanelGroup direction="horizontal">
-          <Panel defaultSize={58} minSize={30}>
-            <PreviewPane
-              autoFollowRegions={props.workbench.autoFollowRegions}
-              boxes={props.regions}
-              fileHash={props.workbench.selection.fileHash}
-              focusRevision={props.workbench.focusRevision}
-              labelsVisible={props.workbench.labelsVisible}
-              overlayVisible={props.workbench.overlayVisible}
-              pages={props.previewPages}
-              selectedPageNo={props.workbench.selection.pageNo}
-              selectedRegionId={props.workbench.selection.regionId}
-              onAutoFollowChange={props.onAutoFollowChange}
-              onSelectRegion={props.onSelectRegion}
-            />
-          </Panel>
-          <ResizeHandle />
-          <Panel defaultSize={42} minSize={24}>
-            <TextPane
-              autoFollowRegions={props.workbench.autoFollowRegions}
-              document={props.selectedDocument}
-              focusRevision={props.workbench.focusRevision}
-              onSelectRegion={props.onSelectRegion}
-              pages={props.textPages}
-              regions={props.regions}
-              selectedRegionId={props.workbench.selection.regionId}
-            />
-          </Panel>
-        </PanelGroup>
-      </Panel>
-      <ResizeHandle horizontal />
-      <Panel
-        collapsible
-        collapsedSize={0}
-        defaultSize={32}
-        minSize={16}
-        onCollapse={() => setPaneCollapsed('diagnostics', true)}
-        onExpand={() => setPaneCollapsed('diagnostics', false)}
-        ref={diagnosticsRef}
-      >
-        <DiagnosticsPanel
-          logs={props.logs}
-          activeRunId={props.activeRunId}
-          onResumeRun={props.onResumeRun}
-          onRestartRun={props.onRestartRun}
-          onStopRun={props.onStopRun}
-          runs={props.runs}
-        />
-      </Panel>
-    </PanelGroup>
+    <div className={styles.documentWorkspace}>
+      <EngineResultSwitcher
+        results={props.previewResults}
+        selectedRunEngineId={props.selectedRunEngineId}
+        onSelect={props.onSelectPreviewResult}
+      />
+      <PanelGroup direction="vertical">
+        <Panel defaultSize={68} minSize={40}>
+          <PanelGroup direction="horizontal">
+            <Panel defaultSize={58} minSize={30}>
+              <PreviewPane
+                autoFollowRegions={props.workbench.autoFollowRegions}
+                boxes={props.regions}
+                fileHash={props.workbench.selection.fileHash}
+                focusRevision={props.workbench.focusRevision}
+                labelsVisible={props.workbench.labelsVisible}
+                overlayVisible={props.workbench.overlayVisible}
+                pages={props.previewPages}
+                selectedPageNo={props.workbench.selection.pageNo}
+                selectedRegionId={props.workbench.selection.regionId}
+                onAutoFollowChange={props.onAutoFollowChange}
+                onSelectRegion={props.onSelectRegion}
+              />
+            </Panel>
+            <ResizeHandle />
+            <Panel defaultSize={42} minSize={24}>
+              <TextPane
+                autoFollowRegions={props.workbench.autoFollowRegions}
+                document={props.selectedDocument}
+                focusRevision={props.workbench.focusRevision}
+                onSelectRegion={props.onSelectRegion}
+                pages={props.textPages}
+                regions={props.regions}
+                selectedRegionId={props.workbench.selection.regionId}
+              />
+            </Panel>
+          </PanelGroup>
+        </Panel>
+        <ResizeHandle horizontal />
+        <Panel
+          collapsible
+          collapsedSize={0}
+          defaultSize={32}
+          minSize={16}
+          onCollapse={() => setPaneCollapsed('diagnostics', true)}
+          onExpand={() => setPaneCollapsed('diagnostics', false)}
+          ref={diagnosticsRef}
+        >
+          <DiagnosticsPanel
+            logs={props.logs}
+            activeRunId={props.activeRunId}
+            onResumeRun={props.onResumeRun}
+            onRestartRun={props.onRestartRun}
+            onStopRun={props.onStopRun}
+            runs={props.runs}
+          />
+        </Panel>
+      </PanelGroup>
+    </div>
   );
 }
 

@@ -14,7 +14,7 @@ impl AppState {
             &crate::ocr::ParseContext {
                 file_hash: page_work.file_hash.to_string(),
                 page_no: page_work.page_no,
-                engine_id: ENGINE_ID.to_string(),
+                engine_id: ocr.engine_id.to_string(),
                 profile_id: ocr.profile_id.to_string(),
             },
         );
@@ -22,6 +22,7 @@ impl AppState {
         let annotation_drafts = self.assign_annotation_identities(
             page_work.run_id,
             page_work.file_hash,
+            ocr.engine_id,
             ocr.profile_id,
             &mut parsed,
         );
@@ -40,6 +41,7 @@ impl AppState {
         &self,
         run_id: &str,
         file_hash: &str,
+        engine_id: &str,
         profile_id: &str,
         parsed: &mut crate::ocr::ParsedOcrPage,
     ) -> Vec<AnnotationIdentityDraft> {
@@ -51,10 +53,13 @@ impl AppState {
                 .iter()
                 .find(|item| item.source_region_key == box_record.source_region_key);
             let draft = annotation_identity_draft(
-                run_id,
-                file_hash,
-                profile_id,
-                index,
+                AnnotationDraftScope {
+                    run_id,
+                    file_hash,
+                    engine_id,
+                    profile_id,
+                    index,
+                },
                 box_record,
                 span,
             );
@@ -68,6 +73,7 @@ impl AppState {
     async fn complete_page_state(
         &self,
         page_work: &PageWork<'_>,
+        ocr: &OcrRunContext<'_>,
         output: ParsedPageOutput,
     ) -> Result<CompletedPageUpdate> {
         let ParsedPageOutput {
@@ -102,6 +108,7 @@ impl AppState {
             page_record: completed_page_record(page_work, width_px, height_px),
             regions_payload: DocumentRegionsPayload {
                 file_hash: page_work.file_hash.to_string(),
+                run_engine_id: Some(ocr.run_engine_id.to_string()),
                 run_id: Some(page_work.run_id.to_string()),
                 boxes: document
                     .pages
@@ -111,6 +118,7 @@ impl AppState {
             },
             text_payload: DocumentTextPayload {
                 file_hash: page_work.file_hash.to_string(),
+                run_engine_id: Some(ocr.run_engine_id.to_string()),
                 run_id: Some(page_work.run_id.to_string()),
                 pages: started_page_text_records(document),
             },
@@ -136,8 +144,35 @@ impl AppState {
             .replace_page_ocr(
                 page_work.run_id,
                 &completed.stored,
-                ENGINE_ID,
+                ocr.engine_id,
                 ocr.profile_id,
+                elapsed_ms,
+            )
+            .await?;
+        self.inner
+            .repository
+            .replace_page_output(
+                &stored_run_engine_config(&RunEngineConfigState {
+                    run_engine_id: ocr.run_engine_id.to_string(),
+                    run_id: page_work.run_id.to_string(),
+                    ordinal: 0,
+                    engine_kind: ocr.engine_kind.to_string(),
+                    engine_id: ocr.engine_id.to_string(),
+                    model_id: (!ocr.model_id.is_empty()).then(|| ocr.model_id.to_string()),
+                    profile_id: (!ocr.profile_id.is_empty()).then(|| ocr.profile_id.to_string()),
+                    runtime_id: (!ocr.runtime_id.is_empty()).then(|| ocr.runtime_id.to_string()),
+                    parameters: json!({}),
+                    status: "running".to_string(),
+                    error: None,
+                    usable_output_count: 0,
+                }),
+                &completed.stored,
+                Some(page_work.work_unit_id),
+                if ocr.engine_kind == "document_understanding" {
+                    "markdown"
+                } else {
+                    "ocr"
+                },
                 elapsed_ms,
             )
             .await?;
@@ -172,23 +207,29 @@ impl AppState {
     }
 }
 
-fn annotation_identity_draft(
-    run_id: &str,
-    file_hash: &str,
-    profile_id: &str,
+#[derive(Clone, Copy)]
+struct AnnotationDraftScope<'a> {
+    run_id: &'a str,
+    file_hash: &'a str,
+    engine_id: &'a str,
+    profile_id: &'a str,
     index: usize,
+}
+
+fn annotation_identity_draft(
+    scope: AnnotationDraftScope<'_>,
     box_record: &crate::workbench_types::OverlayBox,
     span: Option<&crate::workbench_types::TextRegionSpan>,
 ) -> AnnotationIdentityDraft {
     AnnotationIdentityDraft {
         annotation_id: None,
-        run_id: run_id.to_string(),
-        file_hash: file_hash.to_string(),
+        run_id: scope.run_id.to_string(),
+        file_hash: scope.file_hash.to_string(),
         page_no: box_record.page_no,
-        engine_id: ENGINE_ID.to_string(),
-        profile_id: profile_id.to_string(),
+        engine_id: scope.engine_id.to_string(),
+        profile_id: scope.profile_id.to_string(),
         source_region_key: box_record.source_region_key.clone(),
-        discovery_index: u32::try_from(index).unwrap_or(u32::MAX),
+        discovery_index: u32::try_from(scope.index).unwrap_or(u32::MAX),
         label: box_record.label.clone(),
         category: box_record.category.clone(),
         x1: box_record.left_percent / 100.0 * 999.0,

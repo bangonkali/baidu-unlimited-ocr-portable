@@ -39,6 +39,7 @@ describe('route search validators', () => {
         page: '3',
         q: 'invoice',
         region: 'r1',
+        result: 'engine-a',
         run: 'run-a',
         run_scope: 'all',
       }),
@@ -50,6 +51,7 @@ describe('route search validators', () => {
       page: 3,
       q: 'invoice',
       region: 'r1',
+      result: 'engine-a',
       run: 'run-a',
       run_scope: 'all',
     });
@@ -60,6 +62,7 @@ describe('route search validators', () => {
         file_hash: 'legacy-hash',
         page_no: '2',
         region_id: 'legacy-region',
+        run_engine_id: 'legacy-engine',
         runScope: 'all',
         run_id: 'legacy-run',
       }),
@@ -67,6 +70,7 @@ describe('route search validators', () => {
       file: 'legacy-hash',
       page: 2,
       region: 'legacy-region',
+      result: 'legacy-engine',
       run: 'legacy-run',
       run_scope: 'all',
     });

@@ -14,14 +14,14 @@ impl AppState {
             SpanFinish {
                 run_id: finish.run_id,
                 task_id: None,
-                work_unit_id: Some(finish.work_unit_id),
+                work_unit_id: Some(&finish.work_unit.id),
                 parent_span_id: None,
                 file_hash: Some(finish.file_hash),
                 page_no: Some(finish.page.page_no),
                 name: "OCR page",
                 pipeline_step: "ocr",
                 category: "page",
-                engine: Some(ENGINE_ID),
+                engine: Some(finish.engine_id),
                 status,
                 error: error_ref,
                 attributes: json!({
@@ -31,7 +31,7 @@ impl AppState {
         );
         self.finish_diagnostic_work_unit(
             finish.run_id,
-            finish.work_unit_id,
+            finish.work_unit,
             if finish.result.is_ok() {
                 "completed"
             } else {

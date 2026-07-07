@@ -55,6 +55,7 @@ export const Ingest: Story = {
     <div className="storyTall">
       <IngestStartPanel
         activeRun={fixtureRuns[0]}
+        enginePresets={[]}
         model={fixtureModels.models[0]}
         models={fixtureModels}
         onCancelModel={() => undefined}

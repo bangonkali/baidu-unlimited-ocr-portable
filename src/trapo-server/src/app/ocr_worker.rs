@@ -24,6 +24,9 @@ struct OcrWorkerRequest {
 }
 
 struct OcrRunContext<'a> {
+    run_engine_id: &'a str,
+    engine_kind: &'a str,
+    engine_id: &'a str,
     profile_id: &'a str,
     model_id: &'a str,
     runtime_id: &'a str,
@@ -34,6 +37,7 @@ struct OcrRunContext<'a> {
 
 struct PageWork<'a> {
     run_id: &'a str,
+    work_unit_id: &'a str,
     file_hash: &'a str,
     image_path: &'a Path,
     page_no: u32,
@@ -141,10 +145,16 @@ impl Drop for OcrRunWorker {
 impl AppState {
     async fn create_ocr_worker(
         &self,
+        engine_id: &str,
         runtime_id: &str,
         profile_id: &str,
         model_id: &str,
     ) -> OcrRunWorker {
+        if engine_id != ENGINE_ID {
+            return OcrRunWorker::fallback(format!(
+                "{engine_id} native runner is not wired yet"
+            ));
+        }
         let (runtime, profile, model_file) = {
             let state = self.inner.state.lock().await;
             (
@@ -265,6 +275,7 @@ mod ocr_worker_tests {
     fn stream_context() -> OcrStreamContext {
         OcrStreamContext {
             run_id: "run-a".to_string(),
+            run_engine_id: "01980a3d-a4fc-7000-8000-000000000001".to_string(),
             file_hash: "file-a".to_string(),
             page_no: 1,
             engine_id: ENGINE_ID.to_string(),

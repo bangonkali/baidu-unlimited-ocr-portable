@@ -23,6 +23,17 @@ impl Repository {
         collect_rows(rows)
     }
 
+    fn load_run_engine_configs(conn: &Connection) -> Result<Vec<StoredRunEngineConfig>> {
+        let mut statement = conn.prepare(
+            "SELECT run_engine_id, run_id, ordinal, engine_kind, engine_id, model_id,
+              profile_id, runtime_id, parameters_json, status, error, usable_output_count
+             FROM ingest_run_engine_configs
+             ORDER BY run_id, ordinal",
+        )?;
+        let rows = statement.query_map([], engine_config_from_row)?;
+        collect_rows(rows)
+    }
+
     fn load_run_completion_manifests(
         conn: &Connection,
     ) -> Result<Vec<StoredRunCompletionManifest>> {

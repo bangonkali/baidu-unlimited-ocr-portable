@@ -58,7 +58,7 @@ describe('routeSelectionPatchForSync', () => {
           page: 1,
           run: 'run-live',
         },
-        'run-live:hash-doc',
+        'run-live::hash-doc',
       ),
     ).toBeUndefined();
   });
@@ -83,6 +83,7 @@ describe('routeSelectionPatchForSync', () => {
       fileHash: 'hash-doc',
       pageNo: 1,
       regionId: undefined,
+      runEngineId: undefined,
       runId: 'run-a',
     });
   });
@@ -106,7 +107,7 @@ describe('routeSelectionPatchForSync', () => {
           page: 1,
           run: 'run-a',
         },
-        'run-a:hash-doc',
+        'run-a::hash-doc',
       ),
     ).toBeUndefined();
   });
@@ -130,6 +131,7 @@ describe('routeSelectionPatchForSync', () => {
       fileHash: 'hash-doc',
       pageNo: 1,
       regionId: undefined,
+      runEngineId: undefined,
       runId: 'run-manual',
     });
   });
@@ -154,7 +156,37 @@ describe('routeSelectionPatchForSync', () => {
       fileHash: 'hash-doc',
       pageNo: 2,
       regionId: undefined,
+      runEngineId: undefined,
       runId: 'run-new',
+    });
+  });
+});
+
+describe('routeSelectionPatchForSync result scope', () => {
+  test('applies engine result focus from the route', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 2,
+        regionId: 'old-engine-region',
+        runEngineId: 'engine-old',
+        runId: 'run-a',
+      },
+    });
+
+    expect(
+      routeSelectionPatchForSync('workbench', state, {
+        file: 'hash-doc',
+        page: 2,
+        result: 'engine-new',
+        run: 'run-a',
+      }),
+    ).toEqual({
+      fileHash: 'hash-doc',
+      pageNo: 2,
+      regionId: undefined,
+      runEngineId: 'engine-new',
+      runId: 'run-a',
     });
   });
 
@@ -172,6 +204,7 @@ describe('routeSelectionPatchForSync', () => {
       fileHash: undefined,
       pageNo: 1,
       regionId: undefined,
+      runEngineId: undefined,
       runId: 'run-archive',
     });
   });
@@ -184,6 +217,7 @@ describe('routeSearchFromSelection', () => {
       file: 'hash-doc',
       follow: true,
       page: 2,
+      result: undefined,
       run: 'run-a',
     });
 
@@ -192,16 +226,27 @@ describe('routeSearchFromSelection', () => {
       file: 'hash-doc',
       follow: false,
       page: 2,
+      result: undefined,
       run: 'run-a',
     });
   });
 
   test('keeps all-runs explorer scope in route search', () => {
-    const state = workbenchState({ autoFollowRegions: false });
+    const state = workbenchState({
+      autoFollowRegions: false,
+      selection: {
+        fileHash: 'hash-doc',
+        pageNo: 2,
+        regionId: 'reg-a',
+        runEngineId: 'engine-a',
+        runId: 'run-a',
+      },
+    });
     expect(routeSearchFromSelection(state, state.selection, '', { runScope: 'all' })).toMatchObject(
       {
         file: 'hash-doc',
         page: 2,
+        result: 'engine-a',
         run: 'run-a',
         run_scope: 'all',
       },
@@ -213,6 +258,7 @@ function workbenchState(patch: Partial<WorkbenchState>): WorkbenchState {
   return {
     activeView: 'workbench',
     autoFollowRegions: false,
+    focusRevision: 0,
     labelsVisible: true,
     overlayVisible: true,
     panesCollapsed: {

@@ -12,60 +12,18 @@ impl AppState {
             embedding_after_ingest,
             embedding_dimension,
             embedding_model_id,
+            engine_configs,
             files,
-            model_id,
-            profile_id,
             run_id,
-            runtime_id,
             text_index_after_ingest,
         } = execution;
         self.mark_run_status(&run_id, "running", None).await;
-        let lease_scope = DiagnosticSpanScope::start();
-        let ocr_worker = self
-            .create_ocr_worker(&runtime_id, &profile_id, &model_id)
-            .await;
-        let fallback_reason = ocr_worker.fallback_error().map(ToString::to_string);
-        self.record_model_lease(
-            ModelLeaseDiagnostic {
-                run_id: &run_id,
-                model_id: &model_id,
-                runtime_id: &runtime_id,
-                profile_id: &profile_id,
-                error: fallback_reason.as_deref(),
-            },
-            &lease_scope,
-        );
-        if let Some(reason) = fallback_reason.as_deref() {
-            self.log_warn("ocr", format!("using fallback OCR text: {reason}"));
-        }
-        let (runtime_platform, accelerator) = self.runtime_stream_metadata(&runtime_id).await;
-        let ocr_context = OcrRunContext {
-            profile_id: &profile_id,
-            model_id: &model_id,
-            runtime_id: &runtime_id,
-            runtime_platform: &runtime_platform,
-            accelerator: &accelerator,
-            worker: &ocr_worker,
-        };
-        for file in files {
+        for engine_config in engine_configs {
             if self.run_cancelled(&run_id).await {
                 break;
             }
-            let file_hash = stable_hash(&file);
-            if let Err(error) = self
-                .process_document(&run_id, &file_hash, &ocr_context, &completed_pages)
-                .await
-            {
-                self.record_diagnostic_event(
-                    &run_id,
-                    Some(&file_hash),
-                    None,
-                    "error",
-                    &error.to_string(),
-                );
-                self.mark_document_error(&run_id, &file_hash, error.to_string())
-                    .await;
-            }
+            self.run_ingest_engine(&run_id, &files, &completed_pages, engine_config)
+                .await;
         }
         let final_status = self.finish_ingest_run(&run_id).await;
         if final_status == "completed" {
@@ -78,6 +36,89 @@ impl AppState {
             )
             .await;
         }
+    }
+
+    async fn run_ingest_engine(
+        &self,
+        run_id: &str,
+        files: &[DiscoveredFile],
+        completed_pages: &BTreeSet<(String, u32)>,
+        engine_config: RunEngineConfigState,
+    ) {
+        let profile_id = engine_config.profile_id.clone().unwrap_or_default();
+        let model_id = engine_config.model_id.clone().unwrap_or_default();
+        let runtime_id = engine_config.runtime_id.clone().unwrap_or_default();
+        self.mark_engine_status(&engine_config.run_engine_id, "running", None, 0)
+            .await;
+        let lease_scope = DiagnosticSpanScope::start();
+        let ocr_worker = self
+            .create_ocr_worker(&engine_config.engine_id, &runtime_id, &profile_id, &model_id)
+            .await;
+        let fallback_reason = ocr_worker.fallback_error().map(ToString::to_string);
+        self.record_model_lease(
+            ModelLeaseDiagnostic {
+                run_id,
+                model_id: &model_id,
+                runtime_id: &runtime_id,
+                profile_id: &profile_id,
+                error: fallback_reason.as_deref(),
+            },
+            &lease_scope,
+        );
+        if let Some(reason) = fallback_reason.as_deref() {
+            self.log_warn(
+                "ocr",
+                format!("using fallback output for {}: {reason}", engine_config.engine_id),
+            );
+        }
+        let (runtime_platform, accelerator) = self.runtime_stream_metadata(&runtime_id).await;
+        let ocr_context = OcrRunContext {
+            run_engine_id: &engine_config.run_engine_id,
+            engine_kind: &engine_config.engine_kind,
+            engine_id: &engine_config.engine_id,
+            profile_id: &profile_id,
+            model_id: &model_id,
+            runtime_id: &runtime_id,
+            runtime_platform: &runtime_platform,
+            accelerator: &accelerator,
+            worker: &ocr_worker,
+        };
+        let mut output_count = 0_u32;
+        let mut failed = false;
+        for file in files {
+            if self.run_cancelled(run_id).await {
+                break;
+            }
+            let file_hash = stable_hash(file);
+            match self
+                .process_document(run_id, &file_hash, &ocr_context, completed_pages)
+                .await
+            {
+                Ok(()) => {
+                    output_count = output_count.saturating_add(1);
+                }
+                Err(error) => {
+                    failed = true;
+                    self.record_diagnostic_event(
+                        run_id,
+                        Some(&file_hash),
+                        None,
+                        "error",
+                        &error.to_string(),
+                    );
+                    self.mark_document_error(run_id, &file_hash, error.to_string())
+                        .await;
+                }
+            }
+        }
+        let status = engine_completion_status(output_count, failed, fallback_reason.is_some());
+        self.mark_engine_status(
+            &engine_config.run_engine_id,
+            status,
+            fallback_reason.as_deref(),
+            output_count,
+        )
+        .await;
     }
 
     async fn finish_ingest_run(&self, run_id: &str) -> String {
@@ -140,15 +181,23 @@ impl AppState {
     }
 }
 
+const fn engine_completion_status(output_count: u32, failed: bool, fallback: bool) -> &'static str {
+    if output_count == 0 && failed {
+        "failed"
+    } else if failed || fallback {
+        "completed_with_errors"
+    } else {
+        "completed"
+    }
+}
+
 struct IngestExecution {
     completed_pages: BTreeSet<(String, u32)>,
     embedding_after_ingest: bool,
     embedding_dimension: Option<u32>,
     embedding_model_id: Option<String>,
+    engine_configs: Vec<RunEngineConfigState>,
     files: Vec<DiscoveredFile>,
-    model_id: String,
-    profile_id: String,
     run_id: String,
-    runtime_id: String,
     text_index_after_ingest: bool,
 }

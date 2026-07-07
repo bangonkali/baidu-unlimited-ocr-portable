@@ -10,6 +10,7 @@ export interface WorkbenchRouteSearch {
   page?: number;
   q?: string;
   region?: string;
+  result?: string;
   run?: string;
   run_scope?: 'all';
 }
@@ -98,6 +99,7 @@ export function validateWorkbenchSearch(search: Record<string, unknown>): Workbe
     page: positiveIntegerValue(search.page) ?? positiveIntegerValue(search.page_no),
     q: stringValue(search.q),
     region: stringValue(search.region) ?? stringValue(search.region_id),
+    result: stringValue(search.result) ?? stringValue(search.run_engine_id),
     run: stringValue(search.run) ?? stringValue(search.run_id),
     run_scope: runScopeValue(search.run_scope) ?? runScopeValue(search.runScope),
   };

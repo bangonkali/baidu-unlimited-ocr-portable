@@ -25,11 +25,9 @@ impl AppState {
             embedding_after_ingest: false,
             embedding_dimension: None,
             embedding_model_id: None,
+            engine_configs: prepared.engine_configs,
             files: prepared.files,
-            model_id: prepared.model_id,
-            profile_id: prepared.profile_id,
             run_id: run_id.to_string(),
-            runtime_id: prepared.runtime_id,
             text_index_after_ingest: false,
         });
         Ok(IngestStartResponse {
@@ -109,20 +107,16 @@ impl AppState {
         }
         let run_to_store = stored_run(run);
         let run_record = run_record(run);
-        let profile_id = run.profile_id.clone();
-        let model_id = run.model_id.clone();
-        let runtime_id = run.runtime_id.clone();
+        let engine_configs = run.engine_configs.clone();
         state.active_run_id = Some(run_id.to_string());
         drop(state);
 
         Ok(PreparedResumeRun {
             document_events,
+            engine_configs,
             files,
-            model_id,
-            profile_id,
             run_record,
             run_to_store,
-            runtime_id,
             stored_documents,
         })
     }
@@ -180,12 +174,10 @@ impl AppState {
 
 struct PreparedResumeRun {
     document_events: Vec<DocumentSummary>,
+    engine_configs: Vec<RunEngineConfigState>,
     files: Vec<DiscoveredFile>,
-    model_id: String,
-    profile_id: String,
     run_record: IngestRunRecord,
     run_to_store: StoredRun,
-    runtime_id: String,
     stored_documents: Vec<StoredDocument>,
 }
 

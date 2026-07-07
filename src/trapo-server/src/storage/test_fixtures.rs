@@ -126,6 +126,7 @@ mod test_fixtures {
         WorkUnitUpsert {
             work_unit_id: new_persistence_id(),
             run_id: run_id.to_string(),
+            run_engine_id: None,
             work_key: format!("{file_hash}:{page_no}:ocr"),
             file_hash: Some(file_hash.to_string()),
             page_no: Some(page_no),

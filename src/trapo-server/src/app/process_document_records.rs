@@ -1,9 +1,10 @@
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct PageDiagnosticFinish<'a> {
     run_id: &'a str,
     file_hash: &'a str,
     page: &'a RenderedPage,
-    work_unit_id: &'a str,
+    work_unit: &'a DiagnosticWorkUnitHandle,
+    engine_id: &'a str,
     result: &'a Result<()>,
 }
 

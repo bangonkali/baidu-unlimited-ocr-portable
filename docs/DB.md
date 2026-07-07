@@ -1,7 +1,7 @@
 # Trapo DuckDB Query Inventory and Test Coverage
 
-Runtime storage query call sites: `91`
-Migration SQL bundles: `15`
+Runtime storage query call sites: `107`
+Migration SQL bundles: `16`
 
 This file is the required manifest for DuckDB-backed reads and writes in the
 Trapo server. Any new storage query, API route backed by storage, or migration
@@ -28,6 +28,7 @@ Coverage terms:
 | DB-DOC-001 | write/read | `upsert_document`, `search_document_hashes` | Upserts `files` and `file_locations`; searches file name, relative path, and OCR text. | `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Search miss returns empty. | Search `limit=0` returns empty. |
 | DB-PAGE-001 | write/read | `upsert_page`, `load_snapshot` | Upserts `document_pages` and source `document_preview_images`; snapshot loads runs, run documents, files, pages, boxes, and spans. | `reloads_page_regions_and_spans`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Empty snapshot paths return empty vectors in fresh DB tests. | `preview_path=None` does not erase existing preview row. |
 | DB-OCR-001 | write/read | `replace_page_ocr`, `load_snapshot`, `load_document_regions_for_run`, `load_document_text_for_run` | Upserts `ocr_documents`, compatibility `document_page_ocr`, and run-scoped `document_run_page_ocr`; deletes stale links/regions only for the current run; inserts run-scoped `document_regions`, `document_region_annotations`, and `document_text_region_links`; reads text and overlays by `run_id` plus `file_hash`. | `reloads_page_regions_and_spans`; `core_document_page_and_metric_queries_cover_empty_updates_and_limits`; `run_scoped_document_reads_do_not_mix_ocr_outputs` | Replacing with no boxes removes stale boxes and spans for that run; missing run returns empty text. | Empty OCR boxes/spans are valid; same file/page can keep separate OCR outputs for multiple runs. |
+| DB-ENGINE-001 | write/read | `replace_run_engine_configs`, `update_run_engine_config_status`, `replace_page_output`, `preview_results_for_document`, `load_document_regions_for_run_engine`, `load_document_text_for_run_engine` | Persists ordered `ingest_run_engine_configs`; records per-engine normalized page outputs in `document_page_outputs`, `document_output_elements`, and `document_output_spans`; reads completed preview-result candidates and engine-scoped overlay/text payloads by `run_engine_id`. | `engine_configs_and_outputs_cover_preview_queries`; `ingest_engines_route_returns_default_presets` | Missing run/file/engine preview queries return empty; replacing output for one engine does not return through another engine id. | Empty config replacement is accepted; empty normalized output pages are valid; duplicate page output replacement deletes stale elements/spans before inserting fresh UUID v7 rows. |
 | DB-ANNOT-001 | read/write | `persist_discovered_annotations` | Resolves existing or preassigned annotation identity; upserts `document_annotation_identities`, discovered `document_regions`, and text links through batched transactions. | `persists_discovered_annotation_identity_before_text_completion`; `persists_preassigned_annotation_identity_batches` | Empty batch is a no-op; re-discovering the same source key does not allocate a second id. | Same source key updates label/content while preserving UUID v7; multi-region batch persists distinct ids. |
 | DB-METRIC-001 | read/write | `upsert_page_metrics`, `list_page_metrics` | Upserts and lists `ocr_page_metrics` by run or globally. | `core_document_page_and_metric_queries_cover_empty_updates_and_limits` | Missing run returns empty. | `limit=0` returns empty; `u64::MAX` saturates to `i64::MAX`. |
 | DB-REPLAY-001 | read/write | `persist_realtime_event`, `persist_realtime_events`, `list_ocr_stream_events` | Inserts OCR page events into `ocr_stream_events`; lists by run, file, page, sequence, and limit. | `persists_and_lists_ocr_stream_events`; `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits` | Non-`ocr.page.*` event is ignored; missing run returns empty. | `limit=0` clamps to one; duplicate sequence is ignored. |
@@ -55,15 +56,17 @@ Coverage terms:
 | DB-MIG-007 | write | `migrate` | Creates `ingest_run_completion_manifests` and its `completed_at` index for restart-prefill manifests. | `reloads_completion_manifest_and_completed_run_pages` | Fresh databases with no manifests load an empty manifest list. | Migration is idempotent through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
 | DB-MIG-008 | write | `migrate` | Adds OCR category columns and creates RAG pipeline task, embedding model, text segment, text index, FTS snapshot, embedding run, and fixed-dimension vector tables. | `pipeline_task_allows_only_one_active_task`; `embedding_models_and_used_models_round_trip`; `text_segments_index_and_fts_search_round_trip`; `embedding_vectors_and_vss_search_round_trip` | Existing OCR labels backfill categories without changing cleaned text. | Migration is idempotent and vector dimensions are predeclared for supported embedding families. |
 | DB-MIG-009 | write | `migrate` | Adds trace-rendering columns and indexes to `ingest_diagnostic_spans` for task/page waterfall rows. | `realtime_download_and_diagnostic_queries_cover_filters_duplicates_and_limits`; `diagnostics_waterfall_route_returns_trace_rows` | Existing rows without explicit span kind fall back to category or `operation`. | Migration is idempotent through `ADD COLUMN IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`. |
+| DB-MIG-010 | write | `migrate` | Creates `ingest_run_engine_configs`, adds `run_engine_id` columns to work units and OCR compatibility tables, and creates normalized `document_page_outputs`, `document_output_elements`, and `document_output_spans` with engine/file/page indexes. | `engine_configs_and_outputs_cover_preview_queries` | Fresh databases with no engine configs or outputs load empty vectors and preview results. | Migration is idempotent through `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, and `CREATE INDEX IF NOT EXISTS`. |
 
 ## API Routes Covered By DB Tests
 
 Routes are listed here so route additions cannot bypass the query manifest:
 `/api/health`, `/api/status`, `/api/openapi.json`, `/api/system/folder-dialog`,
-`/api/system/shutdown`, `/api/ingest/start`, `/api/ingest/runs`, `/api/ingest/metrics/recent`,
+`/api/system/shutdown`, `/api/ingest/start`, `/api/ingest/engines`,
+`/api/ingest/runs`, `/api/ingest/metrics/recent`,
 `/api/ingest/runs/{run_id}`, `/api/ingest/runs/{run_id}/metrics`,
 `/api/ingest/runs/{run_id}/stop`, `/api/ingest/runs/{run_id}/resume`,
-`/api/ingest/runs/{run_id}/events`,
+`/api/ingest/runs/{run_id}/events`, `/api/ingest/runs/{run_id}/preview-results`,
 `/api/ocr/events`, `/api/diagnostics/runs`, `/api/diagnostics/trace`,
 `/api/diagnostics/waterfall`,
 `/api/diagnostics/progress`, `/api/diagnostics/analytics`,

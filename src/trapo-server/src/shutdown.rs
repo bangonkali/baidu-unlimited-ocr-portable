@@ -54,6 +54,7 @@ impl ShutdownCoordinator {
     }
 
     pub(crate) fn request(&self, source: &str) -> ShutdownRecord {
+        // skylos: ignore[unused_functions] called through AppState shutdown include from route and signal handlers.
         let requested = ShutdownRecord {
             requested_at: Utc::now().to_rfc3339(),
             source: source.to_string(),
@@ -68,6 +69,7 @@ impl ShutdownCoordinator {
 
     #[must_use]
     pub(crate) fn token(&self) -> CancellationToken {
+        // skylos: ignore[unused_functions] called through AppState shutdown include from the Axum graceful shutdown future.
         self.inner.token.clone()
     }
 }

@@ -17,19 +17,29 @@ interface ProjectedRegions {
   payload: DocumentRegionsPayload;
 }
 
+interface ProjectedRegionUpdate {
+  fileHash: string;
+  pageNo: number;
+  payload: DocumentRegionsPayload;
+  runEngineId: string | undefined;
+  runId: string;
+}
+
 export function applyProjectedOcrReplay(queryClient: QueryClient, events: RealtimeEvent[]) {
   const projection = projectOcrReplayEvents(events);
   for (const text of projection.texts.values()) {
-    queryClient.setQueryData<DocumentTextPayload>(
-      queryKeys.documentText(text.file_hash, text.run_id ?? undefined),
-      (current) => mergeTextPayload(current, text),
-    );
+    for (const queryKey of textProjectionKeys(text)) {
+      queryClient.setQueryData<DocumentTextPayload>(queryKey, (current) =>
+        mergeTextPayload(current, text),
+      );
+    }
   }
   for (const region of projection.regions.values()) {
-    queryClient.setQueryData<DocumentRegionsPayload>(
-      queryKeys.documentRegions(region.payload.file_hash, region.payload.run_id ?? undefined),
-      (current) => mergeRegionPayload(current, region),
-    );
+    for (const queryKey of regionProjectionKeys(region.payload)) {
+      queryClient.setQueryData<DocumentRegionsPayload>(queryKey, (current) =>
+        mergeRegionPayload(current, region),
+      );
+    }
   }
 }
 
@@ -40,63 +50,113 @@ function projectOcrReplayEvents(events: RealtimeEvent[]) {
     switch (event.type) {
       case 'ocr.page.stream.started':
         texts.set(
-          replayScopeKey(event.payload.run_id, event.payload.file_hash),
+          replayScopeKey(
+            event.payload.run_id,
+            event.payload.file_hash,
+            event.payload.run_engine_id,
+          ),
           ensureTextPage(
-            texts.get(replayScopeKey(event.payload.run_id, event.payload.file_hash)),
+            texts.get(
+              replayScopeKey(
+                event.payload.run_id,
+                event.payload.file_hash,
+                event.payload.run_engine_id,
+              ),
+            ),
             event.payload,
           ),
         );
         break;
       case 'ocr.page.text.patch':
         texts.set(
-          replayScopeKey(event.payload.run_id, event.payload.file_hash),
+          replayScopeKey(
+            event.payload.run_id,
+            event.payload.file_hash,
+            event.payload.run_engine_id,
+          ),
           applyTextPatch(
-            texts.get(replayScopeKey(event.payload.run_id, event.payload.file_hash)),
+            texts.get(
+              replayScopeKey(
+                event.payload.run_id,
+                event.payload.file_hash,
+                event.payload.run_engine_id,
+              ),
+            ),
             event.payload,
           ),
         );
         break;
       case 'ocr.page.span.upsert':
         texts.set(
-          replayScopeKey(event.payload.run_id, event.payload.file_hash),
+          replayScopeKey(
+            event.payload.run_id,
+            event.payload.file_hash,
+            event.payload.run_engine_id,
+          ),
           applySpanUpsert(
-            texts.get(replayScopeKey(event.payload.run_id, event.payload.file_hash)),
+            texts.get(
+              replayScopeKey(
+                event.payload.run_id,
+                event.payload.file_hash,
+                event.payload.run_engine_id,
+              ),
+            ),
             event.payload,
           ),
         );
         break;
       case 'ocr.page.span.remove':
         texts.set(
-          replayScopeKey(event.payload.run_id, event.payload.file_hash),
+          replayScopeKey(
+            event.payload.run_id,
+            event.payload.file_hash,
+            event.payload.run_engine_id,
+          ),
           applySpanRemove(
-            texts.get(replayScopeKey(event.payload.run_id, event.payload.file_hash)),
+            texts.get(
+              replayScopeKey(
+                event.payload.run_id,
+                event.payload.file_hash,
+                event.payload.run_engine_id,
+              ),
+            ),
             event.payload,
           ),
         );
         break;
       case 'ocr.page.region.upsert':
-        setProjectedRegions(
-          regions,
-          event.payload.run_id,
-          event.payload.file_hash,
-          event.payload.page_no,
-          applyRegionUpsert(
-            projectedRegionPayload(regions, event.payload.run_id, event.payload.file_hash),
+        setProjectedRegions(regions, {
+          fileHash: event.payload.file_hash,
+          pageNo: event.payload.page_no,
+          payload: applyRegionUpsert(
+            projectedRegionPayload(
+              regions,
+              event.payload.run_id,
+              event.payload.run_engine_id,
+              event.payload.file_hash,
+            ),
             event.payload,
           ),
-        );
+          runEngineId: event.payload.run_engine_id,
+          runId: event.payload.run_id,
+        });
         break;
       case 'ocr.page.region.remove':
-        setProjectedRegions(
-          regions,
-          event.payload.run_id,
-          event.payload.file_hash,
-          event.payload.page_no,
-          applyRegionRemove(
-            projectedRegionPayload(regions, event.payload.run_id, event.payload.file_hash),
+        setProjectedRegions(regions, {
+          fileHash: event.payload.file_hash,
+          pageNo: event.payload.page_no,
+          payload: applyRegionRemove(
+            projectedRegionPayload(
+              regions,
+              event.payload.run_id,
+              event.payload.run_engine_id,
+              event.payload.file_hash,
+            ),
             event.payload,
           ),
-        );
+          runEngineId: event.payload.run_engine_id,
+          runId: event.payload.run_id,
+        });
         break;
       default:
         break;
@@ -108,23 +168,21 @@ function projectOcrReplayEvents(events: RealtimeEvent[]) {
 function projectedRegionPayload(
   regions: Map<string, ProjectedRegions>,
   runId: string,
+  runEngineId: string | undefined,
   fileHash: string,
 ) {
-  return regions.get(replayScopeKey(runId, fileHash))?.payload;
+  return regions.get(replayScopeKey(runId, fileHash, runEngineId))?.payload;
 }
 
 function setProjectedRegions(
   regions: Map<string, ProjectedRegions>,
-  runId: string,
-  fileHash: string,
-  pageNo: number,
-  payload: DocumentRegionsPayload,
+  update: ProjectedRegionUpdate,
 ) {
-  const scopeKey = replayScopeKey(runId, fileHash);
+  const scopeKey = replayScopeKey(update.runId, update.fileHash, update.runEngineId);
   const existing = regions.get(scopeKey);
   const pageNos = existing?.pageNos ?? new Set<number>();
-  pageNos.add(pageNo);
-  regions.set(scopeKey, { pageNos, payload });
+  pageNos.add(update.pageNo);
+  regions.set(scopeKey, { pageNos, payload: update.payload });
 }
 
 function mergeTextPayload(
@@ -137,6 +195,7 @@ function mergeTextPayload(
   }
   return {
     file_hash: projected.file_hash,
+    ...(projected.run_engine_id ? { run_engine_id: projected.run_engine_id } : {}),
     run_id: projected.run_id,
     pages: [...pagesByNumber.values()].sort((left, right) => left.page_no - right.page_no),
   };
@@ -154,10 +213,41 @@ function mergeRegionPayload(
         left.page_no - right.page_no || annotationIdOf(left).localeCompare(annotationIdOf(right)),
     ),
     file_hash: projected.payload.file_hash,
+    ...(projected.payload.run_engine_id ? { run_engine_id: projected.payload.run_engine_id } : {}),
     run_id: projected.payload.run_id,
   };
 }
 
-function replayScopeKey(runId: string | null | undefined, fileHash: string) {
-  return `${runId ?? ''}:${fileHash}`;
+function replayScopeKey(
+  runId: string | null | undefined,
+  fileHash: string,
+  runEngineId?: string | null,
+) {
+  return `${runId ?? ''}:${runEngineId ?? ''}:${fileHash}`;
+}
+
+function textProjectionKeys(payload: DocumentTextPayload) {
+  return payload.run_engine_id
+    ? [
+        queryKeys.documentText(payload.file_hash, payload.run_id ?? undefined),
+        queryKeys.documentText(
+          payload.file_hash,
+          payload.run_id ?? undefined,
+          payload.run_engine_id,
+        ),
+      ]
+    : [queryKeys.documentText(payload.file_hash, payload.run_id ?? undefined)];
+}
+
+function regionProjectionKeys(payload: DocumentRegionsPayload) {
+  return payload.run_engine_id
+    ? [
+        queryKeys.documentRegions(payload.file_hash, payload.run_id ?? undefined),
+        queryKeys.documentRegions(
+          payload.file_hash,
+          payload.run_id ?? undefined,
+          payload.run_engine_id,
+        ),
+      ]
+    : [queryKeys.documentRegions(payload.file_hash, payload.run_id ?? undefined)];
 }

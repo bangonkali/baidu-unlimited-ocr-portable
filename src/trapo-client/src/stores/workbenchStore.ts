@@ -12,6 +12,7 @@ interface WorkbenchSelection {
   fileHash?: string;
   pageNo: number;
   regionId?: string;
+  runEngineId?: string;
   runId?: string;
 }
 
@@ -122,19 +123,29 @@ export function setSelection(selection: Partial<WorkbenchSelection>) {
   });
 }
 
-export function followLatestRegion(fileHash: string, boxes: OverlayBox[], runId?: string | null) {
-  const target = latestRegionFocusTarget(fileHash, boxes, runId);
+export function followLatestRegion(
+  fileHash: string,
+  boxes: OverlayBox[],
+  runId?: string | null,
+  runEngineId?: string | null,
+) {
+  const target = latestRegionFocusTarget(fileHash, boxes, runId, runEngineId);
   if (!target || !workbenchStore.state.autoFollowRegions) {
     return;
   }
   realtimeFocus.schedule(target);
 }
 
-export function followLatestPage(fileHash: string, pageNo: number, runId?: string | null) {
+export function followLatestPage(
+  fileHash: string,
+  pageNo: number,
+  runId?: string | null,
+  runEngineId?: string | null,
+) {
   if (!workbenchStore.state.autoFollowRegions) {
     return;
   }
-  realtimeFocus.schedule(pageFocusTarget(fileHash, pageNo, runId));
+  realtimeFocus.schedule(pageFocusTarget(fileHash, pageNo, runId, runEngineId));
 }
 
 export function setOverlayVisible(overlayVisible: boolean) {
@@ -269,6 +280,7 @@ function sameSelection(left: WorkbenchSelection, right: WorkbenchSelection) {
     left.fileHash === right.fileHash &&
     left.pageNo === right.pageNo &&
     left.regionId === right.regionId &&
+    left.runEngineId === right.runEngineId &&
     left.runId === right.runId
   );
 }

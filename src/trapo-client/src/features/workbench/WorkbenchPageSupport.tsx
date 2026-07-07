@@ -62,12 +62,18 @@ export function useAutoFollowLatestRegion(
     if (!enabled || !regions || !shouldFollowLatestRegion(workbench.selection, regions)) {
       return;
     }
-    followLatestRegion(regions.file_hash, regions.boxes, regions.run_id);
+    followLatestRegion(regions.file_hash, regions.boxes, regions.run_id, regions.run_engine_id);
   }, [enabled, regions, workbench.selection]);
 }
 
 export function shouldFollowLatestRegion(
-  selection: { fileHash?: string; pageNo: number; regionId?: string; runId?: string },
+  selection: {
+    fileHash?: string;
+    pageNo: number;
+    regionId?: string;
+    runEngineId?: string;
+    runId?: string;
+  },
   regions?: DocumentRegionsPayload,
 ) {
   const latestRegion = regions?.boxes.at(-1);
@@ -78,6 +84,13 @@ export function shouldFollowLatestRegion(
     return false;
   }
   if (selection.runId && regions.run_id && selection.runId !== regions.run_id) {
+    return false;
+  }
+  if (
+    selection.runEngineId &&
+    regions.run_engine_id &&
+    selection.runEngineId !== regions.run_engine_id
+  ) {
     return false;
   }
   if (selection.fileHash === regions.file_hash && latestRegion.page_no < selection.pageNo) {

@@ -27,6 +27,8 @@ use crate::{
         DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
         FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
         HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
+        IngestEngineConfigRecord, IngestEnginePresetRecord, IngestEngineSelection,
+        IngestEnginesPayload, IngestPreviewResultRecord, IngestPreviewResultsPayload,
         IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogRecord,
         LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox,
         PageTextRecord, PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord,
@@ -39,122 +41,41 @@ use crate::{
 #[openapi(
     info(title = "Trapo Server API", version = "0.1.5", description = "Rust Axum API for Trapo OCR workbench."),
     paths(
-        health_doc,
-        status_doc,
-        openapi_doc,
-        folder_dialog_doc,
-        shutdown_doc,
-        start_ingest_doc,
-        list_runs_doc,
-        get_run_doc,
-        resume_run_doc,
-        stop_run_doc,
-        run_events_doc,
-        ocr_events_doc,
-        diagnostics_runs_doc,
-        diagnostics_trace_doc,
-        diagnostics_waterfall_doc,
-        diagnostics_progress_doc,
-        diagnostics_analytics_doc,
-        diagnostics_models_doc,
-        start_text_index_doc,
-        generate_embedding_doc,
-        used_embedding_models_doc,
-        hybrid_search_doc,
-        run_metrics_doc,
-        recent_metrics_doc,
-        list_documents_doc,
-        search_documents_doc,
-        get_document_doc,
-        document_regions_doc,
-        region_snippet_doc,
-        document_text_doc,
-        preview_images_doc,
-        preview_image_doc,
-        settings_doc,
-        update_settings_doc,
-        models_doc,
-        download_model_doc,
-        select_model_doc,
-        cancel_model_doc,
-        model_events_doc,
-        logs_doc,
-        logs_export_doc
+        health_doc, status_doc, openapi_doc, folder_dialog_doc, shutdown_doc,
+        ingest_engines_doc, start_ingest_doc, list_runs_doc, get_run_doc, preview_results_doc,
+        resume_run_doc, stop_run_doc, run_events_doc, ocr_events_doc,
+        diagnostics_runs_doc, diagnostics_trace_doc, diagnostics_waterfall_doc,
+        diagnostics_progress_doc, diagnostics_analytics_doc, diagnostics_models_doc,
+        start_text_index_doc, generate_embedding_doc, used_embedding_models_doc, hybrid_search_doc,
+        run_metrics_doc, recent_metrics_doc, list_documents_doc, search_documents_doc,
+        get_document_doc, document_regions_doc, region_snippet_doc, document_text_doc,
+        preview_images_doc, preview_image_doc, settings_doc, update_settings_doc, models_doc,
+        download_model_doc, select_model_doc, cancel_model_doc, model_events_doc,
+        logs_doc, logs_export_doc
     ),
     components(schemas(
-        ErrorPayload,
-        HealthPayload,
-        ShutdownRequest,
-        ShutdownPayload,
-        StatusPayload,
-        DuckDbExtensionsRecord,
-        RuntimeVariantRecord,
-        OcrProfileRecord,
-        ModelAssetRecord,
-        ModelDownloadFileRecord,
-        ModelDownloadRecord,
-        ModelDownloadEvent,
-        ModelSelectRecord,
-        ModelDownloadRequest,
-        ModelsPayload,
-        SettingsPayload,
-        SettingsUpdateRequest,
-        WorkbenchUiSettings,
-        WorkbenchPaneSettings,
-        WorkbenchUiSettingsPatch,
-        WorkbenchPaneSettingsPatch,
-        IngestStartRequest,
-        IngestStartResponse,
-        RunCompletionManifestRecord,
-        IngestRunRecord,
-        IngestRunsPayload,
-        PipelineTaskRecord,
-        TextIndexRequest,
-        TextIndexResponse,
-        GenerateEmbeddingRequest,
-        GenerateEmbeddingResponse,
-        UsedEmbeddingModelsPayload,
-        UsedEmbeddingModelRecord,
-        HybridSearchRequest,
-        HybridSearchResponse,
-        HybridSearchFileResult,
-        HybridSearchHit,
-        OcrMetricsTreeNode,
-        OcrMetricsTreePayload,
-        DocumentSummary,
-        DocumentDetail,
-        DocumentsPayload,
-        DocumentRegionsPayload,
-        OverlayBox,
-        TextRegionSpan,
-        PageTextRecord,
-        DocumentTextPayload,
-        FolderDialogResponse,
-        PreviewImagesPayload,
-        LogRecord,
-        LogsPayload,
-        RealtimeEventRecord,
-        OcrReplayPayload,
-        DiagnosticRunRecord,
-        DiagnosticRunsPayload,
-        DiagnosticSpanRecord,
-        DiagnosticEventRecord,
-        DiagnosticTraceSummary,
-        DiagnosticTracePayload,
-        DiagnosticWaterfallRowRecord,
-        DiagnosticWaterfallSummary,
-        DiagnosticWaterfallPayload,
-        DiagnosticWorkUnitRecord,
-        DiagnosticModelLeaseRecord,
-        DiagnosticPipelineTaskRecord,
-        DiagnosticProgressSummary,
-        DiagnosticProgressPayload,
-        DiagnosticBreakdownRecord,
-        DiagnosticSlowSpanRecord,
-        DiagnosticRecommendationRecord,
-        DiagnosticAnalyticsSummary,
-        DiagnosticAnalyticsPayload,
-        DiagnosticModelsPayload
+        ErrorPayload, HealthPayload, ShutdownRequest, ShutdownPayload, StatusPayload,
+        DuckDbExtensionsRecord, RuntimeVariantRecord, OcrProfileRecord, ModelAssetRecord,
+        ModelDownloadFileRecord, ModelDownloadRecord, ModelDownloadEvent, ModelSelectRecord,
+        ModelDownloadRequest, ModelsPayload, SettingsPayload, SettingsUpdateRequest,
+        WorkbenchUiSettings, WorkbenchPaneSettings, WorkbenchUiSettingsPatch,
+        WorkbenchPaneSettingsPatch, IngestStartRequest, IngestStartResponse,
+        IngestEngineSelection, IngestEngineConfigRecord, IngestEnginePresetRecord,
+        IngestEnginesPayload, IngestPreviewResultRecord, IngestPreviewResultsPayload,
+        RunCompletionManifestRecord, IngestRunRecord, IngestRunsPayload, PipelineTaskRecord,
+        TextIndexRequest, TextIndexResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
+        UsedEmbeddingModelsPayload, UsedEmbeddingModelRecord, HybridSearchRequest,
+        HybridSearchResponse, HybridSearchFileResult, HybridSearchHit, OcrMetricsTreeNode,
+        OcrMetricsTreePayload, DocumentSummary, DocumentDetail, DocumentsPayload,
+        DocumentRegionsPayload, OverlayBox, TextRegionSpan, PageTextRecord, DocumentTextPayload,
+        FolderDialogResponse, PreviewImagesPayload, LogRecord, LogsPayload, RealtimeEventRecord,
+        OcrReplayPayload, DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSpanRecord,
+        DiagnosticEventRecord, DiagnosticTraceSummary, DiagnosticTracePayload,
+        DiagnosticWaterfallRowRecord, DiagnosticWaterfallSummary, DiagnosticWaterfallPayload,
+        DiagnosticWorkUnitRecord, DiagnosticModelLeaseRecord, DiagnosticPipelineTaskRecord,
+        DiagnosticProgressSummary, DiagnosticProgressPayload, DiagnosticBreakdownRecord,
+        DiagnosticSlowSpanRecord, DiagnosticRecommendationRecord, DiagnosticAnalyticsSummary,
+        DiagnosticAnalyticsPayload, DiagnosticModelsPayload
     )),
     tags(
         (name = "system"),
@@ -189,11 +110,17 @@ const fn shutdown_doc() {}
 #[utoipa::path(post, path = "/api/ingest/start", tag = "ingest", request_body = IngestStartRequest, responses((status = 202, description = "Ingest run queued", body = IngestStartResponse), (status = 400, body = ErrorPayload)))]
 const fn start_ingest_doc() {}
 
+#[utoipa::path(get, path = "/api/ingest/engines", tag = "ingest", responses((status = 200, body = IngestEnginesPayload)))]
+const fn ingest_engines_doc() {}
+
 #[utoipa::path(get, path = "/api/ingest/runs", tag = "ingest", responses((status = 200, body = IngestRunsPayload)))]
 const fn list_runs_doc() {}
 
 #[utoipa::path(get, path = "/api/ingest/runs/{run_id}", tag = "ingest", params(("run_id" = String, Path)), responses((status = 200, body = IngestRunRecord), (status = 404, body = ErrorPayload)))]
 const fn get_run_doc() {}
+
+#[utoipa::path(get, path = "/api/ingest/runs/{run_id}/preview-results", tag = "ingest", params(("run_id" = String, Path), ("file_hash" = String, Query)), responses((status = 200, body = IngestPreviewResultsPayload), (status = 404, body = ErrorPayload)))]
+const fn preview_results_doc() {}
 
 #[utoipa::path(post, path = "/api/ingest/runs/{run_id}/stop", tag = "ingest", params(("run_id" = String, Path)), responses((status = 202, description = "Stop requested", body = IngestRunRecord), (status = 404, body = ErrorPayload)))]
 const fn stop_run_doc() {}
@@ -252,13 +179,13 @@ const fn search_documents_doc() {}
 #[utoipa::path(get, path = "/api/documents/{file_hash}", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = DocumentDetail), (status = 404, body = ErrorPayload)))]
 const fn get_document_doc() {}
 
-#[utoipa::path(get, path = "/api/documents/{file_hash}/regions", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query)), responses((status = 200, body = DocumentRegionsPayload)))]
+#[utoipa::path(get, path = "/api/documents/{file_hash}/regions", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query), ("run_engine_id" = Option<String>, Query), ("result" = Option<String>, Query)), responses((status = 200, body = DocumentRegionsPayload)))]
 const fn document_regions_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/regions/{region_id}/snippet", tag = "documents", params(("file_hash" = String, Path), ("region_id" = String, Path)), responses((status = 200, description = "Region image snippet bytes", content((String = "image/png"))), (status = 404, body = ErrorPayload)))]
 const fn region_snippet_doc() {}
 
-#[utoipa::path(get, path = "/api/documents/{file_hash}/text", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query)), responses((status = 200, body = DocumentTextPayload)))]
+#[utoipa::path(get, path = "/api/documents/{file_hash}/text", tag = "documents", params(("file_hash" = String, Path), ("run_id" = Option<String>, Query), ("run" = Option<String>, Query), ("run_engine_id" = Option<String>, Query), ("result" = Option<String>, Query)), responses((status = 200, body = DocumentTextPayload)))]
 const fn document_text_doc() {}
 
 #[utoipa::path(get, path = "/api/documents/{file_hash}/preview-images", tag = "documents", params(("file_hash" = String, Path)), responses((status = 200, body = PreviewImagesPayload)))]
