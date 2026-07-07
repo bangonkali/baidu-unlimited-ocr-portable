@@ -240,6 +240,18 @@ uv run python scripts\quality.py --profile ci --parallel
 The report is written to `.logs/quality/quality-report.md`. See
 [Quality gates](docs/QUALITY.md) for per-gate details and CI output flags.
 
+## License
+
+Trapo Workbench is licensed under the GNU Affero General Public License, version
+3, or (at your option) any later version (**AGPL-3.0-or-later**).
+
+See:
+
+- [LICENSE](LICENSE)
+- [NOTICE](NOTICE)
+- [AGPL compliance notes](docs/AGPL_COMPLIANCE.md)
+- [Third-party license summary](docs/THIRD_PARTY_LICENSES.md)
+
 ## More Documentation
 
 - [Windows portable app](docs/WINDOWS.md)

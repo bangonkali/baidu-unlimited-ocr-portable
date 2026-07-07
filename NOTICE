@@ -1,0 +1,24 @@
+Trapo Workbench
+Copyright (C) 2026 Bangonkali
+
+Trapo Workbench is distributed under the terms of the GNU Affero General Public
+License, version 3, or (at your option) any later version (AGPL-3.0-or-later).
+
+You must find a full copy of the GNU Affero General Public License in the LICENSE
+file included with this distribution.
+
+This project also includes third-party software under additional open-source
+licenses. A complete, current list of third-party licenses and notices is kept in:
+
+- docs/THIRD_PARTY_LICENSES.md
+
+Trapo is distributed with third-party libraries and vendored components under
+the following additional terms:
+
+- Apache License, Version 2.0, MIT, BSD, ISC, BlueOak, Python-2.0, CC-BY-4.0, MPL-2.0
+  (as listed in docs/THIRD_PARTY_LICENSES.md)
+- AGPL-3.0-or-later and GPL-3.0 obligations for components noted there
+
+If you operate Trapo as a network service, AGPL source-availability terms apply.
+Please see docs/AGPL_COMPLIANCE.md for details.
+
