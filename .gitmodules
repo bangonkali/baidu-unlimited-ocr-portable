@@ -38,6 +38,3 @@
 [submodule "thirdparty/protobuff"]
 	path = thirdparty/protobuff
 	url = git@github.com:protocolbuffers/protobuf.git
-[submodule "thirdparty/tesseract"]
-	path = thirdparty/tesseract
-	url = git@github.com:tesseract-ocr/tesseract.git
