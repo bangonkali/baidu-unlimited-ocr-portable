@@ -94,6 +94,13 @@ async fn diagnostics_progress(
     ))
 }
 
+async fn diagnostics_work_unit_detail(
+    State(state): State<AppState>,
+    Path(work_unit_id): Path<String>,
+) -> Result<Json<crate::workbench_types::DiagnosticWorkUnitDetailPayload>> {
+    Ok(Json(state.diagnostic_work_unit_detail(&work_unit_id).await?))
+}
+
 async fn diagnostics_analytics(
     State(state): State<AppState>,
     Query(query): Query<DiagnosticRunQuery>,

@@ -23,17 +23,17 @@ use crate::{
         DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
         DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
         DiagnosticTraceSummary, DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord,
-        DiagnosticWaterfallSummary, DiagnosticWorkUnitRecord, DocumentDetail,
-        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
-        FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
-        HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
-        IngestEngineConfigRecord, IngestEnginePresetRecord, IngestEngineSelection,
-        IngestEnginesPayload, IngestPreviewResultRecord, IngestPreviewResultsPayload,
-        IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogRecord,
-        LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox,
-        PageTextRecord, PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord,
-        RunCompletionManifestRecord, TextIndexRequest, TextIndexResponse, TextRegionSpan,
-        UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
+        DiagnosticWaterfallSummary, DiagnosticWorkUnitDetailPayload, DiagnosticWorkUnitRecord,
+        DocumentDetail, DocumentRegionsPayload, DocumentSummary, DocumentTextPayload,
+        DocumentsPayload, FolderDialogResponse, GenerateEmbeddingRequest,
+        GenerateEmbeddingResponse, HybridSearchFileResult, HybridSearchHit, HybridSearchRequest,
+        HybridSearchResponse, IngestEngineConfigRecord, IngestEnginePresetRecord,
+        IngestEngineSelection, IngestEnginesPayload, IngestPreviewResultRecord,
+        IngestPreviewResultsPayload, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
+        IngestStartResponse, LogRecord, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
+        OcrReplayPayload, OverlayBox, PageTextRecord, PipelineTaskRecord, PreviewImagesPayload,
+        RealtimeEventRecord, RunCompletionManifestRecord, TextIndexRequest, TextIndexResponse,
+        TextRegionSpan, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -45,7 +45,8 @@ use crate::{
         ingest_engines_doc, start_ingest_doc, list_runs_doc, get_run_doc, preview_results_doc,
         resume_run_doc, stop_run_doc, run_events_doc, ocr_events_doc,
         diagnostics_runs_doc, diagnostics_trace_doc, diagnostics_waterfall_doc,
-        diagnostics_progress_doc, diagnostics_analytics_doc, diagnostics_models_doc,
+        diagnostics_progress_doc, diagnostics_work_unit_detail_doc, diagnostics_analytics_doc,
+        diagnostics_models_doc,
         start_text_index_doc, generate_embedding_doc, used_embedding_models_doc, hybrid_search_doc,
         run_metrics_doc, recent_metrics_doc, list_documents_doc, search_documents_doc,
         get_document_doc, document_regions_doc, region_snippet_doc, document_text_doc,
@@ -73,9 +74,9 @@ use crate::{
         DiagnosticEventRecord, DiagnosticTraceSummary, DiagnosticTracePayload,
         DiagnosticWaterfallRowRecord, DiagnosticWaterfallSummary, DiagnosticWaterfallPayload,
         DiagnosticWorkUnitRecord, DiagnosticModelLeaseRecord, DiagnosticPipelineTaskRecord,
-        DiagnosticProgressSummary, DiagnosticProgressPayload, DiagnosticBreakdownRecord,
-        DiagnosticSlowSpanRecord, DiagnosticRecommendationRecord, DiagnosticAnalyticsSummary,
-        DiagnosticAnalyticsPayload, DiagnosticModelsPayload
+        DiagnosticProgressSummary, DiagnosticProgressPayload, DiagnosticWorkUnitDetailPayload,
+        DiagnosticBreakdownRecord, DiagnosticSlowSpanRecord, DiagnosticRecommendationRecord,
+        DiagnosticAnalyticsSummary, DiagnosticAnalyticsPayload, DiagnosticModelsPayload
     )),
     tags(
         (name = "system"),
@@ -145,6 +146,9 @@ const fn diagnostics_waterfall_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/progress", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticProgressPayload)))]
 const fn diagnostics_progress_doc() {}
+
+#[utoipa::path(get, path = "/api/diagnostics/work-units/{work_unit_id}", tag = "diagnostics", params(("work_unit_id" = String, Path)), responses((status = 200, body = DiagnosticWorkUnitDetailPayload), (status = 404, body = ErrorPayload)))]
+const fn diagnostics_work_unit_detail_doc() {}
 
 #[utoipa::path(get, path = "/api/diagnostics/analytics", tag = "diagnostics", params(("run_id" = Option<String>, Query), ("limit" = Option<u32>, Query)), responses((status = 200, body = DiagnosticAnalyticsPayload)))]
 const fn diagnostics_analytics_doc() {}

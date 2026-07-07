@@ -30,6 +30,7 @@ export {
   useDiagnosticRuns,
   useDiagnosticTrace,
   useDiagnosticWaterfall,
+  useDiagnosticWorkUnitDetail,
   useOcrReplay,
 } from './diagnosticsHooks';
 export {

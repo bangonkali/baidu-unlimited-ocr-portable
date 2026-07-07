@@ -37,6 +37,7 @@ export * from './diagnosticWaterfallPayload';
 export * from './diagnosticWaterfallRowRecord';
 export * from './diagnosticWaterfallRowRecordAttributes';
 export * from './diagnosticWaterfallSummary';
+export * from './diagnosticWorkUnitDetailPayload';
 export * from './diagnosticWorkUnitRecord';
 export * from './diagnosticWorkUnitRecordMetadata';
 export * from './diagnosticWorkUnitRecordResult';

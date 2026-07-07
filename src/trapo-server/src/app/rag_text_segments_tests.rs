@@ -111,6 +111,47 @@ mod rag_chunk_tests {
     }
 
     #[test]
+    fn appended_segments_preserve_overlapping_annotation_id() {
+        let mut segments = Vec::new();
+        append_page_segments(
+            "run-a",
+            "file-a",
+            vec![PageTextRecord {
+                page_no: 1,
+                text: "title Annual report\ntext Revenue grew.".to_string(),
+                spans: vec![
+                    crate::workbench_types::TextRegionSpan {
+                        annotation_id: "018f7a9b-10a0-7aa0-8f00-100000000001".to_string(),
+                        end: 19,
+                        page_no: 1,
+                        region_id: "legacy-region-a".to_string(),
+                        source_region_key: "source-a".to_string(),
+                        start: 6,
+                    },
+                    crate::workbench_types::TextRegionSpan {
+                        annotation_id: "018f7a9b-10a0-7aa0-8f00-100000000002".to_string(),
+                        end: 38,
+                        page_no: 1,
+                        region_id: "legacy-region-b".to_string(),
+                        source_region_key: "source-b".to_string(),
+                        start: 25,
+                    },
+                ],
+            }],
+            &mut segments,
+        );
+
+        assert_eq!(
+            segments[0].annotation_id.as_deref(),
+            Some("018f7a9b-10a0-7aa0-8f00-100000000001")
+        );
+        assert_eq!(
+            segments[1].annotation_id.as_deref(),
+            Some("018f7a9b-10a0-7aa0-8f00-100000000002")
+        );
+    }
+
+    #[test]
     fn stale_marker_or_category_prefixed_segments_are_rebuilt() {
         let mut segments = Vec::new();
         append_page_segments(

@@ -12,6 +12,7 @@ import type {
   DiagnosticRunsPayload,
   DiagnosticTracePayload,
   DiagnosticWaterfallPayload,
+  DiagnosticWorkUnitDetailPayload,
   DiagnosticsAnalyticsDocParams,
   DiagnosticsModelsDocParams,
   DiagnosticsProgressDocParams,
@@ -339,6 +340,53 @@ export const diagnosticsWaterfallDoc = async (params?: DiagnosticsWaterfallDocPa
 
   const data: diagnosticsWaterfallDocResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as diagnosticsWaterfallDocResponse
+}
+
+
+
+export type diagnosticsWorkUnitDetailDocResponse200 = {
+  data: DiagnosticWorkUnitDetailPayload
+  status: 200
+}
+
+export type diagnosticsWorkUnitDetailDocResponse404 = {
+  data: ErrorPayload
+  status: 404
+}
+
+export type diagnosticsWorkUnitDetailDocResponseSuccess = (diagnosticsWorkUnitDetailDocResponse200) & {
+  headers: Headers;
+};
+export type diagnosticsWorkUnitDetailDocResponseError = (diagnosticsWorkUnitDetailDocResponse404) & {
+  headers: Headers;
+};
+
+export type diagnosticsWorkUnitDetailDocResponse = (diagnosticsWorkUnitDetailDocResponseSuccess | diagnosticsWorkUnitDetailDocResponseError)
+
+export const getDiagnosticsWorkUnitDetailDocUrl = (workUnitId: string,) => {
+
+
+
+
+  return `/api/diagnostics/work-units/${workUnitId}`
+}
+
+export const diagnosticsWorkUnitDetailDoc = async (workUnitId: string, options?: RequestInit): Promise<diagnosticsWorkUnitDetailDocResponse> => {
+
+  const res = await fetch(getDiagnosticsWorkUnitDetailDocUrl(workUnitId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: diagnosticsWorkUnitDetailDocResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as diagnosticsWorkUnitDetailDocResponse
 }
 
 

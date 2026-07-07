@@ -93,6 +93,7 @@ export interface WorkbenchViewData {
 export interface WorkbenchContentRoute {
   activeView: ActiveView;
   diagnosticsSearch?: DiagnosticsRouteSearch;
+  diagnosticWorkUnitId?: string;
   ingestSearch?: IngestRouteSearch;
   modelDetailId?: string;
   modelScope: 'library' | 'downloads';
@@ -116,6 +117,7 @@ export function buildContentProps(args: {
     activeRunId: args.activeRunId,
     activeView: args.route.activeView,
     diagnosticsSearch: args.route.diagnosticsSearch,
+    diagnosticWorkUnitId: args.route.diagnosticWorkUnitId,
     explorerFilter: args.explorerFilter,
     folderDialogError: args.workbench.folderDialogError,
     ingestBusy: args.actions.ingestBusy,

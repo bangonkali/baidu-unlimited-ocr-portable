@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import type {
   IngestEnginePresetRecord,
@@ -12,8 +12,6 @@ import type {
 import type { IngestRouteSearch } from '../../routeSearch';
 import { isIngestBusy, latestCompletedRunId } from './IngestStartPanelParts';
 import { IngestWizardLayout } from './IngestWizardLayout';
-import type { EnginePlanItem } from './ingestEnginePlan';
-import { defaultEnginePlan, enginePlanIssue, enginePlanReady } from './ingestEnginePlan';
 import {
   embeddingModels,
   isModelReady,
@@ -23,6 +21,7 @@ import {
 } from './ingestWizardModels';
 import { buildIngestWizardStartOptions } from './ingestWizardStart';
 import { ingestWizardSteps } from './ingestWizardSteps';
+import { useEnginePlanState } from './useEnginePlanState';
 import { useIngestWizardStateSync } from './useIngestWizardStateSync';
 
 interface IngestStartOptions {
@@ -68,8 +67,13 @@ export function IngestStartPanel(props: IngestStartPanelProps) {
   const wizardState = useIngestWizardLocalState(props);
   const latestRunId = latestCompletedRunId(props.runs);
   const [selectedRunId, setSelectedRunId] = useState(latestRunId ?? '');
+  const restartRun = props.runs.find((run) => run.run_id === props.ingestSearch?.restart);
   const enginePlanState = useEnginePlanState({
     enginePresets: props.enginePresets,
+    presetIds: props.ingestSearch?.engines,
+    restartRun,
+    restartRunId: props.ingestSearch?.restart,
+    runsReady: props.runs.length > 0,
     models: wizardState.allModels,
     selectedProfile: props.selectedProfile,
     selectedRuntimeId: props.ingestSearch?.runtime,
@@ -223,42 +227,6 @@ function useIngestWizardLocalState(props: IngestStartPanelProps) {
     setSelectedEmbeddingModelId,
     setTextIndexAfterIngest,
     textIndexAfterIngest,
-  };
-}
-
-function useEnginePlanState(args: {
-  enginePresets: IngestEnginePresetRecord[];
-  models: ModelAssetRecord[];
-  selectedProfile: string;
-  selectedRuntimeId?: string;
-}) {
-  const [enginePlan, setEnginePlan] = useState<EnginePlanItem[]>([]);
-  const initializedEnginePlanRef = useRef(false);
-  useEffect(() => {
-    if (initializedEnginePlanRef.current || args.enginePresets.length === 0) {
-      return;
-    }
-    initializedEnginePlanRef.current = true;
-    setEnginePlan(
-      defaultEnginePlan(args.enginePresets, args.selectedProfile, args.selectedRuntimeId),
-    );
-  }, [args.enginePresets, args.selectedProfile, args.selectedRuntimeId]);
-
-  useEffect(() => {
-    setEnginePlan((current) =>
-      current.map((item) =>
-        item.profileId && item.profileId !== args.selectedProfile
-          ? { ...item, profileId: args.selectedProfile }
-          : item,
-      ),
-    );
-  }, [args.selectedProfile]);
-
-  return {
-    enginePlan,
-    planIssue: enginePlanIssue(enginePlan, args.enginePresets, args.models),
-    planReady: enginePlanReady(enginePlan, args.enginePresets, args.models),
-    setEnginePlan,
   };
 }
 

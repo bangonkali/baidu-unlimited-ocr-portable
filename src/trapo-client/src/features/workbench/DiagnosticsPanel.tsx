@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   useDiagnosticAnalytics,
@@ -21,12 +22,14 @@ import {
 } from './DiagnosticsPanel.views';
 import { DiagnosticsWaterfallGrid } from './DiagnosticsWaterfallGrid';
 import { buildWaterfallRunNodes, waterfallExpandableIds } from './DiagnosticsWaterfallTree';
+import { DiagnosticWorkUnitDetail } from './DiagnosticWorkUnitDetail';
 
 interface DiagnosticsPanelProps {
   activeRunId?: string | null;
   logs: LogRecord[];
   runs: IngestRunRecord[];
   search?: DiagnosticsRouteSearch;
+  workUnitId?: string;
   onResumeRun?: (runId: string) => void;
   onRestartRun?: (run: IngestRunRecord) => void;
   onSearchChange?: (patch: Partial<DiagnosticsRouteSearch>) => void;
@@ -35,8 +38,24 @@ interface DiagnosticsPanelProps {
 
 export { filterLogs, filterRuns };
 
-export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({
+  logs,
+  onSearchChange,
+  search,
+  workUnitId,
+}: DiagnosticsPanelProps) {
+  const navigate = useNavigate();
   const tab = search?.tab ?? 'waterfall';
+  const openWorkUnit = useCallback(
+    (nextWorkUnitId: string) => {
+      void navigate({
+        params: { workUnitId: nextWorkUnitId },
+        search: (current) => ({ ...current, ...(search ?? {}) }),
+        to: '/diagnostics/$workUnitId',
+      });
+    },
+    [navigate, search],
+  );
   const diagnosticRuns = useDiagnosticRuns();
   const selectedRun = search?.run;
   const waterfall = useDiagnosticWaterfall({
@@ -53,9 +72,10 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
   const waterfallNodes = useMemo(
     () =>
       buildWaterfallRunNodes({
+        onWorkUnitSelect: openWorkUnit,
         payload: waterfall.data,
       }),
-    [waterfall.data],
+    [openWorkUnit, waterfall.data],
   );
   const hasEmbeddingWaterfallRows =
     waterfall.data?.rows.some((row) => row.pipeline_step === 'generate_embedding') ?? true;
@@ -65,8 +85,8 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
     );
   }, [waterfallNodes]);
   const progressNodes = useMemo(
-    () => buildProgressNodes(progress.data?.work_units ?? []),
-    [progress.data?.work_units],
+    () => buildProgressNodes(progress.data?.work_units ?? [], openWorkUnit),
+    [openWorkUnit, progress.data?.work_units],
   );
 
   return (
@@ -103,6 +123,7 @@ export function DiagnosticsPanel({ logs, onSearchChange, search }: DiagnosticsPa
         {tab === 'models' ? <ModelLeaseList leases={models.data?.model_leases ?? []} /> : null}
         {tab === 'logs' ? <LogList logs={filterLogs(logs, search)} /> : null}
       </div>
+      {workUnitId ? <DiagnosticWorkUnitDetail workUnitId={workUnitId} /> : null}
     </section>
   );
 }

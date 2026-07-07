@@ -1,6 +1,6 @@
 .panel {
   display: grid;
-  grid-template-rows: 30px 31px auto 1fr;
+  grid-template-rows: 30px 31px auto minmax(0, 1fr) auto;
   min-height: 0;
   height: 100%;
   background: var(--panel);

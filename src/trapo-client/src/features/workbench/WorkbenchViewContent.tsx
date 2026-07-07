@@ -35,6 +35,7 @@ export interface WorkbenchViewContentProps {
   activeView: ActiveView;
   activeRun?: IngestRunRecord;
   activeRunId?: string | null;
+  diagnosticWorkUnitId?: string;
   diagnosticsSearch?: DiagnosticsRouteSearch;
   documents: DocumentSummary[];
   explorerFilter: WorkbenchExplorerFilter;
@@ -157,6 +158,7 @@ function renderDiagnosticsView(props: WorkbenchViewContentProps) {
     <DiagnosticsPanel
       activeRunId={props.activeRunId}
       logs={props.logs}
+      workUnitId={props.diagnosticWorkUnitId}
       onResumeRun={props.onResumeRun}
       onRestartRun={props.onRestartRun}
       runs={props.runs}

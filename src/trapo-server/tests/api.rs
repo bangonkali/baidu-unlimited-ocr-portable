@@ -25,6 +25,7 @@ async fn health_and_openapi_are_served() -> anyhow::Result<()> {
     assert_eq!(value["service"], "trapo-server");
 
     let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri("/api/openapi.json")
@@ -88,6 +89,7 @@ async fn shutdown_route_requires_confirmation_and_blocks_new_work() -> anyhow::R
     let scan_root = state.config().app_root.join("scan-after-shutdown");
     std::fs::create_dir_all(&scan_root)?;
     let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -226,6 +228,7 @@ async fn text_index_route_chunks_long_cjk_pages_for_embedding_safety() -> anyhow
     let app = build_router(state.clone());
 
     let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
@@ -243,6 +246,79 @@ async fn text_index_route_chunks_long_cjk_pages_for_embedding_safety() -> anyhow
     assert!(
         payload["segments_indexed"].as_u64().unwrap_or_default() > 1,
         "long CJK page should be chunked before FTS/embedding: {payload}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn text_index_route_prefers_document_understanding_output() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    seed_completed_text_run(
+        &config,
+        &run_id,
+        "file-du",
+        "legacy OCR text should stay unused",
+    )?;
+    seed_document_understanding_output(
+        &config,
+        &run_id,
+        "file-du",
+        "text Normalized markdown from document understanding",
+    )?;
+    let app = build_router(AppState::new(config.clone()).await?);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/rag/text-index")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "source_run_id": run_id }).to_string(),
+                ))?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/rag/search")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "query": "Normalized markdown",
+                        "source_run_id": run_id
+                    })
+                    .to_string(),
+                ))?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let hits = payload["hits"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("search hits missing: {payload}"))?;
+    assert!(
+        hits.iter().any(|hit| hit["text"]
+            .as_str()
+            .is_some_and(|text| text.contains("Normalized markdown"))),
+        "RAG text should come from normalized engine output: {payload}"
+    );
+    assert!(
+        hits.iter().all(|hit| !hit["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("legacy OCR text")),
+        "legacy OCR text should not be indexed when normalized output exists: {payload}"
     );
     Ok(())
 }
@@ -268,6 +344,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/ingest/runs/{run_id}/preview-results",
         "/api/ingest/runs/{run_id}/resume",
         "/api/diagnostics/waterfall",
+        "/api/diagnostics/work-units/{work_unit_id}",
         "/api/logs/export",
         "/api/models/{model_id}/events",
         "/api/documents/{file_hash}/text",
@@ -358,6 +435,75 @@ async fn diagnostics_waterfall_route_returns_trace_rows() -> anyhow::Result<()> 
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("waterfall rows missing: {payload}"))?;
     assert_diagnostic_waterfall_hierarchy(rows, &seed, &payload)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn diagnostics_work_unit_detail_route_returns_trace_context() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    let task_id = Uuid::now_v7().to_string();
+    let text_task_id = Uuid::now_v7().to_string();
+    let work_unit_id = Uuid::now_v7().to_string();
+    let orphan_work_unit_id = Uuid::now_v7().to_string();
+    let root_span_id = Uuid::now_v7().to_string();
+    let page_span_id = Uuid::now_v7().to_string();
+    let text_root_span_id = Uuid::now_v7().to_string();
+    let text_page_span_id = Uuid::now_v7().to_string();
+    let render_span_id = Uuid::now_v7().to_string();
+    let ocr_work_unit_id = Uuid::now_v7().to_string();
+    let ocr_span_id = Uuid::now_v7().to_string();
+    let seed = DiagnosticWaterfallSeed {
+        run: &run_id,
+        task: &task_id,
+        text_task: &text_task_id,
+        work_unit: &work_unit_id,
+        orphan_work_unit: &orphan_work_unit_id,
+        root_span: &root_span_id,
+        page_span: &page_span_id,
+        text_root_span: &text_root_span_id,
+        text_page_span: &text_page_span_id,
+        render_span: &render_span_id,
+        ocr_work_unit: &ocr_work_unit_id,
+        ocr_span: &ocr_span_id,
+    };
+    seed_diagnostic_waterfall_run(&config, &seed)?;
+    let app = build_router(AppState::new(config).await?);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/diagnostics/work-units/{}",
+                    seed.ocr_work_unit
+                ))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    assert_eq!(payload["work_unit"]["work_unit_id"], seed.ocr_work_unit);
+    assert!(
+        payload["spans"]
+            .as_array()
+            .is_some_and(|spans| spans.iter().any(|span| span["span_id"] == seed.ocr_span)),
+        "detail should include spans tied to the work unit: {payload}"
+    );
+
+    let missing = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/diagnostics/work-units/{}", Uuid::now_v7()))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
     Ok(())
 }
 
@@ -698,6 +844,44 @@ fn seed_completed_text_run(
          )
          VALUES (?, ?, 1, 'test-engine', 'test-profile', ?, ?, 'completed', 1, 1, '{}'::JSON)",
         params![run_id, file_hash, text, text],
+    )?;
+    Ok(())
+}
+
+fn seed_document_understanding_output(
+    config: &ServerConfig,
+    run_id: &str,
+    file_hash: &str,
+    markdown: &str,
+) -> anyhow::Result<()> {
+    let conn = duckdb::Connection::open(&config.database_path)?;
+    let run_engine_id = Uuid::now_v7().to_string();
+    let output_id = Uuid::now_v7().to_string();
+    conn.execute(
+        "INSERT INTO ingest_run_engine_configs(
+            run_engine_id, run_id, ordinal, engine_kind, engine_id, model_id, profile_id,
+            runtime_id, parameters_json, status, usable_output_count
+         )
+         VALUES (?, ?, 0, 'document_understanding', 'dots-mocr-gguf', 'dots-mocr-gguf',
+            'test-profile', 'test-runtime', '{}', 'completed', 1)",
+        params![run_engine_id.as_str(), run_id],
+    )?;
+    conn.execute(
+        "INSERT INTO document_page_outputs(
+            output_id, run_id, run_engine_id, file_hash, page_no, output_kind,
+            engine_id, engine_kind, model_id, profile_id, runtime_id, status,
+            markdown, raw_text, metadata_json
+         )
+         VALUES (?, ?, ?, ?, 1, 'markdown', 'dots-mocr-gguf', 'document_understanding',
+            'dots-mocr-gguf', 'test-profile', 'test-runtime', 'completed', ?, ?, '{}')",
+        params![
+            output_id.as_str(),
+            run_id,
+            run_engine_id.as_str(),
+            file_hash,
+            markdown,
+            markdown
+        ],
     )?;
     Ok(())
 }

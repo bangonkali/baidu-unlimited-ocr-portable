@@ -9,6 +9,7 @@ import type {
   DiagnosticRunsPayload,
   DiagnosticTracePayload,
   DiagnosticWaterfallPayload,
+  DiagnosticWorkUnitDetailPayload,
   OcrReplayPayload,
 } from './types';
 
@@ -109,6 +110,18 @@ export function useDiagnosticProgress(
       ),
     queryKey: queryKeys.diagnosticProgress(runId, limit),
     refetchInterval,
+  });
+}
+
+export function useDiagnosticWorkUnitDetail(workUnitId?: string) {
+  return useQuery({
+    enabled: Boolean(workUnitId),
+    queryFn: ({ signal }) =>
+      getJson<DiagnosticWorkUnitDetailPayload>(
+        `/api/diagnostics/work-units/${encodeURIComponent(workUnitId ?? '')}`,
+        signal,
+      ),
+    queryKey: queryKeys.diagnosticWorkUnitDetail(workUnitId),
   });
 }
 

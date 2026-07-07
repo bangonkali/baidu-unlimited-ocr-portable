@@ -5,7 +5,10 @@ import type { TreeGridNode } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import styles from './DiagnosticsPanel.module.css';
 
-export function buildProgressNodes(workUnits: DiagnosticWorkUnitRecord[]): TreeGridNode[] {
+export function buildProgressNodes(
+  workUnits: DiagnosticWorkUnitRecord[],
+  onWorkUnitSelect?: (workUnitId: string) => void,
+): TreeGridNode[] {
   const byRun = new Map<string, DiagnosticWorkUnitRecord[]>();
   for (const unit of workUnits) {
     byRun.set(unit.run_id, [...(byRun.get(unit.run_id) ?? []), unit]);
@@ -17,6 +20,7 @@ export function buildProgressNodes(workUnits: DiagnosticWorkUnitRecord[]): TreeG
       icon: iconForStatus(unit.status),
       id: unit.work_unit_id,
       label: `${unit.phase} ${unit.page_no ? `page ${unit.page_no}` : (unit.file_hash ?? '')}`,
+      onSelect: () => onWorkUnitSelect?.(unit.work_unit_id),
     })),
     icon: <Boxes size={14} />,
     id: `run:${runId}`,

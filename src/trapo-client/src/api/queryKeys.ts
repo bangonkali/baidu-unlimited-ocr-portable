@@ -15,6 +15,8 @@ export const queryKeys = {
     ['diagnostics', 'waterfall', params] as const,
   diagnosticProgress: (runId?: string, limit = 5000) =>
     ['diagnostics', 'progress', runId ?? 'latest', limit] as const,
+  diagnosticWorkUnitDetail: (workUnitId?: string) =>
+    ['diagnostics', 'work-unit', workUnitId ?? 'none'] as const,
   diagnosticAnalytics: (runId?: string) => ['diagnostics', 'analytics', runId ?? 'latest'] as const,
   diagnosticModels: (runId?: string) => ['diagnostics', 'models', runId ?? 'latest'] as const,
   ragEmbeddingModelsUsed: ['rag', 'embedding-models', 'used'] as const,

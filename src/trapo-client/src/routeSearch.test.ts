@@ -106,6 +106,7 @@ describe('route search validators', () => {
     });
     expect(
       validateIngestSearch({
+        engines: 'ocr-unlimited-ocr-ffi,du-dots-mocr-gguf',
         engine_id: 'pdfium-unlimited-ocr',
         model: 'm1',
         profile: 'p1',
@@ -116,6 +117,7 @@ describe('route search validators', () => {
       }),
     ).toEqual({
       engine: 'pdfium-unlimited-ocr',
+      engines: ['ocr-unlimited-ocr-ffi', 'du-dots-mocr-gguf'],
       model: 'm1',
       profile: 'p1',
       reprocess: true,

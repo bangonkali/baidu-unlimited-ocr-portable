@@ -203,6 +203,13 @@ export interface DiagnosticProgressPayload {
   pipeline_tasks: DiagnosticPipelineTaskRecord[];
 }
 
+export interface DiagnosticWorkUnitDetailPayload {
+  work_unit: DiagnosticWorkUnitRecord;
+  spans: DiagnosticSpanRecord[];
+  events: DiagnosticEventRecord[];
+  model_leases: DiagnosticModelLeaseRecord[];
+}
+
 export interface DiagnosticBreakdownRecord {
   key: string;
   count: number;

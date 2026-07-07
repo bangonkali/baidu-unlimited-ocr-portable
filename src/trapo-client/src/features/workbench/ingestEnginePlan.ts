@@ -1,4 +1,5 @@
 import type {
+  IngestEngineConfigRecord,
   IngestEnginePresetRecord,
   IngestEngineSelection,
   ModelAssetRecord,
@@ -24,6 +25,30 @@ export function defaultEnginePlan(
   return presets
     .filter((preset) => preset.default_enabled)
     .map((preset) => enginePlanItemFromPreset(preset, selectedProfile, selectedRuntimeId));
+}
+
+export function enginePlanFromPresetIds(
+  presetIds: string[],
+  presets: IngestEnginePresetRecord[],
+  selectedProfile: string,
+  selectedRuntimeId?: string,
+) {
+  return presetIds
+    .map((presetId) => presetById(presets, presetId) ?? presetByEngineId(presets, presetId))
+    .filter((preset): preset is IngestEnginePresetRecord => Boolean(preset))
+    .map((preset) => enginePlanItemFromPreset(preset, selectedProfile, selectedRuntimeId));
+}
+
+export function enginePlanFromRunConfigs(
+  configs: IngestEngineConfigRecord[],
+  presets: IngestEnginePresetRecord[],
+  selectedProfile: string,
+  selectedRuntimeId?: string,
+) {
+  return [...configs]
+    .sort((left, right) => left.ordinal - right.ordinal)
+    .map((config) => runConfigPlanItem(config, presets, selectedProfile, selectedRuntimeId))
+    .filter((item): item is EnginePlanItem => Boolean(item));
 }
 
 export function enginePlanItemFromPreset(
@@ -110,6 +135,32 @@ export function enginePlanIssue(
 
 export function presetById(presets: IngestEnginePresetRecord[], presetId: string) {
   return presets.find((preset) => preset.preset_id === presetId);
+}
+
+function presetByEngineId(presets: IngestEnginePresetRecord[], engineId: string) {
+  return presets.find((preset) => preset.engine_id === engineId);
+}
+
+function runConfigPlanItem(
+  config: IngestEngineConfigRecord,
+  presets: IngestEnginePresetRecord[],
+  selectedProfile: string,
+  selectedRuntimeId?: string,
+): EnginePlanItem | undefined {
+  const preset = presetByEngineId(presets, config.engine_id);
+  if (!preset) {
+    return undefined;
+  }
+  return {
+    engineId: config.engine_id,
+    engineKind: config.engine_kind,
+    modelId: config.model_id ?? preset.model_id,
+    parametersJson: stableJson(config.parameters),
+    planKey: nextEnginePlanKey(preset.preset_id),
+    presetId: preset.preset_id,
+    profileId: config.profile_id ?? preset.profile_id ?? selectedProfile,
+    runtimeId: config.runtime_id ?? preset.runtime_id ?? selectedRuntimeId,
+  };
 }
 
 function modelRequirementsReady(preset: IngestEnginePresetRecord, models: ModelAssetRecord[]) {

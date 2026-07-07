@@ -102,6 +102,12 @@ export function useWorkbenchActions(args: WorkbenchActionArgs): WorkbenchContent
       void args.navigate({
         search: {
           engine: run.engine_id,
+          engines: run.engine_configs?.length
+            ? run.engine_configs
+                .slice()
+                .sort((left, right) => left.ordinal - right.ordinal)
+                .map((config) => config.engine_id)
+            : undefined,
           model: run.model_id,
           profile: run.profile_id,
           restart: run.run_id,

@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ModelsDownloadsRouteImport } from './routes/models.downloads'
 import { Route as ModelsModelIdRouteImport } from './routes/models.$modelId'
 import { Route as IngestStartRouteImport } from './routes/ingest.start'
+import { Route as DiagnosticsWorkUnitIdRouteImport } from './routes/diagnostics.$workUnitId'
 
 const WorkbenchRoute = WorkbenchRouteImport.update({
   id: '/workbench',
@@ -64,25 +65,32 @@ const IngestStartRoute = IngestStartRouteImport.update({
   path: '/ingest/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiagnosticsWorkUnitIdRoute = DiagnosticsWorkUnitIdRouteImport.update({
+  id: '/$workUnitId',
+  path: '/$workUnitId',
+  getParentRoute: () => DiagnosticsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/diagnostics': typeof DiagnosticsRoute
+  '/diagnostics': typeof DiagnosticsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/diagnostics/$workUnitId': typeof DiagnosticsWorkUnitIdRoute
   '/ingest/start': typeof IngestStartRoute
   '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/diagnostics': typeof DiagnosticsRoute
+  '/diagnostics': typeof DiagnosticsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/diagnostics/$workUnitId': typeof DiagnosticsWorkUnitIdRoute
   '/ingest/start': typeof IngestStartRoute
   '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
@@ -90,11 +98,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/diagnostics': typeof DiagnosticsRoute
+  '/diagnostics': typeof DiagnosticsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/workbench': typeof WorkbenchRoute
+  '/diagnostics/$workUnitId': typeof DiagnosticsWorkUnitIdRoute
   '/ingest/start': typeof IngestStartRoute
   '/models/$modelId': typeof ModelsModelIdRoute
   '/models/downloads': typeof ModelsDownloadsRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/workbench'
+    | '/diagnostics/$workUnitId'
     | '/ingest/start'
     | '/models/$modelId'
     | '/models/downloads'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/workbench'
+    | '/diagnostics/$workUnitId'
     | '/ingest/start'
     | '/models/$modelId'
     | '/models/downloads'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/workbench'
+    | '/diagnostics/$workUnitId'
     | '/ingest/start'
     | '/models/$modelId'
     | '/models/downloads'
@@ -137,7 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DiagnosticsRoute: typeof DiagnosticsRoute
+  DiagnosticsRoute: typeof DiagnosticsRouteWithChildren
   ModelsRoute: typeof ModelsRouteWithChildren
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -210,8 +222,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IngestStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/diagnostics/$workUnitId': {
+      id: '/diagnostics/$workUnitId'
+      path: '/$workUnitId'
+      fullPath: '/diagnostics/$workUnitId'
+      preLoaderRoute: typeof DiagnosticsWorkUnitIdRouteImport
+      parentRoute: typeof DiagnosticsRoute
+    }
   }
 }
+
+interface DiagnosticsRouteChildren {
+  DiagnosticsWorkUnitIdRoute: typeof DiagnosticsWorkUnitIdRoute
+}
+
+const DiagnosticsRouteChildren: DiagnosticsRouteChildren = {
+  DiagnosticsWorkUnitIdRoute: DiagnosticsWorkUnitIdRoute,
+}
+
+const DiagnosticsRouteWithChildren = DiagnosticsRoute._addFileChildren(
+  DiagnosticsRouteChildren,
+)
 
 interface ModelsRouteChildren {
   ModelsModelIdRoute: typeof ModelsModelIdRoute
@@ -228,7 +259,7 @@ const ModelsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DiagnosticsRoute: DiagnosticsRoute,
+  DiagnosticsRoute: DiagnosticsRouteWithChildren,
   ModelsRoute: ModelsRouteWithChildren,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,

@@ -70,6 +70,7 @@ import { activeRunIdFromRuns, isActiveDocumentStatus, routeSearchText } from './
 export interface WorkbenchPageProps {
   activeView?: ActiveView;
   diagnosticsSearch?: DiagnosticsRouteSearch;
+  diagnosticWorkUnitId?: string;
   ingestSearch?: IngestRouteSearch;
   modelDetailId?: string;
   modelScope?: 'library' | 'downloads';
@@ -171,6 +172,7 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
       route: {
         activeView,
         diagnosticsSearch: props.diagnosticsSearch,
+        diagnosticWorkUnitId: props.diagnosticWorkUnitId,
         ingestSearch: props.ingestSearch,
         modelDetailId: props.modelDetailId,
         modelScope,

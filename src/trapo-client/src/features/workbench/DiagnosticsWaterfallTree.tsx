@@ -7,6 +7,7 @@ import { formatMs, iconForStatus } from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsWaterfallBars.module.css';
 
 interface WaterfallTraceNodesArgs {
+  onWorkUnitSelect?: (workUnitId: string) => void;
   payload?: DiagnosticWaterfallPayload;
 }
 
@@ -43,6 +44,7 @@ export function buildWaterfallRunNodes(args: WaterfallTraceNodesArgs): Diagnosti
     icon: iconForRow(row),
     id: row.row_id,
     label: rowLabel(row),
+    onSelect: row.work_unit_id ? () => args.onWorkUnitSelect?.(row.work_unit_id ?? '') : undefined,
     timespan: <span>{formatMs(row.visual_duration_ms || row.duration_ms)}</span>,
     timestamp: <span>{formatTimestamp(row.visual_start_ms ?? row.start_ms)}</span>,
   });

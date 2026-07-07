@@ -58,6 +58,7 @@ export interface IngestRouteSearch {
   embed?: boolean;
   embedding_model?: string;
   engine?: string;
+  engines?: string[];
   index?: boolean;
   model?: string;
   profile?: string;
@@ -154,6 +155,7 @@ export function validateIngestSearch(search: Record<string, unknown>): IngestRou
     embed: booleanValue(search.embed) ?? booleanValue(search.embedding_after_ingest),
     embedding_model: stringValue(search.embedding_model) ?? stringValue(search.embedding_model_id),
     engine: stringValue(search.engine) ?? stringValue(search.engine_id),
+    engines: stringListValue(search.engines) ?? stringListValue(search.engine_ids),
     index: booleanValue(search.index) ?? booleanValue(search.text_index_after_ingest),
     model: stringValue(search.model),
     profile: stringValue(search.profile),
@@ -175,6 +177,15 @@ export function validateSearchSearch(search: Record<string, unknown>): SearchRou
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function stringListValue(value: unknown): string[] | undefined {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  const items = raw
+    .flatMap((item) => (typeof item === 'string' ? item.split(',') : []))
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length ? [...new Set(items)] : undefined;
 }
 
 function positiveIntegerValue(value: unknown): number | undefined {

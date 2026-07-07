@@ -310,6 +310,46 @@
         }
       }
     },
+    "/api/diagnostics/work-units/{work_unit_id}": {
+      "get": {
+        "tags": [
+          "diagnostics"
+        ],
+        "operationId": "diagnostics_work_unit_detail_doc",
+        "parameters": [
+          {
+            "name": "work_unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticWorkUnitDetailPayload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorPayload"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/documents": {
       "get": {
         "tags": [
@@ -2601,6 +2641,38 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "DiagnosticWorkUnitDetailPayload": {
+        "type": "object",
+        "required": [
+          "work_unit",
+          "spans",
+          "events",
+          "model_leases"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticEventRecord"
+            }
+          },
+          "model_leases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticModelLeaseRecord"
+            }
+          },
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticSpanRecord"
+            }
+          },
+          "work_unit": {
+            "$ref": "#/components/schemas/DiagnosticWorkUnitRecord"
           }
         }
       },

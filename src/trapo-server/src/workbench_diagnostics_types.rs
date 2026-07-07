@@ -235,6 +235,14 @@ pub(crate) struct DiagnosticProgressPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub(crate) struct DiagnosticWorkUnitDetailPayload {
+    pub(crate) work_unit: DiagnosticWorkUnitRecord,
+    pub(crate) spans: Vec<DiagnosticSpanRecord>,
+    pub(crate) events: Vec<DiagnosticEventRecord>,
+    pub(crate) model_leases: Vec<DiagnosticModelLeaseRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub(crate) struct DiagnosticBreakdownRecord {
     pub(crate) key: String,
     pub(crate) count: u32,

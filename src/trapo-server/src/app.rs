@@ -55,16 +55,16 @@ use crate::{
         DiagnosticRecommendationRecord, DiagnosticRunRecord, DiagnosticRunsPayload,
         DiagnosticSlowSpanRecord, DiagnosticSpanRecord, DiagnosticTracePayload,
         DiagnosticTraceSummary, DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord,
-        DiagnosticWaterfallSummary, DiagnosticWorkUnitRecord, DocumentDetail,
-        DocumentRegionsPayload, DocumentSummary, DocumentTextPayload, DocumentsPayload,
-        FolderDialogResponse, GenerateEmbeddingRequest, GenerateEmbeddingResponse,
-        HybridSearchFileResult, HybridSearchHit, HybridSearchRequest, HybridSearchResponse,
-        IngestEngineConfigRecord, IngestEnginePresetRecord, IngestEnginesPayload,
-        IngestPreviewResultRecord, IngestPreviewResultsPayload, IngestRunRecord, IngestRunsPayload,
-        IngestStartRequest, IngestStartResponse, LogsPayload, OcrMetricsTreeNode,
-        OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord, PipelineTaskRecord,
-        PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord, TextIndexRequest,
-        TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
+        DiagnosticWaterfallSummary, DiagnosticWorkUnitDetailPayload, DiagnosticWorkUnitRecord,
+        DocumentDetail, DocumentRegionsPayload, DocumentSummary, DocumentTextPayload,
+        DocumentsPayload, FolderDialogResponse, GenerateEmbeddingRequest,
+        GenerateEmbeddingResponse, HybridSearchFileResult, HybridSearchHit, HybridSearchRequest,
+        HybridSearchResponse, IngestEngineConfigRecord, IngestEnginePresetRecord,
+        IngestEnginesPayload, IngestPreviewResultRecord, IngestPreviewResultsPayload,
+        IngestRunRecord, IngestRunsPayload, IngestStartRequest, IngestStartResponse, LogsPayload,
+        OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, PageTextRecord,
+        PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord, RunCompletionManifestRecord,
+        TextIndexRequest, TextIndexResponse, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -243,6 +243,7 @@ include!("app/rag_execution_helpers.rs");
 include!("app/rag_execution_diagnostics.rs");
 include!("app/rag_embedding_execution.rs");
 include!("app/rag_embedding_page_spans.rs");
+include!("app/rag_text_chunking.rs");
 include!("app/rag_text_segments.rs");
 include!("app/rag_records.rs");
 include!("app/download_helpers.rs");

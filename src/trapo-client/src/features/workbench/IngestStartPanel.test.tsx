@@ -7,7 +7,11 @@ import {
   fixtureRuns,
 } from '../../stories/fixtures/workbenchFixtures';
 import { IngestStartPanel, isIngestBusy } from './IngestStartPanel';
-import { defaultEnginePlan } from './ingestEnginePlan';
+import {
+  defaultEnginePlan,
+  enginePlanFromPresetIds,
+  enginePlanFromRunConfigs,
+} from './ingestEnginePlan';
 import { buildIngestWizardStartOptions } from './ingestWizardStart';
 
 describe('IngestStartPanel', () => {
@@ -91,7 +95,9 @@ describe('IngestStartPanel', () => {
     expect(html).toContain('role="alert"');
     expect(html).toContain('Paste a folder path manually.');
   });
+});
 
+describe('ingest engine plan options', () => {
   test('builds start options with embedding model details when enabled', () => {
     expect(
       buildIngestWizardStartOptions({
@@ -139,6 +145,52 @@ describe('IngestStartPanel', () => {
       ],
       reprocess: true,
     });
+  });
+
+  test('hydrates engine plans from query ids and persisted run configs', () => {
+    expect(
+      enginePlanFromPresetIds(
+        ['du-dots-mocr-gguf', 'ocr-unlimited-ocr-ffi'],
+        fixtureEnginePresets,
+        'experimental-exact-prefill-q4',
+      ).map((item) => item.engineId),
+    ).toEqual(['dots-mocr-gguf', 'unlimited-ocr-ffi']);
+
+    const fromRun = enginePlanFromRunConfigs(
+      [
+        {
+          engine_id: 'dots-mocr-gguf',
+          engine_kind: 'document_understanding',
+          label: 'dots.mOCR',
+          ordinal: 1,
+          parameters: { mode: 'markdown' },
+          previewer: 'document_markdown',
+          run_engine_id: 'run-engine-b',
+          run_id: 'run-a',
+          status: 'completed',
+          usable_output_count: 1,
+        },
+        {
+          engine_id: 'unlimited-ocr-ffi',
+          engine_kind: 'ocr',
+          label: 'Unlimited OCR',
+          ordinal: 0,
+          parameters: { language: 'eng' },
+          previewer: 'ocr_annotation',
+          profile_id: 'profile-from-run',
+          run_engine_id: 'run-engine-a',
+          run_id: 'run-a',
+          status: 'completed',
+          usable_output_count: 1,
+        },
+      ],
+      fixtureEnginePresets,
+      'experimental-exact-prefill-q4',
+    );
+
+    expect(fromRun.map((item) => item.engineId)).toEqual(['unlimited-ocr-ffi', 'dots-mocr-gguf']);
+    expect(fromRun[0]?.profileId).toBe('profile-from-run');
+    expect(fromRun[1]?.parametersJson).toContain('"mode": "markdown"');
   });
 });
 

@@ -85,6 +85,10 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/diagnostics/trace", get(diagnostics_trace))
         .route("/api/diagnostics/waterfall", get(diagnostics_waterfall))
         .route("/api/diagnostics/progress", get(diagnostics_progress))
+        .route(
+            "/api/diagnostics/work-units/{work_unit_id}",
+            get(diagnostics_work_unit_detail),
+        )
         .route("/api/diagnostics/analytics", get(diagnostics_analytics))
         .route("/api/diagnostics/models", get(diagnostics_models))
         .route("/api/rag/text-index", post(start_text_index))

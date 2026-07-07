@@ -32,11 +32,7 @@ impl AppState {
         let file_hashes = self.file_hashes_for_run(source_run_id).await?;
         let mut segments = Vec::new();
         for file_hash in file_hashes {
-            let pages = self
-                .inner
-                .repository
-                .load_document_text_for_run(&file_hash, source_run_id)
-                .await?;
+            let pages = self.rag_pages_for_file(source_run_id, &file_hash).await?;
             for page in pages {
                 let span = diagnostics.as_ref().map(|context| {
                     (
@@ -68,6 +64,44 @@ impl AppState {
             }
         }
         Ok(segments)
+    }
+
+    async fn rag_pages_for_file(
+        &self,
+        source_run_id: &str,
+        file_hash: &str,
+    ) -> Result<Vec<PageTextRecord>> {
+        if let Some(result) = self.preferred_rag_preview_result(source_run_id, file_hash).await? {
+            let pages = self
+                .inner
+                .repository
+                .load_document_text_for_run_engine(file_hash, &result.run_engine_id)
+                .await?;
+            if !pages.is_empty() {
+                return Ok(pages);
+            }
+        }
+        self.inner
+            .repository
+            .load_document_text_for_run(file_hash, source_run_id)
+            .await
+    }
+
+    async fn preferred_rag_preview_result(
+        &self,
+        source_run_id: &str,
+        file_hash: &str,
+    ) -> Result<Option<StoredPreviewResult>> {
+        let results = self
+            .inner
+            .repository
+            .preview_results_for_document(source_run_id, file_hash)
+            .await?;
+        Ok(results
+            .iter()
+            .find(|result| result.engine_kind == "document_understanding")
+            .or_else(|| results.first())
+            .cloned())
     }
 
     async fn file_hashes_for_run(&self, run_id: &str) -> Result<Vec<String>> {
