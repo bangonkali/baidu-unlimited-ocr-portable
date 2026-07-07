@@ -16,7 +16,7 @@ import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from package_runtime import REPO_ROOT, sha256_file
+from package_runtime import REPO_ROOT, sha256_file, load_platforms
 
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
@@ -67,6 +67,15 @@ PLATFORMS = {
     ),
 }
 
+RUNTIME_PLATFORM_ALIASES = {
+    "linux-x64": "linux-x86_64-cuda13",
+    "linux-arm64": "linux-arm64-cpu",
+    "macos-arm64": "macos-arm64-metal",
+    "windows-x64": "windows-x86_64-cuda13",
+    "windows-arm64": "windows-arm64-cpu",
+}
+KNOWN_RUNTIME_PLATFORMS = sorted(load_platforms(REPO_ROOT)["targets"].keys())
+
 
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
@@ -98,6 +107,27 @@ def git_output(args: list[str]) -> str:
 
 def csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def supported_runtime_platforms() -> list[str]:
+    return KNOWN_RUNTIME_PLATFORMS
+
+
+def canonical_runtime_platform(platform_id: str) -> str:
+    runtime_platforms = supported_runtime_platforms()
+    if platform_id in runtime_platforms:
+        return platform_id
+    canonical = RUNTIME_PLATFORM_ALIASES.get(platform_id)
+    if canonical and canonical in runtime_platforms:
+        print(
+            f"warning: runtime platform '{platform_id}' is an alias for '{canonical}'",
+            file=sys.stderr,
+        )
+        return canonical
+    die(
+        "unsupported runtime platform: "
+        f"{platform_id}. Known runtime platforms: {', '.join(runtime_platforms)}"
+    )
 
 
 def github_headers() -> dict[str, str]:
@@ -311,6 +341,15 @@ Uninstall: delete this folder.
 def package(args: argparse.Namespace) -> None:
     if args.platform not in PLATFORMS:
         die(f"unknown platform: {args.platform}")
+
+    args.runtime_platform = canonical_runtime_platform(args.runtime_platform)
+    if args.additional_runtime_platforms:
+        args.additional_runtime_platforms = ",".join(
+            canonical_runtime_platform(item)
+            for item in csv(args.additional_runtime_platforms)
+            if item
+        )
+
     build_outputs(args)
     config = PLATFORMS[args.platform]
     output_dir = args.output_dir.resolve()
@@ -396,7 +435,12 @@ def main() -> None:
     parser.add_argument("--platform", required=True, choices=sorted(PLATFORMS))
     parser.add_argument("--runtime-version", default="latest")
     parser.add_argument("--runtime-repo", default="bangonkali/baidu-unlimited-ocr-portable")
-    parser.add_argument("--runtime-platform", required=True)
+    parser.add_argument(
+        "--runtime-platform",
+        required=True,
+        help="Canonical runtime platform label, e.g. macos-arm64-metal. "
+        "Aliases such as macos-arm64/windows-x64 are accepted for compatibility.",
+    )
     parser.add_argument("--additional-runtime-platforms", default="")
     parser.add_argument("--pdfium-release", default=DEFAULT_PDFIUM_RELEASE)
     parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "dist")

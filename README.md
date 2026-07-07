@@ -77,6 +77,26 @@ Launch the staged build directly for local testing:
 .\dist\trapo-workbench-windows-x64-$version\trapo-server.exe --port 8765 --no-browser
 ```
 
+On macOS (Apple Silicon), use shell syntax:
+
+```sh
+version="$(git describe --tags --dirty --always | tr -d '\n')"
+cargo run -p trapo-server --bin export-openapi -- src/trapo-server/openapi/trapo.openapi.json
+uv run python scripts/package_trapo_workbench.py \
+  --version "$version" \
+  --platform macos-arm64 \
+  --runtime-version "$version" \
+  --runtime-platform macos-arm64-metal \
+  --pdfium-release chromium/7920
+
+chmod +x "dist/trapo-workbench-macos-arm64-${version}/trapo-server.sh"
+"dist/trapo-workbench-macos-arm64-${version}/trapo-server.sh" --port 8765 --no-browser
+```
+
+`--runtime-platform` must be a runtime label from `runtime/platforms.json`
+(for macOS Apple Silicon this is `macos-arm64-metal`). The packager now also accepts
+`--runtime-platform macos-arm64` as a compatibility alias.
+
 Then open:
 
 ```text
@@ -84,9 +104,9 @@ http://127.0.0.1:8765/
 ```
 
 The staged build is the fastest way to test locally because it is already
-expanded. The zip and checksum are the portable files to hand to another
-Windows x64 machine. Runtime state for the staged build is written inside that
-staged directory:
+expanded. The archive and checksum are the portable files to hand to another
+machine of the same target platform. Runtime state for the staged build is
+written inside that staged directory:
 
 ```text
 data/trapo.duckdb

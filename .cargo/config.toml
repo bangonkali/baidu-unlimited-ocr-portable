@@ -1,0 +1,3 @@
+[env]
+# Keep DuckDB runtime resolution consistent for local Rust builds of trapo-server.
+DUCKDB_DOWNLOAD_LIB = "1"

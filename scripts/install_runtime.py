@@ -23,6 +23,13 @@ from package_runtime import REPO_ROOT, load_platforms, sha256_file
 
 USER_AGENT = "trapo-workbench-runtime-installer"
 GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+RUNTIME_PLATFORM_ALIASES = {
+    "linux-x64": "linux-x86_64-cuda13",
+    "linux-arm64": "linux-arm64-cpu",
+    "macos-arm64": "macos-arm64-metal",
+    "windows-x64": "windows-x86_64-cuda13",
+    "windows-arm64": "windows-arm64-cpu",
+}
 GITHUB_DOWNLOAD_HOSTS = {
     "api.github.com",
     "github.com",
@@ -198,6 +205,7 @@ def detect_platform(
     arch = normalize_arch(platform.machine())
 
     if requested_platform:
+        requested_platform = RUNTIME_PLATFORM_ALIASES.get(requested_platform, requested_platform)
         target = targets.get(requested_platform)
         if not target:
             return DetectedPlatform(
