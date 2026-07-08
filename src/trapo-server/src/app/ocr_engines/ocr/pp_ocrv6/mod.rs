@@ -4,6 +4,7 @@ use crate::app::ocr_engines::{
         gguf_vlm::missing_native_runner_binary,
         model_bundles,
         native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig},
+        onnx_runtime,
         process_runner::{EngineRunner, RunnerKind},
         runtime_search::find_runner_binary,
     },
@@ -33,6 +34,7 @@ pub(in crate::app::ocr_engines) fn resolve(
         .as_deref()
         .and_then(std::path::Path::parent)
         .ok_or_else(|| format!("{ENGINE_ID} requires a packaged runtime bin directory"))?;
+    let _onnxruntime = onnx_runtime::validate_for_native_library(&found.path)?;
     let bundle_root = runtime_root.join(ENGINE_ASSET_DIR);
     validate_engine_assets_installed(&bundle_root)?;
     Ok(EngineRunner {
