@@ -1,6 +1,5 @@
 import type {
   DocumentSummary,
-  IngestRunRecord,
   LogRecord,
   ModelsPayload,
   OverlayBox,
@@ -11,6 +10,7 @@ import {
   fixtureNomicEmbeddingModel,
 } from './workbenchModelFixtures';
 
+export { fixturePreviewResults, fixtureRuns } from './workbenchRunFixtures';
 export { fixtureSettings } from './workbenchSettingsFixtures';
 export { fixtureDownloadedEmbeddingModel };
 
@@ -87,20 +87,6 @@ export const fixturePages: PageTextRecord[] = [
       { annotation_id: 'reg-total', end: 31, page_no: 1, region_id: 'reg-total', start: 17 },
     ],
     text: 'Supplier\n\nInvoice total: 1,240.00',
-  },
-];
-
-export const fixtureRuns: IngestRunRecord[] = [
-  {
-    current_page: 8,
-    progress_percent: 16.3,
-    processed_pages: 7,
-    queued_files: 18,
-    root_path: 'C:\\data\\incoming',
-    run_id: 'run-20260629-01',
-    file_hashes: ['hash-invoice-014', 'hash-shipping-form'],
-    status: 'running',
-    total_pages: 43,
   },
 ];
 

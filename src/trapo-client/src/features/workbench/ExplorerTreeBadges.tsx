@@ -16,9 +16,18 @@ export function pageBadge(
   document: DocumentSummary,
   pageNo: number,
   pipelineActivity: PipelineTaskActivity | undefined,
+  runningEngineLabel?: string,
 ) {
   if (pipelineActivity) {
     return <PipelineActivityIcon activity={pipelineActivity} size={12} />;
+  }
+  if (runningEngineLabel) {
+    return (
+      <span className={styles.pageRunningEngine}>
+        <span>{runningEngineLabel}</span>
+        <LoaderCircle className={styles.spin} size={12} />
+      </span>
+    );
   }
   if (document.current_page === pageNo && document.status === 'running') {
     return <LoaderCircle className={styles.spin} size={12} />;

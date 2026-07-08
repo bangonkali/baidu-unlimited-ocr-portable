@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type {
   DiagnosticPipelineTaskRecord,
+  DiagnosticWorkUnitRecord,
   DocumentSummary,
+  IngestPreviewResultRecord,
   IngestRunRecord,
 } from '../../api/types';
 import type { TreeNode } from '../../components/workbench';
@@ -17,10 +19,19 @@ interface ExplorerTreeProps {
   filter: WorkbenchExplorerFilter;
   rootPath?: string;
   runs: IngestRunRecord[];
+  diagnosticWorkUnits?: DiagnosticWorkUnitRecord[];
+  previewResults: IngestPreviewResultRecord[];
   selectedFileHash?: string;
+  selectedPageNo?: number;
+  selectedRunEngineId?: string;
   selectedRunId?: string;
   onFilterChange: (filter: WorkbenchExplorerFilter) => void;
-  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectDocument: (
+    fileHash: string,
+    pageNo?: number,
+    runId?: string,
+    runEngineId?: string,
+  ) => void;
   pipelineTasks?: DiagnosticPipelineTaskRecord[];
 }
 
@@ -28,36 +39,48 @@ export { buildDocumentTree };
 
 export function ExplorerTree({
   documents,
+  diagnosticWorkUnits,
   filter,
   onFilterChange,
   onSelectDocument,
   pipelineTasks,
+  previewResults,
   rootPath,
   runs,
   selectedFileHash,
+  selectedPageNo,
+  selectedRunEngineId,
   selectedRunId,
 }: ExplorerTreeProps) {
   const tree = useMemo(
     () =>
       buildDocumentTree({
         documents,
+        diagnosticWorkUnits,
         fallbackRootPath: rootPath,
         onSelectDocument,
         pipelineTasks,
+        previewResults,
         runId: filter.runId,
         runs,
         scope: filter.scope,
         selectedFileHash,
+        selectedPageNo,
+        selectedRunEngineId,
         selectedRunId,
       }),
     [
       documents,
+      diagnosticWorkUnits,
       filter,
       onSelectDocument,
       pipelineTasks,
+      previewResults,
       rootPath,
       runs,
       selectedFileHash,
+      selectedPageNo,
+      selectedRunEngineId,
       selectedRunId,
     ],
   );
@@ -165,7 +188,7 @@ function shortRunId(runId: string) {
 function defaultExpandedIds(nodes: TreeNode[]) {
   const ids = new Set<string>();
   const visit = (node: TreeNode, level: number) => {
-    if (level < 2 && (node.children?.length ?? 0) > 0) {
+    if ((level < 2 || hasSelectedDescendant(node)) && (node.children?.length ?? 0) > 0) {
       ids.add(node.id);
     }
     node.children?.forEach((child) => {
@@ -176,6 +199,10 @@ function defaultExpandedIds(nodes: TreeNode[]) {
     visit(node, 0);
   });
   return ids;
+}
+
+function hasSelectedDescendant(node: TreeNode): boolean {
+  return (node.children ?? []).some((child) => child.selected || hasSelectedDescendant(child));
 }
 
 function toggleExpanded(

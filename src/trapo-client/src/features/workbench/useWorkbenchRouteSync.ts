@@ -113,18 +113,18 @@ function runOnlySelectionPatch(
   selection: Pick<WorkbenchState, 'selection'>['selection'],
   workbenchSearch?: WorkbenchRouteSearch,
 ) {
-  if (workbenchSearch?.run === undefined) {
+  if (workbenchSearch?.run === undefined && workbenchSearch?.result === undefined) {
     return undefined;
   }
   return selection.fileHash !== undefined ||
     selection.regionId !== undefined ||
-    selection.runEngineId !== undefined ||
+    selection.runEngineId !== workbenchSearch.result ||
     selection.runId !== workbenchSearch.run
     ? {
         fileHash: undefined,
         pageNo: 1,
         regionId: undefined,
-        runEngineId: undefined,
+        runEngineId: workbenchSearch.result,
         runId: workbenchSearch.run,
       }
     : undefined;

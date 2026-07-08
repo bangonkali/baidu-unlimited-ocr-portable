@@ -1,5 +1,6 @@
 import type {
   DiagnosticPipelineTaskRecord,
+  DiagnosticWorkUnitRecord,
   DocumentSummary,
   IngestEnginePresetRecord,
   IngestEngineSelection,
@@ -53,6 +54,7 @@ export interface WorkbenchViewContentProps {
   models?: ModelsPayload;
   previewPages: number[];
   previewResults: IngestPreviewResultRecord[];
+  diagnosticWorkUnits: DiagnosticWorkUnitRecord[];
   pipelineTasks: DiagnosticPipelineTaskRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
@@ -86,7 +88,12 @@ export interface WorkbenchViewContentProps {
   onRootPathChange: (value: string) => void;
   onRuntimeChange: (runtimeId: string) => void;
   onSelectModel: (modelId: string) => void;
-  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectDocument: (
+    fileHash: string,
+    pageNo?: number,
+    runId?: string,
+    runEngineId?: string,
+  ) => void;
   onSelectPreviewResult: (runEngineId: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
   onStart: (options?: {
@@ -210,6 +217,7 @@ function renderSearchView(props: WorkbenchViewContentProps) {
       onSelectPreviewResult={props.onSelectPreviewResult}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
+      diagnosticWorkUnits={props.diagnosticWorkUnits}
       pipelineTasks={props.pipelineTasks}
       onResumeRun={props.onResumeRun}
       onRestartRun={props.onRestartRun}
@@ -260,6 +268,7 @@ function renderWorkbenchView(props: WorkbenchViewContentProps) {
       onExplorerFilterChange={props.onExplorerFilterChange}
       onOpenModels={props.onOpenModels}
       onPickFolder={props.onPickFolder}
+      diagnosticWorkUnits={props.diagnosticWorkUnits}
       onResumeRun={props.onResumeRun}
       onRestartRun={props.onRestartRun}
       onSelectDocument={props.onSelectDocument}

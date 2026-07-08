@@ -37,6 +37,8 @@
   --subtle-border: rgb(255 255 255 / 9%);
   --overlay-bg: rgb(0 0 0 / 42%);
   --shadow-lg: 0 8px 22px rgb(0 0 0 / 36%);
+  --focus-emphasis-shadow:
+    0 0 0 1px var(--accent), 0 0 0 4px rgb(0 120 212 / 18%), 0 0 18px rgb(0 120 212 / 28%);
 }
 
 :root[data-theme="light"] {
@@ -74,6 +76,8 @@
   --subtle-border: rgb(31 31 31 / 7%);
   --overlay-bg: rgb(31 31 31 / 18%);
   --shadow-lg: 0 8px 22px rgb(31 31 31 / 18%);
+  --focus-emphasis-shadow:
+    0 0 0 1px var(--accent), 0 0 0 4px rgb(0 95 184 / 14%), 0 0 16px rgb(0 95 184 / 22%);
 }
 
 * {
@@ -115,4 +119,21 @@ button {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+[data-focus-emphasis="true"] {
+  animation: trapo-focus-emphasis 1.4s ease-out;
+}
+
+@keyframes trapo-focus-emphasis {
+  0% {
+    box-shadow: var(--focus-emphasis-shadow);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 1px transparent,
+      0 0 0 0 transparent,
+      0 0 0 transparent;
+  }
 }

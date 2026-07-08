@@ -8,6 +8,8 @@ import { annotationTextDomId } from '../../api/annotationIdentity';
 import type { DocumentSummary, OverlayBox, PageTextRecord } from '../../api/types';
 import { OCR_FOCUS_THROTTLE_MS } from '../../stores/workbenchRealtimeFocus';
 import { revealWhenAvailable } from './deferredReveal';
+import { EmptyPreviewState } from './emptyPreviewState';
+import { useFocusEmphasis } from './focusEmphasis';
 import { isScrolledToBottom, needsRevealScroll } from './scrollVisibility';
 import styles from './TextPane.module.css';
 import { PlainTraceText, TraceableMarkdown } from './TraceableMarkdown';
@@ -19,6 +21,7 @@ interface TextPaneProps {
   focusRevision?: number;
   pages: PageTextRecord[];
   regions: OverlayBox[];
+  selectedPageNo: number;
   selectedRegionId?: string;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
@@ -30,6 +33,7 @@ export function TextPane({
   onSelectRegion,
   pages,
   regions,
+  selectedPageNo,
   selectedRegionId,
 }: TextPaneProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -69,7 +73,12 @@ export function TextPane({
         </div>
       </div>
       <div className={styles.body} ref={bodyRef}>
-        {pages.length === 0 ? <div className={styles.empty}>No OCR text</div> : null}
+        {pages.length === 0 ? (
+          <EmptyPreviewState
+            title="No OCR text for this engine"
+            detail="Select a different engine output or wait for the current engine to stream text."
+          />
+        ) : null}
         {pages.map((page) => (
           <PageText
             complete={isPageTextComplete(page, document)}
@@ -78,6 +87,8 @@ export function TextPane({
             onRegionSelect={onSelectRegion}
             page={page}
             regions={regions}
+            scrollRootRef={bodyRef}
+            selectedPageNo={selectedPageNo}
             glowRegionId={glowRegionId}
             selectedRegionId={selectedRegionId}
           />
@@ -124,6 +135,8 @@ function PageText({
   onRegionSelect,
   page,
   regions,
+  scrollRootRef,
+  selectedPageNo,
   glowRegionId,
   selectedRegionId,
 }: {
@@ -133,10 +146,30 @@ function PageText({
   onRegionSelect: (pageNo: number, regionId: string) => void;
   page: PageTextRecord;
   regions: OverlayBox[];
+  scrollRootRef: RefObject<HTMLDivElement | null>;
+  selectedPageNo: number;
   selectedRegionId?: string;
 }) {
+  const pageRef = useRef<HTMLElement>(null);
+  const selectedPageKey = `text:${page.page_no}:${selectedPageNo}`;
+  const focusPageKey = useFocusEmphasis(selectedPageKey, page.page_no === selectedPageNo ? 1 : 0);
+  useEffect(() => {
+    if (page.page_no !== selectedPageNo || selectedRegionId) {
+      return;
+    }
+    const root = scrollRootRef.current;
+    const target = pageRef.current;
+    if (root && target) {
+      revealTextTarget(root, target);
+    }
+  }, [page.page_no, scrollRootRef, selectedPageNo, selectedRegionId]);
   return (
-    <article className={styles.pageText}>
+    <article
+      className={styles.pageText}
+      data-active={page.page_no === selectedPageNo}
+      data-focus-emphasis={focusPageKey === selectedPageKey}
+      ref={pageRef}
+    >
       <div className={styles.pageHeader}>
         <span className={styles.pageLabel}>Page {page.page_no}</span>
         <button

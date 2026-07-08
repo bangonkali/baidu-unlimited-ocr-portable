@@ -3,37 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
-import {
-  useCancelModelDownload,
-  useDiagnosticProgress,
-  useDocumentPreviewImages,
-  useDocumentRegions,
-  useDocuments,
-  useDocumentText,
-  useDownloadModel,
-  useGenerateEmbedding,
-  useIngestEngines,
-  useIngestPreviewResults,
-  useIngestRuns,
-  useLogs,
-  useModels,
-  useOpenFolderDialog,
-  useResumeRun,
-  useRunCommand,
-  useSelectModel,
-  useSettings,
-  useStartIngest,
-  useStartTextIndex,
-  useStatus,
-  useUpdateSettings,
-  useUsedEmbeddingModels,
-} from '../../api/hooks';
 import type { DocumentSummary, ModelAssetRecord, OcrProfileRecord } from '../../api/types';
 import { useRealtimeState } from '../../realtime/realtimeStore';
 import type {
   DiagnosticsRouteSearch,
   IngestRouteSearch,
   ModelRouteSearch,
+  RootRouteSearch,
   SearchRouteSearch,
   SettingsRouteSearch,
   WorkbenchRouteSearch,
@@ -42,12 +18,14 @@ import type { ActiveView } from '../../stores/workbenchStore';
 import {
   setSelectedProfile,
   setSelectedRoot,
+  setSelection,
   useWorkbenchState,
 } from '../../stores/workbenchStore';
 import { primaryPipelineActivity } from './pipelineTaskActivity';
 import { startOcrEntry } from './startOcrEntry';
 import { visibleTextPages } from './textPreviewPages';
 import { useSelectedPageReplay } from './useOcrReplayHydration';
+import { useWorkbenchData } from './useWorkbenchData';
 import { useWorkbenchActions } from './useWorkbenchPageActions';
 import {
   autoFollowEnabledForRoute,
@@ -64,7 +42,7 @@ import {
 } from './WorkbenchPageSupport';
 import type { WorkbenchViewData } from './workbenchContentProps';
 import { buildContentProps } from './workbenchContentProps';
-import { explorerFilterFromSearch, latestRunIdFromRuns } from './workbenchExplorerFilter';
+import { explorerFilterFromSearch } from './workbenchExplorerFilter';
 import { activeRunIdFromRuns, isActiveDocumentStatus, routeSearchText } from './workbenchRunState';
 
 export interface WorkbenchPageProps {
@@ -80,6 +58,61 @@ export interface WorkbenchPageProps {
   workbenchSearch?: WorkbenchRouteSearch;
 }
 
+function useDefaultEngineRouteSync(args: {
+  activeView: ActiveView;
+  data: ReturnType<typeof useWorkbenchData>;
+  navigate: ReturnType<typeof useNavigate>;
+  props: WorkbenchPageProps;
+  searchText: string;
+  workbench: ReturnType<typeof useWorkbenchState>;
+}) {
+  const { activeView, data, navigate, props, searchText, workbench } = args;
+  const selectedRunEngineId = data.selectedRunEngineId;
+  const documentRunId = data.documentRunId;
+  const fileHash = workbench.selection.fileHash ?? data.selectedDocument?.file_hash;
+  const pageNo = workbench.selection.fileHash
+    ? workbench.selection.pageNo
+    : (data.selectedDocument?.current_page ?? 1);
+
+  useEffect(() => {
+    if (activeView !== 'workbench' || props.workbenchSearch?.result || !selectedRunEngineId) {
+      return;
+    }
+    setSelection({
+      fileHash,
+      pageNo,
+      regionId: workbench.selection.regionId,
+      runEngineId: selectedRunEngineId,
+      runId: documentRunId,
+    });
+    void navigate({
+      replace: true,
+      search: (current) => ({
+        ...(current as RootRouteSearch & Record<string, unknown>),
+        file: fileHash,
+        follow: workbench.autoFollowRegions,
+        page: fileHash ? pageNo : undefined,
+        q: searchText.trim() || undefined,
+        region: workbench.selection.regionId,
+        result: selectedRunEngineId,
+        run: documentRunId,
+      }),
+      to: '/workbench',
+    });
+  }, [
+    activeView,
+    documentRunId,
+    fileHash,
+    navigate,
+    pageNo,
+    props.workbenchSearch?.result,
+    searchText,
+    selectedRunEngineId,
+    workbench.autoFollowRegions,
+    workbench.selection.regionId,
+  ]);
+}
+
 export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const activeView = props.activeView ?? 'workbench';
   const modelScope = props.modelScope ?? 'library';
@@ -89,12 +122,14 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   const realtime = useRealtimeState();
   const [searchText, setSearchText] = useState(routeSearchText(props));
   const [debouncedSearch] = useDebouncedValue(searchText, { wait: 180 });
-  const data = useWorkbenchData(
-    workbench.selection.fileHash,
-    props.workbenchSearch?.run ?? props.searchSearch?.run,
-    props.workbenchSearch?.result,
+  const data = useWorkbenchData({
     debouncedSearch,
-  );
+    fileHash: workbench.selection.fileHash,
+    resultId: props.workbenchSearch?.result,
+    runId: props.workbenchSearch?.run ?? props.searchSearch?.run ?? workbench.selection.runId,
+    selectionRunEngineId: workbench.selection.runEngineId,
+    selectionRunId: workbench.selection.runId,
+  });
   const activeRunId = data.status.data?.active_run_id ?? activeRunIdFromRuns(data.runs.data?.runs);
   const activeRun = data.runs.data?.runs.find((run) => run.run_id === activeRunId);
   const pipelineTasks = data.progress.data?.pipeline_tasks ?? [];
@@ -146,6 +181,14 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
     workbench,
     workbenchSearch: props.workbenchSearch,
   });
+  useDefaultEngineRouteSync({
+    activeView,
+    data,
+    navigate,
+    props,
+    searchText,
+    workbench,
+  });
 
   const actions = useWorkbenchActions({
     activeRunId,
@@ -195,51 +238,6 @@ export function useWorkbenchPageController(props: WorkbenchPageProps) {
   };
 }
 
-export function useWorkbenchData(
-  fileHash: string | undefined,
-  runId: string | undefined,
-  resultId: string | undefined,
-  debouncedSearch: string,
-) {
-  const runs = useIngestRuns();
-  const documentRunId = runId ?? latestRunIdFromRuns(runs.data?.runs);
-  const previewResults = useIngestPreviewResults(documentRunId, fileHash);
-  const runPreviewResults =
-    runs.data?.runs.find((run) => run.run_id === documentRunId)?.preview_results ?? [];
-  const selectedRunEngineId =
-    resultId ??
-    previewResults.data?.results[0]?.run_engine_id ??
-    runPreviewResults[0]?.run_engine_id;
-  return {
-    cancelModelDownload: useCancelModelDownload(),
-    documents: useDocuments(debouncedSearch),
-    downloadModel: useDownloadModel(),
-    folderDialog: useOpenFolderDialog(),
-    generateEmbedding: useGenerateEmbedding(),
-    ingestEngines: useIngestEngines(),
-    logs: useLogs(220),
-    models: useModels(),
-    progress: useDiagnosticProgress(undefined, 5000, 1500),
-    previewImages: useDocumentPreviewImages(fileHash),
-    previewResults,
-    runPreviewResults,
-    documentRunId,
-    selectedRunEngineId,
-    regions: useDocumentRegions(fileHash, documentRunId, selectedRunEngineId),
-    resumeRun: useResumeRun(),
-    runs,
-    selectModel: useSelectModel(),
-    settings: useSettings(),
-    startIngest: useStartIngest(),
-    startTextIndex: useStartTextIndex(),
-    status: useStatus(),
-    stopRun: useRunCommand('stop'),
-    text: useDocumentText(fileHash, documentRunId, selectedRunEngineId),
-    usedEmbeddingModels: useUsedEmbeddingModels(),
-    updateSettings: useUpdateSettings(),
-  };
-}
-
 function useIngestRoutePrefill(activeView: ActiveView, search?: IngestRouteSearch) {
   useEffect(() => {
     if (activeView !== 'ingest') {
@@ -261,15 +259,14 @@ function viewData(
   selectedDocument: DocumentSummary | undefined,
 ): WorkbenchViewData {
   return {
+    diagnosticWorkUnits: data.progress.data?.work_units ?? [],
     documents: data.documents.data?.documents ?? [],
     enginePresets: data.ingestEngines.data?.engines ?? [],
     logs: data.logs.data?.logs ?? [],
     model,
     models: data.models.data,
     previewPages: data.previewImages.data?.pages ?? [],
-    previewResults: data.previewResults.data?.results.length
-      ? data.previewResults.data.results
-      : data.runPreviewResults,
+    previewResults: data.previewResultOptions,
     profiles,
     pipelineTasks: data.progress.data?.pipeline_tasks ?? [],
     regions: data.regions.data?.boxes ?? [],

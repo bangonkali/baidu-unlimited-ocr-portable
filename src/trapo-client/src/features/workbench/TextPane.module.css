@@ -37,6 +37,12 @@
 
 .pageText {
   margin: 0 0 16px;
+  border-radius: 4px;
+}
+
+.pageText[data-active="true"] {
+  outline: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: 4px;
 }
 
 .pageHeader {

@@ -21,6 +21,7 @@ import {
   fixtureLogs,
   fixtureModels,
   fixturePages,
+  fixturePreviewResults,
   fixtureRuns,
   fixtureSettings,
 } from './fixtures/workbenchFixtures';
@@ -86,13 +87,17 @@ export const Explorer: Story = {
   render: () => (
     <div className="storyTall">
       <ExplorerTree
+        diagnosticWorkUnits={[]}
         documents={fixtureDocuments}
         filter={{ runId: fixtureRuns[0]?.run_id, scope: 'run' }}
         onFilterChange={() => undefined}
         onSelectDocument={() => undefined}
+        previewResults={fixturePreviewResults}
         runs={fixtureRuns}
         selectedRunId={fixtureRuns[0]?.run_id}
         selectedFileHash="hash-invoice-014"
+        selectedPageNo={1}
+        selectedRunEngineId="run-engine-paddleocr-vl"
       />
     </div>
   ),
@@ -128,10 +133,13 @@ export const Traceability: Story = {
         getImageUrl={() => fixturePreviewImage}
         labelsVisible
         overlayVisible
+        engineResults={fixturePreviewResults}
         pages={[1]}
         selectedPageNo={1}
+        selectedRunEngineId="run-engine-paddleocr-vl"
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
+        onSelectPreviewResult={() => undefined}
         onSelectRegion={() => undefined}
       />
       <TextPane
@@ -140,6 +148,7 @@ export const Traceability: Story = {
         onSelectRegion={() => undefined}
         pages={fixturePages}
         regions={fixtureBoxes}
+        selectedPageNo={1}
         selectedRegionId="reg-total"
       />
     </div>
@@ -155,6 +164,7 @@ export const LiveText: Story = {
         onSelectRegion={() => undefined}
         pages={fixturePages}
         regions={fixtureBoxes}
+        selectedPageNo={1}
         selectedRegionId="reg-supplier"
       />
     </div>

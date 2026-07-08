@@ -18,7 +18,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.followToggle {
+.settingsButton {
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -33,10 +33,71 @@
   cursor: pointer;
 }
 
-.followToggle[aria-pressed="true"] {
-  color: var(--accent-foreground);
-  background: var(--accent-2);
-  border-color: color-mix(in srgb, var(--accent-2) 70%, #fff);
+.settingsButton:hover,
+.settingsButton[data-state="open"] {
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border-strong);
+}
+
+.menu {
+  min-width: 188px;
+  padding: 4px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  z-index: 70;
+}
+
+.menuItem {
+  display: grid;
+  grid-template-columns: 18px auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px 0 4px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.menuItem[data-disabled] {
+  color: var(--subtle);
+  cursor: default;
+}
+
+.menuItem[data-highlighted]:not([data-disabled]) {
+  background: var(--panel-3);
+}
+
+.menuIconSlot {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  color: var(--accent);
+}
+
+.menuArrow {
+  color: var(--subtle);
+}
+
+.menuSeparator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.engineLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engineStatus {
+  color: var(--subtle);
+  font-size: 11px;
 }
 
 .canvas {
@@ -52,6 +113,7 @@
   display: grid;
   justify-items: center;
   gap: 8px;
+  border-radius: 4px;
 }
 
 .pageLabel {

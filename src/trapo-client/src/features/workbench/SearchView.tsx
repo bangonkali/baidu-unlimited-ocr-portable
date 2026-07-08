@@ -56,13 +56,13 @@ export function SearchView(props: SearchViewProps) {
     ...props,
     explorerFilter: { runId, scope: 'run' },
     onExplorerFilterChange: () => undefined,
-    onSelectDocument: (fileHash, pageNo = 1, targetRunId) => {
+    onSelectDocument: (fileHash, pageNo = 1, targetRunId, runEngineId) => {
       setAutoFollowRegions(false);
       setSelection({
         fileHash,
         pageNo,
         regionId: undefined,
-        runEngineId: undefined,
+        runEngineId,
         runId: targetRunId ?? runId,
       });
     },

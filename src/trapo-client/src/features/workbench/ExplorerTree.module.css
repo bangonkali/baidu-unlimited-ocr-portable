@@ -66,6 +66,13 @@
   animation: spin 900ms linear infinite;
 }
 
+.pageRunningEngine {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--accent);
+}
+
 .activeTask {
   color: var(--warning);
   filter: drop-shadow(0 0 2px color-mix(in srgb, var(--warning) 55%, transparent));

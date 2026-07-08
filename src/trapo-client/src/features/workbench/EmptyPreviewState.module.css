@@ -1,0 +1,25 @@
+.emptyState {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 140px;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+
+.title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.detail {
+  max-width: 340px;
+  color: var(--subtle);
+  font-size: 11px;
+  line-height: 1.45;
+}

@@ -73,12 +73,12 @@ export function useWorkbenchSelectionActions({
   );
 
   const selectDocument = useCallback(
-    (fileHash: string, pageNo = 1, runId?: string) =>
+    (fileHash: string, pageNo = 1, runId?: string, runEngineId?: string) =>
       selectWorkbenchTarget({
         fileHash,
         pageNo,
         regionId: undefined,
-        runEngineId: undefined,
+        runEngineId,
         runId,
       }),
     [selectWorkbenchTarget],

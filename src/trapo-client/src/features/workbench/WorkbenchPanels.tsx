@@ -5,6 +5,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { annotationIdOf } from '../../api/annotationIdentity';
 import type {
   DiagnosticPipelineTaskRecord,
+  DiagnosticWorkUnitRecord,
   DocumentSummary,
   IngestPreviewResultRecord,
   IngestRunRecord,
@@ -17,7 +18,6 @@ import type { useWorkbenchState } from '../../stores/workbenchStore';
 import { setPaneCollapsed } from '../../stores/workbenchStore';
 import { DetailsPane } from './DetailsPane';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
-import { EngineResultSwitcher } from './EngineResultSwitcher';
 import { ExplorerTree } from './ExplorerTree';
 import { PreviewPane } from './PreviewPane';
 import { TextPane } from './TextPane';
@@ -37,6 +37,7 @@ export interface WorkbenchPanelsProps {
   onRestartRun: (run: IngestRunRecord) => void;
   onStart: () => void;
   onStopRun: (runId?: string) => void;
+  diagnosticWorkUnits: DiagnosticWorkUnitRecord[];
   pipelineTasks: DiagnosticPipelineTaskRecord[];
   previewPages: number[];
   previewResults: IngestPreviewResultRecord[];
@@ -49,7 +50,12 @@ export interface WorkbenchPanelsProps {
   workbench: ReturnType<typeof useWorkbenchState>;
   onAutoFollowChange: (enabled: boolean) => void;
   onExplorerFilterChange: (filter: WorkbenchExplorerFilter) => void;
-  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectDocument: (
+    fileHash: string,
+    pageNo?: number,
+    runId?: string,
+    runEngineId?: string,
+  ) => void;
   onSelectPreviewResult: (runEngineId: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
@@ -79,13 +85,17 @@ export function WorkbenchPanels(props: WorkbenchPanelsProps) {
         >
           <ExplorerTree
             documents={props.documents}
+            diagnosticWorkUnits={props.diagnosticWorkUnits}
             filter={props.explorerFilter}
             onFilterChange={props.onExplorerFilterChange}
             onSelectDocument={props.onSelectDocument}
             pipelineTasks={props.pipelineTasks}
+            previewResults={props.previewResults}
             rootPath={props.rootPath}
             runs={props.runs}
             selectedFileHash={props.workbench.selection.fileHash}
+            selectedPageNo={props.workbench.selection.pageNo}
+            selectedRunEngineId={props.selectedRunEngineId}
             selectedRunId={props.explorerFilter.runId}
           />
         </Panel>
@@ -122,11 +132,6 @@ export function DocumentWorkspace(props: WorkbenchPanelsProps) {
   usePanelCollapseSync(diagnosticsRef, props.workbench.panesCollapsed.diagnostics);
   return (
     <div className={styles.documentWorkspace}>
-      <EngineResultSwitcher
-        results={props.previewResults}
-        selectedRunEngineId={props.selectedRunEngineId}
-        onSelect={props.onSelectPreviewResult}
-      />
       <PanelGroup direction="vertical">
         <Panel defaultSize={68} minSize={40}>
           <PanelGroup direction="horizontal">
@@ -134,14 +139,17 @@ export function DocumentWorkspace(props: WorkbenchPanelsProps) {
               <PreviewPane
                 autoFollowRegions={props.workbench.autoFollowRegions}
                 boxes={props.regions}
+                engineResults={props.previewResults}
                 fileHash={props.workbench.selection.fileHash}
                 focusRevision={props.workbench.focusRevision}
                 labelsVisible={props.workbench.labelsVisible}
                 overlayVisible={props.workbench.overlayVisible}
                 pages={props.previewPages}
                 selectedPageNo={props.workbench.selection.pageNo}
+                selectedRunEngineId={props.selectedRunEngineId}
                 selectedRegionId={props.workbench.selection.regionId}
                 onAutoFollowChange={props.onAutoFollowChange}
+                onSelectPreviewResult={props.onSelectPreviewResult}
                 onSelectRegion={props.onSelectRegion}
               />
             </Panel>
@@ -154,6 +162,7 @@ export function DocumentWorkspace(props: WorkbenchPanelsProps) {
                 onSelectRegion={props.onSelectRegion}
                 pages={props.textPages}
                 regions={props.regions}
+                selectedPageNo={props.workbench.selection.pageNo}
                 selectedRegionId={props.workbench.selection.regionId}
               />
             </Panel>

@@ -1,0 +1,62 @@
+import type { IngestPreviewResultRecord, IngestRunRecord } from '../../api/types';
+
+export const fixturePreviewResults: IngestPreviewResultRecord[] = [
+  {
+    engine_id: 'tesseract-rs',
+    engine_kind: 'ocr',
+    label: 'Tesseract',
+    ordinal: 0,
+    output_count: 1,
+    page_count: 1,
+    previewer: 'ocr_annotation',
+    provenance: {},
+    run_engine_id: 'run-engine-tesseract',
+    run_id: 'run-20260629-01',
+    runner_kind: 'ocr',
+    runner_status: 'ready',
+    status: 'completed',
+  },
+  {
+    engine_id: 'paddleocr-vl-1.6-gguf',
+    engine_kind: 'ocr',
+    label: 'PaddleOCR-VL 1.6',
+    model_id: 'paddleocr-vl-1-6-gguf',
+    ordinal: 1,
+    output_count: 1,
+    page_count: 1,
+    previewer: 'ocr_annotation',
+    provenance: {},
+    run_engine_id: 'run-engine-paddleocr-vl',
+    run_id: 'run-20260629-01',
+    runner_kind: 'ocr',
+    runner_status: 'running',
+    status: 'running',
+  },
+];
+
+export const fixtureRuns: IngestRunRecord[] = [
+  {
+    current_page: 8,
+    engine_configs: fixturePreviewResults.map((result) => ({
+      engine_id: result.engine_id,
+      engine_kind: result.engine_kind,
+      label: result.label,
+      ordinal: result.ordinal,
+      parameters: {},
+      previewer: result.previewer,
+      run_engine_id: result.run_engine_id,
+      run_id: result.run_id,
+      status: result.status,
+      usable_output_count: result.output_count,
+    })),
+    file_hashes: ['hash-invoice-014', 'hash-shipping-form'],
+    preview_results: fixturePreviewResults,
+    processed_pages: 7,
+    progress_percent: 16.3,
+    queued_files: 18,
+    root_path: 'C:\\data\\incoming',
+    run_id: 'run-20260629-01',
+    status: 'running',
+    total_pages: 43,
+  },
+];

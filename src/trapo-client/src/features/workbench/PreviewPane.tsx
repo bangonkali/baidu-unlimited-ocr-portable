@@ -1,12 +1,14 @@
-import { Crosshair } from 'lucide-react';
 import type { RefObject } from 'react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { annotationBoxDomId, annotationIdOf } from '../../api/annotationIdentity';
-import type { OverlayBox } from '../../api/types';
+import type { IngestPreviewResultRecord, OverlayBox } from '../../api/types';
 import { revealWhenAvailable } from './deferredReveal';
+import { EmptyPreviewState } from './emptyPreviewState';
+import { useFocusEmphasis } from './focusEmphasis';
 import { overlayShapeForBox } from './overlayGeometry';
 import styles from './PreviewPane.module.css';
+import { PreviewSettingsMenu } from './PreviewSettingsMenu';
 import { needsRevealScroll } from './scrollVisibility';
 
 interface ScrollGeometry {
@@ -45,18 +47,22 @@ interface PreviewPaneProps {
   fileHash?: string;
   focusRevision?: number;
   getImageUrl?: (fileHash: string, pageNo: number) => string;
+  engineResults: IngestPreviewResultRecord[];
   labelsVisible: boolean;
   overlayVisible: boolean;
   pages: number[];
   selectedPageNo: number;
+  selectedRunEngineId?: string;
   selectedRegionId?: string;
   onAutoFollowChange: (enabled: boolean) => void;
+  onSelectPreviewResult: (runEngineId: string) => void;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }
 
 export function PreviewPane({
   autoFollowRegions,
   boxes,
+  engineResults,
   fileHash,
   focusRevision = 0,
   getImageUrl,
@@ -64,28 +70,38 @@ export function PreviewPane({
   overlayVisible,
   pages,
   selectedPageNo,
+  selectedRunEngineId,
   selectedRegionId,
   onAutoFollowChange,
+  onSelectPreviewResult,
   onSelectRegion,
 }: PreviewPaneProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const selectedResult = engineResults.find(
+    (result) => result.run_engine_id === selectedRunEngineId,
+  );
   return (
     <section className={styles.preview} aria-label="Preview" data-tour="preview">
       <div className={styles.header}>
         <span>Preview</span>
-        <button
-          aria-pressed={autoFollowRegions}
-          className={styles.followToggle}
-          onClick={() => onAutoFollowChange(!autoFollowRegions)}
-          type="button"
-        >
-          <Crosshair size={14} strokeWidth={1.9} />
-          <span>{autoFollowRegions ? 'Auto Follow On' : 'Auto Follow Off'}</span>
-        </button>
+        <PreviewSettingsMenu
+          autoFollowRegions={autoFollowRegions}
+          engineResults={engineResults}
+          selectedRunEngineId={selectedRunEngineId}
+          onAutoFollowChange={onAutoFollowChange}
+          onSelectPreviewResult={onSelectPreviewResult}
+        />
       </div>
       <div className={styles.canvas} ref={canvasRef}>
         {!fileHash || pages.length === 0 ? (
-          <div className={styles.empty}>No preview yet</div>
+          <EmptyPreviewState
+            title={selectedResult ? 'No preview output yet' : 'No engine output selected'}
+            detail={
+              selectedResult
+                ? `${selectedResult.label} has not produced a previewable page for this document yet.`
+                : 'Run an engine or select an engine output to preview OCR overlays.'
+            }
+          />
         ) : null}
         {fileHash
           ? pages.map((pageNo) => (
@@ -100,6 +116,7 @@ export function PreviewPane({
                 pageNo={pageNo}
                 scrollRootRef={canvasRef}
                 selectedPageNo={selectedPageNo}
+                selectedPageKey={`${fileHash}:${selectedRunEngineId ?? 'none'}:${selectedPageNo}`}
                 selectedRegionId={selectedRegionId}
                 onSelectRegion={onSelectRegion}
               />
@@ -120,12 +137,24 @@ function PagePreview(props: {
   pageNo: number;
   scrollRootRef: RefObject<HTMLDivElement | null>;
   selectedPageNo: number;
+  selectedPageKey: string;
   selectedRegionId?: string;
   onSelectRegion: (pageNo: number, regionId: string) => void;
 }) {
   const pageRef = useRef<HTMLElement>(null);
   const selectedRegionId = props.selectedRegionId;
   const scrollRootRef = props.scrollRootRef;
+  const focusPageKey = useFocusEmphasis(props.selectedPageKey, 1);
+  const revealSelectedPage = useCallback(() => {
+    if (props.pageNo !== props.selectedPageNo) {
+      return;
+    }
+    const root = scrollRootRef.current;
+    const target = pageRef.current;
+    if (root && target) {
+      revealPreviewTarget(root, target, false);
+    }
+  }, [props.pageNo, props.selectedPageNo, scrollRootRef]);
   const imageUrl =
     props.getImageUrl?.(props.fileHash, props.pageNo) ??
     `/api/documents/${encodeURIComponent(props.fileHash)}/preview-images/source/${props.pageNo}`;
@@ -154,19 +183,34 @@ function PagePreview(props: {
     if (!target) {
       return undefined;
     }
-    revealPreviewTarget(root, target, false);
+    revealSelectedPage();
     return undefined;
-  }, [props.focusRevision, props.pageNo, props.selectedPageNo, scrollRootRef, selectedRegionId]);
+  }, [
+    props.focusRevision,
+    props.pageNo,
+    props.selectedPageNo,
+    revealSelectedPage,
+    scrollRootRef,
+    selectedRegionId,
+  ]);
 
   return (
     <article
       className={styles.pageBlock}
       data-active={props.pageNo === props.selectedPageNo}
+      data-focus-emphasis={
+        focusPageKey === props.selectedPageKey && props.pageNo === props.selectedPageNo
+      }
       ref={pageRef}
     >
       <div className={styles.pageLabel}>Page {props.pageNo}</div>
       <div className={styles.page}>
-        <img alt={`Page ${props.pageNo}`} className={styles.image} src={imageUrl} />
+        <img
+          alt={`Page ${props.pageNo}`}
+          className={styles.image}
+          onLoad={revealSelectedPage}
+          src={imageUrl}
+        />
         {props.overlayVisible
           ? props.boxes.map((box) => {
               const annotationId = annotationIdOf(box);

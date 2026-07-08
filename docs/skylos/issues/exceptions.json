@@ -357,6 +357,13 @@
       "reason": "file_hash and run_id values are public workbench route and run membership identifiers used to group explorer nodes, not secret tokens."
     },
     {
+      "id": "client-public-document-id-engine-status",
+      "rule_id": "SKY-D253",
+      "category": "danger",
+      "path_glob": "src/trapo-client/src/features/workbench/ExplorerEngineStatus.tsx",
+      "reason": "file_hash values are public document identifiers used to match diagnostic work units to explorer engine status nodes, not secret tokens."
+    },
+    {
       "id": "client-public-document-id-explorer-filter",
       "rule_id": "SKY-D253",
       "category": "danger",

@@ -7,8 +7,9 @@ import { setAutoFollowRegions, setSelection } from '../../stores/workbenchStore'
 import { useDownloadModelWithPane } from './downloadsPaneContext';
 import { useModelRouteActions } from './useModelRouteActions';
 import { useWorkbenchCommands } from './useWorkbenchCommands';
+import type { useWorkbenchData } from './useWorkbenchData';
 import { useWorkbenchIngestActions } from './useWorkbenchIngestActions';
-import type { useWorkbenchData, WorkbenchPageProps } from './useWorkbenchPageController';
+import type { WorkbenchPageProps } from './useWorkbenchPageController';
 import {
   routeSearchFromSelection,
   useWorkbenchSelectionActions,

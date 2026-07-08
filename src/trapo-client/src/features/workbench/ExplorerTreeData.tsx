@@ -1,12 +1,17 @@
-import { FileText, Folder, FolderOpen } from 'lucide-react';
+import { FileText, Folder, FolderOpen, ScanText } from 'lucide-react';
 
 import type {
   DiagnosticPipelineTaskRecord,
+  DiagnosticWorkUnitRecord,
   DocumentSummary,
+  IngestPreviewResultRecord,
   IngestRunRecord,
 } from '../../api/types';
 import type { TreeNode } from '../../components/workbench';
+import { engineBadge, runningEngineForPage } from './ExplorerEngineStatus';
 import { documentBadge, pageBadge } from './ExplorerTreeBadges';
+import { pathParts, rootLabel, sortNodes } from './ExplorerTreeStructure';
+import { previewableEngineResults } from './engineResultOptions';
 import type { PipelineTaskActivity } from './pipelineTaskActivity';
 import { activePipelineActivityForRun } from './pipelineTaskActivity';
 import type { WorkbenchExplorerScope } from './workbenchExplorerFilter';
@@ -14,18 +19,27 @@ import type { WorkbenchExplorerScope } from './workbenchExplorerFilter';
 export interface ExplorerTreeBuildOptions {
   documents: DocumentSummary[];
   fallbackRootPath?: string;
-  onSelectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  onSelectDocument: (
+    fileHash: string,
+    pageNo?: number,
+    runId?: string,
+    runEngineId?: string,
+  ) => void;
+  diagnosticWorkUnits?: DiagnosticWorkUnitRecord[];
   pipelineTasks?: DiagnosticPipelineTaskRecord[];
+  previewResults?: IngestPreviewResultRecord[];
   runId?: string;
   runs: IngestRunRecord[];
   scope: WorkbenchExplorerScope;
   selectedFileHash?: string;
+  selectedPageNo?: number;
+  selectedRunEngineId?: string;
   selectedRunId?: string;
 }
 
 interface MutableTreeNode extends TreeNode {
   children: MutableTreeNode[];
-  kind: 'root' | 'folder' | 'document' | 'page';
+  kind: 'root' | 'folder' | 'document' | 'page' | 'engine';
   pageNo?: number;
 }
 
@@ -161,19 +175,16 @@ function documentNode(
   const pipelineActivity = activePipelineActivityForRun(options.pipelineTasks, runId);
   return {
     badge: documentBadge(document.status, pipelineActivity),
-    children:
-      pageCount > 1
-        ? Array.from({ length: pageCount }, (_, index) =>
-            pageNode({
-              document,
-              documentSelected: selected,
-              options,
-              pageNo: index + 1,
-              pipelineActivity,
-              runId,
-            }),
-          )
-        : [],
+    children: Array.from({ length: pageCount }, (_, index) =>
+      pageNode({
+        document,
+        documentSelected: selected,
+        options,
+        pageNo: index + 1,
+        pipelineActivity,
+        runId,
+      }),
+    ),
     icon: <FileText size={14} />,
     id: nodeId('document', runId, documentId),
     kind: 'document',
@@ -184,16 +195,63 @@ function documentNode(
 }
 
 function pageNode(args: PageNodeArgs): MutableTreeNode {
+  const pageSelected = isSelectedPage(args);
+  const runningResult = runningEngineForPage(engineStatusContext(args), pageSelected);
   return {
-    badge: pageBadge(args.document, args.pageNo, args.pipelineActivity),
-    children: [],
+    badge: pageBadge(args.document, args.pageNo, args.pipelineActivity, runningResult?.label),
+    children: engineChildren(args),
     icon: <FileText size={13} />,
     id: nodeId('page', args.runId, args.document.file_hash, args.pageNo),
     kind: 'page',
     label: `Page ${args.pageNo}`,
-    onSelect: () => args.options.onSelectDocument(args.document.file_hash, args.pageNo, args.runId),
+    onSelect: () =>
+      args.options.onSelectDocument(
+        args.document.file_hash,
+        args.pageNo,
+        args.runId,
+        args.options.selectedRunEngineId,
+      ),
     pageNo: args.pageNo,
-    selected: args.documentSelected && args.document.current_page === args.pageNo,
+    selected: pageSelected,
+  };
+}
+
+function engineChildren(args: PageNodeArgs): MutableTreeNode[] {
+  return previewableEngineResults(args.options.previewResults ?? []).map((result) => ({
+    badge: engineBadge(result, engineStatusContext(args)),
+    children: [],
+    icon:
+      result.previewer === 'document_markdown' ? <FileText size={12} /> : <ScanText size={12} />,
+    id: nodeId('engine', args.runId, args.document.file_hash, args.pageNo, result.run_engine_id),
+    kind: 'engine',
+    label: result.label,
+    onSelect: () =>
+      args.options.onSelectDocument(
+        args.document.file_hash,
+        args.pageNo,
+        args.runId,
+        result.run_engine_id,
+      ),
+    pageNo: args.pageNo,
+    selected: isSelectedPage(args) && args.options.selectedRunEngineId === result.run_engine_id,
+  }));
+}
+
+function isSelectedPage(args: PageNodeArgs) {
+  return (
+    args.documentSelected &&
+    (args.options.selectedPageNo ?? args.document.current_page ?? 1) === args.pageNo
+  );
+}
+
+function engineStatusContext(args: PageNodeArgs) {
+  return {
+    diagnosticWorkUnits: args.options.diagnosticWorkUnits,
+    document: args.document,
+    pageNo: args.pageNo,
+    previewResults: args.options.previewResults,
+    runId: args.runId,
+    selectedRunEngineId: args.options.selectedRunEngineId,
   };
 }
 
@@ -216,70 +274,18 @@ function sortedDocuments(documents: DocumentSummary[]) {
   );
 }
 
-function sortNodes(node: MutableTreeNode) {
-  node.children.sort((left, right) => {
-    const kindOrder = nodeKindOrder(left) - nodeKindOrder(right);
-    if (kindOrder !== 0) {
-      return kindOrder;
-    }
-    if (left.kind === 'page' && right.kind === 'page') {
-      const pageOrder = pageNumberOrder(left, right);
-      if (pageOrder !== 0) {
-        return pageOrder;
-      }
-    }
-    return left.label.localeCompare(right.label);
-  });
-  for (const child of node.children) {
-    sortNodes(child);
-  }
-}
-
-function nodeKindOrder(node: MutableTreeNode) {
-  if (node.kind === 'folder') {
-    return 0;
-  }
-  if (node.kind === 'document') {
-    return 1;
-  }
-  if (node.kind === 'page') {
-    return 2;
-  }
-  return 3;
-}
-
-function pageNumberOrder(left: MutableTreeNode, right: MutableTreeNode) {
-  if (left.pageNo !== undefined && right.pageNo !== undefined) {
-    return left.pageNo - right.pageNo;
-  }
-  if (left.pageNo !== undefined) {
-    return -1;
-  }
-  if (right.pageNo !== undefined) {
-    return 1;
-  }
-  return 0;
-}
-
 function nodeId(
-  kind: 'document' | 'page',
+  kind: 'document' | 'page' | 'engine',
   runId: string | undefined,
   fileHash: string,
   pageNo?: number,
+  runEngineId?: string,
 ) {
   const runPart = runId ?? 'workspace';
   const base = `run:${runPart}:document:${fileHash}`;
-  return kind === 'document' ? base : `${base}:page:${pageNo}`;
-}
-
-function pathParts(path: string) {
-  return path.split(/[\\/]+/).filter(Boolean);
-}
-
-function rootLabel(rootPath: string | undefined, scope: WorkbenchExplorerScope) {
-  if (scope === 'all' && rootPath?.trim()) {
-    return rootPath;
+  if (kind === 'document') {
+    return base;
   }
-  const parts = pathParts(rootPath ?? '');
-  return parts.at(-1) ?? 'Workspace';
+  const pageBase = `${base}:page:${pageNo}`;
+  return kind === 'page' ? pageBase : `${pageBase}:engine:${runEngineId}`;
 }

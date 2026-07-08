@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToString } from 'react-dom/server';
 
-import { fixtureBoxes } from '../../stories/fixtures/workbenchFixtures';
+import { fixtureBoxes, fixturePreviewResults } from '../../stories/fixtures/workbenchFixtures';
 import { centeredScrollOffset, nearestScrollOffset, PreviewPane } from './PreviewPane';
 
 describe('PreviewPane', () => {
@@ -46,19 +46,22 @@ describe('PreviewPane', () => {
       <PreviewPane
         autoFollowRegions
         boxes={fixtureBoxes}
+        engineResults={fixturePreviewResults}
         fileHash="hash-invoice-014"
         getImageUrl={() => 'data:image/png;base64,'}
         labelsVisible
         overlayVisible
         pages={[1]}
         selectedPageNo={1}
+        selectedRunEngineId="run-engine-paddleocr-vl"
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
+        onSelectPreviewResult={() => undefined}
         onSelectRegion={() => undefined}
       />,
     );
 
-    expect(html).toContain('Auto Follow On');
+    expect(html).toContain('Settings');
     expect(html).toContain('data-active="true"');
     expect(html).toContain('Invoice total');
   });
@@ -68,14 +71,17 @@ describe('PreviewPane', () => {
       <PreviewPane
         autoFollowRegions
         boxes={fixtureBoxes}
+        engineResults={fixturePreviewResults}
         fileHash="hash-invoice-014"
         getImageUrl={() => 'data:image/png;base64,'}
         labelsVisible
         overlayVisible
         pages={[1]}
         selectedPageNo={1}
+        selectedRunEngineId="run-engine-paddleocr-vl"
         selectedRegionId="reg-total"
         onAutoFollowChange={() => undefined}
+        onSelectPreviewResult={() => undefined}
         onSelectRegion={() => undefined}
       />,
     );
@@ -105,14 +111,17 @@ describe('PreviewPane', () => {
             width_percent: 20,
           },
         ]}
+        engineResults={fixturePreviewResults}
         fileHash="hash-invoice-014"
         getImageUrl={() => 'data:image/png;base64,'}
         labelsVisible
         overlayVisible
         pages={[1]}
         selectedPageNo={1}
+        selectedRunEngineId="run-engine-paddleocr-vl"
         selectedRegionId={annotationId}
         onAutoFollowChange={() => undefined}
+        onSelectPreviewResult={() => undefined}
         onSelectRegion={() => undefined}
       />,
     );

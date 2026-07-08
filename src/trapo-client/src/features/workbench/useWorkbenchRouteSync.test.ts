@@ -208,6 +208,26 @@ describe('routeSelectionPatchForSync result scope', () => {
       runId: 'run-archive',
     });
   });
+
+  test('restores engine focus for result-only workbench routes', () => {
+    const state = workbenchState({
+      selection: {
+        fileHash: undefined,
+        pageNo: 1,
+        regionId: undefined,
+        runEngineId: undefined,
+        runId: 'run-a',
+      },
+    });
+
+    expect(routeSelectionPatchForSync('workbench', state, { result: 'engine-a' })).toEqual({
+      fileHash: undefined,
+      pageNo: 1,
+      regionId: undefined,
+      runEngineId: 'engine-a',
+      runId: undefined,
+    });
+  });
 });
 
 describe('routeSearchFromSelection', () => {
@@ -261,11 +281,7 @@ function workbenchState(patch: Partial<WorkbenchState>): WorkbenchState {
     focusRevision: 0,
     labelsVisible: true,
     overlayVisible: true,
-    panesCollapsed: {
-      details: true,
-      diagnostics: true,
-      explorer: false,
-    },
+    panesCollapsed: { details: true, diagnostics: true, explorer: false },
     selectedProfile: 'experimental-exact-prefill-q4',
     selectedRoot: '',
     selection: {

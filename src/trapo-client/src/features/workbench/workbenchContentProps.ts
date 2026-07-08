@@ -1,5 +1,6 @@
 import type {
   DiagnosticPipelineTaskRecord,
+  DiagnosticWorkUnitRecord,
   DocumentSummary,
   IngestEnginePresetRecord,
   IngestEngineSelection,
@@ -50,7 +51,7 @@ export interface WorkbenchContentActions {
   pickFolder: () => void;
   resumeRun: (runId: string) => void;
   restartRun: (run: IngestRunRecord) => void;
-  selectDocument: (fileHash: string, pageNo?: number, runId?: string) => void;
+  selectDocument: (fileHash: string, pageNo?: number, runId?: string, runEngineId?: string) => void;
   selectPreviewResult: (runEngineId: string) => void;
   selectModel: MutationLike<string>;
   selectRegion: (pageNo: number, regionId: string) => void;
@@ -80,6 +81,7 @@ export interface WorkbenchViewData {
   previewResults: IngestPreviewResultRecord[];
   enginePresets: IngestEnginePresetRecord[];
   pipelineTasks: DiagnosticPipelineTaskRecord[];
+  diagnosticWorkUnits: DiagnosticWorkUnitRecord[];
   profiles: OcrProfileRecord[];
   regions: OverlayBox[];
   runs: IngestRunRecord[];
