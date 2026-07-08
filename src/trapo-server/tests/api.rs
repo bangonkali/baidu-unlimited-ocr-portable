@@ -684,6 +684,8 @@ fn assert_ocr_waterfall_grouping(
     let file_group = file_groups[0];
     assert_eq!(file_group["label"], "trace.pdf");
     assert_eq!(file_group["filename"], "trace.pdf");
+    assert_eq!(file_group["status"], "completed");
+    assert_eq!(file_group["status_code"], "ok");
     assert!(
         file_group["child_count"].as_u64().unwrap_or_default() > 0,
         "file group should contain render and OCR spans: {payload}"
@@ -1375,19 +1377,24 @@ fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Resu
         ] {
             std::fs::write(runtime_dir.join(format!("{runner}{suffix}")), b"runner")?;
         }
+        std::fs::write(
+            runtime_dir.join(trapo_ocr_ffi_library(platform)),
+            b"native ffi",
+        )?;
         let runtime_root = runtime_dir
             .parent()
             .ok_or_else(|| anyhow::anyhow!("runtime bin has no parent"))?;
         let ppocrv6_dir = runtime_root.join("ppocrv6");
-        std::fs::create_dir_all(ppocrv6_dir.join("bin"))?;
         std::fs::create_dir_all(ppocrv6_dir.join("models"))?;
-        std::fs::write(ppocrv6_dir.join("trapo_ppocrv6_engine.py"), b"print('ok')")?;
         std::fs::write(ppocrv6_dir.join("models").join("manifest.json"), b"{}")?;
+        let paddle_vl_dir = runtime_root.join("paddleocr_vl_1_6");
+        std::fs::create_dir_all(paddle_vl_dir.join("layout_detection"))?;
+        std::fs::write(paddle_vl_dir.join("manifest.json"), b"{}")?;
         std::fs::write(
-            ppocrv6_dir
-                .join("bin")
-                .join(format!("trapo_ppocrv6_engine{suffix}")),
-            b"ppocrv6",
+            paddle_vl_dir
+                .join("layout_detection")
+                .join("inference.onnx"),
+            b"layout",
         )?;
         let tesseract_dir = runtime_root.join("tesseract");
         std::fs::create_dir_all(tesseract_dir.join("bin"))?;
@@ -1402,6 +1409,16 @@ fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Resu
         )?;
     }
     Ok(())
+}
+
+fn trapo_ocr_ffi_library(platform: &str) -> &'static str {
+    if platform.starts_with("windows-") {
+        "trapo-ocr-ffi.dll"
+    } else if platform.starts_with("macos-") {
+        "libtrapo-ocr-ffi.dylib"
+    } else {
+        "libtrapo-ocr-ffi.so"
+    }
 }
 
 fn install_placeholder_cpu_runtime(root: &std::path::Path) -> anyhow::Result<()> {
@@ -1419,6 +1436,10 @@ fn install_placeholder_cpu_runtime(root: &std::path::Path) -> anyhow::Result<()>
             .join("bin");
         std::fs::create_dir_all(&runtime_dir)?;
         std::fs::write(runtime_dir.join(library_name), &[] as &[u8])?;
+        std::fs::write(
+            runtime_dir.join(trapo_ocr_ffi_library(platform)),
+            &[] as &[u8],
+        )?;
     }
     Ok(())
 }

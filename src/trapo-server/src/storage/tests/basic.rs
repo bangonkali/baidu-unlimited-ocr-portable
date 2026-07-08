@@ -46,6 +46,7 @@ mod tests {
                 width_percent: 30.0,
                 height_percent: 40.0,
                 hidden: false,
+                geometry: Some(OcrGeometry::axis_aligned(10.0, 20.0, 30.0, 40.0)),
             }],
             spans: vec![TextRegionSpan {
                 annotation_id: annotation_id.clone(),
@@ -72,6 +73,64 @@ mod tests {
         assert_eq!(loaded.boxes[0].category, "text");
         assert_eq!(loaded.spans[0].annotation_id, annotation_id);
         assert_eq!(loaded.spans[0].region_id, region_id);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn persists_rotated_region_geometry() -> Result<()> {
+        let temp = tempfile::tempdir()?;
+        let repo = Repository::open(temp.path().join("trapo.duckdb")).await?;
+        let mut page = stored_test_page("rotated total", "rotated-total", 0, 13);
+        let annotation_id = page.boxes[0].annotation_id.clone();
+        let mut geometry = OcrGeometry::axis_aligned(10.0, 20.0, 30.0, 12.0);
+        geometry.kind = "rotated_quad".to_string();
+        geometry.rotation_degrees = Some(8.5);
+        geometry.points[0].x = 11.0;
+        geometry.points[0].y = 20.0;
+        geometry.points[1].x = 41.0;
+        geometry.points[1].y = 24.0;
+        geometry.points[2].x = 39.0;
+        geometry.points[2].y = 34.0;
+        geometry.points[3].x = 9.0;
+        geometry.points[3].y = 30.0;
+        page.boxes[0].geometry = Some(geometry);
+
+        repo.upsert_page(&page).await?;
+        repo.replace_page_ocr("run-rotated", &page, "engine", "profile", 10)
+            .await?;
+
+        let snapshot = repo.load_snapshot().await?;
+        let Some(loaded_geometry) = snapshot.pages[0].boxes[0].geometry.as_ref() else {
+            return Err(AppError::Internal("geometry should round trip".to_string()));
+        };
+        assert_eq!(loaded_geometry.kind, "rotated_quad");
+        assert_eq!(loaded_geometry.points.len(), 4);
+        assert_eq!(loaded_geometry.rotation_degrees, Some(8.5));
+
+        let stored_annotation_id = annotation_id.clone();
+        let (bbox_kind, geometry_json, rotation_degrees) = repo
+            .with_read(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT bbox_kind, geometry_json, rotation_degrees
+                     FROM document_regions
+                     WHERE annotation_id = ?",
+                    params![stored_annotation_id.as_str()],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)?,
+                            row.get::<_, Option<f64>>(2)?,
+                        ))
+                    },
+                )?)
+            })
+            .await?;
+        assert_eq!(bbox_kind, "rotated_quad");
+        assert_eq!(rotation_degrees, Some(8.5));
+        let geometry_value = serde_json::from_str::<Value>(&geometry_json).map_err(|error| {
+            AppError::Internal(format!("stored geometry json is invalid: {error}"))
+        })?;
+        assert_eq!(geometry_value["kind"], "rotated_quad");
         Ok(())
     }
 
@@ -446,6 +505,7 @@ mod tests {
             y1: 20.0,
             x2: 50.0,
             y2: 30.0,
+            geometry: None,
             span_start: 15,
             span_end: 28,
             content_markdown: "Invoice total".to_string(),
@@ -481,6 +541,7 @@ mod tests {
                 width_percent: 30.0,
                 height_percent: 40.0,
                 hidden: false,
+                geometry: Some(OcrGeometry::axis_aligned(10.0, 20.0, 30.0, 40.0)),
             }],
             spans: vec![TextRegionSpan {
                 annotation_id: annotation_id.clone(),

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS persistence_id_migrations (
 CREATE TABLE IF NOT EXISTS document_annotation_identities (
   annotation_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
   engine_id TEXT NOT NULL, profile_id TEXT NOT NULL, source_region_key TEXT NOT NULL, discovery_index INTEGER NOT NULL,
-  label TEXT NOT NULL, bbox_kind TEXT NOT NULL DEFAULT 'TOPLEFT_NORMALIZED_0_999',
+  label TEXT NOT NULL, bbox_kind TEXT NOT NULL DEFAULT 'axis_aligned',
   x1 DOUBLE NOT NULL, y1 DOUBLE NOT NULL, x2 DOUBLE NOT NULL, y2 DOUBLE NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT current_timestamp, updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
@@ -286,4 +286,32 @@ CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_768_lookup ON rag_embedding
 CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_1024_lookup ON rag_embedding_vectors_1024(source_run_id, model_id, file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_2560_lookup ON rag_embedding_vectors_2560(source_run_id, model_id, file_hash, page_no);
 CREATE INDEX IF NOT EXISTS idx_rag_embedding_vectors_4096_lookup ON rag_embedding_vectors_4096(source_run_id, model_id, file_hash, page_no);
+";
+
+pub(super) const OCR_GEOMETRY_MODEL: &str = r"
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS geometry_json TEXT DEFAULT '{}';
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS coordinate_space TEXT DEFAULT 'page_percent';
+ALTER TABLE document_regions ADD COLUMN IF NOT EXISTS rotation_degrees DOUBLE;
+UPDATE document_regions
+SET bbox_kind = 'axis_aligned'
+WHERE bbox_kind IS NULL OR bbox_kind = '' OR bbox_kind = 'TOPLEFT_NORMALIZED_0_999';
+UPDATE document_regions
+SET coordinate_space = 'page_percent'
+WHERE coordinate_space IS NULL OR coordinate_space = '';
+UPDATE document_regions
+SET geometry_json = '{}'
+WHERE geometry_json IS NULL OR geometry_json = '';
+
+ALTER TABLE document_annotation_identities ADD COLUMN IF NOT EXISTS geometry_json TEXT DEFAULT '{}';
+ALTER TABLE document_annotation_identities ADD COLUMN IF NOT EXISTS coordinate_space TEXT DEFAULT 'page_percent';
+ALTER TABLE document_annotation_identities ADD COLUMN IF NOT EXISTS rotation_degrees DOUBLE;
+UPDATE document_annotation_identities
+SET bbox_kind = 'axis_aligned'
+WHERE bbox_kind IS NULL OR bbox_kind = '' OR bbox_kind = 'TOPLEFT_NORMALIZED_0_999';
+UPDATE document_annotation_identities
+SET coordinate_space = 'page_percent'
+WHERE coordinate_space IS NULL OR coordinate_space = '';
+UPDATE document_annotation_identities
+SET geometry_json = '{}'
+WHERE geometry_json IS NULL OR geometry_json = '';
 ";

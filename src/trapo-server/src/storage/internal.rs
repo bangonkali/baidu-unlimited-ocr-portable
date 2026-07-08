@@ -76,6 +76,19 @@ impl Repository {
         engine_id: &str,
         profile_id: &str,
     ) -> Result<()> {
+        Self::delete_page_regions(conn, run_id, page, engine_id, profile_id)?;
+        Self::insert_page_regions(conn, run_id, page, engine_id, profile_id)?;
+        Self::insert_text_region_links(conn, run_id, page)?;
+        Ok(())
+    }
+
+    fn delete_page_regions(
+        conn: &Connection,
+        run_id: &str,
+        page: &StoredPage,
+        engine_id: &str,
+        profile_id: &str,
+    ) -> Result<()> {
         conn.execute(
             "DELETE FROM document_text_region_links WHERE run_id = ? AND file_hash = ? AND page_no = ?",
             params![run_id, page.file_hash, i64::from(page.page_no)],
@@ -91,16 +104,31 @@ impl Repository {
                 profile_id
             ],
         )?;
+        Ok(())
+    }
+
+    fn insert_page_regions(
+        conn: &Connection,
+        run_id: &str,
+        page: &StoredPage,
+        engine_id: &str,
+        profile_id: &str,
+    ) -> Result<()> {
         for box_record in &page.boxes {
             let source_span = page
                 .spans
                 .iter()
                 .find(|span| span.annotation_id == box_record.annotation_id);
+            let bbox_kind = box_record.storage_bbox_kind();
+            let geometry_json = box_record.storage_geometry_json();
+            let coordinate_space = box_record.storage_coordinate_space();
+            let rotation_degrees = box_record.storage_rotation_degrees();
             conn.execute(
                 "INSERT INTO document_regions(run_id, region_id, annotation_id, source_region_key,
                   file_hash, page_no, engine_id, profile_id, label, category,
-                  x1, y1, x2, y2, source_span_start, source_span_end, content_markdown, content_html)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                  bbox_kind, x1, y1, x2, y2, geometry_json, coordinate_space, rotation_degrees,
+                  source_span_start, source_span_end, content_markdown, content_html)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     run_id,
                     box_record.region_id,
@@ -112,10 +140,14 @@ impl Repository {
                     profile_id,
                     box_record.label,
                     box_record.category,
+                    bbox_kind,
                     box_record.left_percent / 100.0 * 999.0,
                     box_record.top_percent / 100.0 * 999.0,
                     (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
                     (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
+                    geometry_json,
+                    coordinate_space,
+                    rotation_degrees,
                     source_span.map(|span| u64_to_i64_saturating(span.start)),
                     source_span.map(|span| u64_to_i64_saturating(span.end)),
                     box_record.content_markdown,
@@ -136,6 +168,10 @@ impl Repository {
                 ],
             )?;
         }
+        Ok(())
+    }
+
+    fn insert_text_region_links(conn: &Connection, run_id: &str, page: &StoredPage) -> Result<()> {
         for span in &page.spans {
             conn.execute(
                 "INSERT INTO document_text_region_links(run_id, file_hash, page_no, region_id, annotation_id, text_start, text_end)

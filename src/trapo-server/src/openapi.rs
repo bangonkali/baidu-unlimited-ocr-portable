@@ -30,10 +30,11 @@ use crate::{
         HybridSearchResponse, IngestEngineConfigRecord, IngestEnginePresetRecord,
         IngestEngineSelection, IngestEnginesPayload, IngestPreviewResultRecord,
         IngestPreviewResultsPayload, IngestRunRecord, IngestRunsPayload, IngestStartRequest,
-        IngestStartResponse, LogRecord, LogsPayload, OcrMetricsTreeNode, OcrMetricsTreePayload,
-        OcrReplayPayload, OverlayBox, PageTextRecord, PipelineTaskRecord, PreviewImagesPayload,
-        RealtimeEventRecord, RunCompletionManifestRecord, TextIndexRequest, TextIndexResponse,
-        TextRegionSpan, UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
+        IngestStartResponse, LogRecord, LogsPayload, OcrGeometry, OcrGeometryBounds,
+        OcrGeometryPoint, OcrMetricsTreeNode, OcrMetricsTreePayload, OcrReplayPayload, OverlayBox,
+        PageTextRecord, PipelineTaskRecord, PreviewImagesPayload, RealtimeEventRecord,
+        RunCompletionManifestRecord, TextIndexRequest, TextIndexResponse, TextRegionSpan,
+        UsedEmbeddingModelRecord, UsedEmbeddingModelsPayload,
     },
 };
 
@@ -68,15 +69,16 @@ use crate::{
         UsedEmbeddingModelsPayload, UsedEmbeddingModelRecord, HybridSearchRequest,
         HybridSearchResponse, HybridSearchFileResult, HybridSearchHit, OcrMetricsTreeNode,
         OcrMetricsTreePayload, DocumentSummary, DocumentDetail, DocumentsPayload,
-        DocumentRegionsPayload, OverlayBox, TextRegionSpan, PageTextRecord, DocumentTextPayload,
-        FolderDialogResponse, PreviewImagesPayload, LogRecord, LogsPayload, RealtimeEventRecord,
-        OcrReplayPayload, DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSpanRecord,
-        DiagnosticEventRecord, DiagnosticTraceSummary, DiagnosticTracePayload,
-        DiagnosticWaterfallRowRecord, DiagnosticWaterfallSummary, DiagnosticWaterfallPayload,
-        DiagnosticWorkUnitRecord, DiagnosticModelLeaseRecord, DiagnosticPipelineTaskRecord,
-        DiagnosticProgressSummary, DiagnosticProgressPayload, DiagnosticWorkUnitDetailPayload,
-        DiagnosticBreakdownRecord, DiagnosticSlowSpanRecord, DiagnosticRecommendationRecord,
-        DiagnosticAnalyticsSummary, DiagnosticAnalyticsPayload, DiagnosticModelsPayload
+        DocumentRegionsPayload, OverlayBox, OcrGeometry, OcrGeometryPoint, OcrGeometryBounds,
+        TextRegionSpan, PageTextRecord, DocumentTextPayload, FolderDialogResponse,
+        PreviewImagesPayload, LogRecord, LogsPayload, RealtimeEventRecord, OcrReplayPayload,
+        DiagnosticRunRecord, DiagnosticRunsPayload, DiagnosticSpanRecord, DiagnosticEventRecord,
+        DiagnosticTraceSummary, DiagnosticTracePayload, DiagnosticWaterfallRowRecord,
+        DiagnosticWaterfallSummary, DiagnosticWaterfallPayload, DiagnosticWorkUnitRecord,
+        DiagnosticModelLeaseRecord, DiagnosticPipelineTaskRecord, DiagnosticProgressSummary,
+        DiagnosticProgressPayload, DiagnosticWorkUnitDetailPayload, DiagnosticBreakdownRecord,
+        DiagnosticSlowSpanRecord, DiagnosticRecommendationRecord, DiagnosticAnalyticsSummary,
+        DiagnosticAnalyticsPayload, DiagnosticModelsPayload
     )),
     tags(
         (name = "system"),
@@ -92,6 +94,14 @@ use crate::{
 )]
 /// `OpenAPI` document generator for the Trapo server API.
 pub struct ApiDoc;
+
+/// Builds the `OpenAPI` document with Trapo's post-generation schema fixes applied.
+#[must_use]
+pub fn openapi_document() -> utoipa::openapi::OpenApi {
+    let mut document = ApiDoc::openapi();
+    openapi_modifiers::apply_openapi_modifiers(&mut document);
+    document
+}
 
 #[utoipa::path(get, path = "/api/health", tag = "system", responses((status = 200, body = HealthPayload)))]
 const fn health_doc() {}

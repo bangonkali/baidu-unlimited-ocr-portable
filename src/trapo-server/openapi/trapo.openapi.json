@@ -4412,6 +4412,77 @@
           }
         }
       },
+      "OcrGeometry": {
+        "type": "object",
+        "required": [
+          "kind",
+          "points",
+          "layer_id",
+          "coordinate_space",
+          "bounds"
+        ],
+        "properties": {
+          "bounds": {
+            "$ref": "#/components/schemas/OcrGeometryBounds"
+          },
+          "coordinate_space": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "layer_id": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcrGeometryPoint"
+            }
+          },
+          "rotation_degrees": {
+            "type": "number"
+          }
+        }
+      },
+      "OcrGeometryBounds": {
+        "type": "object",
+        "required": [
+          "left",
+          "top",
+          "width",
+          "height"
+        ],
+        "properties": {
+          "height": {
+            "type": "number"
+          },
+          "left": {
+            "type": "number"
+          },
+          "top": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          }
+        }
+      },
+      "OcrGeometryPoint": {
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        }
+      },
       "OcrMetricsTreeNode": {
         "type": "object",
         "required": [
@@ -4580,6 +4651,9 @@
           },
           "content_markdown": {
             "type": "string"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/OcrGeometry"
           },
           "height_percent": {
             "type": "number",

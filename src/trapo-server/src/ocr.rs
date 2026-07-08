@@ -8,7 +8,7 @@ use regex::Regex;
 use crate::{
     error::Result,
     scanner::region_hash_key,
-    workbench_types::{OverlayBox, TextRegionSpan},
+    workbench_types::{OcrGeometry, OverlayBox, TextRegionSpan},
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,10 @@ pub(crate) struct ParsedOcrPage {
     pub(crate) boxes: Vec<OverlayBox>,
     pub(crate) spans: Vec<TextRegionSpan>,
 }
+
+mod output;
+#[cfg(test)]
+pub(crate) use output::{OcrDocumentOutput, OcrEngineProvenance};
 
 #[derive(Debug, Clone)]
 pub(crate) struct OcrRuntimePaths {
@@ -55,6 +59,7 @@ struct MarkerSegment {
     end: usize,
     label: String,
     boxes: Vec<BoxPoints>,
+    geometry: Option<OcrGeometry>,
 }
 
 #[derive(Debug, Clone, Copy)]

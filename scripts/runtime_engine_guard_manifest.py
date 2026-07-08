@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -11,11 +12,16 @@ ENGINE_EXECUTABLE_BASES = (
     "trapo-tesseract-rs-runner",
     "trapo-pp-ocrv6-runner",
 )
-REQUIRED_ENGINE_ASSET_DIRS = ("ppocrv6", "tesseract")
+REQUIRED_ENGINE_ASSET_DIRS = ("ppocrv6", "paddleocr_vl_1_6", "tesseract")
 
 
 def load_platforms(repo_root: Path) -> dict[str, Any]:
     path = repo_root / "runtime" / "platforms.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_native_deps(repo_root: Path) -> dict[str, Any]:
+    path = repo_root / "runtime" / "native-deps.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -80,6 +86,7 @@ def planned_targets(platforms: dict[str, Any]) -> set[str]:
 
 def manifest_errors(repo_root: Path) -> list[str]:
     platforms = load_platforms(repo_root)
+    native_deps = load_native_deps(repo_root)
     targets = platforms["targets"]
     supported = supported_targets(platforms)
     planned = planned_targets(platforms)
@@ -107,6 +114,7 @@ def manifest_errors(repo_root: Path) -> list[str]:
             f"missing={sorted(supported - release_coverage)} "
             f"extra={sorted(release_coverage - supported)}"
         )
+    errors.extend(native_deps_errors(repo_root, native_deps, supported))
     for platform_id in sorted(supported):
         target = targets[platform_id]
         matrix = build_entries.get(platform_id, {})
@@ -117,6 +125,50 @@ def manifest_errors(repo_root: Path) -> list[str]:
             )
         errors.extend(target_metadata_errors(platform_id, target))
     return errors
+
+
+def native_deps_errors(
+    repo_root: Path, native_deps: dict[str, Any], supported: set[str]
+) -> list[str]:
+    errors: list[str] = []
+    onnx = native_deps.get("onnx", {})
+    onnxruntime = native_deps.get("onnxruntime", {})
+    if onnx.get("required_tag") != onnxruntime.get("compatible_onnx_tag"):
+        errors.append(
+            "native-deps ONNX tag mismatch: "
+            f"onnx.required_tag={onnx.get('required_tag')} "
+            f"onnxruntime.compatible_onnx_tag={onnxruntime.get('compatible_onnx_tag')}"
+        )
+    native_targets = set(onnxruntime.get("targets", {}))
+    missing = supported - native_targets
+    if missing:
+        errors.append(f"native-deps is missing supported targets: {sorted(missing)}")
+    errors.extend(onnx_submodule_errors(repo_root, onnx, onnxruntime))
+    return errors
+
+
+def onnx_submodule_errors(
+    repo_root: Path, onnx: dict[str, Any], onnxruntime: dict[str, Any]
+) -> list[str]:
+    expected_commit = str(onnx.get("required_commit", "")).strip()
+    if not expected_commit:
+        return ["native-deps onnx.required_commit is missing"]
+    onnx_root = repo_root / "thirdparty" / "onnx"
+    try:
+        actual_commit = subprocess.check_output(
+            ["git", "-C", str(onnx_root), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError as error:
+        return ["failed to inspect thirdparty/onnx for ORT compatibility: " + error.output.strip()]
+    if actual_commit != expected_commit:
+        return [
+            "thirdparty/onnx must be "
+            f"{onnx.get('required_tag')} ({expected_commit}) for ORT "
+            f"{onnxruntime.get('version')}; found {actual_commit}"
+        ]
+    return []
 
 
 def target_metadata_errors(platform_id: str, target: dict[str, Any]) -> list[str]:

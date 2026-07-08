@@ -182,7 +182,8 @@ impl Repository {
             let mut statement = conn.prepare(
                 "SELECT coalesce(annotation_id, element_id), coalesce(annotation_id, element_id),
                   coalesce(source_region_key, ''), element_kind, category, markdown, page_no,
-                  coalesce(x1, 0), coalesce(y1, 0), coalesce(x2, 0), coalesce(y2, 0)
+                  coalesce(x1, 0), coalesce(y1, 0), coalesce(x2, 0), coalesce(y2, 0),
+                  coalesce(bbox_kind, 'axis_aligned'), coalesce(metadata_json, '{}')
                  FROM document_output_elements
                  WHERE run_engine_id = ? AND file_hash = ? AND x1 IS NOT NULL
                  ORDER BY page_no, ordinal",
@@ -194,6 +195,12 @@ impl Repository {
                     let y1 = row.get::<_, f64>(8)?;
                     let x2 = row.get::<_, f64>(9)?;
                     let y2 = row.get::<_, f64>(10)?;
+                    let left_percent = normalized_to_percent(x1);
+                    let top_percent = normalized_to_percent(y1);
+                    let width_percent = normalized_to_percent(x2 - x1);
+                    let height_percent = normalized_to_percent(y2 - y1);
+                    let bbox_kind = row.get::<_, String>(11)?;
+                    let metadata_json = row.get::<_, String>(12)?;
                     Ok(OverlayBox {
                         annotation_id: row.get(0)?,
                         region_id: row.get(1)?,
@@ -203,11 +210,19 @@ impl Repository {
                         content_markdown: row.get(5)?,
                         content_html: None,
                         page_no: i64_to_u32(row.get::<_, i64>(6)?),
-                        left_percent: normalized_to_percent(x1),
-                        top_percent: normalized_to_percent(y1),
-                        width_percent: normalized_to_percent(x2 - x1),
-                        height_percent: normalized_to_percent(y2 - y1),
+                        left_percent,
+                        top_percent,
+                        width_percent,
+                        height_percent,
                         hidden: false,
+                        geometry: Some(output_element_geometry(
+                            &metadata_json,
+                            &bbox_kind,
+                            left_percent,
+                            top_percent,
+                            width_percent,
+                            height_percent,
+                        )),
                     })
                 },
             )?;
@@ -253,4 +268,28 @@ impl Repository {
         })
         .await
     }
+}
+
+fn output_element_geometry(
+    metadata_json: &str,
+    bbox_kind: &str,
+    left: f64,
+    top: f64,
+    width: f64,
+    height: f64,
+) -> OcrGeometry {
+    let geometry_json = json_value(metadata_json)
+        .get("geometry")
+        .map_or_else(|| "{}".to_string(), serde_json::Value::to_string);
+    OcrGeometry::from_storage_json(
+        &geometry_json,
+        bbox_kind,
+        crate::workbench_types::OcrGeometryBounds {
+            left,
+            top,
+            width,
+            height,
+        },
+        None,
+    )
 }

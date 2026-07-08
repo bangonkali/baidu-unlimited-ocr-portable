@@ -6,22 +6,14 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
-import sys
 import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-ENGINE_SCRIPT = REPO_ROOT / "scripts" / "ppocrv6_engine.py"
 EMBEDDED_OCR_MODEL_ROOT = (
     REPO_ROOT.parent.parent / "embedded-ocr" / "assets" / "models" / "ppocrv6_medium_full"
 )
-DEFAULT_PACKAGES = (
-    "paddleocr>=3.7,<4",
-    "onnxruntime>=1.23,<2",
-)
-PYINSTALLER_PACKAGE = "pyinstaller>=6,<7"
 HUGGINGFACE_HOSTS = {"huggingface.co"}
 USER_AGENT = "trapo-ppocrv6-runtime-installer"
 
@@ -88,67 +80,8 @@ PPOCRV6_BUNDLE = {
 }
 
 
-def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, env=env, check=True)
-
-
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
-
-
-def python_exe(venv: Path) -> Path:
-    if sys.platform == "win32":
-        return venv / "Scripts" / "python.exe"
-    return venv / "bin" / "python"
-
-
-def ensure_venv(output_dir: Path, packages: tuple[str, ...]) -> Path:
-    venv = output_dir / ".venv"
-    py = python_exe(venv)
-    if not py.is_file():
-        run([sys.executable, "-m", "venv", str(venv)])
-    run([str(py), "-m", "pip", "install", "--upgrade", "pip"])
-    run([str(py), "-m", "pip", "install", *packages])
-    return py
-
-
-def freeze_engine(output_dir: Path, py: Path) -> Path:
-    run([str(py), "-m", "pip", "install", "--only-binary=:all:", PYINSTALLER_PACKAGE])
-    dist_dir = output_dir / "bin"
-    build_dir = output_dir / "build"
-    run(
-        [
-            str(py),
-            "-m",
-            "PyInstaller",
-            "--clean",
-            "--noconfirm",
-            "--onefile",
-            "--name",
-            "trapo_ppocrv6_engine",
-            "--distpath",
-            str(dist_dir),
-            "--workpath",
-            str(build_dir),
-            "--specpath",
-            str(build_dir),
-            "--collect-all",
-            "paddleocr",
-            "--collect-all",
-            "paddlex",
-            "--copy-metadata",
-            "paddleocr",
-            "--copy-metadata",
-            "paddlex",
-            str(output_dir / "trapo_ppocrv6_engine.py"),
-        ]
-    )
-    name = "trapo_ppocrv6_engine.exe" if sys.platform == "win32" else "trapo_ppocrv6_engine"
-    binary = dist_dir / name
-    if not binary.is_file():
-        raise SystemExit(f"PyInstaller did not produce {binary}")
-    return binary
 
 
 def model_sources(args: argparse.Namespace) -> list[Path]:
@@ -240,46 +173,56 @@ def bundle_sha256(models_dir: Path) -> dict[str, str]:
     return hashes
 
 
-def self_check_env(output_dir: Path) -> dict[str, str]:
-    env = os.environ.copy()
-    env["TRAPO_PPOCRV6_HOME"] = str(output_dir)
-    env["HF_HOME"] = str(output_dir / "cache" / "huggingface")
-    env["PADDLE_HOME"] = str(output_dir / "cache" / "paddle")
-    env["PADDLEX_HOME"] = str(output_dir / ".paddlex")
-    return env
-
-
 def install(args: argparse.Namespace) -> None:
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ENGINE_SCRIPT, output_dir / "trapo_ppocrv6_engine.py")
+    remove_stale_python_assets(output_dir)
     if not args.no_models:
         install_models(output_dir, args)
-    packages = tuple(args.package or DEFAULT_PACKAGES)
-    py = ensure_venv(output_dir, packages)
-    frozen_binary = freeze_engine(output_dir, py) if args.frozen else None
     manifest = {
         "schema_version": 1,
         "engine": "pp-ocrv6",
-        "backend": "onnxruntime",
-        "python": str(py.relative_to(output_dir)),
-        "binary": str(frozen_binary.relative_to(output_dir)) if frozen_binary else "",
-        "script": "trapo_ppocrv6_engine.py",
-        "packages": list(packages),
+        "backend": "trapo-ocr-ffi",
+        "native_ffi": "bin/trapo-ocr-ffi",
+        "models": "models/manifest.json",
         "prefetched": bool(args.prefetch),
-        "frozen": bool(frozen_binary),
+        "frozen": False,
     }
-    if args.prefetch:
-        command = (
-            [str(frozen_binary)]
-            if frozen_binary
-            else [str(py), str(output_dir / "trapo_ppocrv6_engine.py")]
-        )
-        run([*command, "--self-check"], env=self_check_env(output_dir))
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print(output_dir)
+
+
+def remove_stale_python_assets(output_dir: Path) -> None:
+    candidates = [
+        *(path for path in output_dir.rglob("build") if path.is_dir()),
+        *(path for path in output_dir.rglob(".paddlex") if path.is_dir()),
+        *(path for path in output_dir.rglob("ppocrv6") if path.is_dir()),
+        *(path for path in output_dir.rglob("__pycache__") if path.is_dir()),
+        *(path for path in output_dir.rglob("trapo_ppocrv6_engine*")),
+        *output_dir.rglob("trapo_ppocrv6_engine.py"),
+        *output_dir.rglob(".venv"),
+        *output_dir.rglob("*.py"),
+        *output_dir.rglob("*.pyc"),
+        *output_dir.rglob("*.pyo"),
+        *output_dir.rglob("*.pyd"),
+        *output_dir.rglob("*.spec"),
+    ]
+    for path in sorted(set(candidates), key=lambda item: len(item.parts), reverse=True):
+        if not path.exists():
+            continue
+        resolved_root = output_dir.resolve()
+        resolved_path = path.resolve()
+        if resolved_root not in (resolved_path, *resolved_path.parents):
+            die(f"refusing to remove PP-OCRv6 asset outside runtime root: {path}")
+        if resolved_path.is_dir():
+            shutil.rmtree(
+                resolved_path
+            )  # skylos: ignore[SKY-D215] bounded stale generated runtime directory.
+        else:
+            resolved_path.unlink()
+        print(f"Removed stale PP-OCRv6 Python runtime asset: {resolved_path}", flush=True)
 
 
 def main() -> None:

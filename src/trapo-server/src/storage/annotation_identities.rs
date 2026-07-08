@@ -45,15 +45,22 @@ impl Repository {
         annotation_id: &str,
         draft: &AnnotationIdentityDraft,
     ) -> Result<()> {
+        let geometry = draft_geometry(draft);
+        let geometry_json = geometry_json(&geometry);
         conn.execute(
             "INSERT INTO document_annotation_identities(
                 annotation_id, run_id, file_hash, page_no, engine_id, profile_id,
-                source_region_key, discovery_index, label, category, x1, y1, x2, y2, created_at
+                source_region_key, discovery_index, label, category, bbox_kind, x1, y1, x2, y2,
+                geometry_json, coordinate_space, rotation_degrees, created_at
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
              ON CONFLICT(run_id, file_hash, page_no, source_region_key) DO UPDATE SET
-                label = excluded.label, category = excluded.category, x1 = excluded.x1, y1 = excluded.y1,
-                x2 = excluded.x2, y2 = excluded.y2, updated_at = now()",
+                label = excluded.label, category = excluded.category, bbox_kind = excluded.bbox_kind,
+                x1 = excluded.x1, y1 = excluded.y1, x2 = excluded.x2, y2 = excluded.y2,
+                geometry_json = excluded.geometry_json,
+                coordinate_space = excluded.coordinate_space,
+                rotation_degrees = excluded.rotation_degrees,
+                updated_at = now()",
             params![
                 annotation_id,
                 draft.run_id,
@@ -65,10 +72,14 @@ impl Repository {
                 i64::from(draft.discovery_index),
                 draft.label,
                 draft.category,
+                geometry.kind.as_str(),
                 draft.x1,
                 draft.y1,
                 draft.x2,
-                draft.y2
+                draft.y2,
+                geometry_json,
+                geometry.coordinate_space.as_str(),
+                geometry.rotation_degrees
             ],
         )?;
         Ok(())
@@ -79,16 +90,23 @@ impl Repository {
         annotation_id: &str,
         draft: &AnnotationIdentityDraft,
     ) -> Result<()> {
+        let geometry = draft_geometry(draft);
+        let geometry_json = geometry_json(&geometry);
         conn.execute(
             "INSERT INTO document_regions(
                 run_id, region_id, annotation_id, source_region_key, file_hash, page_no, engine_id,
-                profile_id, label, category, x1, y1, x2, y2, source_span_start, source_span_end,
+                profile_id, label, category, bbox_kind, x1, y1, x2, y2, geometry_json,
+                coordinate_space, rotation_degrees, source_span_start, source_span_end,
                 content_markdown, content_html
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(region_id) DO UPDATE SET
-                label = excluded.label, category = excluded.category, x1 = excluded.x1, y1 = excluded.y1,
+                label = excluded.label, category = excluded.category, bbox_kind = excluded.bbox_kind,
+                x1 = excluded.x1, y1 = excluded.y1,
                 x2 = excluded.x2, y2 = excluded.y2,
+                geometry_json = excluded.geometry_json,
+                coordinate_space = excluded.coordinate_space,
+                rotation_degrees = excluded.rotation_degrees,
                 run_id = excluded.run_id,
                 source_span_start = excluded.source_span_start,
                 source_span_end = excluded.source_span_end,
@@ -105,10 +123,14 @@ impl Repository {
                 draft.profile_id,
                 draft.label,
                 draft.category,
+                geometry.kind.as_str(),
                 draft.x1,
                 draft.y1,
                 draft.x2,
                 draft.y2,
+                geometry_json,
+                geometry.coordinate_space.as_str(),
+                geometry.rotation_degrees,
                 u64_to_i64_saturating(draft.span_start),
                 u64_to_i64_saturating(draft.span_end),
                 draft.content_markdown,
@@ -135,4 +157,19 @@ impl Repository {
         )?;
         Ok(())
     }
+}
+
+fn draft_geometry(draft: &AnnotationIdentityDraft) -> OcrGeometry {
+    draft.geometry.clone().unwrap_or_else(|| {
+        OcrGeometry::axis_aligned(
+            normalized_to_percent(draft.x1),
+            normalized_to_percent(draft.y1),
+            normalized_to_percent(draft.x2 - draft.x1),
+            normalized_to_percent(draft.y2 - draft.y1),
+        )
+    })
+}
+
+fn geometry_json(geometry: &OcrGeometry) -> String {
+    serde_json::to_string(geometry).unwrap_or_else(|_| "{}".to_string())
 }

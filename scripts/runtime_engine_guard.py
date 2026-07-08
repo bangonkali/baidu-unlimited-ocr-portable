@@ -7,18 +7,26 @@ from pathlib import Path
 from runtime_engine_guard_manifest import (
     REPO_ROOT,
     executable_name,
+    load_native_deps,
     load_platforms,
     manifest_errors,
     supported_targets,
     workflow_matrix_entries,
 )
-from runtime_engine_guard_runtime import local_smoke, packaged_runtime, smoke_runners
+from runtime_engine_guard_package import packaged_runtime
+from runtime_engine_guard_runtime import (
+    is_forbidden_asset_path,
+    local_smoke,
+    smoke_runners,
+)
 
 __all__ = [
     "REPO_ROOT",
     "executable_name",
     "load_platforms",
+    "load_native_deps",
     "manifest_errors",
+    "is_forbidden_asset_path",
     "supported_targets",
     "workflow_matrix_entries",
 ]

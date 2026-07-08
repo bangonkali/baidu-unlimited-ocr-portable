@@ -1,6 +1,8 @@
 fn collect_segments(raw: &str) -> Vec<MarkerSegment> {
     static REF_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-        compiled_regex(r"(?s)<\|ref\|>(.*?)<\|/ref\|>\s*<\|det\|>\s*(.*?)\s*<\|/det\|>")
+        compiled_regex(
+            r"(?s)<\|ref\|>(.*?)<\|/ref\|>\s*<\|det\|>\s*(.*?)\s*<\|/det\|>(?:\s*<\|geom\|>\s*(.*?)\s*<\|/geom\|>)?",
+        )
     });
     static DET_PATTERN: LazyLock<Regex> =
         LazyLock::new(|| compiled_regex(r"(?s)<\|det\|>\s*(.*?)\s*<\|/det\|>"));
@@ -18,6 +20,9 @@ fn collect_segments(raw: &str) -> Vec<MarkerSegment> {
             end: matched.end(),
             label: trim(capture.get(1).map(|item| item.as_str()).unwrap_or_default()),
             boxes,
+            geometry: capture
+                .get(3)
+                .and_then(|item| parse_geometry(item.as_str())),
         });
     }
     for capture in DET_PATTERN.captures_iter(raw) {
@@ -45,10 +50,16 @@ fn collect_segments(raw: &str) -> Vec<MarkerSegment> {
                 label
             },
             boxes,
+            geometry: None,
         });
     }
     segments.sort_by_key(|segment| segment.start);
     segments
+}
+
+fn parse_geometry(raw: &str) -> Option<OcrGeometry> {
+    let parsed = serde_json::from_str::<OcrGeometry>(raw).ok()?;
+    (!parsed.points.is_empty()).then_some(parsed)
 }
 
 fn parse_box_points(raw: &str) -> Vec<BoxPoints> {
@@ -112,10 +123,13 @@ fn span_is_inside(start: usize, end: usize, segments: &[MarkerSegment]) -> bool 
 fn remove_marker_tokens(value: &str) -> String {
     static REF_BLOCK_PATTERN: LazyLock<Regex> =
         LazyLock::new(|| compiled_regex(r"(?s)<\|ref\|>.*?<\|/ref\|>"));
+    static GEOM_BLOCK_PATTERN: LazyLock<Regex> =
+        LazyLock::new(|| compiled_regex(r"(?s)<\|geom\|>.*?<\|/geom\|>"));
     static MARKER_PATTERN: LazyLock<Regex> =
-        LazyLock::new(|| compiled_regex(r"<\|/?(?:ref|det)\|>"));
+        LazyLock::new(|| compiled_regex(r"<\|/?(?:ref|det|geom)\|>"));
     let without_ref_labels = REF_BLOCK_PATTERN.replace_all(value, "");
-    MARKER_PATTERN.replace_all(&without_ref_labels, "").into_owned()
+    let without_geometry = GEOM_BLOCK_PATTERN.replace_all(&without_ref_labels, "");
+    MARKER_PATTERN.replace_all(&without_geometry, "").into_owned()
 }
 
 fn trim(value: &str) -> String {

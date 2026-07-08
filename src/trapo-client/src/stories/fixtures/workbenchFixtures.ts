@@ -49,8 +49,22 @@ export const fixtureBoxes: OverlayBox[] = [
     left_percent: 18,
     page_no: 1,
     region_id: 'reg-total',
+    annotation_id: 'reg-total',
     top_percent: 34,
     width_percent: 26,
+    geometry: {
+      bounds: { height: 9, left: 17, top: 33, width: 28 },
+      coordinate_space: 'page_percent',
+      kind: 'rotated_quad',
+      layer_id: 'source',
+      points: [
+        { x: 18, y: 34 },
+        { x: 44, y: 36 },
+        { x: 42, y: 42 },
+        { x: 17, y: 40 },
+      ],
+      rotation_degrees: 5,
+    },
   },
   {
     height_percent: 7,
@@ -59,6 +73,7 @@ export const fixtureBoxes: OverlayBox[] = [
     left_percent: 16,
     page_no: 1,
     region_id: 'reg-supplier',
+    annotation_id: 'reg-supplier',
     top_percent: 18,
     width_percent: 30,
   },
@@ -68,8 +83,8 @@ export const fixturePages: PageTextRecord[] = [
   {
     page_no: 1,
     spans: [
-      { end: 8, page_no: 1, region_id: 'reg-supplier', start: 0 },
-      { end: 31, page_no: 1, region_id: 'reg-total', start: 17 },
+      { annotation_id: 'reg-supplier', end: 8, page_no: 1, region_id: 'reg-supplier', start: 0 },
+      { annotation_id: 'reg-total', end: 31, page_no: 1, region_id: 'reg-total', start: 17 },
     ],
     text: 'Supplier\n\nInvoice total: 1,240.00',
   },

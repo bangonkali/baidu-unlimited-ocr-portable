@@ -1,5 +1,10 @@
 [workspace]
-members = ["crates/trapo-downloader", "crates/trapo-native-runners", "src/trapo-server"]
+members = [
+    "crates/trapo-downloader",
+    "crates/trapo-native-runners",
+    "crates/trapo-xtask",
+    "src/trapo-server",
+]
 resolver = "2"
 
 [workspace.package]

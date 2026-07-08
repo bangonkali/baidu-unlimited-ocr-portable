@@ -12,17 +12,20 @@ from quality_core import Annotation, CommandSpec, GateResult, run_step, syntheti
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCC_PACKAGE = "github.com/boyter/scc/v3@v3.7.0"
 SCC_IGNORE_RE = re.compile(
-    r"(^|/)(\.logs|\.skylos|build|cache|data|models|target|thirdparty)(/|$)|"
-    r"node_modules|dist|generated|\.json$|\.md$|trapo/migrations|tests/|"
+    r"(^|/)(\.deps|\.logs|\.skylos|build|cache|data|models|target|thirdparty)(/|$)|"
+    r"node_modules|dist|generated|\.json$|\.md$|\.csv$|(^|/)LICENSE$|trapo/migrations|tests/|"
     r"scripts/(install_runtime\.py|package_runtime\.py|package_trapo_workbench\.py|"
     r"test_ctypes_runtime\.py|windows/setup-build\.ps1|mac/setup-build\.sh|linux/setup-build\.sh)"
 )
 SCC_LOW_COMPLEXITY_LIST_RE = re.compile(
     r"src/trapo-server/src/catalog/models\.rs|"
     r"src/trapo-server/src/storage/records\.rs|"
+    r"src/trapo-server/src/storage/migration_sql\.rs|"
+    r"src/trapo-server/src/storage/migrations\.rs|"
     r"src/trapo-server/src/routes\.rs|"
     r"src/trapo-server/src/workbench_types\.rs|"
-    r"src/trapo-client/src/api/types\.ts"
+    r"src/trapo-client/src/api/types\.ts|"
+    r"\.github/workflows/build-runtime\.yml"
 )
 
 

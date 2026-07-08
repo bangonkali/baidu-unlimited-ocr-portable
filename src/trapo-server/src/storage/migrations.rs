@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS document_page_ocr (
 CREATE TABLE IF NOT EXISTS document_regions (
   region_id TEXT PRIMARY KEY, file_hash TEXT NOT NULL, page_no INTEGER NOT NULL,
   engine_id TEXT NOT NULL, profile_id TEXT NOT NULL, label TEXT NOT NULL,
-  bbox_kind TEXT NOT NULL DEFAULT 'TOPLEFT_NORMALIZED_0_999',
+  bbox_kind TEXT NOT NULL DEFAULT 'axis_aligned',
   x1 DOUBLE NOT NULL, y1 DOUBLE NOT NULL, x2 DOUBLE NOT NULL, y2 DOUBLE NOT NULL,
   source_span_start UBIGINT, source_span_end UBIGINT
 );
@@ -296,5 +296,10 @@ CREATE INDEX IF NOT EXISTS idx_download_events_owner ON download_events(owner_ki
         id: 16,
         name: "multi_engine_ingest_outputs",
         sql: super::migration_sql_multi_engine::MULTI_ENGINE_INGEST,
+    },
+    Migration {
+        id: 17,
+        name: "ocr_geometry_model",
+        sql: migration_sql::OCR_GEOMETRY_MODEL,
     },
 ];

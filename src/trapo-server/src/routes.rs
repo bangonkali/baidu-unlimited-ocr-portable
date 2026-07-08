@@ -7,13 +7,12 @@ use axum::{
 };
 use serde::Deserialize;
 use tower_http::services::{ServeDir, ServeFile};
-use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
     app::AppState,
     error::{AppError, Result},
-    openapi::ApiDoc,
+    openapi::openapi_document,
     realtime,
     types::SettingsUpdateRequest,
     workbench_types::{
@@ -121,7 +120,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/api/logs/recent", get(logs))
         .route("/api/logs/export", get(export_logs))
         .route("/api/events", get(websocket))
-        .merge(Scalar::with_url("/scalar", ApiDoc::openapi()));
+        .merge(Scalar::with_url("/scalar", openapi_document()));
 
     Router::new()
         .merge(api)
@@ -146,7 +145,7 @@ async fn status(State(state): State<AppState>) -> Json<crate::types::StatusPaylo
 }
 
 async fn openapi_json() -> Json<utoipa::openapi::OpenApi> {
-    Json(ApiDoc::openapi())
+    Json(openapi_document())
 }
 
 async fn folder_dialog(

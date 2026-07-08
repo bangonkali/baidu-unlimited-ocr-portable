@@ -10,6 +10,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+staging_spec = importlib.util.spec_from_file_location(
+    "onnxruntime_staging", SCRIPTS_DIR / "onnxruntime_staging.py"
+)
+assert staging_spec is not None
+onnxruntime_staging = importlib.util.module_from_spec(staging_spec)
+assert staging_spec.loader is not None
+sys.modules[staging_spec.name] = onnxruntime_staging
+staging_spec.loader.exec_module(onnxruntime_staging)
+
 spec = importlib.util.spec_from_file_location(
     "package_trapo_workbench", SCRIPTS_DIR / "package_trapo_workbench.py"
 )
@@ -76,6 +85,50 @@ class TrapoPackagerTests(unittest.TestCase):
                 "trapo-pp-ocrv6-runner",
             ],
         )
+
+    def test_cuda_runtime_uses_cpu_safe_ort_core_for_ocr_ffi(self) -> None:
+        self.assertEqual(
+            onnxruntime_staging.ocr_ffi_ort_platform("windows-x86_64-cuda13"),
+            "windows-x86_64-cpu",
+        )
+        self.assertEqual(
+            onnxruntime_staging.provider_ort_platforms("windows-x86_64-cuda13"),
+            ["windows-x86_64-cuda13"],
+        )
+        self.assertTrue(
+            onnxruntime_staging.is_provider_runtime_library(Path("onnxruntime_providers_cuda.dll"))
+        )
+        self.assertFalse(onnxruntime_staging.is_provider_runtime_library(Path("onnxruntime.dll")))
+
+    def test_paddleocr_vl_engine_is_accepted_when_layout_bundle_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime_dir = Path(tmp)
+            engine_dir = runtime_dir / "paddleocr_vl_1_6"
+            (engine_dir / "layout_detection").mkdir(parents=True)
+            (engine_dir / "manifest.json").write_text("{}", encoding="utf-8")
+            (engine_dir / "layout_detection" / "inference.onnx").write_bytes(b"onnx")
+            (engine_dir / "layout_detection" / "inference.yml").write_text(
+                "model: layout", encoding="utf-8"
+            )
+
+            package_trapo_workbench.ensure_paddleocr_vl_engine(runtime_dir)
+
+    def test_paddleocr_vl_engine_installer_runs_when_layout_bundle_is_missing(self) -> None:
+        calls: list[list[str]] = []
+        original_run = package_trapo_workbench.run
+
+        def capture_run(command: list[str]) -> None:
+            calls.append(command)
+
+        try:
+            package_trapo_workbench.run = capture_run
+            with tempfile.TemporaryDirectory() as tmp:
+                package_trapo_workbench.ensure_paddleocr_vl_engine(Path(tmp))
+        finally:
+            package_trapo_workbench.run = original_run
+
+        self.assertEqual(len(calls), 1)
+        self.assertIn("install_paddleocr_vl_runtime.py", calls[0][1])
 
 
 if __name__ == "__main__":

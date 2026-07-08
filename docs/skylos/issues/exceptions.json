@@ -210,6 +210,13 @@
       "reason": "PP-OCRv6 staging paths are derived from the installer output root and fixed model module/file names before copy or download."
     },
     {
+      "id": "paddleocr-vl-installer-bounded-model-assets",
+      "rule_id": "*",
+      "category": "danger",
+      "path_glob": "scripts/install_paddleocr_vl_runtime.py",
+      "reason": "PaddleOCR-VL layout staging uses the fixed embedded-ocr manifest, HTTPS Hugging Face host allowlisting, file size and SHA-256 verification, and writes only under the operator-selected output directory."
+    },
+    {
       "id": "tesseract-installer-bounded-paths",
       "rule_id": "SKY-D215",
       "category": "danger",
@@ -243,6 +250,13 @@
       "category": "danger",
       "path_glob": "scripts/runtime_engine_guard*.py",
       "reason": "The runtime engine guard reads fixed repo manifests, workflow YAML, runtime sidecars, and release archives produced by CI or local quality gates."
+    },
+    {
+      "id": "native-ocr-ffi-builder-bounded-deps",
+      "rule_id": "*",
+      "category": "danger",
+      "path_glob": "scripts/build_trapo_ocr_ffi.py",
+      "reason": "Native OCR dependency downloads are HTTPS host-allowlisted, SHA256-pinned, traversal-checked before extraction, and staged only into operator-selected build/output directories."
     },
     {
       "id": "native-runner-staging-paths",
@@ -460,6 +474,13 @@
       "category": "danger",
       "path_glob": "src/trapo-server/src/ocr/ffi_*.rs",
       "reason": "FFI paths are selected from local runtime/model configuration before the unsafe loader boundary."
+    },
+    {
+      "id": "server-native-ocr-ffi-image-read",
+      "rule_id": "SKY-D215",
+      "category": "danger",
+      "path_glob": "src/trapo-server/src/app/ocr_engines/common/native_ocr_ffi.rs",
+      "reason": "Native OCR image reads use page render paths produced by the trusted ingest/render pipeline before passing bytes into the selected in-process OCR library."
     },
     {
       "id": "server-embedding-worker-ipc-files",

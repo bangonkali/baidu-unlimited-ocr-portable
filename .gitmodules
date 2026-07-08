@@ -38,3 +38,9 @@
 [submodule "thirdparty/protobuff"]
 	path = thirdparty/protobuff
 	url = git@github.com:protocolbuffers/protobuf.git
+[submodule "thirdparty/pdf_oxide"]
+	path = thirdparty/pdf_oxide
+	url = git@github.com:yfedoseev/pdf_oxide.git
+[submodule "thirdparty/onnx"]
+	path = thirdparty/onnx
+	url = git@github.com:onnx/onnx.git

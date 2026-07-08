@@ -16,7 +16,8 @@ import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from package_runtime import REPO_ROOT, sha256_file, load_platforms
+from onnxruntime_staging import stage_onnxruntime_files
+from package_runtime import REPO_ROOT, load_platforms, sha256_file
 
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
@@ -66,6 +67,7 @@ PLATFORMS = {
         pdfium_dir=("thirdparty", "pdfium", "lib"),
     ),
 }
+ONNXRUNTIME_RECEIPTS: dict[str, dict[str, object]] = {}
 
 RUNTIME_PLATFORM_ALIASES = {
     "linux-x64": "linux-x86_64-cuda13",
@@ -96,6 +98,33 @@ def validate_pdfium_url(url: str) -> str:
 def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(command), flush=True)
     subprocess.run(command, cwd=cwd, env=env, check=True)
+
+
+def prepare_onnxruntime_deps(platform_id: str) -> dict[str, object]:
+    if platform_id in ONNXRUNTIME_RECEIPTS:
+        return ONNXRUNTIME_RECEIPTS[platform_id]
+    command = [
+        "cargo",
+        "run",
+        "--quiet",
+        "-p",
+        "trapo-xtask",
+        "--",
+        "native-deps",
+        "prepare",
+        "--platform",
+        platform_id,
+        "--repo-root",
+        str(REPO_ROOT),
+    ]
+    print("+ " + " ".join(command), flush=True)
+    output = subprocess.check_output(command, cwd=REPO_ROOT, text=True)
+    lines = [line for line in output.splitlines() if line.strip()]
+    if not lines:
+        die("native dependency helper did not return an ONNX Runtime receipt")
+    receipt = json.loads(lines[-1])
+    ONNXRUNTIME_RECEIPTS[platform_id] = receipt
+    return receipt
 
 
 def git_output(args: list[str]) -> str:
@@ -291,26 +320,117 @@ def stage_native_runners(runtime_dir: Path, platform_id: str, *, required: bool)
             )
 
 
+def ensure_trapo_ocr_ffi(runtime_dir: Path, platform_id: str, *, required: bool) -> None:
+    shared_bin = runtime_dir / "bin"
+    if required:
+        run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "build_trapo_ocr_ffi.py"),
+                "--platform",
+                platform_id,
+                "--build-dir",
+                str(REPO_ROOT / "target" / "trapo-ocr-ffi" / platform_id),
+                "--output-dir",
+                str(shared_bin),
+                "--required",
+            ]
+        )
+        return
+    if any((shared_bin / name).is_file() for name in ppocrv6_ffi_names(platform_id)):
+        return
+    die(f"PP-OCRv6 native FFI is missing and --no-build prevents staging it: {shared_bin}")
+
+
+def ensure_onnxruntime_files(runtime_dir: Path, platform_id: str) -> None:
+    shared_bin = runtime_dir / "bin"
+    shared_bin.mkdir(parents=True, exist_ok=True)
+    stage_onnxruntime_files(shared_bin, platform_id, prepare_onnxruntime_deps)
+
+
 def ensure_ppocrv6_engine(runtime_dir: Path, platform_id: str) -> None:
     engine_dir = runtime_dir / "ppocrv6"
-    binary = (
-        "trapo_ppocrv6_engine.exe" if platform_id.startswith("windows-") else "trapo_ppocrv6_engine"
-    )
-    if (
-        (engine_dir / "trapo_ppocrv6_engine.py").is_file()
-        and (engine_dir / "models" / "manifest.json").is_file()
-        and (engine_dir / "bin" / binary).is_file()
+    remove_stale_ppocrv6_python_assets(engine_dir)
+    if not (engine_dir / "models" / "manifest.json").is_file():
+        run(
+            [
+                sys.executable,
+                str(REPO_ROOT / "scripts" / "install_ppocrv6_runtime.py"),
+                "--output-dir",
+                str(engine_dir),
+            ]
+        )
+    shared_bin = runtime_dir / "bin"
+    if not any(
+        (shared_bin / name).is_file() or (engine_dir / "bin" / name).is_file()
+        for name in ppocrv6_ffi_names(platform_id)
     ):
+        expected = ", ".join(ppocrv6_ffi_names(platform_id))
+        raise SystemExit(f"PP-OCRv6 native FFI is missing under {shared_bin}: {expected}")
+
+
+def ensure_paddleocr_vl_engine(runtime_dir: Path) -> None:
+    engine_dir = runtime_dir / "paddleocr_vl_1_6"
+    required = [
+        engine_dir / "manifest.json",
+        engine_dir / "layout_detection" / "inference.onnx",
+        engine_dir / "layout_detection" / "inference.yml",
+    ]
+    if all(path.is_file() for path in required):
         return
     run(
         [
             sys.executable,
-            str(REPO_ROOT / "scripts" / "install_ppocrv6_runtime.py"),
+            str(REPO_ROOT / "scripts" / "install_paddleocr_vl_runtime.py"),
             "--output-dir",
             str(engine_dir),
-            "--frozen",
         ]
     )
+
+
+def ppocrv6_ffi_names(platform_id: str) -> list[str]:
+    if platform_id.startswith("windows-"):
+        return ["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+    if platform_id.startswith("macos-"):
+        return ["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
+    return ["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+
+
+def remove_stale_ppocrv6_python_assets(engine_dir: Path) -> None:
+    if not engine_dir.exists():
+        return
+    candidates = [
+        *(path for path in engine_dir.rglob("build") if path.is_dir()),
+        *(path for path in engine_dir.rglob(".paddlex") if path.is_dir()),
+        *(path for path in engine_dir.rglob("ppocrv6") if path.is_dir()),
+        *(path for path in engine_dir.rglob("__pycache__") if path.is_dir()),
+        *(path for path in engine_dir.rglob("trapo_ppocrv6_engine*")),
+        *engine_dir.rglob("trapo_ppocrv6_engine.py"),
+        *engine_dir.rglob(".venv"),
+        *engine_dir.rglob("*.py"),
+        *engine_dir.rglob("*.pyc"),
+        *engine_dir.rglob("*.pyo"),
+        *engine_dir.rglob("*.pyd"),
+        *engine_dir.rglob("*.spec"),
+    ]
+    for path in sorted(set(candidates), key=lambda item: len(item.parts), reverse=True):
+        remove_generated_runtime_path(path, engine_dir)
+
+
+def remove_generated_runtime_path(path: Path, root: Path) -> None:
+    if not path.exists():
+        return
+    resolved_root = root.resolve()
+    resolved_path = path.resolve()
+    if resolved_root not in (resolved_path, *resolved_path.parents):
+        die(f"refusing to remove PP-OCRv6 asset outside runtime root: {path}")
+    if resolved_path.is_dir():
+        shutil.rmtree(
+            resolved_path
+        )  # skylos: ignore[SKY-D215] bounded stale generated runtime directory.
+    else:
+        resolved_path.unlink()
+    print(f"Removed stale PP-OCRv6 Python runtime asset: {resolved_path}", flush=True)
 
 
 def ensure_tesseract_engine(runtime_dir: Path, platform_id: str) -> None:
@@ -464,7 +584,10 @@ def package(args: argparse.Namespace) -> None:
         if runtime_dir is None:
             continue
         stage_native_runners(runtime_dir, platform_id, required=not args.no_build)
+        ensure_trapo_ocr_ffi(runtime_dir, platform_id, required=not args.no_build)
+        ensure_onnxruntime_files(runtime_dir, platform_id)
         ensure_ppocrv6_engine(runtime_dir, platform_id)
+        ensure_paddleocr_vl_engine(runtime_dir)
         ensure_tesseract_engine(runtime_dir, platform_id)
         copy_tree(runtime_dir, runtime_stage / platform_id)
         copied_runtimes.append(platform_id)

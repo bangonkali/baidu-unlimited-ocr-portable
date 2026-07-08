@@ -47,7 +47,70 @@ class RuntimeEngineGuardTests(unittest.TestCase):
             with self.subTest(platform_id=platform_id):
                 asset_dirs = set(platforms["targets"][platform_id]["engine_asset_dirs"])
                 self.assertIn("ppocrv6", asset_dirs)
+                self.assertIn("paddleocr_vl_1_6", asset_dirs)
                 self.assertIn("tesseract", asset_dirs)
+
+    def test_native_deps_cover_supported_targets_and_onnx_pin(self) -> None:
+        platforms = runtime_engine_guard.load_platforms(REPO_ROOT)
+        native_deps = runtime_engine_guard.load_native_deps(REPO_ROOT)
+        supported = runtime_engine_guard.supported_targets(platforms)
+
+        self.assertLessEqual(supported, set(native_deps["onnxruntime"]["targets"]))
+        self.assertEqual(native_deps["onnx"]["required_tag"], "v1.21.0")
+        self.assertEqual(
+            native_deps["onnx"]["required_commit"],
+            "be2b5fde82d9c8874f3d19328bdfe3b6962dc67b",
+        )
+        self.assertEqual(
+            native_deps["onnxruntime"]["compatible_onnx_tag"],
+            native_deps["onnx"]["required_tag"],
+        )
+
+    def test_ppocrv6_python_artifacts_are_forbidden_at_any_depth(self) -> None:
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "ppocrv6",
+                "bundle/thirdparty/uocr-runtime/windows-x86_64-cpu/ppocrv6/build/"
+                "trapo_ppocrv6_engine/localpycs/struct.pyc",
+            )
+        )
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "ppocrv6", "ppocrv6/ppocrv6/.venv/Scripts/python.exe"
+            )
+        )
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "ppocrv6", "ppocrv6/.paddlex/temp/cache.json"
+            )
+        )
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "ppocrv6", "ppocrv6/bin/trapo_ppocrv6_engine.exe"
+            )
+        )
+        self.assertFalse(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "ppocrv6", "ppocrv6/models/text_detection/inference.onnx"
+            )
+        )
+
+    def test_paddleocr_vl_python_artifacts_are_forbidden_at_any_depth(self) -> None:
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "paddleocr_vl_1_6", "paddleocr_vl_1_6/.venv/Scripts/python.exe"
+            )
+        )
+        self.assertTrue(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "paddleocr_vl_1_6", "bundle/paddleocr_vl_1_6/__pycache__/old.pyc"
+            )
+        )
+        self.assertFalse(
+            runtime_engine_guard.is_forbidden_asset_path(
+                "paddleocr_vl_1_6", "paddleocr_vl_1_6/layout_detection/inference.onnx"
+            )
+        )
 
 
 if __name__ == "__main__":

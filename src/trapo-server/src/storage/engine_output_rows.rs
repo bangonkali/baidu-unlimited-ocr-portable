@@ -37,14 +37,15 @@ fn insert_output_elements(
     page: &StoredPage,
 ) -> Result<()> {
     for (index, box_record) in page.boxes.iter().enumerate() {
+        let bbox_kind = box_record.storage_bbox_kind();
+        let metadata_json = geometry_metadata_json(box_record);
         conn.execute(
             "INSERT INTO document_output_elements(
                 element_id, output_id, run_id, run_engine_id, file_hash, page_no, ordinal,
                 annotation_id, source_region_key, element_kind, category, markdown, bbox_kind,
                 x1, y1, x2, y2, metadata_json
              )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'TOPLEFT_NORMALIZED_0_999',
-                ?, ?, ?, ?, ?)",
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             params![
                 new_persistence_id().as_str(),
                 output_id,
@@ -58,11 +59,12 @@ fn insert_output_elements(
                 box_record.label.as_str(),
                 box_record.category.as_str(),
                 box_record.content_markdown.as_str(),
+                bbox_kind.as_str(),
                 box_record.left_percent / 100.0 * 999.0,
                 box_record.top_percent / 100.0 * 999.0,
                 (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
                 (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
-                "{}"
+                metadata_json.as_str()
             ],
         )?;
     }
@@ -185,4 +187,8 @@ fn page_output_provenance(config: &StoredRunEngineConfig) -> Value {
         "profile_id": config.profile_id,
         "runtime_id": config.runtime_id
     })
+}
+
+fn geometry_metadata_json(box_record: &OverlayBox) -> String {
+    serde_json::json!({ "geometry": box_record.resolved_geometry() }).to_string()
 }

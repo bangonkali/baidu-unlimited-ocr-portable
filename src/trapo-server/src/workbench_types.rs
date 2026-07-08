@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
 
+pub(crate) use crate::ocr_geometry::{OcrGeometry, OcrGeometryBounds, OcrGeometryPoint};
 pub(crate) use crate::workbench_diagnostics_types::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
@@ -345,9 +346,42 @@ pub(crate) struct OverlayBox {
     pub(crate) width_percent: f64,
     pub(crate) height_percent: f64,
     pub(crate) hidden: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<OcrGeometry>, nullable = true)]
+    pub(crate) geometry: Option<OcrGeometry>,
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) source_region_key: String,
+}
+
+impl OverlayBox {
+    pub(crate) fn resolved_geometry(&self) -> OcrGeometry {
+        self.geometry.clone().unwrap_or_else(|| {
+            OcrGeometry::axis_aligned(
+                self.left_percent,
+                self.top_percent,
+                self.width_percent,
+                self.height_percent,
+            )
+        })
+    }
+
+    pub(crate) fn storage_bbox_kind(&self) -> String {
+        self.resolved_geometry().kind
+    }
+
+    pub(crate) fn storage_geometry_json(&self) -> String {
+        let geometry = self.resolved_geometry();
+        serde_json::to_string(&geometry).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    pub(crate) fn storage_coordinate_space(&self) -> String {
+        self.resolved_geometry().coordinate_space
+    }
+
+    pub(crate) fn storage_rotation_degrees(&self) -> Option<f64> {
+        self.resolved_geometry().rotation_degrees
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

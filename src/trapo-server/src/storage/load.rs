@@ -177,6 +177,8 @@ impl Repository {
               coalesce(r.source_region_key, ''), r.label, coalesce(r.category, r.label),
               coalesce(a.content_markdown, r.content_markdown, ''),
               coalesce(a.content_html, r.content_html), r.page_no, r.x1, r.y1, r.x2, r.y2,
+              coalesce(r.bbox_kind, 'axis_aligned'), coalesce(r.geometry_json, '{}'),
+              r.rotation_degrees,
               coalesce(v.hidden, false)
              FROM document_regions r
              LEFT JOIN document_region_annotations a ON a.region_id = coalesce(r.annotation_id, r.region_id)
@@ -191,6 +193,13 @@ impl Repository {
             let y1 = row.get::<_, f64>(9)?;
             let x2 = row.get::<_, f64>(10)?;
             let y2 = row.get::<_, f64>(11)?;
+            let left_percent = normalized_to_percent(x1);
+            let top_percent = normalized_to_percent(y1);
+            let width_percent = normalized_to_percent(x2 - x1);
+            let height_percent = normalized_to_percent(y2 - y1);
+            let bbox_kind = row.get::<_, String>(12)?;
+            let geometry_json = row.get::<_, String>(13)?;
+            let rotation_degrees = row.get::<_, Option<f64>>(14)?;
             Ok(OverlayBox {
                 annotation_id: row.get(0)?,
                 region_id: row.get(1)?,
@@ -200,11 +209,22 @@ impl Repository {
                 content_markdown: row.get(5)?,
                 content_html: row.get(6)?,
                 page_no: i64_to_u32(row.get::<_, i64>(7)?),
-                left_percent: normalized_to_percent(x1),
-                top_percent: normalized_to_percent(y1),
-                width_percent: normalized_to_percent(x2 - x1),
-                height_percent: normalized_to_percent(y2 - y1),
-                hidden: row.get(12)?,
+                left_percent,
+                top_percent,
+                width_percent,
+                height_percent,
+                hidden: row.get(15)?,
+                geometry: Some(OcrGeometry::from_storage_json(
+                    &geometry_json,
+                    &bbox_kind,
+                    crate::workbench_types::OcrGeometryBounds {
+                        left: left_percent,
+                        top: top_percent,
+                        width: width_percent,
+                        height: height_percent,
+                    },
+                    rotation_degrees,
+                )),
             })
         })?;
         collect_rows(rows)

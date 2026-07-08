@@ -6,6 +6,8 @@ use std::{
 
 use serde_json::Value;
 
+use super::native_ocr_ffi::{self, NativeOcrFfiConfig};
+
 #[derive(Debug, Clone)]
 pub(in crate::app) struct EngineRunner {
     pub(in crate::app::ocr_engines) engine_id: String,
@@ -30,6 +32,9 @@ pub(in crate::app::ocr_engines) enum RunnerKind {
         max_tokens: u32,
         chat_template: Option<String>,
     },
+    NativeOcrFfi {
+        config: NativeOcrFfiConfig,
+    },
 }
 
 impl EngineRunner {
@@ -40,6 +45,9 @@ impl EngineRunner {
     pub(in crate::app) fn recognize(&self, image_path: &Path) -> crate::ocr::OcrResult {
         if !image_path.is_file() {
             return ocr_failure("image path does not exist");
+        }
+        if let RunnerKind::NativeOcrFfi { config } = &self.kind {
+            return native_ocr_ffi::recognize_image(config, image_path);
         }
         let mut command = Command::new(&self.command);
         command
@@ -105,6 +113,8 @@ impl EngineRunner {
                     .arg(image_path)
                     .arg("-p")
                     .arg(prompt)
+                    .arg("--fit")
+                    .arg("off")
                     .arg("--no-warmup")
                     .arg("--temp")
                     .arg("0")
@@ -114,16 +124,24 @@ impl EngineRunner {
                     command.arg("--chat-template").arg(chat_template);
                 }
             }
+            RunnerKind::NativeOcrFfi { .. } => {}
         }
     }
 }
 
 fn adapter_output_result(engine_id: &str, output: &std::process::Output) -> crate::ocr::OcrResult {
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stdout = clean_process_text(&String::from_utf8_lossy(&output.stdout));
+    let stderr = clean_process_text(&String::from_utf8_lossy(&output.stderr));
     if !output.status.success() {
-        let detail = if stderr.is_empty() { stdout } else { stderr };
-        return ocr_failure(format!("{engine_id} native runner failed: {detail}"));
+        return ocr_failure(format!(
+            "{engine_id} native runner failed with exit code {}. stderr tail: {} stdout tail: {}",
+            output
+                .status
+                .code()
+                .map_or_else(|| "signal".to_string(), |code| code.to_string()),
+            output_tail(&stderr),
+            output_tail(&stdout)
+        ));
     }
     if stdout.is_empty() {
         return ocr_failure(format!("{engine_id} native runner produced no text"));
@@ -159,4 +177,31 @@ fn ocr_failure(message: impl Into<String>) -> crate::ocr::OcrResult {
         text: String::new(),
         error: Some(message.into()),
     }
+}
+
+fn clean_process_text(value: &str) -> String {
+    strip_ansi(value).trim().to_string()
+}
+
+fn output_tail(value: &str) -> String {
+    let tail = value
+        .chars()
+        .rev()
+        .take(1_500)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect::<String>();
+    if tail.is_empty() {
+        "<empty>".to_string()
+    } else {
+        tail
+    }
+}
+
+fn strip_ansi(value: &str) -> String {
+    static ANSI_PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]").unwrap_or_else(|_| std::process::abort())
+    });
+    ANSI_PATTERN.replace_all(value, "").into_owned()
 }

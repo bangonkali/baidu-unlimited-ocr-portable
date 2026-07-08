@@ -5,6 +5,7 @@
  * Rust Axum API for Trapo OCR workbench.
  * OpenAPI spec version: 0.1.5
  */
+import type { OcrGeometry } from './ocrGeometry';
 
 export interface OverlayBox {
   annotation_id: string;
@@ -12,6 +13,7 @@ export interface OverlayBox {
   /** @nullable */
   content_html?: string | null;
   content_markdown: string;
+  geometry?: OcrGeometry;
   height_percent: number;
   hidden: boolean;
   label: string;

@@ -236,6 +236,7 @@ fn annotation_identity_draft(
         y1: box_record.top_percent / 100.0 * 999.0,
         x2: (box_record.left_percent + box_record.width_percent) / 100.0 * 999.0,
         y2: (box_record.top_percent + box_record.height_percent) / 100.0 * 999.0,
+        geometry: box_record.geometry.clone(),
         span_start: span.map_or(0, |item| item.start),
         span_end: span.map_or(0, |item| item.end),
         content_markdown: box_record.content_markdown.clone(),

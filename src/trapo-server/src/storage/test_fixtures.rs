@@ -65,6 +65,7 @@ mod test_fixtures {
                 width_percent: 30.0,
                 height_percent: 40.0,
                 hidden: false,
+                geometry: Some(OcrGeometry::axis_aligned(10.0, 20.0, 30.0, 40.0)),
             }],
             spans: vec![TextRegionSpan {
                 annotation_id,

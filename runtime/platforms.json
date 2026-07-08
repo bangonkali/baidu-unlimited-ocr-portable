@@ -27,13 +27,19 @@
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
-        "libuocr-ffi.dylib"
+        "libuocr-ffi.dylib",
+        "libtrapo-ocr-ffi.dylib"
       ],
       "library_globs": [
         "*.dylib"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "notes": "Prebuilt runtime for Apple Silicon Macs using the Metal backend."
@@ -79,14 +85,20 @@
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
-        "libuocr-ffi.so"
+        "libuocr-ffi.so",
+        "libtrapo-ocr-ffi.so"
       ],
       "library_globs": [
         "*.so",
         "*.so.*"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
@@ -114,7 +126,8 @@
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
-        "libuocr-ffi.so"
+        "libuocr-ffi.so",
+        "libtrapo-ocr-ffi.so"
       ],
       "library_globs": [
         "*.so",
@@ -148,14 +161,20 @@
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
-        "libuocr-ffi.so"
+        "libuocr-ffi.so",
+        "libtrapo-ocr-ffi.so"
       ],
       "library_globs": [
         "*.so",
         "*.so.*"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "notes": "CPU-only fallback runtime for machines with enough RAM and no supported GPU."
@@ -181,14 +200,20 @@
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
-        "libuocr-ffi.so"
+        "libuocr-ffi.so",
+        "libtrapo-ocr-ffi.so"
       ],
       "library_globs": [
         "*.so",
         "*.so.*"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "notes": "CPU-only runtime for Ubuntu 24.04 arm64 hosted runners and ARM Linux machines."
@@ -234,13 +259,19 @@
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
-        "uocr-ffi.dll"
+        "uocr-ffi.dll",
+        "trapo-ocr-ffi.dll"
       ],
       "library_globs": [
         "*.dll"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
@@ -267,7 +298,8 @@
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
-        "uocr-ffi.dll"
+        "uocr-ffi.dll",
+        "trapo-ocr-ffi.dll"
       ],
       "library_globs": [
         "*.dll"
@@ -300,13 +332,19 @@
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
-        "uocr-ffi.dll"
+        "uocr-ffi.dll",
+        "trapo-ocr-ffi.dll"
       ],
       "library_globs": [
         "*.dll"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "notes": "CPU-only fallback runtime for Windows machines with enough system RAM and no supported GPU."
@@ -331,13 +369,19 @@
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
-        "uocr-ffi.dll"
+        "uocr-ffi.dll",
+        "trapo-ocr-ffi.dll"
       ],
       "library_globs": [
         "*.dll"
       ],
+      "bundled_notice_files": [
+        "onnxruntime-LICENSE",
+        "onnxruntime-ThirdPartyNotices.txt"
+      ],
       "engine_asset_dirs": [
         "ppocrv6",
+        "paddleocr_vl_1_6",
         "tesseract"
       ],
       "notes": "CPU-only runtime for Windows on Arm machines. The package intentionally omits llama-server because upstream llama.cpp web UI asset generation currently fails on hosted Windows ARM64; Trapo uses uocr-ffi directly."

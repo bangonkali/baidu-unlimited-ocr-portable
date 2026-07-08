@@ -134,6 +134,7 @@ pub(crate) struct AnnotationIdentityDraft {
     pub(crate) y1: f64,
     pub(crate) x2: f64,
     pub(crate) y2: f64,
+    pub(crate) geometry: Option<OcrGeometry>,
     pub(crate) span_start: u64,
     pub(crate) span_end: u64,
     pub(crate) content_markdown: String,

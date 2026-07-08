@@ -175,6 +175,7 @@ fn maybe_reparent_rag_file_row(row: &mut WaterfallDraft) -> bool {
 }
 
 fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {
+    let status_code = synthetic_status_code(&input.status);
     WaterfallDraft {
         attributes: input.attributes,
         activity_kind: "internal".to_string(),
@@ -201,7 +202,7 @@ fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {
         start_ms: None,
         started_at: None,
         status: input.status,
-        status_code: "unset".to_string(),
+        status_code,
         status_message: None,
         task_id: None,
         trace_id: input.trace_id,
@@ -210,6 +211,15 @@ fn synthetic_group_row(input: SyntheticGroupInput) -> WaterfallDraft {
         visual_start_ms: None,
         work_unit_id: None,
     }
+}
+
+fn synthetic_status_code(status: &str) -> String {
+    match status {
+        "failed" | "error" => "error",
+        "completed" => "ok",
+        _ => "unset",
+    }
+    .to_string()
 }
 
 struct SyntheticGroupInput {
@@ -227,4 +237,17 @@ struct SyntheticGroupInput {
     span_kind: String,
     status: String,
     trace_id: String,
+}
+
+#[cfg(test)]
+mod diagnostics_waterfall_group_tests {
+    use super::synthetic_status_code;
+
+    #[test]
+    fn synthetic_status_code_tracks_aggregate_status() {
+        assert_eq!(synthetic_status_code("completed"), "ok");
+        assert_eq!(synthetic_status_code("failed"), "error");
+        assert_eq!(synthetic_status_code("error"), "error");
+        assert_eq!(synthetic_status_code("running"), "unset");
+    }
 }

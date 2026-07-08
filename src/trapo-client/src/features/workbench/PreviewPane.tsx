@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { annotationBoxDomId, annotationIdOf } from '../../api/annotationIdentity';
 import type { OverlayBox } from '../../api/types';
 import { revealWhenAvailable } from './deferredReveal';
+import { overlayShapeForBox } from './overlayGeometry';
 import styles from './PreviewPane.module.css';
 import { needsRevealScroll } from './scrollVisibility';
 
@@ -169,21 +170,34 @@ function PagePreview(props: {
         {props.overlayVisible
           ? props.boxes.map((box) => {
               const annotationId = annotationIdOf(box);
+              const shape = overlayShapeForBox(box);
               return (
                 <button
                   className={styles.box}
                   data-active={annotationId === props.selectedRegionId}
+                  data-shape={shape.isPolygon ? 'polygon' : 'axis-aligned'}
                   id={annotationBoxDomId(annotationId)}
                   key={annotationId}
                   onClick={() => props.onSelectRegion(box.page_no, annotationId)}
                   style={{
-                    height: `${box.height_percent}%`,
-                    left: `${box.left_percent}%`,
-                    top: `${box.top_percent}%`,
-                    width: `${box.width_percent}%`,
+                    height: `${shape.bounds.height}%`,
+                    left: `${shape.bounds.left}%`,
+                    top: `${shape.bounds.top}%`,
+                    width: `${shape.bounds.width}%`,
                   }}
                   type="button"
                 >
+                  {shape.isPolygon ? (
+                    <svg
+                      aria-hidden="true"
+                      className={styles.boxShape}
+                      focusable="false"
+                      preserveAspectRatio="none"
+                      viewBox="0 0 100 100"
+                    >
+                      <polygon points={shape.svgPoints} />
+                    </svg>
+                  ) : null}
                   {props.labelsVisible ? <span>{box.label}</span> : null}
                 </button>
               );

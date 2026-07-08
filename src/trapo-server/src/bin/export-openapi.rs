@@ -2,8 +2,7 @@
 
 use std::{env, path::PathBuf};
 
-use trapo_server::ApiDoc;
-use utoipa::OpenApi;
+use trapo_server::openapi_document;
 
 fn main() -> anyhow::Result<()> {
     let output = env::args().nth(1).map_or_else(
@@ -13,7 +12,7 @@ fn main() -> anyhow::Result<()> {
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let json = serde_json::to_string_pretty(&ApiDoc::openapi())?;
+    let json = serde_json::to_string_pretty(&openapi_document())?;
     std::fs::write(output, format!("{json}\n"))?; // skylos: ignore[SKY-D215] output is an explicit CLI argument for the OpenAPI export tool.
     Ok(())
 }

@@ -184,6 +184,14 @@ jobs:
         run: |
           cargo build -p trapo-native-runners --release
           python scripts/stage_native_runners.py --platform "${{ matrix.platform }}" --output-dir thirdparty/llama.cpp/build/bin --required
+      - name: Prepare ONNX Runtime native dependency
+        shell: bash
+        run: |
+          cargo run -p trapo-xtask -- native-deps prepare --platform "${{ matrix.platform }}" --repo-root .
+      - name: Build native OCR FFI
+        shell: bash
+        run: |
+          python scripts/build_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --build-dir target/trapo-ocr-ffi/${{ matrix.platform }} --output-dir thirdparty/llama.cpp/build/bin --required
       - name: Install Tesseract runtime dependency
         shell: bash
         run: |
@@ -200,6 +208,7 @@ jobs:
         run: |
           python scripts/install_tesseract_runtime.py --output-dir thirdparty/llama.cpp/build/tesseract --prefetch
           python scripts/install_ppocrv6_runtime.py --output-dir thirdparty/llama.cpp/build/ppocrv6 --frozen --prefetch
+          python scripts/install_paddleocr_vl_runtime.py --output-dir thirdparty/llama.cpp/build/paddleocr_vl_1_6 --frozen --prefetch
           python scripts/runtime_engine_guard.py smoke-runners --platform "${{ matrix.platform }}" --build-dir thirdparty/llama.cpp/build
       - name: Validate FFI ABI
         run: |

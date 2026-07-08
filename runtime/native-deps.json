@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "onnx": {
+    "required_tag": "v1.21.0",
+    "required_commit": "be2b5fde82d9c8874f3d19328bdfe3b6962dc67b"
+  },
+  "onnxruntime": {
+    "version": "1.27.0",
+    "release_tag": "v1.27.0",
+    "compatible_onnx_tag": "v1.21.0",
+    "license": "MIT",
+    "base_url": "https://github.com/microsoft/onnxruntime/releases/download/v1.27.0",
+    "targets": {
+      "linux-arm64-cpu": {
+        "asset": "onnxruntime-linux-aarch64-1.27.0.tgz",
+        "sha256": "3e4d83ac06924a32a07b6d7f91ce6f852876153fc0bbdf931bf517a140bfbe48",
+        "archive_type": "tar.gz",
+        "archive_root": "onnxruntime-linux-aarch64-1.27.0",
+        "include_dir": "include",
+        "library": "lib/libonnxruntime.so",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/libonnxruntime.so",
+          "lib/libonnxruntime.so.1",
+          "lib/libonnxruntime.so.1.27.0",
+          "lib/libonnxruntime_providers_shared.so"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "linux-x86_64-cpu": {
+        "asset": "onnxruntime-linux-x64-1.27.0.tgz",
+        "sha256": "547e40a48f1fe73e3f812d7c88a948612c23f896b91e4e2ee1e232d7b468246f",
+        "archive_type": "tar.gz",
+        "archive_root": "onnxruntime-linux-x64-1.27.0",
+        "include_dir": "include",
+        "library": "lib/libonnxruntime.so",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/libonnxruntime.so",
+          "lib/libonnxruntime.so.1",
+          "lib/libonnxruntime.so.1.27.0",
+          "lib/libonnxruntime_providers_shared.so"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "linux-x86_64-cuda13": {
+        "asset": "onnxruntime-linux-x64-gpu_cuda13-1.27.0.tgz",
+        "sha256": "1a3227e1dc2f53d9f877c93278af500b15e26d99aa5ade877692138b3ab7d351",
+        "archive_type": "tar.gz",
+        "archive_root": "onnxruntime-linux-x64-gpu_cuda13-1.27.0",
+        "include_dir": "include",
+        "library": "lib/libonnxruntime.so",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/libonnxruntime.so",
+          "lib/libonnxruntime.so.1",
+          "lib/libonnxruntime.so.1.27.0",
+          "lib/libonnxruntime_providers_shared.so",
+          "lib/libonnxruntime_providers_cuda.so"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "macos-arm64-metal": {
+        "asset": "onnxruntime-osx-arm64-1.27.0.tgz",
+        "sha256": "545e81c58152353acb0d1e8bd6ce4b62f830c0961f5b3acfedc790ffd76e477a",
+        "archive_type": "tar.gz",
+        "archive_root": "onnxruntime-osx-arm64-1.27.0",
+        "include_dir": "include",
+        "library": "lib/libonnxruntime.dylib",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/libonnxruntime.dylib",
+          "lib/libonnxruntime.1.dylib",
+          "lib/libonnxruntime.1.27.0.dylib"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "windows-arm64-cpu": {
+        "asset": "onnxruntime-win-arm64-1.27.0.zip",
+        "sha256": "a32f2650575b3c20df462e337519fd1cc4105356130d11dba9771c6f374d952f",
+        "archive_type": "zip",
+        "archive_root": "onnxruntime-win-arm64-1.27.0",
+        "include_dir": "include",
+        "library": "lib/onnxruntime.lib",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/onnxruntime.dll",
+          "lib/onnxruntime_providers_shared.dll"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "windows-x86_64-cpu": {
+        "asset": "onnxruntime-win-x64-1.27.0.zip",
+        "sha256": "c5c81710938e68079ff1a192b04897faabe4b43830d48f39f27ecd4e16138bfc",
+        "archive_type": "zip",
+        "archive_root": "onnxruntime-win-x64-1.27.0",
+        "include_dir": "include",
+        "library": "lib/onnxruntime.lib",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/onnxruntime.dll",
+          "lib/onnxruntime_providers_shared.dll"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      },
+      "windows-x86_64-cuda13": {
+        "asset": "onnxruntime-win-x64-gpu_cuda13-1.27.0.zip",
+        "sha256": "d3e0d908bc9b59dcb59b8f453493f173c087dda105d8c110df0588d22d7c8b3e",
+        "archive_type": "zip",
+        "archive_root": "onnxruntime-win-x64-gpu_cuda13-1.27.0",
+        "include_dir": "include",
+        "library": "lib/onnxruntime.lib",
+        "library_dir": "lib",
+        "runtime_libraries": [
+          "lib/onnxruntime.dll",
+          "lib/onnxruntime_providers_shared.dll",
+          "lib/onnxruntime_providers_cuda.dll"
+        ],
+        "notice_files": [
+          "LICENSE",
+          "ThirdPartyNotices.txt"
+        ]
+      }
+    }
+  }
+}

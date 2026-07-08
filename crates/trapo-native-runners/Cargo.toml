@@ -9,6 +9,10 @@ readme = "README.md"
 keywords = ["ocr", "runtime", "trapo"]
 categories = ["command-line-utilities"]
 
+[dependencies]
+libloading = "0.9"
+serde_json = "1"
+
 [[bin]]
 name = "trapo-tesseract-rs-runner"
 path = "src/bin/trapo-tesseract-rs-runner.rs"

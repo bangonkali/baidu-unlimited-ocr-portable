@@ -11,8 +11,20 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
             push_cleaned_fragment(&mut parsed.cleaned_text, &raw_text[cursor..segment.start]);
         }
         let clean_start = usize_to_u64_saturating(parsed.cleaned_text.len());
-        for box_points in &segment.boxes {
+        for (index, box_points) in segment.boxes.iter().enumerate() {
             let source_region_key = region_source_key_for(context, segment, box_points);
+            let left_percent = box_points.x1 / 999.0 * 100.0;
+            let top_percent = box_points.y1 / 999.0 * 100.0;
+            let width_percent = (box_points.x2 - box_points.x1) / 999.0 * 100.0;
+            let height_percent = (box_points.y2 - box_points.y1) / 999.0 * 100.0;
+            let geometry = marker_geometry_for_box(
+                segment,
+                index,
+                left_percent,
+                top_percent,
+                width_percent,
+                height_percent,
+            );
             parsed.spans.push(TextRegionSpan {
                 annotation_id: source_region_key.clone(),
                 region_id: source_region_key.clone(),
@@ -30,11 +42,12 @@ pub(crate) fn parse_ocr_markers(raw_text: &str, context: &ParseContext) -> Parse
                 content_markdown: String::new(),
                 content_html: None,
                 page_no: context.page_no,
-                left_percent: box_points.x1 / 999.0 * 100.0,
-                top_percent: box_points.y1 / 999.0 * 100.0,
-                width_percent: (box_points.x2 - box_points.x1) / 999.0 * 100.0,
-                height_percent: (box_points.y2 - box_points.y1) / 999.0 * 100.0,
+                left_percent,
+                top_percent,
+                width_percent,
+                height_percent,
                 hidden: false,
+                geometry: Some(geometry),
             });
         }
         cursor = cursor.max(segment.end);
@@ -92,4 +105,26 @@ fn push_cleaned_fragment(buffer: &mut String, raw_fragment: &str) {
         return;
     }
     buffer.push_str(&cleaned);
+}
+
+fn marker_geometry_for_box(
+    segment: &MarkerSegment,
+    index: usize,
+    left_percent: f64,
+    top_percent: f64,
+    width_percent: f64,
+    height_percent: f64,
+) -> crate::workbench_types::OcrGeometry {
+    if index == 0
+        && segment.boxes.len() == 1
+        && let Some(geometry) = &segment.geometry
+    {
+        return geometry.clone();
+    }
+    crate::workbench_types::OcrGeometry::axis_aligned(
+        left_percent,
+        top_percent,
+        width_percent,
+        height_percent,
+    )
 }

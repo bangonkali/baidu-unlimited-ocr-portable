@@ -84,6 +84,14 @@ OCR regions must receive a persisted UUID v7 `annotation_id` as soon as a
 bounding box is discovered. Later text spans, snippets, overlay boxes, realtime
 events, and rows must refer back to the same `annotation_id`.
 
+All OCR engines must normalize discovered regions into the shared OCR geometry
+shape before persistence. `OverlayBox.left_percent`, `top_percent`,
+`width_percent`, and `height_percent` remain compatibility bounds, while
+`OverlayBox.geometry` is the canonical shape for smart positioning. Use
+`geometry.kind = axis_aligned`, `rotated_quad`, or `polygon`, with ordered
+page-percent points and the same UUID v7 `annotation_id` used across text,
+snippets, overlays, realtime events, and database rows.
+
 ## Runner Policy
 
 Native runner binaries are part of the runtime contract. Supported runtime
@@ -91,12 +99,14 @@ archives must include:
 
 ```text
 llama-mtmd-cli
+trapo-ocr-ffi
 trapo-tesseract-rs-runner
 trapo-pp-ocrv6-runner
 ```
 
-Windows archives use `.exe` suffixes. Platform-specific archives may include
-additional binaries such as `llama-server` when supported by upstream.
+Windows archives use `.exe` suffixes for commands and `.dll` suffixes for
+libraries. Platform-specific archives may include additional binaries such as
+`llama-server` when supported by upstream.
 
 Current engine runner strategy:
 
@@ -104,10 +114,12 @@ Current engine runner strategy:
 - `tesseract-rs`: uses `trapo-tesseract-rs-runner`, which launches the packaged
   `tesseract/bin/tesseract(.exe)` binary with bundled `tessdata`.
 - `pp-ocrv6`: uses `trapo-pp-ocrv6-runner`, which launches the packaged
-  PaddleOCR ONNXRuntime engine under `ppocrv6/`.
-- `paddleocr-vl-1.6-gguf`, `dots-mocr-gguf`, and
-  `infinity-parser2-flash-gguf`: use `llama-mtmd-cli` with each model's own
-  GGUF model and mmproj assets.
+  native ONNX Runtime/OpenCV engine through `trapo-ocr-ffi` with models under
+  `ppocrv6/`.
+- `paddleocr-vl-1.6-gguf`: uses `trapo-ocr-ffi` in process with the
+  `paddleocr_vl_1_6/` layout bundle plus the selected GGUF model and mmproj.
+- `dots-mocr-gguf` and `infinity-parser2-flash-gguf`: use `llama-mtmd-cli` with
+  each model's own GGUF model and mmproj assets until they are migrated.
 
 Do not register a new engine unless it has a concrete `resolve()` path. Missing
 runtime binaries should produce `native_runner_missing`, not an ambiguous
@@ -142,8 +154,8 @@ windows-x86_64-rocm6
 - planned targets are not built or advertised as supported;
 - release packaging covers every supported runtime target;
 - every supported runtime declares the runner binaries needed by active engines.
-- every supported runtime declares the `ppocrv6` and `tesseract` engine asset
-  directories needed by active process runners.
+- every supported runtime declares the `trapo-ocr-ffi` shared library and the
+  `ppocrv6` and `tesseract` engine asset directories needed by active runners.
 
 ## Packaging And Tests
 

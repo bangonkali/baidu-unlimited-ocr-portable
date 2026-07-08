@@ -63,6 +63,28 @@ describe('PreviewPane', () => {
     expect(html).toContain('Invoice total');
   });
 
+  test('renders rotated geometry as a polygon overlay', () => {
+    const html = renderToString(
+      <PreviewPane
+        autoFollowRegions
+        boxes={fixtureBoxes}
+        fileHash="hash-invoice-014"
+        getImageUrl={() => 'data:image/png;base64,'}
+        labelsVisible
+        overlayVisible
+        pages={[1]}
+        selectedPageNo={1}
+        selectedRegionId="reg-total"
+        onAutoFollowChange={() => undefined}
+        onSelectRegion={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('data-shape="polygon"');
+    expect(html).toContain('<polygon');
+    expect(html).toContain('points=');
+  });
+
   test('uses annotation ids for overlay DOM identity', () => {
     const annotationId = '019086c9-8b0d-79af-9c3d-95c0c221b7e2';
     const html = renderToString(

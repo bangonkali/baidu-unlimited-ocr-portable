@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import json
 import os
 import platform
 import subprocess
-import tarfile
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -18,15 +15,14 @@ from runtime_engine_guard_manifest import (
 
 def required_asset_files(platform_id: str, asset_dir: str) -> list[str]:
     if asset_dir == "ppocrv6":
-        binary = (
-            "ppocrv6/bin/trapo_ppocrv6_engine.exe"
-            if platform_id.startswith("windows-")
-            else "ppocrv6/bin/trapo_ppocrv6_engine"
-        )
         return [
-            "ppocrv6/trapo_ppocrv6_engine.py",
             "ppocrv6/models/manifest.json",
-            binary,
+        ]
+    if asset_dir == "paddleocr_vl_1_6":
+        return [
+            "paddleocr_vl_1_6/manifest.json",
+            "paddleocr_vl_1_6/layout_detection/inference.onnx",
+            "paddleocr_vl_1_6/layout_detection/inference.yml",
         ]
     if asset_dir == "tesseract":
         binary = (
@@ -36,6 +32,73 @@ def required_asset_files(platform_id: str, asset_dir: str) -> list[str]:
         )
         return [binary, "tesseract/tessdata/eng.traineddata"]
     return []
+
+
+def forbidden_asset_files(asset_dir: str) -> list[str]:
+    if asset_dir == "ppocrv6":
+        return [
+            "ppocrv6/trapo_ppocrv6_engine.py",
+            "ppocrv6/.venv",
+        ]
+    if asset_dir == "paddleocr_vl_1_6":
+        return [
+            "paddleocr_vl_1_6/.venv",
+            "paddleocr_vl_1_6/__pycache__",
+        ]
+    return []
+
+
+def is_forbidden_asset_path(asset_dir: str, path: str) -> bool:
+    normalized = asset_relative_path(asset_dir, path)
+    if asset_dir not in {"ppocrv6", "paddleocr_vl_1_6"} or not normalized.startswith(
+        f"{asset_dir}/"
+    ):
+        return False
+    parts = normalized.split("/")
+    filename = parts[-1]
+    if ".venv" in parts or ".paddlex" in parts or "__pycache__" in parts:
+        return True
+    if filename.endswith((".py", ".pyc", ".pyo", ".pyd", ".spec")):
+        return True
+    return asset_dir == "ppocrv6" and (
+        "trapo_ppocrv6_engine" in parts or filename.startswith("trapo_ppocrv6_engine")
+    )
+
+
+def asset_relative_path(asset_dir: str, path: str) -> str:
+    normalized = path.replace("\\", "/").strip("/")
+    if normalized == asset_dir or normalized.startswith(f"{asset_dir}/"):
+        return normalized
+    marker = f"/{asset_dir}/"
+    index = normalized.find(marker)
+    if index >= 0:
+        return normalized[index + 1 :]
+    return normalized
+
+
+def local_forbidden_asset_paths(runtime_dir: Path, asset_dir: str) -> list[str]:
+    asset_root = runtime_dir / asset_dir
+    if not asset_root.exists():
+        return []
+    return sorted(
+        str(path.relative_to(runtime_dir)).replace("\\", "/")
+        for path in asset_root.rglob("*")
+        if is_forbidden_asset_path(asset_dir, str(path.relative_to(runtime_dir)))
+    )
+
+
+def archived_forbidden_asset_paths(archived: set[str], asset_dir: str) -> list[str]:
+    return sorted(
+        member.strip("/") for member in archived if is_forbidden_asset_path(asset_dir, member)
+    )
+
+
+def ppocrv6_ffi_names(platform_id: str) -> list[str]:
+    if platform_id.startswith("windows-"):
+        return ["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+    if platform_id.startswith("macos-"):
+        return ["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
+    return ["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
 
 
 def die(message: str) -> None:
@@ -58,12 +121,23 @@ def host_matches_platform(platform_id: str) -> bool:
 def runtime_is_installed(repo_root: Path, platform_id: str, target: dict[str, Any]) -> bool:
     bin_dir = repo_root / "thirdparty" / "uocr-runtime" / platform_id / "bin"
     runtime_dir = bin_dir.parent
-    return all(
-        (bin_dir / library).is_file() for library in target.get("required_libraries", [])
-    ) and all(
-        (runtime_dir / required_file).is_file()
-        for asset_dir in target.get("engine_asset_dirs", [])
-        for required_file in required_asset_files(platform_id, asset_dir)
+    return (
+        all((bin_dir / library).is_file() for library in target.get("required_libraries", []))
+        and all((bin_dir / notice).is_file() for notice in target.get("bundled_notice_files", []))
+        and all(
+            (runtime_dir / required_file).is_file()
+            for asset_dir in target.get("engine_asset_dirs", [])
+            for required_file in required_asset_files(platform_id, asset_dir)
+        )
+        and not any(
+            (runtime_dir / forbidden_file).exists()
+            for asset_dir in target.get("engine_asset_dirs", [])
+            for forbidden_file in forbidden_asset_files(asset_dir)
+        )
+        and not any(
+            local_forbidden_asset_paths(runtime_dir, asset_dir)
+            for asset_dir in target.get("engine_asset_dirs", [])
+        )
     )
 
 
@@ -165,47 +239,3 @@ def smoke_self_check(path: Path) -> None:
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip()
         die(f"{path} self-check failed: {detail}")
-
-
-def packaged_runtime(args: Any) -> None:
-    repo_root = args.repo_root.resolve()
-    platforms = load_platforms(repo_root)
-    target = platforms["targets"][args.platform]
-    archive_name = (
-        f"{platforms['asset_prefix']}-{args.platform}-{args.version}.{target['archive_ext']}"
-    )
-    archive = args.dist_dir.resolve() / archive_name
-    sidecar = args.dist_dir.resolve() / f"{archive_name}.runtime.json"
-    if not archive.is_file():
-        die(f"runtime archive was not produced: {archive}")
-    if not sidecar.is_file():
-        die(f"runtime sidecar was not produced: {sidecar}")
-    manifest = json.loads(sidecar.read_text(encoding="utf-8"))
-    listed = set(manifest.get("layout", {}).get("executables", {}))
-    expected = set(target["executables"])
-    if listed != expected:
-        die(f"{args.platform} sidecar executable mismatch: {sorted(expected - listed)}")
-    archived = archive_members(archive)
-    missing = [
-        name
-        for name in target["executables"]
-        if not any(member.endswith(f"/bin/{name}") for member in archived)
-    ]
-    if missing:
-        die(f"{args.platform} archive is missing executables: {', '.join(missing)}")
-    layout_files = set(manifest.get("layout", {}).get("files", []))
-    for asset_dir in target.get("engine_asset_dirs", []):
-        for required_file in required_asset_files(args.platform, asset_dir):
-            if required_file not in layout_files:
-                die(f"{args.platform} sidecar is missing engine asset {required_file}")
-            if not any(member.endswith(f"/{required_file}") for member in archived):
-                die(f"{args.platform} archive is missing engine asset {required_file}")
-    print(f"{args.platform}: packaged runtime archive guard passed")
-
-
-def archive_members(archive: Path) -> set[str]:
-    if archive.suffix == ".zip":
-        with zipfile.ZipFile(archive) as zipf:
-            return {f"/{name}" for name in zipf.namelist()}
-    with tarfile.open(archive, "r:gz") as tar:
-        return {f"/{member.name}" for member in tar.getmembers()}

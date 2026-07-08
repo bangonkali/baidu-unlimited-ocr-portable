@@ -124,6 +124,8 @@ def collect_runtime_files(build_dir: Path, target: dict[str, Any]) -> list[Path]
         files.append(find_one(build_dir, [library]))
     for dependency in target.get("bundled_dependency_libraries", []):
         files.append(find_dependency(build_dir, dependency))
+    for notice in target.get("bundled_notice_files", []):
+        files.append(find_dependency(build_dir, notice))
 
     search_dirs = {path.parent for path in executable_paths}
     search_dirs.add(build_dir / "bin")
@@ -181,6 +183,15 @@ def dependency_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, 
     }
 
 
+def notice_manifest(files: list[Path], target: dict[str, Any]) -> dict[str, str]:
+    by_name = {path.name: f"bin/{path.name}" for path in files}
+    return {
+        notice: by_name[notice]
+        for notice in target.get("bundled_notice_files", [])
+        if notice in by_name
+    }
+
+
 def make_package_manifest(
     *,
     platform_id: str,
@@ -211,6 +222,7 @@ def make_package_manifest(
 
     required_libraries = library_manifest(files, target)
     dependency_libraries = dependency_manifest(files, target)
+    notice_files = notice_manifest(files, target)
     return {
         "schema_version": 1,
         "platform": platform_id,
@@ -246,6 +258,7 @@ def make_package_manifest(
             "executables": executable_manifest(files, target),
             "required_libraries": required_libraries,
             "dependency_libraries": dependency_libraries,
+            "notice_files": notice_files,
             "ffi_library": next(iter(required_libraries.values()), ""),
             "files": sorted(
                 [f"bin/{path.name}" for path in files] + [relative for _, relative in asset_files]

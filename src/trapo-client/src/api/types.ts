@@ -456,6 +456,29 @@ export interface DocumentRegionsPayload {
   boxes: OverlayBox[];
 }
 
+export type OcrGeometryKind = 'axis_aligned' | 'rotated_quad' | 'polygon' | string;
+
+export interface OcrGeometryPoint {
+  x: number;
+  y: number;
+}
+
+export interface OcrGeometryBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface OcrGeometry {
+  kind: OcrGeometryKind;
+  points: OcrGeometryPoint[];
+  rotation_degrees?: number | null;
+  layer_id: string;
+  coordinate_space: string;
+  bounds: OcrGeometryBounds;
+}
+
 export interface OverlayBox {
   annotation_id?: string;
   region_id: string;
@@ -469,6 +492,7 @@ export interface OverlayBox {
   width_percent: number;
   height_percent: number;
   hidden?: boolean;
+  geometry?: OcrGeometry | null;
 }
 
 export interface TextRegionSpan {

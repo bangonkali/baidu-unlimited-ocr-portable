@@ -5,6 +5,7 @@ thirdparty/uocr-runtime/
 uocr-runtime-env.ps1
 uocr-runtime-env.sh
 cache/
+/.deps/
 .venv/
 .venv-sglang-ref/
 .gradio/
