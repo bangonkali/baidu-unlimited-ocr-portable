@@ -33,11 +33,18 @@ def load_bundle_manifest() -> dict[str, object]:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
-PADDLEOCR_VL_BUNDLE = load_bundle_manifest()
+PADDLEOCR_VL_BUNDLE: dict[str, object] | None = None
+
+
+def bundle_manifest() -> dict[str, object]:
+    global PADDLEOCR_VL_BUNDLE
+    if PADDLEOCR_VL_BUNDLE is None:
+        PADDLEOCR_VL_BUNDLE = load_bundle_manifest()
+    return PADDLEOCR_VL_BUNDLE
 
 
 def layout_module() -> dict[str, object]:
-    for module in PADDLEOCR_VL_BUNDLE["modules"]:
+    for module in bundle_manifest()["modules"]:
         if module["id"] == "layout_detection":
             return module
     die("PaddleOCR-VL manifest does not declare layout_detection")

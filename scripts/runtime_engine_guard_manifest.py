@@ -152,15 +152,9 @@ def onnx_submodule_errors(
     expected_commit = str(onnx.get("required_commit", "")).strip()
     if not expected_commit:
         return ["native-deps onnx.required_commit is missing"]
-    onnx_root = repo_root / "thirdparty" / "onnx"
-    try:
-        actual_commit = subprocess.check_output(
-            ["git", "-C", str(onnx_root), "rev-parse", "HEAD"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        ).strip()
-    except subprocess.CalledProcessError as error:
-        return ["failed to inspect thirdparty/onnx for ORT compatibility: " + error.output.strip()]
+    actual_commit = gitlink_commit(repo_root, "thirdparty/onnx")
+    if actual_commit is None:
+        return ["failed to inspect thirdparty/onnx for ORT compatibility"]
     if actual_commit != expected_commit:
         return [
             "thirdparty/onnx must be "
@@ -168,6 +162,32 @@ def onnx_submodule_errors(
             f"{onnxruntime.get('version')}; found {actual_commit}"
         ]
     return []
+
+
+def gitlink_commit(repo_root: Path, path: str) -> str | None:
+    try:
+        output = subprocess.check_output(
+            ["git", "-C", str(repo_root), "ls-tree", "HEAD", path],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None
+    if output:
+        parts = output.split()
+        if len(parts) >= 3 and parts[0] == "160000":
+            return parts[2]
+    checkout_root = repo_root / path
+    if not (checkout_root / ".git").exists():
+        return None
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(checkout_root), "rev-parse", "HEAD"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None
 
 
 def target_metadata_errors(platform_id: str, target: dict[str, Any]) -> list[str]:
