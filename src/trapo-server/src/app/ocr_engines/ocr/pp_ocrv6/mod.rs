@@ -2,6 +2,7 @@ use crate::app::ocr_engines::{
     RunnerCapability, RunnerResolveContext,
     common::{
         gguf_vlm::missing_native_runner_binary,
+        model_bundles,
         native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig},
         process_runner::{EngineRunner, RunnerKind},
         runtime_search::find_runner_binary,
@@ -13,7 +14,6 @@ pub(in crate::app::ocr_engines) const ENGINE_ID: &str = "pp-ocrv6";
 pub(in crate::app::ocr_engines) const RUNNER_NAMES: &[&str] = ffi_library_names();
 pub(in crate::app::ocr_engines) const EXPECTED_BINARY: &str = "trapo-ocr-ffi";
 const ENGINE_ASSET_DIR: &str = "ppocrv6";
-const MODEL_MANIFEST: &str = "models/manifest.json";
 
 pub(in crate::app::ocr_engines) const fn capability() -> RunnerCapability {
     RunnerCapability {
@@ -56,11 +56,7 @@ pub(in crate::app::ocr_engines) fn resolve(
 }
 
 fn validate_engine_assets_installed(engine_root: &Path) -> Result<(), String> {
-    if !engine_root.join(MODEL_MANIFEST).is_file() {
-        return Err(format!(
-            "{ENGINE_ID} engine assets are not installed; expected {ENGINE_ASSET_DIR}/{MODEL_MANIFEST} next to the selected runtime bin directory"
-        ));
-    }
+    model_bundles::ppocrv6(engine_root).ensure_available()?;
     if contains_python_runtime_assets(engine_root) {
         return Err(format!(
             "{ENGINE_ID} runtime contains stale Python-era PP-OCRv6 assets under {}; rebuild the native runtime bundle",

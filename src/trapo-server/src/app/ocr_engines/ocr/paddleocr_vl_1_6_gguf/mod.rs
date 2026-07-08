@@ -2,6 +2,7 @@ use crate::app::ocr_engines::{
     RunnerCapability, RunnerResolveContext,
     common::{
         gguf_vlm::missing_native_runner_binary,
+        model_bundles,
         native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig},
         process_runner::{EngineRunner, RunnerKind},
         runtime_search::find_runner_binary,
@@ -14,9 +15,6 @@ pub(in crate::app::ocr_engines) const RUNNER_NAMES: &[&str] = ffi_library_names(
 pub(in crate::app::ocr_engines) const EXPECTED_BINARY: &str = "trapo-ocr-ffi";
 const DEFAULT_MODEL_ID: &str = "paddleocr-vl-1-6-gguf";
 const ENGINE_ASSET_DIR: &str = "paddleocr_vl_1_6";
-const LAYOUT_MODEL: &str = "layout_detection/inference.onnx";
-const LAYOUT_CONFIG: &str = "layout_detection/inference.yml";
-const MODEL_MANIFEST: &str = "manifest.json";
 
 pub(in crate::app::ocr_engines) const fn capability() -> RunnerCapability {
     RunnerCapability {
@@ -37,7 +35,6 @@ pub(in crate::app::ocr_engines) fn resolve(
         .and_then(std::path::Path::parent)
         .ok_or_else(|| format!("{ENGINE_ID} requires a packaged runtime bin directory"))?;
     let bundle_root = runtime_root.join(ENGINE_ASSET_DIR);
-    validate_bundle(&bundle_root)?;
     let model_id = if context.model_id.is_empty() {
         DEFAULT_MODEL_ID
     } else {
@@ -49,8 +46,7 @@ pub(in crate::app::ocr_engines) fn resolve(
     let mmproj_path = context
         .model_dir
         .join(model.mmproj_file.unwrap_or(SHARED_MMPROJ_FILE));
-    validate_model_path("model", &model_path)?;
-    validate_model_path("mmproj", &mmproj_path)?;
+    model_bundles::paddleocr_vl_1_6(&bundle_root, &model_path, &mmproj_path).ensure_available()?;
     Ok(EngineRunner {
         engine_id: ENGINE_ID.to_string(),
         command: found.path.clone(),
@@ -69,29 +65,6 @@ pub(in crate::app::ocr_engines) fn resolve(
             },
         },
     })
-}
-
-fn validate_bundle(bundle_root: &std::path::Path) -> std::result::Result<(), String> {
-    for relative in [MODEL_MANIFEST, LAYOUT_MODEL, LAYOUT_CONFIG] {
-        let path = bundle_root.join(relative);
-        if !path.is_file() {
-            return Err(format!(
-                "{ENGINE_ID} native bundle is incomplete; missing {}",
-                path.display()
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn validate_model_path(kind: &str, path: &std::path::Path) -> std::result::Result<(), String> {
-    if path.is_file() {
-        return Ok(());
-    }
-    Err(format!(
-        "{kind} file is missing for {ENGINE_ID}: {}",
-        path.display()
-    ))
 }
 
 const fn ffi_library_names() -> &'static [&'static str] {
