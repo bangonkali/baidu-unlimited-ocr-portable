@@ -44,3 +44,12 @@
 [submodule "thirdparty/onnx"]
 	path = thirdparty/onnx
 	url = git@github.com:onnx/onnx.git
+[submodule "thirdparty/infly-mllm"]
+	path = thirdparty/infly-mllm
+	url = git@github.com:infly-ai/INF-MLLM.git
+[submodule "thirdparty/infly-infinity-parser2-flash"]
+	path = thirdparty/infly-infinity-parser2-flash
+	url = https://huggingface.co/infly/Infinity-Parser2-Flash
+[submodule "thirdparty/tesseract"]
+	path = thirdparty/tesseract
+	url = git@github.com:tesseract-ocr/tesseract.git
