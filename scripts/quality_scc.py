@@ -13,7 +13,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCC_PACKAGE = "github.com/boyter/scc/v3@v3.7.0"
 SCC_IGNORE_RE = re.compile(
     r"(^|/)(\.deps|\.logs|\.skylos|build|cache|data|models|target|thirdparty)(/|$)|"
-    r"node_modules|dist|generated|\.json$|\.md$|\.csv$|(^|/)LICENSE$|trapo/migrations|tests/|"
+    r"src/trapo-ocr-native/|node_modules|dist|generated|\.json$|\.md$|\.csv$|"
+    r"(^|/)LICENSE$|trapo/migrations|tests/|"
     r"scripts/(install_runtime\.py|package_runtime\.py|package_trapo_workbench\.py|"
     r"test_ctypes_runtime\.py|windows/setup-build\.ps1|mac/setup-build\.sh|linux/setup-build\.sh)"
 )

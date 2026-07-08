@@ -24,14 +24,13 @@ Every supported runtime archive must include the native engine command surface:
 llama-mtmd-cli
 trapo-ocr-ffi
 trapo-tesseract-rs-runner
-trapo-pp-ocrv6-runner
 ```
 
 Windows runner archives use `.exe` names and Windows libraries use `.dll`.
-PaddleOCR-VL uses `trapo-ocr-ffi` in process with its GGUF/mmproj assets.
-Remaining GGUF document-understanding engines continue to use `llama-mtmd-cli`
-until they are migrated. Tesseract and PP-OCRv6 use Trapo runner wrappers so the
-server talks to a stable process contract instead of ad hoc local commands.
+PP-OCRv6 and PaddleOCR-VL use `trapo-ocr-ffi` in process with their packaged
+assets. Remaining GGUF document-understanding engines continue to use
+`llama-mtmd-cli` until they are migrated. Tesseract still uses a Trapo runner
+wrapper around the packaged Tesseract assets until its FFI migration is complete.
 
 Every supported runtime archive must also include the engine payload directories:
 
@@ -49,8 +48,8 @@ tesseract/tessdata/eng.traineddata
 when it is available, then falls back to the pinned Hugging Face ONNX model
 files from that manifest. It does not create `.venv`, PyInstaller output, or
 Python fallback assets. `scripts/build_trapo_ocr_ffi.py` builds and stages the
-shared native OCR FFI from the vendored `thirdparty/embedded-ocr/agus_ocr_core`
-snapshot. `scripts/install_tesseract_runtime.py` can stage an installed
+shared native OCR FFI from the Trapo-owned `src/trapo-ocr-native` source tree.
+`scripts/install_tesseract_runtime.py` can stage an installed
 Tesseract binary or build from the `thirdparty/tesseract` submodule, then
 installs English tessdata into the runtime payload.
 

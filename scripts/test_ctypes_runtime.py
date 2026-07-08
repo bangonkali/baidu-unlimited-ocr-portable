@@ -25,6 +25,15 @@ REQUIRED_SYMBOLS = {
     "uocr_ffi_run_count",
     "uocr_ffi_run_image",
 }
+TRAPO_OCR_REQUIRED_SYMBOLS = {
+    "trapo_ocr_create",
+    "trapo_ocr_destroy",
+    "trapo_ocr_engine_runtime_summary",
+    "trapo_ocr_free_result",
+    "trapo_ocr_get_runtime_capabilities",
+    "trapo_ocr_last_error",
+    "trapo_ocr_recognize_image",
+}
 DLL_DIRECTORY_HANDLES: list[object] = []
 DLL_DIRECTORY_PATHS: set[str] = set()
 WINDOWS_RUNTIME_DEPENDENCY_DLLS = (
@@ -156,6 +165,23 @@ def validate_exported_symbols(path: Path) -> dict[str, Any]:
     }
 
 
+def validate_trapo_ocr_exported_symbols(path: Path) -> dict[str, Any]:
+    symbols = exported_symbols(path)
+    missing = sorted(TRAPO_OCR_REQUIRED_SYMBOLS - symbols)
+    old_symbols = sorted(symbol for symbol in symbols if symbol.startswith("agus_ocr"))
+    if missing:
+        raise SystemExit(f"Trapo OCR FFI library is missing required exports: {', '.join(missing)}")
+    if old_symbols:
+        raise SystemExit(
+            "Trapo OCR FFI library still exports prototype symbols: " + ", ".join(old_symbols)
+        )
+    return {
+        "ffi_library": str(path),
+        "symbol_validation": True,
+        "required_symbols": sorted(TRAPO_OCR_REQUIRED_SYMBOLS),
+    }
+
+
 def windows_dependency_dirs(path: Path) -> list[Path]:
     dirs = [path.parent]
     for raw in os.environ.get("PATH", "").split(os.pathsep):
@@ -235,11 +261,23 @@ def main() -> None:
     )
     parser.add_argument("--ffi-lib", default="", help="Path to libuocr-ffi/uocr-ffi.dll.")
     parser.add_argument(
+        "--trapo-ocr-ffi-lib",
+        default="",
+        help="Path to trapo-ocr-ffi.dll/libtrapo-ocr-ffi for exported symbol validation.",
+    )
+    parser.add_argument(
         "--abi-only",
         action="store_true",
         help="Accepted for release workflow compatibility; ABI validation is always used.",
     )
     args = parser.parse_args()
+
+    if args.trapo_ocr_ffi_lib:
+        payload = validate_trapo_ocr_exported_symbols(
+            Path(args.trapo_ocr_ffi_lib).expanduser().resolve()
+        )
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
 
     ffi_lib = find_ffi_lib(args.ffi_lib)
     payload = load_ffi_for_abi(ffi_lib)

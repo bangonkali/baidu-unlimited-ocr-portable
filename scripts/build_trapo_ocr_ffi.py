@@ -18,15 +18,15 @@ from onnxruntime_staging import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-NATIVE_SOURCE = REPO_ROOT / "thirdparty" / "embedded-ocr" / "agus_ocr_core"
+NATIVE_SOURCE = REPO_ROOT / "src" / "trapo-ocr-native"
 USER_AGENT = "trapo-ocr-ffi-builder"
 ALLOWED_HOSTS = {"api.nuget.org", "github.com"}
 DIRECTML_VERSION = "1.15.4"
 OPENCV_ARCHIVE = "opencv-mobile-4.13.0-windows-vs2022.zip"
 PORTABLE_LLAMA_BACKENDS = {
-    "AGUS_LLAMA_ENABLE_CUDA": "0",
-    "AGUS_LLAMA_ENABLE_VULKAN": "0",
-    "AGUS_LLAMA_ENABLE_OPENCL": "0",
+    "TRAPO_LLAMA_ENABLE_CUDA": "0",
+    "TRAPO_LLAMA_ENABLE_VULKAN": "0",
+    "TRAPO_LLAMA_ENABLE_OPENCL": "0",
 }
 TRUTHY_ENV_VALUES = {"1", "ON", "TRUE", "YES"}
 
@@ -149,7 +149,7 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
         "-B",
         str(build_dir),
         "-DCMAKE_BUILD_TYPE=Release",
-        f"-DAGUS_LLAMA_CPP_ROOT={REPO_ROOT / 'thirdparty' / 'llama.cpp'}",
+        f"-DTRAPO_LLAMA_CPP_ROOT={REPO_ROOT / 'thirdparty' / 'llama.cpp'}",
     ]
     if args.platform.startswith("windows-"):
         deps = prepare_windows_deps(
@@ -157,9 +157,9 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
         )
         command.extend(
             [
-                f"-DAGUS_ORT_INCLUDE_DIR={deps['ort_include']}",
-                f"-DAGUS_ORT_LIB={deps['ort_lib']}",
-                f"-DAGUS_DIRECTML_INCLUDE_DIR={deps['directml_include']}",
+                f"-DTRAPO_ORT_INCLUDE_DIR={deps['ort_include']}",
+                f"-DTRAPO_ORT_LIB={deps['ort_lib']}",
+                f"-DTRAPO_DIRECTML_INCLUDE_DIR={deps['directml_include']}",
                 f"-DOpenCV_DIR={deps['opencv']}",
             ]
         )
@@ -182,9 +182,9 @@ def reset_stale_llama_backend_cache(build_dir: Path, env: dict[str, str]) -> Non
     text = cache.read_text(encoding="utf-8", errors="ignore")
     stale_flags = []
     cache_flags = {
-        "AGUS_LLAMA_ENABLE_CUDA": ("AGUS_LLAMA_ENABLE_CUDA", "GGML_CUDA"),
-        "AGUS_LLAMA_ENABLE_VULKAN": ("AGUS_LLAMA_ENABLE_VULKAN", "GGML_VULKAN"),
-        "AGUS_LLAMA_ENABLE_OPENCL": ("AGUS_LLAMA_ENABLE_OPENCL", "GGML_OPENCL"),
+        "TRAPO_LLAMA_ENABLE_CUDA": ("TRAPO_LLAMA_ENABLE_CUDA", "GGML_CUDA"),
+        "TRAPO_LLAMA_ENABLE_VULKAN": ("TRAPO_LLAMA_ENABLE_VULKAN", "GGML_VULKAN"),
+        "TRAPO_LLAMA_ENABLE_OPENCL": ("TRAPO_LLAMA_ENABLE_OPENCL", "GGML_OPENCL"),
     }
     for env_name, cmake_names in cache_flags.items():
         enabled = env.get(env_name, "").upper() in TRUTHY_ENV_VALUES
@@ -220,7 +220,7 @@ def build(args: argparse.Namespace) -> Path | None:
                 "--config",
                 "Release",
                 "--target",
-                "agus_ocr_core",
+                "trapo_ocr_native",
             ],
             env=env,
         )
@@ -243,10 +243,10 @@ def find_native_library(build_dir: Path, platform: str) -> Path:
 
 def native_library_names(platform: str) -> list[str]:
     if platform.startswith("windows-"):
-        return ["agus_ocr_core.dll", "trapo-ocr-ffi.dll"]
+        return ["trapo-ocr-ffi.dll"]
     if platform.startswith("macos-"):
-        return ["libagus_ocr_core.dylib", "libtrapo-ocr-ffi.dylib"]
-    return ["libagus_ocr_core.so", "libtrapo-ocr-ffi.so"]
+        return ["libtrapo-ocr-ffi.dylib"]
+    return ["libtrapo-ocr-ffi.so"]
 
 
 def staged_name(platform: str) -> str:

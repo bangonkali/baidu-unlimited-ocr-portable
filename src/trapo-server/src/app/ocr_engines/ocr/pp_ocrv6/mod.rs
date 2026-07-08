@@ -2,6 +2,7 @@ use crate::app::ocr_engines::{
     RunnerCapability, RunnerResolveContext,
     common::{
         gguf_vlm::missing_native_runner_binary,
+        native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig},
         process_runner::{EngineRunner, RunnerKind},
         runtime_search::find_runner_binary,
     },
@@ -9,17 +10,16 @@ use crate::app::ocr_engines::{
 use std::{fs, path::Path};
 
 pub(in crate::app::ocr_engines) const ENGINE_ID: &str = "pp-ocrv6";
-pub(in crate::app::ocr_engines) const RUNNER_NAMES: &[&str] =
-    &["trapo-pp-ocrv6-runner", "pp-ocrv6-runner"];
-pub(in crate::app::ocr_engines) const EXPECTED_BINARY: &str = "trapo-pp-ocrv6-runner";
+pub(in crate::app::ocr_engines) const RUNNER_NAMES: &[&str] = ffi_library_names();
+pub(in crate::app::ocr_engines) const EXPECTED_BINARY: &str = "trapo-ocr-ffi";
 const ENGINE_ASSET_DIR: &str = "ppocrv6";
 const MODEL_MANIFEST: &str = "models/manifest.json";
 
 pub(in crate::app::ocr_engines) const fn capability() -> RunnerCapability {
     RunnerCapability {
-        kind: "ppocrv6-native-ffi",
+        kind: "ppocrv6-onnx-ffi",
         status: "wired",
-        detail: Some("uses trapo-ocr-ffi with ONNX Runtime, OpenCV, and Clipper"),
+        detail: Some("uses in-process trapo-ocr-ffi with ONNX Runtime, OpenCV, and Clipper"),
     }
 }
 
@@ -28,43 +28,46 @@ pub(in crate::app::ocr_engines) fn resolve(
 ) -> std::result::Result<EngineRunner, String> {
     let found = find_runner_binary(context.app_root, context.runtime_id, RUNNER_NAMES)
         .ok_or_else(|| missing_native_runner_binary(ENGINE_ID, EXPECTED_BINARY))?;
-    validate_engine_assets_installed(found.runtime_bin_dir.as_deref())?;
+    let runtime_root = found
+        .runtime_bin_dir
+        .as_deref()
+        .and_then(std::path::Path::parent)
+        .ok_or_else(|| format!("{ENGINE_ID} requires a packaged runtime bin directory"))?;
+    let bundle_root = runtime_root.join(ENGINE_ASSET_DIR);
+    validate_engine_assets_installed(&bundle_root)?;
     Ok(EngineRunner {
         engine_id: ENGINE_ID.to_string(),
-        command: found.path,
+        command: found.path.clone(),
         runtime_bin_dir: found.runtime_bin_dir,
-        kind: RunnerKind::GenericJsonText {
-            args: vec!["--format".to_string(), "text".to_string()],
+        kind: RunnerKind::NativeOcrFfi {
+            config: NativeOcrFfiConfig {
+                pipeline: NativeOcrPipeline::PpOcrV6,
+                library_path: found.path,
+                model_root: bundle_root,
+                external_model_root: None,
+                vl_model_path: None,
+                vl_mmproj_path: None,
+                runtime: NativeOcrRuntimeConfig::from_runtime_id(context.runtime_id),
+                max_new_tokens: 0,
+                generate_markdown: false,
+            },
         },
     })
 }
 
-fn validate_engine_assets_installed(runtime_bin_dir: Option<&Path>) -> Result<(), String> {
-    let Some(root) = runtime_bin_dir.and_then(std::path::Path::parent) else {
+fn validate_engine_assets_installed(engine_root: &Path) -> Result<(), String> {
+    if !engine_root.join(MODEL_MANIFEST).is_file() {
         return Err(format!(
-            "{ENGINE_ID} requires a packaged runtime bin directory"
-        ));
-    };
-    let engine_root = root.join(ENGINE_ASSET_DIR);
-    if !engine_root.join(MODEL_MANIFEST).is_file() || !shared_ffi_is_installed(root, &engine_root) {
-        return Err(format!(
-            "{ENGINE_ID} engine assets are not installed; expected {ENGINE_ASSET_DIR}/{MODEL_MANIFEST} and shared bin/trapo-ocr-ffi next to the selected runtime bin directory"
+            "{ENGINE_ID} engine assets are not installed; expected {ENGINE_ASSET_DIR}/{MODEL_MANIFEST} next to the selected runtime bin directory"
         ));
     }
-    if contains_python_runtime_assets(&engine_root) {
+    if contains_python_runtime_assets(engine_root) {
         return Err(format!(
             "{ENGINE_ID} runtime contains stale Python-era PP-OCRv6 assets under {}; rebuild the native runtime bundle",
             engine_root.display()
         ));
     }
     Ok(())
-}
-
-fn shared_ffi_is_installed(runtime_root: &std::path::Path, engine_root: &std::path::Path) -> bool {
-    ffi_library_names().iter().any(|name| {
-        runtime_root.join("bin").join(name).is_file()
-            || engine_root.join("bin").join(name).is_file()
-    })
 }
 
 fn contains_python_runtime_assets(home: &Path) -> bool {
@@ -132,10 +135,10 @@ fn has_forbidden_extension(relative: &Path) -> bool {
 
 const fn ffi_library_names() -> &'static [&'static str] {
     if cfg!(windows) {
-        &["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+        &["trapo-ocr-ffi.dll"]
     } else if cfg!(target_os = "macos") {
-        &["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
+        &["libtrapo-ocr-ffi.dylib"]
     } else {
-        &["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+        &["libtrapo-ocr-ffi.so"]
     }
 }

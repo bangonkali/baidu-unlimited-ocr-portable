@@ -4,15 +4,16 @@ use std::{
 };
 
 pub(in crate::app::ocr_engines) const STATUS_OK: c_int = 0;
+pub(in crate::app::ocr_engines) const BACKEND_AUTO: c_int = 0;
 pub(in crate::app::ocr_engines) const BACKEND_CPU: c_int = 1;
+pub(in crate::app::ocr_engines) const BACKEND_COREML: c_int = 3;
+pub(in crate::app::ocr_engines) const BACKEND_CUDA: c_int = 9;
+pub(in crate::app::ocr_engines) const GEN_BACKEND_AUTO: c_int = 0;
 pub(in crate::app::ocr_engines) const GEN_BACKEND_CPU: c_int = 1;
+pub(in crate::app::ocr_engines) const GEN_BACKEND_CUDA: c_int = 3;
 
 #[derive(Debug, Clone, Copy)]
 pub(in crate::app::ocr_engines) enum NativeOcrPipeline {
-    #[allow(
-        dead_code,
-        reason = "PP-OCRv6 still uses the runner wrapper while PaddleOCR-VL migrates in-process first"
-    )]
     PpOcrV6,
     PaddleOcrVl16,
 }
@@ -41,8 +42,57 @@ pub(in crate::app::ocr_engines) struct NativeOcrFfiConfig {
     pub(in crate::app::ocr_engines) external_model_root: Option<PathBuf>,
     pub(in crate::app::ocr_engines) vl_model_path: Option<PathBuf>,
     pub(in crate::app::ocr_engines) vl_mmproj_path: Option<PathBuf>,
+    pub(in crate::app::ocr_engines) runtime: NativeOcrRuntimeConfig,
     pub(in crate::app::ocr_engines) max_new_tokens: i32,
     pub(in crate::app::ocr_engines) generate_markdown: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(in crate::app::ocr_engines) struct NativeOcrRuntimeConfig {
+    pub(in crate::app::ocr_engines) backend: c_int,
+    pub(in crate::app::ocr_engines) generative_backend: c_int,
+    pub(in crate::app::ocr_engines) generative_gpu_layers: c_int,
+    pub(in crate::app::ocr_engines) force_cpu_only: bool,
+}
+
+impl NativeOcrRuntimeConfig {
+    pub(in crate::app::ocr_engines) fn from_runtime_id(runtime_id: &str) -> Self {
+        let runtime_id = runtime_id.to_ascii_lowercase();
+        if runtime_id.contains("cuda") {
+            return Self {
+                backend: BACKEND_CUDA,
+                generative_backend: GEN_BACKEND_CUDA,
+                generative_gpu_layers: -2,
+                force_cpu_only: false,
+            };
+        }
+        if runtime_id.contains("metal") {
+            return Self {
+                backend: BACKEND_COREML,
+                generative_backend: GEN_BACKEND_AUTO,
+                generative_gpu_layers: -2,
+                force_cpu_only: false,
+            };
+        }
+        if runtime_id.contains("rocm") {
+            return Self {
+                backend: BACKEND_AUTO,
+                generative_backend: GEN_BACKEND_AUTO,
+                generative_gpu_layers: -2,
+                force_cpu_only: false,
+            };
+        }
+        Self::cpu()
+    }
+
+    const fn cpu() -> Self {
+        Self {
+            backend: BACKEND_CPU,
+            generative_backend: GEN_BACKEND_CPU,
+            generative_gpu_layers: 0,
+            force_cpu_only: true,
+        }
+    }
 }
 
 #[repr(C)]
@@ -116,3 +166,33 @@ pub(in crate::app::ocr_engines) type RecognizeFn = unsafe extern "C" fn(
 pub(in crate::app::ocr_engines) type FreeResultFn = unsafe extern "C" fn(*mut ResultHandle);
 pub(in crate::app::ocr_engines) type DestroyFn = unsafe extern "C" fn(*mut c_void);
 pub(in crate::app::ocr_engines) type LastErrorFn = unsafe extern "C" fn() -> *const c_char;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_ocr_runtime_config_maps_runtime_id() {
+        let cuda = NativeOcrRuntimeConfig::from_runtime_id("windows-x86_64-cuda13");
+        assert_eq!(cuda.backend, BACKEND_CUDA);
+        assert_eq!(cuda.generative_backend, GEN_BACKEND_CUDA);
+        assert_eq!(cuda.generative_gpu_layers, -2);
+        assert!(!cuda.force_cpu_only);
+
+        let metal = NativeOcrRuntimeConfig::from_runtime_id("macos-arm64-metal");
+        assert_eq!(metal.backend, BACKEND_COREML);
+        assert_eq!(metal.generative_backend, GEN_BACKEND_AUTO);
+        assert!(!metal.force_cpu_only);
+
+        let rocm = NativeOcrRuntimeConfig::from_runtime_id("linux-x86_64-rocm6");
+        assert_eq!(rocm.backend, BACKEND_AUTO);
+        assert_eq!(rocm.generative_backend, GEN_BACKEND_AUTO);
+        assert!(!rocm.force_cpu_only);
+
+        let cpu = NativeOcrRuntimeConfig::from_runtime_id("linux-x86_64-cpu");
+        assert_eq!(cpu.backend, BACKEND_CPU);
+        assert_eq!(cpu.generative_backend, GEN_BACKEND_CPU);
+        assert_eq!(cpu.generative_gpu_layers, 0);
+        assert!(cpu.force_cpu_only);
+    }
+}

@@ -95,11 +95,11 @@ pub(crate) fn ffi_library_path(home: &Path) -> Result<PathBuf, String> {
 
 const fn ffi_library_names() -> &'static [&'static str] {
     if cfg!(windows) {
-        &["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+        &["trapo-ocr-ffi.dll"]
     } else if cfg!(target_os = "macos") {
-        &["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
+        &["libtrapo-ocr-ffi.dylib"]
     } else {
-        &["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+        &["libtrapo-ocr-ffi.so"]
     }
 }
 

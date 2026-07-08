@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 RUNNERS = [
     "trapo-tesseract-rs-runner",
-    "trapo-pp-ocrv6-runner",
 ]
 
 

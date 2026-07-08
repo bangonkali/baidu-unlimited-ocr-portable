@@ -22,8 +22,7 @@
         "llama-uocr-parity",
         "llama-mtmd-cli",
         "llama-server",
-        "trapo-tesseract-rs-runner",
-        "trapo-pp-ocrv6-runner"
+        "trapo-tesseract-rs-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -80,8 +79,7 @@
         "llama-uocr-parity",
         "llama-mtmd-cli",
         "llama-server",
-        "trapo-tesseract-rs-runner",
-        "trapo-pp-ocrv6-runner"
+        "trapo-tesseract-rs-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -121,8 +119,7 @@
         "llama-uocr-parity",
         "llama-mtmd-cli",
         "llama-server",
-        "trapo-tesseract-rs-runner",
-        "trapo-pp-ocrv6-runner"
+        "trapo-tesseract-rs-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -156,8 +153,7 @@
         "llama-uocr-parity",
         "llama-mtmd-cli",
         "llama-server",
-        "trapo-tesseract-rs-runner",
-        "trapo-pp-ocrv6-runner"
+        "trapo-tesseract-rs-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -195,8 +191,7 @@
         "llama-uocr-parity",
         "llama-mtmd-cli",
         "llama-server",
-        "trapo-tesseract-rs-runner",
-        "trapo-pp-ocrv6-runner"
+        "trapo-tesseract-rs-runner"
       ],
       "primary_binary": "llama-uocr-parity",
       "required_libraries": [
@@ -254,8 +249,7 @@
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
         "llama-server.exe",
-        "trapo-tesseract-rs-runner.exe",
-        "trapo-pp-ocrv6-runner.exe"
+        "trapo-tesseract-rs-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -293,8 +287,7 @@
       "executables": [
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
-        "trapo-tesseract-rs-runner.exe",
-        "trapo-pp-ocrv6-runner.exe"
+        "trapo-tesseract-rs-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -327,8 +320,7 @@
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
         "llama-server.exe",
-        "trapo-tesseract-rs-runner.exe",
-        "trapo-pp-ocrv6-runner.exe"
+        "trapo-tesseract-rs-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [
@@ -364,8 +356,7 @@
       "executables": [
         "llama-uocr-parity.exe",
         "llama-mtmd-cli.exe",
-        "trapo-tesseract-rs-runner.exe",
-        "trapo-pp-ocrv6-runner.exe"
+        "trapo-tesseract-rs-runner.exe"
       ],
       "primary_binary": "llama-uocr-parity.exe",
       "required_libraries": [

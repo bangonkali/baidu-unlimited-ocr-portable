@@ -9,11 +9,11 @@ use std::{
 use libloading::Library;
 
 use super::native_ocr_ffi_types::{
-    BACKEND_CPU, CreateFn, DestroyFn, FreeResultFn, GEN_BACKEND_CPU, Image, InitOptions,
-    LastErrorFn, RecognizeFn, ResultHandle, RunOptions, RuntimeOptions, STATUS_OK,
+    CreateFn, DestroyFn, FreeResultFn, Image, InitOptions, LastErrorFn, RecognizeFn, ResultHandle,
+    RunOptions, RuntimeOptions, STATUS_OK,
 };
 pub(in crate::app::ocr_engines) use super::native_ocr_ffi_types::{
-    NativeOcrFfiConfig, NativeOcrPipeline,
+    NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig,
 };
 use super::native_ocr_markers::native_json_to_marker_text;
 
@@ -50,26 +50,26 @@ pub(in crate::app::ocr_engines) fn recognize_image(
 impl NativeApi {
     fn load(path: &Path) -> Result<Self, String> {
         let library = load_library(path)?;
-        // SAFETY: symbol names and signatures are matched to agus_ocr.h from the vendored native core.
-        let create: CreateFn = unsafe { library.get(b"agus_ocr_create\0") }
+        // SAFETY: symbol names and signatures are matched to trapo_ocr.h from the Trapo native core.
+        let create: CreateFn = unsafe { library.get(b"trapo_ocr_create\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_create: {error}"))?;
-        // SAFETY: symbol names and signatures are matched to agus_ocr.h from the vendored native core.
-        let recognize: RecognizeFn = unsafe { library.get(b"agus_ocr_recognize_image\0") }
+            .map_err(|error| format!("missing trapo_ocr_create: {error}"))?;
+        // SAFETY: symbol names and signatures are matched to trapo_ocr.h from the Trapo native core.
+        let recognize: RecognizeFn = unsafe { library.get(b"trapo_ocr_recognize_image\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_recognize_image: {error}"))?;
-        // SAFETY: symbol names and signatures are matched to agus_ocr.h from the vendored native core.
-        let free_result: FreeResultFn = unsafe { library.get(b"agus_ocr_free_result\0") }
+            .map_err(|error| format!("missing trapo_ocr_recognize_image: {error}"))?;
+        // SAFETY: symbol names and signatures are matched to trapo_ocr.h from the Trapo native core.
+        let free_result: FreeResultFn = unsafe { library.get(b"trapo_ocr_free_result\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_free_result: {error}"))?;
-        // SAFETY: symbol names and signatures are matched to agus_ocr.h from the vendored native core.
-        let destroy: DestroyFn = unsafe { library.get(b"agus_ocr_destroy\0") }
+            .map_err(|error| format!("missing trapo_ocr_free_result: {error}"))?;
+        // SAFETY: symbol names and signatures are matched to trapo_ocr.h from the Trapo native core.
+        let destroy: DestroyFn = unsafe { library.get(b"trapo_ocr_destroy\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_destroy: {error}"))?;
-        // SAFETY: symbol names and signatures are matched to agus_ocr.h from the vendored native core.
-        let last_error: LastErrorFn = unsafe { library.get(b"agus_ocr_last_error\0") }
+            .map_err(|error| format!("missing trapo_ocr_destroy: {error}"))?;
+        // SAFETY: symbol names and signatures are matched to trapo_ocr.h from the Trapo native core.
+        let last_error: LastErrorFn = unsafe { library.get(b"trapo_ocr_last_error\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_last_error: {error}"))?;
+            .map_err(|error| format!("missing trapo_ocr_last_error: {error}"))?;
         Ok(Self {
             // ONNX Runtime/OpenCV can keep process-wide state behind the FFI DLL.
             // Keep the module mapped instead of unloading it after each request.
@@ -96,7 +96,7 @@ impl NativeApi {
             external_model_root: optional_ptr(external_model_root.as_ref()),
             vl_model_path: optional_ptr(vl_model_path.as_ref()),
             vl_mmproj_path: optional_ptr(vl_mmproj_path.as_ref()),
-            runtime: runtime_options(),
+            runtime: runtime_options(config.runtime),
             defaults: run_options(
                 limit_type.as_ptr(),
                 config.max_new_tokens,
@@ -130,7 +130,7 @@ impl NativeApi {
             )
         };
         let recognized = self.result_json(status, result, config.pipeline.label(), "run inference");
-        // SAFETY: engine was returned by agus_ocr_create and must be destroyed by agus_ocr_destroy.
+        // SAFETY: engine was returned by trapo_ocr_create and must be destroyed by trapo_ocr_destroy.
         unsafe { (self.destroy)(engine) };
         recognized
     }
@@ -157,7 +157,7 @@ impl NativeApi {
     }
 
     fn take_result_json(&self, result: *mut ResultHandle) -> String {
-        // SAFETY: result is a valid agus_ocr_result_t allocated by the native library.
+        // SAFETY: result is a valid trapo_ocr_result_t allocated by the native library.
         let text = unsafe {
             let handle = &*result;
             if handle.json.is_null() {
@@ -180,7 +180,7 @@ impl NativeApi {
     }
 
     fn last_error_message(&self) -> String {
-        // SAFETY: agus_ocr_last_error returns null or a NUL-terminated native-owned string.
+        // SAFETY: trapo_ocr_last_error returns null or a NUL-terminated native-owned string.
         let pointer = unsafe { (self.last_error)() };
         if pointer.is_null() {
             return "unknown native OCR error".to_string();
@@ -214,15 +214,15 @@ fn load_library(path: &Path) -> Result<Library, String> {
         .map_err(|error| format!("failed to load {}: {error}", path.display()))
 }
 
-const fn runtime_options() -> RuntimeOptions {
+const fn runtime_options(config: NativeOcrRuntimeConfig) -> RuntimeOptions {
     RuntimeOptions {
         struct_size: std::mem::size_of::<RuntimeOptions>(),
-        backend: BACKEND_CPU,
+        backend: config.backend,
         cpu_threads: 0,
         enable_ort_profiling: 0,
-        generative_backend: GEN_BACKEND_CPU,
-        generative_gpu_layers: 0,
-        force_cpu_only: 0,
+        generative_backend: config.generative_backend,
+        generative_gpu_layers: config.generative_gpu_layers,
+        force_cpu_only: config.force_cpu_only as i32,
     }
 }
 

@@ -1370,11 +1370,7 @@ fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Resu
         } else {
             ""
         };
-        for runner in [
-            "trapo-tesseract-rs-runner",
-            "trapo-pp-ocrv6-runner",
-            "llama-mtmd-cli",
-        ] {
+        for runner in ["trapo-tesseract-rs-runner", "llama-mtmd-cli"] {
             std::fs::write(runtime_dir.join(format!("{runner}{suffix}")), b"runner")?;
         }
         std::fs::write(

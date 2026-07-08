@@ -101,7 +101,6 @@ archives must include:
 llama-mtmd-cli
 trapo-ocr-ffi
 trapo-tesseract-rs-runner
-trapo-pp-ocrv6-runner
 ```
 
 Windows archives use `.exe` suffixes for commands and `.dll` suffixes for
@@ -113,9 +112,8 @@ Current engine runner strategy:
 - `unlimited-ocr-ffi`: uses the existing `uocr-ffi` runtime ABI.
 - `tesseract-rs`: uses `trapo-tesseract-rs-runner`, which launches the packaged
   `tesseract/bin/tesseract(.exe)` binary with bundled `tessdata`.
-- `pp-ocrv6`: uses `trapo-pp-ocrv6-runner`, which launches the packaged
-  native ONNX Runtime/OpenCV engine through `trapo-ocr-ffi` with models under
-  `ppocrv6/`.
+- `pp-ocrv6`: uses `trapo-ocr-ffi` in process with the packaged native ONNX
+  Runtime/OpenCV engine and models under `ppocrv6/`.
 - `paddleocr-vl-1.6-gguf`: uses `trapo-ocr-ffi` in process with the
   `paddleocr_vl_1_6/` layout bundle plus the selected GGUF model and mmproj.
 - `dots-mocr-gguf` and `infinity-parser2-flash-gguf`: use `llama-mtmd-cli` with

@@ -19,7 +19,7 @@ enum OcrWorkerMessage {
 
 enum OcrWorkerBackend {
     Unlimited(crate::ocr::UnlimitedOcrFfiEngine),
-    Adapter(ocr_engines::EngineRunner),
+    Adapter(Box<ocr_engines::EngineRunner>),
 }
 
 struct OcrWorkerRequest {
@@ -117,7 +117,7 @@ impl OcrRunWorker {
             .name(format!("trapo-{}-worker", runner.engine_id()))
             .spawn(move || {
                 run_worker_loop(
-                    OcrWorkerBackend::Adapter(runner),
+                    OcrWorkerBackend::Adapter(Box::new(runner)),
                     receiver,
                     0,
                     &hub,

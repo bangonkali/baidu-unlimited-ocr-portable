@@ -2,7 +2,7 @@ use crate::app::ocr_engines::{
     RunnerCapability, RunnerResolveContext,
     common::{
         gguf_vlm::missing_native_runner_binary,
-        native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline},
+        native_ocr_ffi::{NativeOcrFfiConfig, NativeOcrPipeline, NativeOcrRuntimeConfig},
         process_runner::{EngineRunner, RunnerKind},
         runtime_search::find_runner_binary,
     },
@@ -63,6 +63,7 @@ pub(in crate::app::ocr_engines) fn resolve(
                 external_model_root: None,
                 vl_model_path: Some(model_path),
                 vl_mmproj_path: Some(mmproj_path),
+                runtime: NativeOcrRuntimeConfig::from_runtime_id(context.runtime_id),
                 max_new_tokens: 4096,
                 generate_markdown: true,
             },
@@ -95,10 +96,10 @@ fn validate_model_path(kind: &str, path: &std::path::Path) -> std::result::Resul
 
 const fn ffi_library_names() -> &'static [&'static str] {
     if cfg!(windows) {
-        &["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+        &["trapo-ocr-ffi.dll"]
     } else if cfg!(target_os = "macos") {
-        &["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
+        &["libtrapo-ocr-ffi.dylib"]
     } else {
-        &["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+        &["libtrapo-ocr-ffi.so"]
     }
 }

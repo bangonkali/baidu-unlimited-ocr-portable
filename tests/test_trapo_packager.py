@@ -75,14 +75,12 @@ class TrapoPackagerTests(unittest.TestCase):
             package_trapo_workbench.native_runner_names("windows-x86_64-cpu"),
             [
                 "trapo-tesseract-rs-runner.exe",
-                "trapo-pp-ocrv6-runner.exe",
             ],
         )
         self.assertEqual(
             package_trapo_workbench.native_runner_names("linux-x86_64-cpu"),
             [
                 "trapo-tesseract-rs-runner",
-                "trapo-pp-ocrv6-runner",
             ],
         )
 

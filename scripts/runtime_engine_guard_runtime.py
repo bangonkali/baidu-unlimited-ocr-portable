@@ -95,10 +95,10 @@ def archived_forbidden_asset_paths(archived: set[str], asset_dir: str) -> list[s
 
 def ppocrv6_ffi_names(platform_id: str) -> list[str]:
     if platform_id.startswith("windows-"):
-        return ["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+        return ["trapo-ocr-ffi.dll"]
     if platform_id.startswith("macos-"):
-        return ["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
-    return ["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+        return ["libtrapo-ocr-ffi.dylib"]
+    return ["libtrapo-ocr-ffi.so"]
 
 
 def die(message: str) -> None:
@@ -195,8 +195,6 @@ def smoke_platform(platform_id: str, search_roots: list[Path], *, require_all: b
         return
     for path in found:
         smoke_help(path)
-        if path.name.startswith("trapo-pp-ocrv6-runner"):
-            smoke_self_check(path)
         if path.name.startswith("trapo-tesseract-rs-runner"):
             smoke_self_check(path)
     print(f"{platform_id}: runtime engine command smoke passed")

@@ -237,7 +237,6 @@ def native_runner_names(platform_id: str) -> list[str]:
     suffix = ".exe" if platform_id.startswith("windows-") else ""
     return [
         f"trapo-tesseract-rs-runner{suffix}",
-        f"trapo-pp-ocrv6-runner{suffix}",
     ]
 
 
@@ -390,10 +389,10 @@ def ensure_paddleocr_vl_engine(runtime_dir: Path) -> None:
 
 def ppocrv6_ffi_names(platform_id: str) -> list[str]:
     if platform_id.startswith("windows-"):
-        return ["trapo-ocr-ffi.dll", "agus_ocr_core.dll"]
+        return ["trapo-ocr-ffi.dll"]
     if platform_id.startswith("macos-"):
-        return ["libtrapo-ocr-ffi.dylib", "libagus_ocr_core.dylib"]
-    return ["libtrapo-ocr-ffi.so", "libagus_ocr_core.so"]
+        return ["libtrapo-ocr-ffi.dylib"]
+    return ["libtrapo-ocr-ffi.so"]
 
 
 def remove_stale_ppocrv6_python_assets(engine_dir: Path) -> None:

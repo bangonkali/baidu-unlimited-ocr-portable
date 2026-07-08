@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ENGINE_EXECUTABLE_BASES = (
     "llama-mtmd-cli",
     "trapo-tesseract-rs-runner",
-    "trapo-pp-ocrv6-runner",
 )
 REQUIRED_ENGINE_ASSET_DIRS = ("ppocrv6", "paddleocr_vl_1_6", "tesseract")
 

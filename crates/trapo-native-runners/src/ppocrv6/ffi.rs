@@ -49,40 +49,40 @@ pub(crate) fn recognize_ppocrv6(
 impl NativeApi {
     fn load(path: &Path) -> Result<Self, String> {
         let library = load_library(path)?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let create: unsafe extern "C" fn(*const InitOptions, *mut *mut c_void) -> c_int =
-            unsafe { library.get(b"agus_ocr_create\0") }
+            unsafe { library.get(b"trapo_ocr_create\0") }
                 .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-                .map_err(|error| format!("missing agus_ocr_create: {error}"))?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+                .map_err(|error| format!("missing trapo_ocr_create: {error}"))?;
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let capabilities: unsafe extern "C" fn(*mut *mut ResultHandle) -> c_int =
-            unsafe { library.get(b"agus_ocr_get_runtime_capabilities\0") }
+            unsafe { library.get(b"trapo_ocr_get_runtime_capabilities\0") }
                 .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-                .map_err(|error| format!("missing agus_ocr_get_runtime_capabilities: {error}"))?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+                .map_err(|error| format!("missing trapo_ocr_get_runtime_capabilities: {error}"))?;
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let recognize: unsafe extern "C" fn(
             *mut c_void,
             *const Image,
             *const RunOptions,
             *mut *mut ResultHandle,
-        ) -> c_int = unsafe { library.get(b"agus_ocr_recognize_image\0") }
+        ) -> c_int = unsafe { library.get(b"trapo_ocr_recognize_image\0") }
             .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-            .map_err(|error| format!("missing agus_ocr_recognize_image: {error}"))?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+            .map_err(|error| format!("missing trapo_ocr_recognize_image: {error}"))?;
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let free_result: unsafe extern "C" fn(*mut ResultHandle) =
-            unsafe { library.get(b"agus_ocr_free_result\0") }
+            unsafe { library.get(b"trapo_ocr_free_result\0") }
                 .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-                .map_err(|error| format!("missing agus_ocr_free_result: {error}"))?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+                .map_err(|error| format!("missing trapo_ocr_free_result: {error}"))?;
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let destroy: unsafe extern "C" fn(*mut c_void) =
-            unsafe { library.get(b"agus_ocr_destroy\0") }
+            unsafe { library.get(b"trapo_ocr_destroy\0") }
                 .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-                .map_err(|error| format!("missing agus_ocr_destroy: {error}"))?;
-        // SAFETY: Each symbol name and signature mirrors agus_ocr.h from the vendored native core.
+                .map_err(|error| format!("missing trapo_ocr_destroy: {error}"))?;
+        // SAFETY: Each symbol name and signature mirrors trapo_ocr.h from the Trapo native core.
         let last_error: unsafe extern "C" fn() -> *const c_char =
-            unsafe { library.get(b"agus_ocr_last_error\0") }
+            unsafe { library.get(b"trapo_ocr_last_error\0") }
                 .map(|symbol: libloading::Symbol<'_, _>| *symbol)
-                .map_err(|error| format!("missing agus_ocr_last_error: {error}"))?;
+                .map_err(|error| format!("missing trapo_ocr_last_error: {error}"))?;
         Ok(Self {
             // ONNX Runtime/OpenCV can keep process-wide state behind the FFI DLL.
             // Keep the module mapped until process exit instead of unloading it
@@ -132,7 +132,7 @@ impl NativeApi {
         debug_log("native recognize returned");
         let recognized = self.result_json(status, result, "run PP-OCRv6 inference");
         debug_log("native result copied");
-        // SAFETY: engine was returned by agus_ocr_create and must be destroyed by agus_ocr_destroy.
+        // SAFETY: engine was returned by trapo_ocr_create and must be destroyed by trapo_ocr_destroy.
         unsafe { (self.destroy)(engine) };
         debug_log("native engine destroyed");
         recognized
@@ -167,7 +167,7 @@ impl NativeApi {
     }
 
     fn take_result_json(&self, result: *mut ResultHandle) -> String {
-        // SAFETY: result is a valid agus_ocr_result_t allocated by the native library.
+        // SAFETY: result is a valid trapo_ocr_result_t allocated by the native library.
         let text = unsafe {
             let handle = &*result;
             let bytes = std::slice::from_raw_parts(handle.json.cast::<u8>(), handle.json_length);
@@ -187,7 +187,7 @@ impl NativeApi {
     }
 
     fn last_error_message(&self) -> String {
-        // SAFETY: agus_ocr_last_error returns either null or a NUL-terminated static/thread-local string.
+        // SAFETY: trapo_ocr_last_error returns either null or a NUL-terminated static/thread-local string.
         let pointer = unsafe { (self.last_error)() };
         if pointer.is_null() {
             return "unknown native OCR error".to_string();
