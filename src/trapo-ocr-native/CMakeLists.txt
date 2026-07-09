@@ -433,6 +433,9 @@ if(WIN32)
   )
 
   set(OpenCV_STATIC ON)
+  if(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" AND NOT TARGET OpenMP::OpenMP_CXX)
+    add_library(OpenMP::OpenMP_CXX INTERFACE IMPORTED)
+  endif()
   find_package(OpenCV REQUIRED CONFIG)
 
   target_link_libraries(trapo_ocr_native PRIVATE

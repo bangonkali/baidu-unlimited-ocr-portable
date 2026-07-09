@@ -112,6 +112,26 @@ class RuntimeEngineGuardTests(unittest.TestCase):
             )
         )
 
+    def test_python_runtime_files_are_forbidden_globally(self) -> None:
+        for path in [
+            "bin/python.exe",
+            "lib/python3.14/os.py",
+            "runtime/.venv/pyvenv.cfg",
+            "paddleocr_vl_1_6/__pycache__/old.pyc",
+            "plugins/native_extension.pyd",
+            "ppocrv6/app.spec",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(runtime_engine_guard.is_forbidden_runtime_path(path))
+
+        for path in [
+            "bin/trapo-ocr-ffi.dll",
+            "paddleocr_vl_1_6/layout_detection/inference.onnx",
+            "ppocrv6/models/manifest.json",
+        ]:
+            with self.subTest(path=path):
+                self.assertFalse(runtime_engine_guard.is_forbidden_runtime_path(path))
+
 
 if __name__ == "__main__":
     unittest.main()

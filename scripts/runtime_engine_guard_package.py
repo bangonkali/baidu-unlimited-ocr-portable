@@ -9,6 +9,7 @@ from typing import Any
 from runtime_engine_guard_manifest import load_platforms
 from runtime_engine_guard_runtime import (
     archived_forbidden_asset_paths,
+    archived_forbidden_runtime_paths,
     forbidden_asset_files,
     required_asset_files,
 )
@@ -54,8 +55,28 @@ def validate_packaged_runtime_layout(
     if missing:
         die(f"{platform_id} archive is missing executables: {', '.join(missing)}")
     layout_files = set(manifest.get("layout", {}).get("files", []))
+    validate_no_python_runtime_files(platform_id, layout_files, archived)
     validate_notice_files(platform_id, target, layout_files, archived)
     validate_engine_assets(platform_id, target, layout_files, archived)
+
+
+def validate_no_python_runtime_files(
+    platform_id: str,
+    layout_files: set[str],
+    archived: set[str],
+) -> None:
+    forbidden_layout = archived_forbidden_runtime_paths(layout_files)
+    if forbidden_layout:
+        die(
+            f"{platform_id} sidecar contains forbidden Python runtime files: "
+            + ", ".join(forbidden_layout[:10])
+        )
+    forbidden_archive = archived_forbidden_runtime_paths(archived)
+    if forbidden_archive:
+        die(
+            f"{platform_id} archive contains forbidden Python runtime files: "
+            + ", ".join(forbidden_archive[:10])
+        )
 
 
 def validate_notice_files(

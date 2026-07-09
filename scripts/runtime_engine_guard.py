@@ -16,6 +16,7 @@ from runtime_engine_guard_manifest import (
 from runtime_engine_guard_package import packaged_runtime
 from runtime_engine_guard_runtime import (
     is_forbidden_asset_path,
+    is_forbidden_runtime_path,
     local_smoke,
     smoke_runners,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "load_native_deps",
     "manifest_errors",
     "is_forbidden_asset_path",
+    "is_forbidden_runtime_path",
     "supported_targets",
     "workflow_matrix_entries",
 ]

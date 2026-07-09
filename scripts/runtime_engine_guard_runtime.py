@@ -66,6 +66,17 @@ def is_forbidden_asset_path(asset_dir: str, path: str) -> bool:
     )
 
 
+def is_forbidden_runtime_path(path: str) -> bool:
+    normalized = path.replace("\\", "/").strip("/")
+    parts = normalized.split("/")
+    filename = parts[-1].lower() if parts else ""
+    if ".venv" in parts or "__pycache__" in parts:
+        return True
+    if filename in {"python", "python.exe", "python3", "python3.exe"}:
+        return True
+    return filename.endswith((".py", ".pyc", ".pyo", ".pyd", ".spec"))
+
+
 def asset_relative_path(asset_dir: str, path: str) -> str:
     normalized = path.replace("\\", "/").strip("/")
     if normalized == asset_dir or normalized.startswith(f"{asset_dir}/"):
@@ -88,10 +99,24 @@ def local_forbidden_asset_paths(runtime_dir: Path, asset_dir: str) -> list[str]:
     )
 
 
+def local_forbidden_runtime_paths(runtime_dir: Path) -> list[str]:
+    if not runtime_dir.exists():
+        return []
+    return sorted(
+        str(path.relative_to(runtime_dir)).replace("\\", "/")
+        for path in runtime_dir.rglob("*")
+        if is_forbidden_runtime_path(str(path.relative_to(runtime_dir)))
+    )
+
+
 def archived_forbidden_asset_paths(archived: set[str], asset_dir: str) -> list[str]:
     return sorted(
         member.strip("/") for member in archived if is_forbidden_asset_path(asset_dir, member)
     )
+
+
+def archived_forbidden_runtime_paths(archived: set[str]) -> list[str]:
+    return sorted(member.strip("/") for member in archived if is_forbidden_runtime_path(member))
 
 
 def ppocrv6_ffi_names(platform_id: str) -> list[str]:
@@ -139,6 +164,7 @@ def runtime_is_installed(repo_root: Path, platform_id: str, target: dict[str, An
             local_forbidden_asset_paths(runtime_dir, asset_dir)
             for asset_dir in target.get("engine_asset_dirs", [])
         )
+        and not local_forbidden_runtime_paths(runtime_dir)
     )
 
 
