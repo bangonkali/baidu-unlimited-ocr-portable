@@ -57,6 +57,12 @@ portable archive, smokes the extracted app, verifies `logs/trapo-server.log` and
 `data/trapo.duckdb`, and uploads workflow artifacts. A final publish job uploads
 all artifacts to one GitHub Release.
 
+Packaged smoke checks that ingest engines are listed and native runners are
+wired, plus that runtime ONNX assets (for example PP-OCRv6) are ready. It does
+**not** require Hugging Face GGUF weights in the archive: PaddleOCR-VL may report
+`availability=missing_model` until the user downloads models through the Models
+page / Download Manager after launch.
+
 `Workbench CI` invokes the unified quality runner for Skylos, React, Rust,
 Python, and SCC gates. `Build runtime binaries` publishes native FFI runtime
 archives used by Trapo releases.

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from package_runtime import REPO_ROOT, load_platforms
 from runtime_engine_guard_runtime import required_asset_files
+from smoke_trapo_workbench_engines import validate_packaged_ingest_engines
 
 
 def main() -> int:
@@ -263,17 +264,7 @@ def request_json(port: int, path: str) -> dict:
 
 def validate_ingest_engines(port: int) -> None:
     payload = request_json(port, "/api/ingest/engines")
-    engines = payload.get("engines", [])
-    for engine_id in ["pp-ocrv6", "paddleocr-vl-1.6-gguf"]:
-        engine = next((item for item in engines if item.get("engine_id") == engine_id), None)
-        if engine is None:
-            raise SystemExit(f"packaged engine was not listed by /api/ingest/engines: {engine_id}")
-        if engine.get("available") is not True:
-            raise SystemExit(
-                f"packaged engine is unavailable: {engine_id} "
-                f"availability={engine.get('availability')} "
-                f"runner_status={engine.get('runner_status')}"
-            )
+    validate_packaged_ingest_engines(payload.get("engines", []))
 
 
 def request_text(port: int, path: str) -> str:
