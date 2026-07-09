@@ -85,6 +85,7 @@ impl NativeOcrRuntimeConfig {
         Self::cpu()
     }
 
+    #[cfg(test)]
     pub(in crate::app::ocr_engines) const fn with_cpu_generative_backend(mut self) -> Self {
         self.generative_backend = GEN_BACKEND_CPU;
         self.generative_gpu_layers = 0;

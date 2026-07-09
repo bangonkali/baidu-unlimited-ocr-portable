@@ -40,3 +40,20 @@ The required gates are:
 Skylos output is written under `.logs/quality/skylos` by default. Pass
 `--update-skylos-state` only when intentionally refreshing
 `docs/skylos/issues/current.json` and `docs/skylos/issues/current.md`.
+
+## CUDA and GPU-less runners
+
+Default `--profile ci` quality gates must not require a live NVIDIA GPU.
+Hosted GitHub Actions runners compile and package CUDA-capable binaries with the
+CUDA toolkit and portable `CMAKE_CUDA_ARCHITECTURES`; they do not exercise
+device inference.
+
+- Runtime smoke skips cuda platforms when `nvidia-smi` is missing, and skips
+  entirely when no local runtime is installed (`TRAPO_RUNTIME_SMOKE_OPTIONAL=1`
+  or `GITHUB_ACTIONS=true`).
+- `scripts/validate_trapo_ocr_ffi.py` asserts compile-time backend flags from
+  CMake cache. Do not pass `--probe-runtime` on hosted runners without a GPU.
+- Capability checks that require a generative backend may assert that CUDA is
+  **compiled in**, but must tolerate “compiled but no device” on CI.
+- Live GPU end-to-end OCR belongs on a self-hosted GPU machine, not in the
+  default Workbench CI matrix.

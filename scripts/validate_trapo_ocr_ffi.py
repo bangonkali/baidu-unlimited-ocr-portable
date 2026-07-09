@@ -6,16 +6,20 @@ import json
 from pathlib import Path
 
 from test_ctypes_runtime import validate_trapo_ocr_exported_symbols, validate_trapo_ocr_runtime
+from trapo_ocr_ffi_build_env import is_cuda13_platform
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PORTABLE_BACKEND_CACHE_FLAGS = (
+CUDA_BACKEND_CACHE_FLAGS = (
     "TRAPO_LLAMA_ENABLE_CUDA",
     "GGML_CUDA",
+)
+OPTIONAL_BACKEND_CACHE_FLAGS = (
     "TRAPO_LLAMA_ENABLE_VULKAN",
     "GGML_VULKAN",
     "TRAPO_LLAMA_ENABLE_OPENCL",
     "GGML_OPENCL",
 )
+ALL_BACKEND_CACHE_FLAGS = CUDA_BACKEND_CACHE_FLAGS + OPTIONAL_BACKEND_CACHE_FLAGS
 
 
 def trapo_ocr_ffi_path(platform: str, build_bin: Path) -> Path:
@@ -44,15 +48,31 @@ def validate_portable_build_configuration(platform: str) -> dict[str, object]:
     if not cache_path.is_file():
         raise SystemExit(f"trapo-ocr-ffi CMake cache was not found: {cache_path}")
     cache = cache_path.read_text(encoding="utf-8", errors="replace")
-    enabled = [name for name in PORTABLE_BACKEND_CACHE_FLAGS if cache_bool(cache, name)]
-    if enabled:
+    flag_state = {name: cache_bool(cache, name) for name in ALL_BACKEND_CACHE_FLAGS}
+    unexpected_on = [name for name in OPTIONAL_BACKEND_CACHE_FLAGS if flag_state[name]]
+    if unexpected_on:
         raise SystemExit(
             "trapo-ocr-ffi portable build unexpectedly enabled hardware backends: "
-            + ", ".join(enabled)
+            + ", ".join(unexpected_on)
         )
+    if is_cuda13_platform(platform):
+        missing_cuda = [name for name in CUDA_BACKEND_CACHE_FLAGS if not flag_state[name]]
+        if missing_cuda:
+            raise SystemExit(
+                "trapo-ocr-ffi cuda13 build is missing required CUDA backends: "
+                + ", ".join(missing_cuda)
+            )
+    else:
+        unexpected_cuda = [name for name in CUDA_BACKEND_CACHE_FLAGS if flag_state[name]]
+        if unexpected_cuda:
+            raise SystemExit(
+                "trapo-ocr-ffi non-cuda build unexpectedly enabled CUDA backends: "
+                + ", ".join(unexpected_cuda)
+            )
     return {
         "cmake_cache": str(cache_path),
-        "portable_backend_flags": {name: False for name in PORTABLE_BACKEND_CACHE_FLAGS},
+        "portable_backend_flags": flag_state,
+        "cuda13_platform": is_cuda13_platform(platform),
     }
 
 
@@ -68,7 +88,8 @@ def main() -> None:
         action="store_true",
         help=(
             "Also load the FFI and call runtime capability functions. "
-            "Do not use on hosted CUDA runners."
+            "Do not use on hosted GitHub Actions runners without a GPU; "
+            "compile-time CUDA validation does not require a device."
         ),
     )
     args = parser.parse_args()

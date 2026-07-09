@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -149,12 +151,63 @@ class RuntimeEngineGuardTests(unittest.TestCase):
         self.assertFalse(validate_trapo_ocr_ffi.cache_bool(invalid_cache, "GGML_CUDA"))
         self.assertTrue(validate_trapo_ocr_ffi.cache_bool(invalid_cache, "TRAPO_LLAMA_ENABLE_CUDA"))
 
-    def test_ocr_ffi_build_env_keeps_cuda_runtime_portable(self) -> None:
+    def test_ocr_ffi_build_env_enables_cuda_for_cuda13_platforms(self) -> None:
         defaults = trapo_ocr_ffi_build_env.llama_backend_defaults("windows-x86_64-cuda13")
 
-        self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_CUDA"], "0")
+        self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_CUDA"], "1")
         self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
         self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
+
+    def test_ocr_ffi_validation_requires_cuda_cache_for_cuda13(self) -> None:
+        cuda_cache = "\n".join(
+            [
+                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=ON",
+                "GGML_CUDA:BOOL=ON",
+                "TRAPO_LLAMA_ENABLE_VULKAN:BOOL=OFF",
+                "GGML_VULKAN:BOOL=OFF",
+                "TRAPO_LLAMA_ENABLE_OPENCL:BOOL=OFF",
+                "GGML_OPENCL:BOOL=OFF",
+            ]
+        )
+        cpu_cache = "\n".join(
+            [
+                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=OFF",
+                "GGML_CUDA:BOOL=OFF",
+                "TRAPO_LLAMA_ENABLE_VULKAN:BOOL=OFF",
+                "GGML_VULKAN:BOOL=OFF",
+                "TRAPO_LLAMA_ENABLE_OPENCL:BOOL=OFF",
+                "GGML_OPENCL:BOOL=OFF",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp) / "windows-x86_64-cuda13"
+            cache_dir.mkdir()
+            (cache_dir / "CMakeCache.txt").write_text(cuda_cache, encoding="utf-8")
+            with mock.patch.object(
+                validate_trapo_ocr_ffi,
+                "cmake_cache_path",
+                return_value=cache_dir / "CMakeCache.txt",
+            ):
+                payload = validate_trapo_ocr_ffi.validate_portable_build_configuration(
+                    "windows-x86_64-cuda13"
+                )
+        self.assertTrue(payload["cuda13_platform"])
+        self.assertTrue(payload["portable_backend_flags"]["GGML_CUDA"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp) / "windows-x86_64-cpu"
+            cache_dir.mkdir()
+            (cache_dir / "CMakeCache.txt").write_text(cpu_cache, encoding="utf-8")
+            with mock.patch.object(
+                validate_trapo_ocr_ffi,
+                "cmake_cache_path",
+                return_value=cache_dir / "CMakeCache.txt",
+            ):
+                payload = validate_trapo_ocr_ffi.validate_portable_build_configuration(
+                    "windows-x86_64-cpu"
+                )
+        self.assertFalse(payload["cuda13_platform"])
+        self.assertFalse(payload["portable_backend_flags"]["GGML_CUDA"])
 
     def test_packaged_runtime_guard_requires_runtime_libraries(self) -> None:
         target = {

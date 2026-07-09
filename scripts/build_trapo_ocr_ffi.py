@@ -181,13 +181,12 @@ def reset_stale_cmake_cache(build_dir: Path, env: dict[str, str]) -> None:
     }
     if not stale_reason:
         for env_name, cmake_names in cache_flags.items():
-            enabled = env.get(env_name, "").upper() in TRUTHY_ENV_VALUES
-            if enabled:
-                continue
-            if any(f"{cmake_name}:BOOL=ON" in text for cmake_name in cmake_names):
+            want_enabled = env.get(env_name, "").upper() in TRUTHY_ENV_VALUES
+            cache_enabled = any(f"{cmake_name}:BOOL=ON" in text for cmake_name in cmake_names)
+            if want_enabled != cache_enabled:
                 stale_flags.append(env_name)
         if stale_flags:
-            stale_reason = "with non-portable llama.cpp backends: " + ", ".join(stale_flags)
+            stale_reason = "with mismatched llama.cpp backends: " + ", ".join(stale_flags)
     if not stale_reason:
         return
     target_root = (REPO_ROOT / "target" / "trapo-ocr-ffi").resolve()

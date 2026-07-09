@@ -34,7 +34,9 @@ test_ctypes_runtime = load_script("test_ctypes_runtime")
 
 
 class EngineRuntimeInstallerTests(unittest.TestCase):
-    def test_trapo_ocr_ffi_cuda_platform_keeps_portable_llama_defaults(self) -> None:
+    def test_trapo_ocr_ffi_cuda_platform_enables_llama_cuda_with_portable_arches(
+        self,
+    ) -> None:
         with mock.patch.dict(
             trapo_ocr_ffi_build_env.os.environ,
             {"CUDA_ARCHITECTURES": "120a-real"},
@@ -42,10 +44,22 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
         ):
             env = trapo_ocr_ffi_build_env.portable_build_env("windows-x86_64-cuda13")
 
-        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "1")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
         self.assertEqual(env["TRAPO_CUDA_ARCHITECTURES"], "120a-real")
+
+    def test_trapo_ocr_ffi_cuda_platform_defaults_portable_cuda_architectures(
+        self,
+    ) -> None:
+        with mock.patch.dict(trapo_ocr_ffi_build_env.os.environ, {}, clear=True):
+            env = trapo_ocr_ffi_build_env.portable_build_env("linux-x86_64-cuda13")
+
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "1")
+        self.assertEqual(
+            env["TRAPO_CUDA_ARCHITECTURES"],
+            trapo_ocr_ffi_build_env.PORTABLE_CUDA_ARCHITECTURES,
+        )
 
     def test_trapo_ocr_ffi_cpu_platform_keeps_portable_llama_defaults(self) -> None:
         with mock.patch.dict(trapo_ocr_ffi_build_env.os.environ, {}, clear=True):
@@ -54,6 +68,7 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
+        self.assertNotIn("TRAPO_CUDA_ARCHITECTURES", env)
 
     def test_trapo_ocr_ffi_cuda_platform_preserves_explicit_backend_override(self) -> None:
         with mock.patch.dict(
@@ -109,6 +124,31 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
             )
 
             build_trapo_ocr_ffi.reset_stale_cmake_cache(build_dir, {})
+
+            self.assertFalse(build_dir.exists())
+        finally:
+            if build_dir.exists():
+                shutil.rmtree(build_dir)
+
+    def test_trapo_ocr_ffi_resets_cache_when_cuda_backend_mismatches(self) -> None:
+        target_root = build_trapo_ocr_ffi.REPO_ROOT / "target" / "trapo-ocr-ffi"
+        target_root.mkdir(parents=True, exist_ok=True)
+        build_dir = Path(tempfile.mkdtemp(dir=target_root))
+        try:
+            (build_dir / "CMakeFiles").mkdir()
+            (build_dir / "CMakeCache.txt").write_text(
+                "\n".join(
+                    [
+                        f"CMAKE_HOME_DIRECTORY:INTERNAL={build_trapo_ocr_ffi.NATIVE_SOURCE}",
+                        "TRAPO_LLAMA_ENABLE_CUDA:BOOL=OFF",
+                        "GGML_CUDA:BOOL=OFF",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            build_trapo_ocr_ffi.reset_stale_cmake_cache(build_dir, {"TRAPO_LLAMA_ENABLE_CUDA": "1"})
 
             self.assertFalse(build_dir.exists())
         finally:

@@ -34,3 +34,20 @@ id. CUDA runtimes request ONNX Runtime CUDA and llama.cpp CUDA; macOS Metal
 runtimes request ONNX CoreML with automatic generative backend selection; ROCm
 labels currently request automatic native backend selection until the native ABI
 has a validated ROCm-specific backend; CPU runtimes force CPU-only execution.
+
+## CUDA 13 FFI builds (GPU-less CI safe)
+
+For `*-cuda13` platforms, `scripts/build_trapo_ocr_ffi.py` enables the nested
+llama.cpp CUDA backend (`TRAPO_LLAMA_ENABLE_CUDA=1`) and sets portable
+`TRAPO_CUDA_ARCHITECTURES` (never `native`) so GitHub-hosted runners without a
+GPU can still produce CUDA-capable `trapo-ocr-ffi` binaries. CPU, arm64, and
+Metal platforms keep all llama hardware backends off.
+
+ONNX Runtime for the FFI still links against the CPU ORT core for load
+portability; cuda13 packages additionally stage prebuilt
+`onnxruntime_providers_cuda*` libraries. At runtime, CUDA EP and llama CUDA are
+used when the host has a compatible GPU and CUDA 13 runtime libraries; otherwise
+execution falls back to CPU. Release zips do not ship Python runtimes or NVIDIA
+CUDA redistributables (`cudart` / `cublas`); those come from the user machine.
+PaddleOCR-VL follows the selected runtime id for generative CUDA (no forced CPU
+generative pin).

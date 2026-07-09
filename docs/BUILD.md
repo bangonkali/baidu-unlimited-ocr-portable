@@ -42,3 +42,16 @@ Use the runtime-platform directory from the failing command, for example
 `linux-x86_64-cpu`, `linux-x86_64-cuda13`, `linux-arm64-cpu`, or
 `macos-arm64-metal`. Do not delete `.deps` unless a dependency download or hash
 check fails; `.deps` is shared dependency cache, not the CMake build cache.
+
+## CUDA 13 native FFI notes
+
+`windows-x86_64-cuda13` and `linux-x86_64-cuda13` builds enable llama.cpp CUDA
+inside `trapo-ocr-ffi` using the same portable architecture list as the
+standalone llama.cpp / Unlimited-OCR (`uocr-ffi`) runtime build. A local CUDA
+toolkit is required to compile; a GPU is not required at build time. After a
+successful cuda13 FFI configure step, CMake should report
+`PaddleOCR-VL llama.cpp backends: CUDA=1`.
+
+Running GPU inference still needs a matching CUDA 13 runtime on the machine
+(`cudart` / `cublas`). The packaged workbench remains binary-only: no Python
+OCR engines or `.venv` trees are shipped.
