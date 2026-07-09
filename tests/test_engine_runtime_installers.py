@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import shutil
 import sys
 import tempfile
 import types
@@ -94,6 +95,25 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(SystemExit, "not compiled"):
             test_ctypes_runtime.assert_generative_backend_compiled(capabilities, "cuda")
+
+    def test_trapo_ocr_ffi_resets_cache_generated_from_other_source(self) -> None:
+        target_root = build_trapo_ocr_ffi.REPO_ROOT / "target" / "trapo-ocr-ffi"
+        target_root.mkdir(parents=True, exist_ok=True)
+        build_dir = Path(tempfile.mkdtemp(dir=target_root))
+        try:
+            stale_source = target_root / "embedded-ocr" / "agus_ocr_core"
+            (build_dir / "CMakeFiles").mkdir()
+            (build_dir / "CMakeCache.txt").write_text(
+                f"CMAKE_HOME_DIRECTORY:INTERNAL={stale_source}\n",
+                encoding="utf-8",
+            )
+
+            build_trapo_ocr_ffi.reset_stale_cmake_cache(build_dir, {})
+
+            self.assertFalse(build_dir.exists())
+        finally:
+            if build_dir.exists():
+                shutil.rmtree(build_dir)
 
     def test_ppocrv6_model_installer_copies_declared_bundle_files(self) -> None:
         original_bundle = install_ppocrv6_runtime.PPOCRV6_BUNDLE

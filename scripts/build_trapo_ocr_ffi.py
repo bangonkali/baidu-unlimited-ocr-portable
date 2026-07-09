@@ -161,41 +161,47 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
     return command
 
 
-def reset_stale_llama_backend_cache(build_dir: Path, env: dict[str, str]) -> None:
+def reset_stale_cmake_cache(build_dir: Path, env: dict[str, str]) -> None:
     cache = build_dir / "CMakeCache.txt"
     if not cache.is_file():
         return
     text = cache.read_text(encoding="utf-8", errors="ignore")
+    stale_reason = ""
+    for line in text.splitlines():
+        if line.startswith("CMAKE_HOME_DIRECTORY:INTERNAL="):
+            source = Path(line.partition("=")[2])
+            if source.resolve() != NATIVE_SOURCE.resolve():
+                stale_reason = f"generated from a different source directory: {source}"
+            break
     stale_flags = []
     cache_flags = {
         "TRAPO_LLAMA_ENABLE_CUDA": ("TRAPO_LLAMA_ENABLE_CUDA", "GGML_CUDA"),
         "TRAPO_LLAMA_ENABLE_VULKAN": ("TRAPO_LLAMA_ENABLE_VULKAN", "GGML_VULKAN"),
         "TRAPO_LLAMA_ENABLE_OPENCL": ("TRAPO_LLAMA_ENABLE_OPENCL", "GGML_OPENCL"),
     }
-    for env_name, cmake_names in cache_flags.items():
-        enabled = env.get(env_name, "").upper() in TRUTHY_ENV_VALUES
-        if enabled:
-            continue
-        if any(f"{cmake_name}:BOOL=ON" in text for cmake_name in cmake_names):
-            stale_flags.append(env_name)
-    if not stale_flags:
+    if not stale_reason:
+        for env_name, cmake_names in cache_flags.items():
+            enabled = env.get(env_name, "").upper() in TRUTHY_ENV_VALUES
+            if enabled:
+                continue
+            if any(f"{cmake_name}:BOOL=ON" in text for cmake_name in cmake_names):
+                stale_flags.append(env_name)
+        if stale_flags:
+            stale_reason = "with non-portable llama.cpp backends: " + ", ".join(stale_flags)
+    if not stale_reason:
         return
     target_root = (REPO_ROOT / "target" / "trapo-ocr-ffi").resolve()
     resolved_build_dir = build_dir.resolve()
     if target_root not in (resolved_build_dir, *resolved_build_dir.parents):
         die(f"refusing to remove stale build cache outside {target_root}: {resolved_build_dir}")
-    print(
-        "Removing stale trapo-ocr-ffi CMake cache with non-portable llama.cpp backends: "
-        + ", ".join(stale_flags),
-        flush=True,
-    )
+    print(f"Removing stale trapo-ocr-ffi CMake cache {stale_reason}", flush=True)
     shutil.rmtree(resolved_build_dir)  # skylos: ignore[SKY-D215] bounded target build cache.
 
 
 def build(args: argparse.Namespace) -> Path | None:
     build_dir = args.build_dir.resolve()
     env = portable_build_env(args.platform)
-    reset_stale_llama_backend_cache(build_dir, env)
+    reset_stale_cmake_cache(build_dir, env)
     try:
         run(configure_args(args, build_dir), env=env)
         run(

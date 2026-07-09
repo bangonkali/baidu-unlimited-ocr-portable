@@ -19,5 +19,6 @@ def portable_build_env(platform: str) -> dict[str, str]:
     return env
 
 
-def llama_backend_defaults(_platform: str) -> dict[str, str]:
+def llama_backend_defaults(platform: str) -> dict[str, str]:
+    _ = platform
     return dict(PORTABLE_LLAMA_BACKENDS)
