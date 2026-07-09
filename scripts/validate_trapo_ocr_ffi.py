@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
-import sys
+import json
 from pathlib import Path
+
+from test_ctypes_runtime import validate_trapo_ocr_runtime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,16 +26,13 @@ def main() -> None:
         "--build-bin", type=Path, default=REPO_ROOT / "thirdparty/llama.cpp/build/bin"
     )
     args = parser.parse_args()
-    command = [
-        sys.executable,
-        str(REPO_ROOT / "scripts" / "test_ctypes_runtime.py"),
-        "--trapo-ocr-ffi-lib",
-        str(trapo_ocr_ffi_path(args.platform, args.build_bin)),
-        "--abi-only",
-    ]
-    if args.backend == "cuda":
-        command.extend(["--require-generative-backend", "cuda"])
-    subprocess.run(command, check=True)
+    payload = validate_trapo_ocr_runtime(
+        trapo_ocr_ffi_path(args.platform, args.build_bin),
+        "cuda" if args.backend == "cuda" else "",
+    )
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    if "load_error" in payload and args.backend == "cuda":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

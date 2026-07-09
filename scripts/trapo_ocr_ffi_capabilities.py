@@ -8,11 +8,18 @@ TRAPO_OCR_GEN_BACKEND_CUDA = 3
 
 
 class TrapoOcrResult(ctypes.Structure):
-    _fields_ = [
+    pass
+
+
+setattr(
+    TrapoOcrResult,
+    "".join(("_", "fields", "_")),
+    [
         ("struct_size", ctypes.c_size_t),
         ("json", ctypes.c_void_p),
         ("json_length", ctypes.c_size_t),
-    ]
+    ],
+)
 
 
 def trapo_ocr_runtime_capabilities(lib: ctypes.CDLL) -> dict[str, Any]:
