@@ -29,7 +29,49 @@ impl ModelBundleCheck {
 }
 
 pub(in crate::app::ocr_engines) fn ppocrv6(root: &Path) -> ModelBundleCheck {
-    required_files("PP-OCRv6", [root.join("models").join("manifest.json")])
+    required_files(
+        "PP-OCRv6",
+        [
+            root.join("manifest.json"),
+            root.join("models").join("manifest.json"),
+            root.join("models")
+                .join("doc_orientation")
+                .join("inference.onnx"),
+            root.join("models")
+                .join("doc_orientation")
+                .join("inference.yml"),
+            root.join("models")
+                .join("doc_unwarping")
+                .join("inference.onnx"),
+            root.join("models")
+                .join("doc_unwarping")
+                .join("inference.yml"),
+            root.join("models")
+                .join("textline_orientation")
+                .join("inference.onnx"),
+            root.join("models")
+                .join("textline_orientation")
+                .join("inference.yml"),
+            root.join("models")
+                .join("text_detection")
+                .join("inference.onnx"),
+            root.join("models")
+                .join("text_detection")
+                .join("inference.yml"),
+            root.join("models")
+                .join("text_detection")
+                .join("inference.json"),
+            root.join("models")
+                .join("text_recognition")
+                .join("inference.onnx"),
+            root.join("models")
+                .join("text_recognition")
+                .join("inference.yml"),
+            root.join("models")
+                .join("text_recognition")
+                .join("inference.json"),
+        ],
+    )
 }
 
 pub(in crate::app::ocr_engines) fn paddleocr_vl_1_6(
@@ -106,6 +148,8 @@ mod tests {
         assert!(error.contains("PP-OCRv6 model bundle is incomplete"));
         assert!(error.contains("models"));
         assert!(error.contains("manifest.json"));
+        assert!(error.contains("doc_orientation"));
+        assert!(error.contains("inference.onnx"));
         Ok(())
     }
 

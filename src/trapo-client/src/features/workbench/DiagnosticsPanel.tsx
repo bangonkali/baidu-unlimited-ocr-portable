@@ -88,6 +88,8 @@ export function DiagnosticsPanel({
     () => buildProgressNodes(progress.data?.work_units ?? [], openWorkUnit),
     [openWorkUnit, progress.data?.work_units],
   );
+  const logLevels = useMemo(() => uniqueLogValues(logs, 'level'), [logs]);
+  const logComponents = useMemo(() => uniqueLogValues(logs, 'component'), [logs]);
 
   return (
     <section className={styles.panel} aria-label="Diagnostics" data-tour="diagnostics">
@@ -95,6 +97,10 @@ export function DiagnosticsPanel({
       <TabBar active={tab} onChange={(nextTab) => onSearchChange?.({ tab: nextTab })} />
       <DiagnosticsToolbar
         query={search?.q ?? ''}
+        component={search?.component ?? ''}
+        components={logComponents}
+        level={search?.level ?? ''}
+        levels={logLevels}
         runId={selectedRun}
         runs={diagnosticRuns.data?.runs.map((run) => run.run_id) ?? []}
         status={search?.status ?? 'all'}
@@ -125,5 +131,11 @@ export function DiagnosticsPanel({
       </div>
       {workUnitId ? <DiagnosticWorkUnitDetail workUnitId={workUnitId} /> : null}
     </section>
+  );
+}
+
+function uniqueLogValues(logs: LogRecord[], key: 'component' | 'level') {
+  return [...new Set(logs.map((log) => log[key]).filter(Boolean))].sort((left, right) =>
+    left.localeCompare(right),
   );
 }

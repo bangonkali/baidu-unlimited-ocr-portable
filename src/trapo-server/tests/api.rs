@@ -297,6 +297,11 @@ async fn ingest_start_accepts_all_registered_native_engines_when_assets_exist() 
         assert_eq!(run_engine_id.as_bytes().get(14), Some(&b'7'));
         assert_eq!(config["status"], "queued");
     }
+    assert_eq!(find_engine_config(configs, "pp-ocrv6")?["status"], "queued");
+    assert_eq!(
+        find_engine_config(configs, "paddleocr-vl-1.6-gguf")?["status"],
+        "queued"
+    );
     Ok(())
 }
 
@@ -559,6 +564,46 @@ async fn diagnostics_waterfall_route_returns_trace_rows() -> anyhow::Result<()> 
         .as_array()
         .ok_or_else(|| anyhow::anyhow!("waterfall rows missing: {payload}"))?;
     assert_diagnostic_waterfall_hierarchy(rows, &seed, &payload)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn diagnostics_waterfall_route_exposes_failure_messages() -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.keep();
+    let config = test_config(&root)?;
+    let repository = Repository::open(config.database_path.clone()).await?;
+    drop(repository);
+    let run_id = Uuid::now_v7().to_string();
+    let span_id = Uuid::now_v7().to_string();
+    seed_failed_diagnostic_span(&config, &run_id, &span_id)?;
+    let app = build_router(AppState::new(config).await?);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!(
+                    "/api/diagnostics/waterfall?run_id={run_id}&status=failed"
+                ))
+                .body(Body::empty())?,
+        )
+        .await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), usize::MAX).await?;
+    let payload: serde_json::Value = serde_json::from_slice(&body)?;
+    let rows = payload["rows"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("waterfall rows missing: {payload}"))?;
+    let failed = rows
+        .iter()
+        .find(|row| row["span_id"] == span_id)
+        .ok_or_else(|| anyhow::anyhow!("failed span missing: {payload}"))?;
+    assert_eq!(failed["status_message"], "PP-OCRv6 create engine failed");
+    assert_eq!(
+        failed["error_message"],
+        "PaddleOCR-VL 1.6 create engine failed: llama.cpp cuda backend was not compiled into this build"
+    );
     Ok(())
 }
 
@@ -933,6 +978,16 @@ fn find_engine<'a>(
         .ok_or_else(|| anyhow::anyhow!("missing engine preset: {engine_id}"))
 }
 
+fn find_engine_config<'a>(
+    configs: &'a [serde_json::Value],
+    engine_id: &str,
+) -> anyhow::Result<&'a serde_json::Value> {
+    configs
+        .iter()
+        .find(|config| config["engine_id"].as_str() == Some(engine_id))
+        .ok_or_else(|| anyhow::anyhow!("missing engine config: {engine_id}"))
+}
+
 fn engine_selection(preset_id: &str, engine_id: &str, engine_kind: &str) -> serde_json::Value {
     serde_json::json!({
         "preset_id": preset_id,
@@ -1088,6 +1143,43 @@ fn seed_diagnostic_waterfall_run(
     seed_diagnostic_waterfall_core(&conn, config, seed)?;
     seed_diagnostic_waterfall_work_units(&conn, seed)?;
     seed_diagnostic_waterfall_spans(&conn, seed)?;
+    Ok(())
+}
+
+fn seed_failed_diagnostic_span(
+    config: &ServerConfig,
+    run_id: &str,
+    span_id: &str,
+) -> anyhow::Result<()> {
+    let conn = duckdb::Connection::open(&config.database_path)?;
+    let root_path = config.app_root.to_string_lossy().to_string();
+    conn.execute(
+        "INSERT INTO ingest_runs(
+            run_id, root_path, status, profile_id, engine_id, queued_files,
+            processed_pages, total_pages, model_id, runtime_id
+         )
+         VALUES (?, ?, 'failed', 'test-profile', 'pp-ocrv6', 1, 0, 1, '', 'windows-x86_64-cuda13')",
+        params![run_id, root_path.as_str()],
+    )?;
+    conn.execute(
+        "INSERT INTO ingest_diagnostic_spans(
+            span_id, trace_id, run_id, name, started_at, finished_at, ended_at,
+            duration_ms, pipeline_step, category, status, status_code,
+            status_message, error_type, error_message, attributes, attributes_json,
+            span_kind, activity_kind
+         )
+         VALUES (?, ?, ?, 'PaddleOCR-VL 1.6', '2026-07-07 00:00:00',
+            '2026-07-07 00:00:01', '2026-07-07T00:00:01Z', 1000,
+            'ingest.engine', 'engine', 'failed', 'error', ?, 'AppError', ?,
+            '{}'::JSON, '{}'::JSON, 'engine', 'internal')",
+        params![
+            span_id,
+            run_id,
+            run_id,
+            "PP-OCRv6 create engine failed",
+            "PaddleOCR-VL 1.6 create engine failed: llama.cpp cuda backend was not compiled into this build"
+        ],
+    )?;
     Ok(())
 }
 
@@ -1380,9 +1472,7 @@ fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Resu
         let runtime_root = runtime_dir
             .parent()
             .ok_or_else(|| anyhow::anyhow!("runtime bin has no parent"))?;
-        let ppocrv6_dir = runtime_root.join("ppocrv6");
-        std::fs::create_dir_all(ppocrv6_dir.join("models"))?;
-        std::fs::write(ppocrv6_dir.join("models").join("manifest.json"), b"{}")?;
+        install_placeholder_ppocrv6_assets(runtime_root)?;
         let paddle_vl_dir = runtime_root.join("paddleocr_vl_1_6");
         std::fs::create_dir_all(paddle_vl_dir.join("layout_detection"))?;
         std::fs::write(paddle_vl_dir.join("manifest.json"), b"{}")?;
@@ -1403,6 +1493,37 @@ fn install_placeholder_all_engine_assets(root: &std::path::Path) -> anyhow::Resu
             tesseract_dir.join("tessdata").join("eng.traineddata"),
             b"eng",
         )?;
+    }
+    Ok(())
+}
+
+fn install_placeholder_ppocrv6_assets(runtime_root: &std::path::Path) -> anyhow::Result<()> {
+    let ppocrv6_dir = runtime_root.join("ppocrv6");
+    let models_dir = ppocrv6_dir.join("models");
+    std::fs::create_dir_all(&models_dir)?;
+    std::fs::write(ppocrv6_dir.join("manifest.json"), b"{}")?;
+    std::fs::write(models_dir.join("manifest.json"), b"{}")?;
+    for (module, files) in [
+        ("doc_orientation", &["inference.onnx", "inference.yml"][..]),
+        ("doc_unwarping", &["inference.onnx", "inference.yml"][..]),
+        (
+            "textline_orientation",
+            &["inference.onnx", "inference.yml"][..],
+        ),
+        (
+            "text_detection",
+            &["inference.onnx", "inference.yml", "inference.json"][..],
+        ),
+        (
+            "text_recognition",
+            &["inference.onnx", "inference.yml", "inference.json"][..],
+        ),
+    ] {
+        let module_dir = models_dir.join(module);
+        std::fs::create_dir_all(&module_dir)?;
+        for file in files {
+            std::fs::write(module_dir.join(file), b"model")?;
+        }
     }
     Ok(())
 }

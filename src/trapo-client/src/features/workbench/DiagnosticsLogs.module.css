@@ -69,6 +69,29 @@
   background: var(--panel-3);
 }
 
+.logRow[data-level="ERROR"] {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--error);
+}
+
+.logRow[data-level="WARN"] {
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--warning);
+}
+
+.logRow strong {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.logRow[data-level="ERROR"] strong {
+  color: var(--error);
+}
+
+.logRow[data-level="WARN"] strong {
+  color: var(--warning);
+}
+
 .logRow time,
 .logRow small,
 .logRow span {
@@ -81,9 +104,4 @@
 .logRow time {
   color: var(--subtle);
   font-variant-numeric: tabular-nums;
-}
-
-.logRow strong {
-  color: var(--muted);
-  font-size: 11px;
 }

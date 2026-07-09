@@ -18,7 +18,7 @@ from urllib.parse import quote, urlparse
 
 from onnxruntime_staging import stage_onnxruntime_files
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
-from runtime_engine_guard_runtime import is_forbidden_runtime_path
+from runtime_engine_guard_runtime import is_forbidden_runtime_path, required_asset_files
 
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
@@ -351,7 +351,7 @@ def ensure_onnxruntime_files(runtime_dir: Path, platform_id: str) -> None:
 def ensure_ppocrv6_engine(runtime_dir: Path, platform_id: str) -> None:
     engine_dir = runtime_dir / "ppocrv6"
     remove_stale_ppocrv6_python_assets(engine_dir)
-    if not (engine_dir / "models" / "manifest.json").is_file():
+    if not ppocrv6_assets_are_complete(runtime_dir, platform_id):
         run(
             [
                 sys.executable,
@@ -367,6 +367,12 @@ def ensure_ppocrv6_engine(runtime_dir: Path, platform_id: str) -> None:
     ):
         expected = ", ".join(ppocrv6_ffi_names(platform_id))
         raise SystemExit(f"PP-OCRv6 native FFI is missing under {shared_bin}: {expected}")
+
+
+def ppocrv6_assets_are_complete(runtime_dir: Path, platform_id: str) -> bool:
+    return all(
+        (runtime_dir / path).is_file() for path in required_asset_files(platform_id, "ppocrv6")
+    )
 
 
 def ensure_paddleocr_vl_engine(runtime_dir: Path) -> None:

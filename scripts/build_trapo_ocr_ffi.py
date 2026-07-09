@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import urllib.request
@@ -16,6 +15,7 @@ from onnxruntime_staging import (
     ocr_ffi_ort_platform,
     stage_onnxruntime_files,
 )
+from trapo_ocr_ffi_build_env import TRUTHY_ENV_VALUES, portable_build_env
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NATIVE_SOURCE = REPO_ROOT / "src" / "trapo-ocr-native"
@@ -23,13 +23,6 @@ USER_AGENT = "trapo-ocr-ffi-builder"
 ALLOWED_HOSTS = {"api.nuget.org", "github.com"}
 DIRECTML_VERSION = "1.15.4"
 OPENCV_ARCHIVE = "opencv-mobile-4.13.0-windows-vs2022.zip"
-PORTABLE_LLAMA_BACKENDS = {
-    "TRAPO_LLAMA_ENABLE_CUDA": "0",
-    "TRAPO_LLAMA_ENABLE_VULKAN": "0",
-    "TRAPO_LLAMA_ENABLE_OPENCL": "0",
-}
-TRUTHY_ENV_VALUES = {"1", "ON", "TRUE", "YES"}
-
 WINDOWS_DEPS = (
     {
         "id": "directml",
@@ -168,13 +161,6 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
     return command
 
 
-def portable_build_env() -> dict[str, str]:
-    env = os.environ.copy()
-    for name, value in PORTABLE_LLAMA_BACKENDS.items():
-        env.setdefault(name, value)
-    return env
-
-
 def reset_stale_llama_backend_cache(build_dir: Path, env: dict[str, str]) -> None:
     cache = build_dir / "CMakeCache.txt"
     if not cache.is_file():
@@ -208,7 +194,7 @@ def reset_stale_llama_backend_cache(build_dir: Path, env: dict[str, str]) -> Non
 
 def build(args: argparse.Namespace) -> Path | None:
     build_dir = args.build_dir.resolve()
-    env = portable_build_env()
+    env = portable_build_env(args.platform)
     reset_stale_llama_backend_cache(build_dir, env)
     try:
         run(configure_args(args, build_dir), env=env)

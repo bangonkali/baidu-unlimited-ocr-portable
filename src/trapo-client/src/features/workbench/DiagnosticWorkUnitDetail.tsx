@@ -69,9 +69,11 @@ export function DiagnosticWorkUnitDetail({ workUnitId }: { workUnitId?: string }
 
 interface DetailRow {
   detail: string;
+  extra?: string;
   id: string;
   label: string;
   meta: string;
+  tone?: 'error';
 }
 
 function DetailSection({
@@ -93,10 +95,11 @@ function DetailSection({
       </div>
       {rows.length === 0 ? <div className={styles.detailEmpty}>{empty}</div> : null}
       {rows.map((row) => (
-        <div className={styles.detailRow} key={row.id}>
+        <div className={styles.detailRow} data-tone={row.tone} key={row.id}>
           <span>{row.label}</span>
           <small>{row.detail}</small>
           <strong>{row.meta}</strong>
+          {row.extra ? <pre className={styles.detailRowExtra}>{row.extra}</pre> : null}
         </div>
       ))}
     </section>
@@ -104,26 +107,37 @@ function DetailSection({
 }
 
 function spanRow(span: DiagnosticSpanRecord): DetailRow {
+  const errorDetail = span.error_message ?? span.status_message ?? span.error_stack ?? undefined;
   return {
-    detail: `${span.pipeline_step} · ${span.activity_kind}/${span.span_kind}`,
+    detail: errorDetail ?? `${span.pipeline_step} · ${span.activity_kind}/${span.span_kind}`,
+    extra: errorDetail,
     id: span.span_id,
     label: span.name,
     meta:
       span.status_code && span.status_code !== 'unset'
         ? `${span.status_code} · ${formatMs(span.duration_ms)}`
         : formatMs(span.duration_ms),
+    tone:
+      errorDetail || span.status === 'failed' || span.status_code === 'error' ? 'error' : undefined,
   };
 }
 
 function eventRow(event: DiagnosticEventRecord): DetailRow {
+  const attributes = nonEmptyJson(event.attributes);
   return {
     detail: event.message,
+    extra: attributes,
     id: event.event_id,
     label: event.name,
     meta: event.timestamp_ms
       ? `${event.severity} · ${formatEventTime(event.timestamp_ms)}`
       : event.severity,
+    tone: event.severity === 'ERROR' ? 'error' : undefined,
   };
+}
+
+function nonEmptyJson(value: Record<string, unknown>) {
+  return Object.keys(value).length === 0 ? undefined : JSON.stringify(value, null, 2);
 }
 
 function formatEventTime(timestampMs: number) {

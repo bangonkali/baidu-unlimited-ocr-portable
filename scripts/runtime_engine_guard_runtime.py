@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import install_ppocrv6_runtime
 from runtime_engine_guard_manifest import (
     ENGINE_EXECUTABLE_BASES,
     executable_name,
@@ -16,9 +17,7 @@ from runtime_engine_guard_manifest import (
 
 def required_asset_files(platform_id: str, asset_dir: str) -> list[str]:
     if asset_dir == "ppocrv6":
-        return [
-            "ppocrv6/models/manifest.json",
-        ]
+        return ppocrv6_required_asset_files()
     if asset_dir == "paddleocr_vl_1_6":
         return [
             "paddleocr_vl_1_6/manifest.json",
@@ -33,6 +32,15 @@ def required_asset_files(platform_id: str, asset_dir: str) -> list[str]:
         )
         return [binary, "tesseract/tessdata/eng.traineddata"]
     return []
+
+
+def ppocrv6_required_asset_files() -> list[str]:
+    files = ["ppocrv6/manifest.json", "ppocrv6/models/manifest.json"]
+    for module in install_ppocrv6_runtime.PPOCRV6_BUNDLE["modules"]:
+        module_id = str(module["id"])
+        for file_info in module["files"]:
+            files.append(f"ppocrv6/models/{module_id}/{file_info['name']}")
+    return files
 
 
 def forbidden_asset_files(asset_dir: str) -> list[str]:

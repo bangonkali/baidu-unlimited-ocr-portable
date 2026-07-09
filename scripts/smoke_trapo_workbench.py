@@ -12,6 +12,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from package_runtime import REPO_ROOT, load_platforms
+from runtime_engine_guard_runtime import required_asset_files
+
 
 def main() -> int:
     args = parse_args()
@@ -28,7 +31,9 @@ def main() -> int:
         assert_file(app_root / names["duckdb"])
         assert_file(app_root / names["pdfium"])
         assert_file(runtime_bin / names["ffi"])
+        assert_file(runtime_bin / names["trapo_ocr_ffi"])
         assert_file(runtime_bin / names["llama"])
+        validate_engine_assets(app_root, args.runtime_platform)
 
         env = runtime_env(app_root)
         server = app_root / names["server"]
@@ -132,6 +137,7 @@ def platform_names() -> dict[str, Path | str]:
             "duckdb": Path("duckdb.dll"),
             "pdfium": Path("thirdparty/pdfium/bin/pdfium.dll"),
             "ffi": "uocr-ffi.dll",
+            "trapo_ocr_ffi": "trapo-ocr-ffi.dll",
             "llama": "llama.dll",
             "library_var": "PATH",
         }
@@ -141,6 +147,7 @@ def platform_names() -> dict[str, Path | str]:
             "duckdb": Path("libduckdb.dylib"),
             "pdfium": Path("thirdparty/pdfium/lib/libpdfium.dylib"),
             "ffi": "libuocr-ffi.dylib",
+            "trapo_ocr_ffi": "libtrapo-ocr-ffi.dylib",
             "llama": "libllama.dylib",
             "library_var": "DYLD_LIBRARY_PATH",
         }
@@ -149,6 +156,7 @@ def platform_names() -> dict[str, Path | str]:
         "duckdb": Path("libduckdb.so"),
         "pdfium": Path("thirdparty/pdfium/lib/libpdfium.so"),
         "ffi": "libuocr-ffi.so",
+        "trapo_ocr_ffi": "libtrapo-ocr-ffi.so",
         "llama": "libllama.so",
         "library_var": "LD_LIBRARY_PATH",
     }
@@ -157,6 +165,17 @@ def platform_names() -> dict[str, Path | str]:
 def assert_file(path: Path) -> None:
     if not path.is_file():
         raise SystemExit(f"required packaged file was not found: {path}")
+
+
+def validate_engine_assets(app_root: Path, runtime_platform: str) -> None:
+    platforms = load_platforms(REPO_ROOT)
+    target = platforms["targets"].get(runtime_platform)
+    if target is None:
+        raise SystemExit(f"unknown runtime platform for smoke test: {runtime_platform}")
+    runtime_root = app_root / "thirdparty" / "uocr-runtime" / runtime_platform
+    for asset_dir in target.get("engine_asset_dirs", []):
+        for required_file in required_asset_files(runtime_platform, asset_dir):
+            assert_file(runtime_root / required_file)
 
 
 def runtime_env(app_root: Path) -> dict[str, str]:
@@ -212,6 +231,7 @@ def smoke_server(server: Path, app_root: Path, env: dict[str, str], port: int) -
                 raise SystemExit("DuckDB vss extension was not loaded")
             request_text(port, "/")
             request_json(port, "/api/openapi.json")
+            validate_ingest_engines(port)
             assert_file(app_root / "data" / "trapo.duckdb")
             assert_file(app_root / "logs" / "trapo-server.log")
         finally:
@@ -239,6 +259,21 @@ def request_json(port: int, path: str) -> dict:
     import json
 
     return json.loads(request_text(port, path))
+
+
+def validate_ingest_engines(port: int) -> None:
+    payload = request_json(port, "/api/ingest/engines")
+    engines = payload.get("engines", [])
+    for engine_id in ["pp-ocrv6", "paddleocr-vl-1.6-gguf"]:
+        engine = next((item for item in engines if item.get("engine_id") == engine_id), None)
+        if engine is None:
+            raise SystemExit(f"packaged engine was not listed by /api/ingest/engines: {engine_id}")
+        if engine.get("available") is not True:
+            raise SystemExit(
+                f"packaged engine is unavailable: {engine_id} "
+                f"availability={engine.get('availability')} "
+                f"runner_status={engine.get('runner_status')}"
+            )
 
 
 def request_text(port: int, path: str) -> str:

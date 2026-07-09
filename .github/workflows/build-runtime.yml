@@ -81,28 +81,21 @@ jobs:
           submodules: recursive
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.14.6"
+        with: { python-version: "3.14.6" }
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
-        with:
-          toolchain: stable
+        with: { toolchain: stable }
       - name: Install CMake with Blackwell CUDA architecture support
-        run: |
-          python -m pip install --upgrade "cmake>=4.2.1,<5"
-        shell: bash
+        run: python -m pip install --upgrade "cmake>=4.2.1,<5"
       - name: Set runtime version
         env:
           INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "$INPUT_VERSION"
+        run: python scripts/package_runtime.py write-version-env --github-env "$GITHUB_ENV" --ref-type "$GITHUB_REF_TYPE" --ref-name "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --input-version "$INPUT_VERSION"
         shell: bash
       - name: Install CUDA toolkit
         if: matrix.backend == 'cuda'
         uses: Jimver/cuda-toolkit@3d45d157f327c09c04b50ee6ccdea2d9d017ec76 # v0.2.35
-        with:
-          cuda: ${{ env.CUDA_VERSION }}
-          method: network
+        with: { cuda: "${{ env.CUDA_VERSION }}", method: network }
       - name: Show build toolchain
         shell: bash
         run: |
@@ -186,12 +179,10 @@ jobs:
           python scripts/stage_native_runners.py --platform "${{ matrix.platform }}" --output-dir thirdparty/llama.cpp/build/bin --required
       - name: Prepare ONNX Runtime native dependency
         shell: bash
-        run: |
-          cargo run -p trapo-xtask -- native-deps prepare --platform "${{ matrix.platform }}" --repo-root .
+        run: cargo run -p trapo-xtask -- native-deps prepare --platform "${{ matrix.platform }}" --repo-root .
       - name: Build native OCR FFI
         shell: bash
-        run: |
-          python scripts/build_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --build-dir target/trapo-ocr-ffi/${{ matrix.platform }} --output-dir thirdparty/llama.cpp/build/bin --required
+        run: python scripts/build_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --build-dir target/trapo-ocr-ffi/${{ matrix.platform }} --output-dir thirdparty/llama.cpp/build/bin --required
       - name: Install Tesseract runtime dependency
         shell: bash
         run: |
@@ -234,6 +225,9 @@ jobs:
           raise SystemExit(1)
           PY
         shell: bash
+      - name: Validate native OCR FFI ABI
+        shell: bash
+        run: python scripts/validate_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --backend "${{ matrix.backend }}"
       - name: Package runtime
         run: |
           python scripts/package_runtime.py package --platform "${{ matrix.platform }}" --version "${{ env.UOCR_RUNTIME_VERSION }}" --output-dir dist
@@ -262,8 +256,7 @@ jobs:
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.14.6"
+        with: { python-version: "3.14.6" }
       - name: Download packaged runtimes
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -282,8 +275,7 @@ jobs:
           fi
           echo "UOCR_RELEASE_TAG=${tag//\//-}" >> "$GITHUB_ENV"
       - name: Merge runtime manifests
-        run: |
-          python scripts/package_runtime.py merge --input-dir dist --output dist/uocr-runtime-manifest.json
+        run: python scripts/package_runtime.py merge --input-dir dist --output dist/uocr-runtime-manifest.json
 
       - name: Publish release assets
         env:

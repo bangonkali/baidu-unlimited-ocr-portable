@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import ctypes
 import json
 import os
@@ -11,6 +10,12 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+from ctypes_runtime_loader import prepare_dynamic_library_search
+from trapo_ocr_ffi_capabilities import (
+    assert_generative_backend_compiled,
+    trapo_ocr_runtime_capabilities,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ABI_VERSION = 1
@@ -34,16 +39,6 @@ TRAPO_OCR_REQUIRED_SYMBOLS = {
     "trapo_ocr_last_error",
     "trapo_ocr_recognize_image",
 }
-DLL_DIRECTORY_HANDLES: list[object] = []
-DLL_DIRECTORY_PATHS: set[str] = set()
-WINDOWS_RUNTIME_DEPENDENCY_DLLS = (
-    "cublas64_13.dll",
-    "cublasLt64_13.dll",
-    "cudart64_13.dll",
-    "libcrypto-3-x64.dll",
-    "libssl-3-x64.dll",
-    "nvrtc64_130_0.dll",
-)
 
 
 def platform_ffi_names() -> list[str]:
@@ -182,56 +177,25 @@ def validate_trapo_ocr_exported_symbols(path: Path) -> dict[str, Any]:
     }
 
 
-def windows_dependency_dirs(path: Path) -> list[Path]:
-    dirs = [path.parent]
-    for raw in os.environ.get("PATH", "").split(os.pathsep):
-        if not raw:
-            continue
-        candidate = Path(raw.strip('"'))
-        dirs.append(candidate)
-        if candidate.name.lower() in {"bin", "cmd"} and candidate.parent.name.lower() == "git":
-            dirs.append(candidate.parent / "mingw64" / "bin")
-
-    unique: list[Path] = []
-    seen: set[str] = set()
-    for directory in dirs:
-        try:
-            resolved = directory.resolve(strict=False)
-        except OSError:
-            continue
-        key = str(resolved).lower()
-        if key in seen or not resolved.is_dir():
-            continue
-        if resolved == path.parent or any(
-            (resolved / name).exists() for name in WINDOWS_RUNTIME_DEPENDENCY_DLLS
-        ):
-            unique.append(resolved)
-            seen.add(key)
-    return unique
-
-
-def add_windows_dll_directory(directory: Path) -> None:
-    key = str(directory.resolve(strict=False)).lower()
-    if key in DLL_DIRECTORY_PATHS:
-        return
-    DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(str(directory)))
-    DLL_DIRECTORY_PATHS.add(key)
+def validate_trapo_ocr_runtime(path: Path, required_backend: str = "") -> dict[str, Any]:
+    payload = validate_trapo_ocr_exported_symbols(path)
+    prepare_dynamic_library_search(path)
+    try:
+        lib = ctypes.CDLL(str(path))
+    except OSError as exc:
+        payload["load_error"] = str(exc)
+        return payload
+    capabilities = trapo_ocr_runtime_capabilities(lib)
+    payload["runtime_capabilities"] = capabilities
+    if required_backend:
+        payload["required_generative_backend"] = assert_generative_backend_compiled(
+            capabilities, required_backend
+        )
+    return payload
 
 
 def load_ffi_for_abi(path: Path) -> dict[str, Any]:
-    if os.name == "nt" and hasattr(os, "add_dll_directory"):
-        for directory in windows_dependency_dirs(path):
-            add_windows_dll_directory(directory)
-    elif sys.platform == "darwin":
-        for sibling in sorted(path.parent.glob("lib*.dylib")):
-            if sibling.resolve() != path.resolve():
-                with contextlib.suppress(OSError):
-                    ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
-    else:
-        for sibling in sorted(path.parent.glob("lib*.so*")):
-            if sibling.resolve() != path.resolve():
-                with contextlib.suppress(OSError):
-                    ctypes.CDLL(str(sibling), mode=ctypes.RTLD_GLOBAL)
+    prepare_dynamic_library_search(path)
     try:
         lib = ctypes.CDLL(str(path))
     except OSError as exc:
@@ -266,6 +230,11 @@ def main() -> None:
         help="Path to trapo-ocr-ffi.dll/libtrapo-ocr-ffi for exported symbol validation.",
     )
     parser.add_argument(
+        "--require-generative-backend",
+        default="",
+        help="Require a trapo-ocr-ffi generative backend to be compiled, e.g. cuda.",
+    )
+    parser.add_argument(
         "--abi-only",
         action="store_true",
         help="Accepted for release workflow compatibility; ABI validation is always used.",
@@ -273,10 +242,13 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.trapo_ocr_ffi_lib:
-        payload = validate_trapo_ocr_exported_symbols(
-            Path(args.trapo_ocr_ffi_lib).expanduser().resolve()
+        payload = validate_trapo_ocr_runtime(
+            Path(args.trapo_ocr_ffi_lib).expanduser().resolve(),
+            args.require_generative_backend,
         )
         print(json.dumps(payload, indent=2, sort_keys=True))
+        if "load_error" in payload:
+            raise SystemExit(1)
         return
 
     ffi_lib = find_ffi_lib(args.ffi_lib)

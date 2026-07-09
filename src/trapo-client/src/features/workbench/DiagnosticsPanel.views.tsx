@@ -43,6 +43,10 @@ export function TabBar({
 }
 
 export function DiagnosticsToolbar(props: {
+  component: string;
+  components: string[];
+  level: string;
+  levels: string[];
   query: string;
   runId?: string;
   runs: string[];
@@ -57,6 +61,30 @@ export function DiagnosticsToolbar(props: {
         placeholder="Filter spans, pages, logs"
         value={props.query}
       />
+      <select
+        aria-label="Log level"
+        onChange={(event) => props.onChange?.({ level: event.target.value || undefined })}
+        value={props.level}
+      >
+        <option value="">All levels</option>
+        {props.levels.map((level) => (
+          <option key={level} value={level}>
+            {level}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Log component"
+        onChange={(event) => props.onChange?.({ component: event.target.value || undefined })}
+        value={props.component}
+      >
+        <option value="">All components</option>
+        {props.components.map((component) => (
+          <option key={component} value={component}>
+            {component}
+          </option>
+        ))}
+      </select>
       <select
         aria-label="Run"
         onChange={(event) => props.onChange?.({ run: event.target.value || undefined })}
@@ -198,6 +226,7 @@ export function LogList({ logs }: { logs: LogRecord[] }) {
         {logs.map((log) => (
           <button
             className={logStyles.logRow}
+            data-level={log.level}
             key={`${log.timestamp}-${log.message}`}
             onClick={() => copyLog(formatLogLine(log), 'Copied row')}
             title="Copy log row"

@@ -18,6 +18,7 @@ from runtime_engine_guard_runtime import (
     is_forbidden_asset_path,
     is_forbidden_runtime_path,
     local_smoke,
+    required_asset_files,
     smoke_runners,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "manifest_errors",
     "is_forbidden_asset_path",
     "is_forbidden_runtime_path",
+    "required_asset_files",
     "supported_targets",
     "workflow_matrix_entries",
 ]

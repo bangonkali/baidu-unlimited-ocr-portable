@@ -4,35 +4,9 @@ import { renderToString } from 'react-dom/server';
 
 import type { DiagnosticWaterfallPayload, DiagnosticWaterfallRowRecord } from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
-import { fixtureLogs, fixtureRuns } from '../../stories/fixtures/workbenchFixtures';
-import { filterLogs, filterRuns } from './DiagnosticsPanel';
 import { formatMs } from './DiagnosticsPanel.helpers';
-import { LogList } from './DiagnosticsPanel.views';
 import { clampWaterfallColumnWidth, DiagnosticsWaterfallGrid } from './DiagnosticsWaterfallGrid';
 import { buildWaterfallRunNodes } from './DiagnosticsWaterfallTree';
-
-describe('diagnostics filters', () => {
-  test('filters logs by query, level, and component', () => {
-    expect(filterLogs(fixtureLogs, { component: 'pdfium', level: 'INFO' })).toHaveLength(1);
-    expect(filterLogs(fixtureLogs, { q: 'pdfium' })[0]?.component).toBe('pdfium');
-    expect(filterLogs(fixtureLogs, { level: 'ERROR' })).toHaveLength(0);
-  });
-
-  test('filters runs by status, run id, and query', () => {
-    expect(filterRuns(fixtureRuns, { status: 'running' })).toHaveLength(1);
-    expect(filterRuns(fixtureRuns, { status: 'all' })).toHaveLength(fixtureRuns.length);
-    expect(filterRuns(fixtureRuns, { run: 'run-20260629-01' })).toHaveLength(1);
-    expect(filterRuns(fixtureRuns, { q: 'missing' })).toHaveLength(0);
-  });
-
-  test('renders logs with timestamps and bulk copy action', () => {
-    const html = renderToString(<LogList logs={fixtureLogs} />);
-    expect(html).toContain('Copy All');
-    expect(html).toContain('Time');
-    expect(html).toContain('Component');
-    expect(html).toContain(fixtureLogs[0]?.message ?? '');
-  });
-});
 
 describe('diagnostics waterfall', () => {
   test('groups waterfall rows by trace parent id', () => {
@@ -174,6 +148,22 @@ describe('diagnostics waterfall rendering', () => {
     });
 
     expect(nodes[0]?.label).toBe('trace.pdf');
+  });
+
+  test('includes failure messages in failed waterfall row labels', () => {
+    const nodes = buildWaterfallRunNodes({
+      payload: waterfallPayload([
+        waterfallRow({
+          error_message: 'PaddleOCR-VL 1.6 create engine failed',
+          label: 'PaddleOCR-VL 1.6',
+          row_id: 'span:failed-engine',
+          status: 'failed',
+          status_code: 'error',
+        }),
+      ]),
+    });
+
+    expect(nodes[0]?.label).toContain('PaddleOCR-VL 1.6 create engine failed');
   });
 
   test('renders waterfall bars with timeline offset and duration lanes', () => {

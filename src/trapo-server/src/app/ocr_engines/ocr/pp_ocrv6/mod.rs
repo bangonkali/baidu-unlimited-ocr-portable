@@ -37,6 +37,7 @@ pub(in crate::app::ocr_engines) fn resolve(
     let _onnxruntime = onnx_runtime::validate_for_native_library(&found.path)?;
     let bundle_root = runtime_root.join(ENGINE_ASSET_DIR);
     validate_engine_assets_installed(&bundle_root)?;
+    let model_root = bundle_root.join("models");
     Ok(EngineRunner {
         engine_id: ENGINE_ID.to_string(),
         command: found.path.clone(),
@@ -45,7 +46,7 @@ pub(in crate::app::ocr_engines) fn resolve(
             config: NativeOcrFfiConfig {
                 pipeline: NativeOcrPipeline::PpOcrV6,
                 library_path: found.path,
-                model_root: bundle_root,
+                model_root,
                 external_model_root: None,
                 vl_model_path: None,
                 vl_mmproj_path: None,

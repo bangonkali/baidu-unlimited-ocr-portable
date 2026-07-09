@@ -7,6 +7,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -26,9 +27,74 @@ def load_script(name: str):
 install_ppocrv6_runtime = load_script("install_ppocrv6_runtime")
 install_paddleocr_vl_runtime = load_script("install_paddleocr_vl_runtime")
 install_tesseract_runtime = load_script("install_tesseract_runtime")
+trapo_ocr_ffi_build_env = load_script("trapo_ocr_ffi_build_env")
+build_trapo_ocr_ffi = load_script("build_trapo_ocr_ffi")
+test_ctypes_runtime = load_script("test_ctypes_runtime")
 
 
 class EngineRuntimeInstallerTests(unittest.TestCase):
+    def test_trapo_ocr_ffi_cuda_platform_enables_llama_cuda_by_default(self) -> None:
+        with mock.patch.dict(
+            trapo_ocr_ffi_build_env.os.environ,
+            {"CUDA_ARCHITECTURES": "120a-real"},
+            clear=True,
+        ):
+            env = trapo_ocr_ffi_build_env.portable_build_env("windows-x86_64-cuda13")
+
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "1")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
+        self.assertEqual(env["TRAPO_CUDA_ARCHITECTURES"], "120a-real")
+
+    def test_trapo_ocr_ffi_cpu_platform_keeps_portable_llama_defaults(self) -> None:
+        with mock.patch.dict(trapo_ocr_ffi_build_env.os.environ, {}, clear=True):
+            env = trapo_ocr_ffi_build_env.portable_build_env("windows-x86_64-cpu")
+
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
+
+    def test_trapo_ocr_ffi_cuda_platform_preserves_explicit_backend_override(self) -> None:
+        with mock.patch.dict(
+            trapo_ocr_ffi_build_env.os.environ,
+            {"TRAPO_LLAMA_ENABLE_CUDA": "0"},
+            clear=True,
+        ):
+            env = trapo_ocr_ffi_build_env.portable_build_env("windows-x86_64-cuda13")
+
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
+
+    def test_trapo_ocr_cuda_capability_guard_allows_compiled_backend_without_device(self) -> None:
+        capabilities = {
+            "generativeAccelerators": [
+                {
+                    "backend": 3,
+                    "supported": False,
+                    "unavailableReason": (
+                        "llama.cpp cuda backend is compiled but no compatible device was reported"
+                    ),
+                }
+            ]
+        }
+
+        match = test_ctypes_runtime.assert_generative_backend_compiled(capabilities, "cuda")
+
+        self.assertEqual(match["backend"], 3)
+
+    def test_trapo_ocr_cuda_capability_guard_rejects_uncompiled_backend(self) -> None:
+        capabilities = {
+            "generativeAccelerators": [
+                {
+                    "backend": 3,
+                    "supported": False,
+                    "unavailableReason": "llama.cpp cuda backend was not compiled into this build",
+                }
+            ]
+        }
+
+        with self.assertRaisesRegex(SystemExit, "not compiled"):
+            test_ctypes_runtime.assert_generative_backend_compiled(capabilities, "cuda")
+
     def test_ppocrv6_model_installer_copies_declared_bundle_files(self) -> None:
         original_bundle = install_ppocrv6_runtime.PPOCRV6_BUNDLE
         try:

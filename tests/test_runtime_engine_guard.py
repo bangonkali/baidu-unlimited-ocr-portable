@@ -18,6 +18,15 @@ assert spec.loader is not None
 sys.modules[spec.name] = runtime_engine_guard
 spec.loader.exec_module(runtime_engine_guard)
 
+package_spec = importlib.util.spec_from_file_location(
+    "runtime_engine_guard_package", SCRIPTS_DIR / "runtime_engine_guard_package.py"
+)
+assert package_spec is not None
+runtime_engine_guard_package = importlib.util.module_from_spec(package_spec)
+assert package_spec.loader is not None
+sys.modules[package_spec.name] = runtime_engine_guard_package
+package_spec.loader.exec_module(runtime_engine_guard_package)
+
 
 class RuntimeEngineGuardTests(unittest.TestCase):
     def test_manifest_guard_accepts_current_runtime_matrix(self) -> None:
@@ -94,6 +103,40 @@ class RuntimeEngineGuardTests(unittest.TestCase):
                 "ppocrv6", "ppocrv6/models/text_detection/inference.onnx"
             )
         )
+
+    def test_ppocrv6_required_assets_cover_native_model_layout(self) -> None:
+        required = runtime_engine_guard.required_asset_files("windows-x86_64-cpu", "ppocrv6")
+
+        self.assertIn("ppocrv6/manifest.json", required)
+        self.assertIn("ppocrv6/models/manifest.json", required)
+        self.assertIn("ppocrv6/models/doc_orientation/inference.onnx", required)
+        self.assertIn("ppocrv6/models/text_detection/inference.json", required)
+        self.assertIn("ppocrv6/models/text_recognition/inference.yml", required)
+
+    def test_packaged_runtime_guard_requires_runtime_libraries(self) -> None:
+        target = {
+            "executables": ["runner.exe"],
+            "required_libraries": ["trapo-ocr-ffi.dll"],
+            "engine_asset_dirs": [],
+        }
+        manifest = {"layout": {"executables": {"runner.exe": "bin/runner.exe"}}}
+
+        with self.assertRaisesRegex(SystemExit, "required library mismatch"):
+            runtime_engine_guard_package.validate_packaged_runtime_layout(
+                "windows-x86_64-cpu",
+                target,
+                manifest,
+                {"/runtime/bin/runner.exe"},
+            )
+
+        manifest["layout"]["required_libraries"] = {"trapo-ocr-ffi.dll": "bin/trapo-ocr-ffi.dll"}
+        with self.assertRaisesRegex(SystemExit, "missing required libraries"):
+            runtime_engine_guard_package.validate_packaged_runtime_layout(
+                "windows-x86_64-cpu",
+                target,
+                manifest,
+                {"/runtime/bin/runner.exe"},
+            )
 
     def test_paddleocr_vl_python_artifacts_are_forbidden_at_any_depth(self) -> None:
         self.assertTrue(

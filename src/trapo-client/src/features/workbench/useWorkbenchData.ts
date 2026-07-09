@@ -72,7 +72,7 @@ export function useWorkbenchData({
     folderDialog: useOpenFolderDialog(),
     generateEmbedding: useGenerateEmbedding(),
     ingestEngines: useIngestEngines(),
-    logs: useLogs(220),
+    logs: useLogs(1000),
     models: useModels(),
     previewImages: useDocumentPreviewImages(fileHash),
     previewResults,

@@ -79,6 +79,11 @@
   font-size: 12px;
 }
 
+.detailRow[data-tone="error"] {
+  background: color-mix(in srgb, var(--error) 12%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--error) 55%, var(--subtle-border));
+}
+
 .detailRow span,
 .detailRow small {
   min-width: 0;
@@ -95,6 +100,20 @@
 .detailRow strong {
   color: var(--text);
   text-align: right;
+}
+
+.detailRowExtra {
+  grid-column: 1 / -1;
+  max-height: 120px;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--subtle-border);
+  border-radius: 3px;
+  font-size: 11px;
+  white-space: pre-wrap;
 }
 
 .detailJsonBlock pre {

@@ -90,6 +90,10 @@ function rowLabel(row: DiagnosticWaterfallRowRecord) {
   if (detail) {
     parts.push(detail);
   }
+  const failure = rowFailureMessage(row);
+  if (failure) {
+    parts.push(shortFailure(failure));
+  }
   return parts.join(' - ');
 }
 
@@ -193,7 +197,22 @@ function rowTooltip(row: DiagnosticWaterfallRowRecord) {
   if (row.status_message) {
     parts.push(row.status_message);
   }
+  if (row.error_message && row.error_message !== row.status_message) {
+    parts.push(row.error_message);
+  }
   return parts.join(' · ');
+}
+
+function rowFailureMessage(row: DiagnosticWaterfallRowRecord) {
+  if (row.status !== 'failed' && row.status !== 'error' && row.status_code !== 'error') {
+    return '';
+  }
+  return row.error_message ?? row.status_message ?? '';
+}
+
+function shortFailure(value: string) {
+  const normalized = value.split(/\s+/).join(' ').trim();
+  return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized;
 }
 
 function barStyle(
