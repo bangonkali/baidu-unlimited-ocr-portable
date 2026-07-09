@@ -85,6 +85,12 @@ impl NativeOcrRuntimeConfig {
         Self::cpu()
     }
 
+    pub(in crate::app::ocr_engines) const fn with_cpu_generative_backend(mut self) -> Self {
+        self.generative_backend = GEN_BACKEND_CPU;
+        self.generative_gpu_layers = 0;
+        self
+    }
+
     const fn cpu() -> Self {
         Self {
             backend: BACKEND_CPU,
@@ -194,5 +200,16 @@ mod tests {
         assert_eq!(cpu.generative_backend, GEN_BACKEND_CPU);
         assert_eq!(cpu.generative_gpu_layers, 0);
         assert!(cpu.force_cpu_only);
+    }
+
+    #[test]
+    fn native_ocr_runtime_config_can_keep_onnx_cuda_with_cpu_vlm() {
+        let config = NativeOcrRuntimeConfig::from_runtime_id("windows-x86_64-cuda13")
+            .with_cpu_generative_backend();
+
+        assert_eq!(config.backend, BACKEND_CUDA);
+        assert_eq!(config.generative_backend, GEN_BACKEND_CPU);
+        assert_eq!(config.generative_gpu_layers, 0);
+        assert!(!config.force_cpu_only);
     }
 }

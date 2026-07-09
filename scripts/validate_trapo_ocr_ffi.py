@@ -5,10 +5,17 @@ import argparse
 import json
 from pathlib import Path
 
-from test_ctypes_runtime import validate_trapo_ocr_runtime
+from test_ctypes_runtime import validate_trapo_ocr_exported_symbols, validate_trapo_ocr_runtime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CUDA_CACHE_FLAGS = ("TRAPO_LLAMA_ENABLE_CUDA", "GGML_CUDA")
+PORTABLE_BACKEND_CACHE_FLAGS = (
+    "TRAPO_LLAMA_ENABLE_CUDA",
+    "GGML_CUDA",
+    "TRAPO_LLAMA_ENABLE_VULKAN",
+    "GGML_VULKAN",
+    "TRAPO_LLAMA_ENABLE_OPENCL",
+    "GGML_OPENCL",
+)
 
 
 def trapo_ocr_ffi_path(platform: str, build_bin: Path) -> Path:
@@ -32,17 +39,20 @@ def cache_bool(cache: str, name: str) -> bool:
     return False
 
 
-def validate_cuda_build_configuration(platform: str) -> dict[str, object]:
+def validate_portable_build_configuration(platform: str) -> dict[str, object]:
     cache_path = cmake_cache_path(platform)
     if not cache_path.is_file():
         raise SystemExit(f"trapo-ocr-ffi CMake cache was not found: {cache_path}")
     cache = cache_path.read_text(encoding="utf-8", errors="replace")
-    missing = [name for name in CUDA_CACHE_FLAGS if not cache_bool(cache, name)]
-    if missing:
-        raise SystemExit("trapo-ocr-ffi CUDA build flags were not enabled: " + ", ".join(missing))
+    enabled = [name for name in PORTABLE_BACKEND_CACHE_FLAGS if cache_bool(cache, name)]
+    if enabled:
+        raise SystemExit(
+            "trapo-ocr-ffi portable build unexpectedly enabled hardware backends: "
+            + ", ".join(enabled)
+        )
     return {
         "cmake_cache": str(cache_path),
-        "cuda_build_flags": {name: True for name in CUDA_CACHE_FLAGS},
+        "portable_backend_flags": {name: False for name in PORTABLE_BACKEND_CACHE_FLAGS},
     }
 
 
@@ -53,17 +63,21 @@ def main() -> None:
     parser.add_argument(
         "--build-bin", type=Path, default=REPO_ROOT / "thirdparty/llama.cpp/build/bin"
     )
-    args = parser.parse_args()
-    required_backend = "cuda" if args.backend == "cuda" else ""
-    payload = validate_trapo_ocr_runtime(
-        trapo_ocr_ffi_path(args.platform, args.build_bin),
-        required_backend,
+    parser.add_argument(
+        "--probe-runtime",
+        action="store_true",
+        help=(
+            "Also load the FFI and call runtime capability functions. "
+            "Do not use on hosted CUDA runners."
+        ),
     )
-    if required_backend:
-        payload["required_backend_configuration"] = validate_cuda_build_configuration(args.platform)
+    args = parser.parse_args()
+    ffi_path = trapo_ocr_ffi_path(args.platform, args.build_bin)
+    payload = validate_trapo_ocr_exported_symbols(ffi_path)
+    payload["portable_backend_configuration"] = validate_portable_build_configuration(args.platform)
+    if args.probe_runtime:
+        payload["runtime_probe"] = validate_trapo_ocr_runtime(ffi_path)
     print(json.dumps(payload, indent=2, sort_keys=True))
-    if "load_error" in payload and args.backend != "cuda":
-        raise SystemExit(1)
 
 
 if __name__ == "__main__":

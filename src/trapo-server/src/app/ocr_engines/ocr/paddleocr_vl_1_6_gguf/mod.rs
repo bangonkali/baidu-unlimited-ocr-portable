@@ -61,7 +61,8 @@ pub(in crate::app::ocr_engines) fn resolve(
                 external_model_root: None,
                 vl_model_path: Some(model_path),
                 vl_mmproj_path: Some(mmproj_path),
-                runtime: NativeOcrRuntimeConfig::from_runtime_id(context.runtime_id),
+                runtime: NativeOcrRuntimeConfig::from_runtime_id(context.runtime_id)
+                    .with_cpu_generative_backend(),
                 max_new_tokens: 4096,
                 generate_markdown: true,
             },

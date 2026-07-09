@@ -36,6 +36,15 @@ assert validate_spec.loader is not None
 sys.modules[validate_spec.name] = validate_trapo_ocr_ffi
 validate_spec.loader.exec_module(validate_trapo_ocr_ffi)
 
+build_env_spec = importlib.util.spec_from_file_location(
+    "trapo_ocr_ffi_build_env", SCRIPTS_DIR / "trapo_ocr_ffi_build_env.py"
+)
+assert build_env_spec is not None
+trapo_ocr_ffi_build_env = importlib.util.module_from_spec(build_env_spec)
+assert build_env_spec.loader is not None
+sys.modules[build_env_spec.name] = trapo_ocr_ffi_build_env
+build_env_spec.loader.exec_module(trapo_ocr_ffi_build_env)
+
 
 class RuntimeEngineGuardTests(unittest.TestCase):
     def test_manifest_guard_accepts_current_runtime_matrix(self) -> None:
@@ -122,11 +131,11 @@ class RuntimeEngineGuardTests(unittest.TestCase):
         self.assertIn("ppocrv6/models/text_detection/inference.json", required)
         self.assertIn("ppocrv6/models/text_recognition/inference.yml", required)
 
-    def test_cuda_ffi_validation_requires_backend_cache_flags(self) -> None:
+    def test_ocr_ffi_validation_reads_backend_cache_flags(self) -> None:
         valid_cache = "\n".join(
             [
-                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=ON",
-                "GGML_CUDA:BOOL=ON",
+                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=OFF",
+                "GGML_CUDA:BOOL=OFF",
             ]
         )
         invalid_cache = "\n".join(
@@ -136,8 +145,16 @@ class RuntimeEngineGuardTests(unittest.TestCase):
             ]
         )
 
-        self.assertTrue(validate_trapo_ocr_ffi.cache_bool(valid_cache, "GGML_CUDA"))
+        self.assertFalse(validate_trapo_ocr_ffi.cache_bool(valid_cache, "GGML_CUDA"))
         self.assertFalse(validate_trapo_ocr_ffi.cache_bool(invalid_cache, "GGML_CUDA"))
+        self.assertTrue(validate_trapo_ocr_ffi.cache_bool(invalid_cache, "TRAPO_LLAMA_ENABLE_CUDA"))
+
+    def test_ocr_ffi_build_env_keeps_cuda_runtime_portable(self) -> None:
+        defaults = trapo_ocr_ffi_build_env.llama_backend_defaults("windows-x86_64-cuda13")
+
+        self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_CUDA"], "0")
+        self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
+        self.assertEqual(defaults["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
 
     def test_packaged_runtime_guard_requires_runtime_libraries(self) -> None:
         target = {

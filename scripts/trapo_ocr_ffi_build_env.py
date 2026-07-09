@@ -19,8 +19,5 @@ def portable_build_env(platform: str) -> dict[str, str]:
     return env
 
 
-def llama_backend_defaults(platform: str) -> dict[str, str]:
-    defaults = dict(PORTABLE_LLAMA_BACKENDS)
-    if "cuda" in platform.lower():
-        defaults["TRAPO_LLAMA_ENABLE_CUDA"] = "1"
-    return defaults
+def llama_backend_defaults(_platform: str) -> dict[str, str]:
+    return dict(PORTABLE_LLAMA_BACKENDS)

@@ -33,7 +33,7 @@ test_ctypes_runtime = load_script("test_ctypes_runtime")
 
 
 class EngineRuntimeInstallerTests(unittest.TestCase):
-    def test_trapo_ocr_ffi_cuda_platform_enables_llama_cuda_by_default(self) -> None:
+    def test_trapo_ocr_ffi_cuda_platform_keeps_portable_llama_defaults(self) -> None:
         with mock.patch.dict(
             trapo_ocr_ffi_build_env.os.environ,
             {"CUDA_ARCHITECTURES": "120a-real"},
@@ -41,7 +41,7 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
         ):
             env = trapo_ocr_ffi_build_env.portable_build_env("windows-x86_64-cuda13")
 
-        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "1")
+        self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_VULKAN"], "0")
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_OPENCL"], "0")
         self.assertEqual(env["TRAPO_CUDA_ARCHITECTURES"], "120a-real")
