@@ -21,6 +21,24 @@ EMBEDDED_OCR_MODEL_ROOTS = (
 )
 HUGGINGFACE_HOSTS = {"huggingface.co"}
 USER_AGENT = "trapo-paddleocr-vl-runtime-installer"
+DEFAULT_PADDLEOCR_VL_BUNDLE: dict[str, object] = {
+    "name": MODEL_NAME,
+    "description": "PaddleOCR-VL layout detection ONNX bundle staged for native Trapo OCR FFI.",
+    "version": "2026-07-09",
+    "source": "PaddlePaddle/PP-DocLayoutV3_onnx",
+    "modules": [
+        {
+            "id": "layout_detection",
+            "modelName": "PP-DocLayoutV3",
+            "repo": "PaddlePaddle/PP-DocLayoutV3_onnx",
+            "revision": "19622e1a9241f44f24a9cfd9b8d420c3645e78f3",
+            "files": [
+                {"name": "inference.onnx"},
+                {"name": "inference.yml"},
+            ],
+        }
+    ],
+}
 
 
 def die(message: str) -> None:
@@ -29,7 +47,7 @@ def die(message: str) -> None:
 
 def load_bundle_manifest() -> dict[str, object]:
     if not MANIFEST_PATH.is_file():
-        die(f"PaddleOCR-VL asset manifest is missing: {MANIFEST_PATH}")
+        return DEFAULT_PADDLEOCR_VL_BUNDLE
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
@@ -127,7 +145,7 @@ def verify_model_file(path: Path, file_info: dict[str, object]) -> None:
 
 
 def write_manifest(output_dir: Path, sources: list[Path]) -> None:
-    manifest = dict(PADDLEOCR_VL_BUNDLE)
+    manifest = dict(bundle_manifest())
     manifest["installed_from"] = [str(source) for source in sources if source.is_dir()]
     manifest["staged_modules"] = ["layout_detection"]
     manifest["sha256"] = bundle_sha256(output_dir)

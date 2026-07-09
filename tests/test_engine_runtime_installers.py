@@ -131,6 +131,24 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
         finally:
             install_paddleocr_vl_runtime.PADDLEOCR_VL_BUNDLE = original_bundle
 
+    def test_paddleocr_vl_installer_has_ci_safe_default_manifest(self) -> None:
+        original_bundle = install_paddleocr_vl_runtime.PADDLEOCR_VL_BUNDLE
+        try:
+            install_paddleocr_vl_runtime.PADDLEOCR_VL_BUNDLE = None
+            manifest = install_paddleocr_vl_runtime.bundle_manifest()
+            layout_modules = [
+                module for module in manifest["modules"] if module["id"] == "layout_detection"
+            ]
+
+            self.assertEqual(len(layout_modules), 1)
+            self.assertEqual(layout_modules[0]["repo"], "PaddlePaddle/PP-DocLayoutV3_onnx")
+            self.assertEqual(
+                [file_info["name"] for file_info in layout_modules[0]["files"]],
+                ["inference.onnx", "inference.yml"],
+            )
+        finally:
+            install_paddleocr_vl_runtime.PADDLEOCR_VL_BUNDLE = original_bundle
+
     def test_tesseract_installer_stages_eng_tessdata_from_source_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
