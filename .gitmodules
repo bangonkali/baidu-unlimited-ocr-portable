@@ -53,3 +53,6 @@
 [submodule "thirdparty/tesseract"]
 	path = thirdparty/tesseract
 	url = git@github.com:tesseract-ocr/tesseract.git
+[submodule "thirdparty/tracing"]
+	path = thirdparty/tracing
+	url = git@github.com:tokio-rs/tracing.git
