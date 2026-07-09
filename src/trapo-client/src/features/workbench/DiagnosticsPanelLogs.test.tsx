@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { renderToString } from 'react-dom/server';
 
+import type { DiagnosticWaterfallRowRecord } from '../../api/types';
 import { fixtureLogs, fixtureRuns } from '../../stories/fixtures/workbenchFixtures';
 import { filterLogs, filterRuns } from './DiagnosticsPanel';
-import { DiagnosticsToolbar, LogList } from './DiagnosticsPanel.views';
+import { buildFailureSummary } from './DiagnosticsPanel.helpers';
+import { DiagnosticsToolbar, FailureSummary, LogList } from './DiagnosticsPanel.views';
 
 describe('diagnostics filters', () => {
   test('filters logs by query, level, and component', () => {
@@ -19,7 +21,9 @@ describe('diagnostics filters', () => {
     expect(filterRuns(fixtureRuns, { run: 'run-20260629-01' })).toHaveLength(1);
     expect(filterRuns(fixtureRuns, { q: 'missing' })).toHaveLength(0);
   });
+});
 
+describe('diagnostics log rendering', () => {
   test('renders logs with timestamps and bulk copy action', () => {
     const html = renderToString(<LogList logs={fixtureLogs} />);
     expect(html).toContain('Copy All');
@@ -47,6 +51,43 @@ describe('diagnostics filters', () => {
     expect(html).toContain('All levels');
     expect(html).toContain('aria-label="Log component"');
     expect(html).toContain('native-stderr');
+  });
+
+  test('keeps error log level available even when recent rows are warnings', () => {
+    const html = renderToString(
+      <DiagnosticsToolbar
+        component=""
+        components={['native-stderr']}
+        level=""
+        levels={['ERROR', 'WARN', 'INFO']}
+        query=""
+        runId={undefined}
+        runs={[]}
+        status="all"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('<option value="ERROR">ERROR</option>');
+  });
+
+  test('renders a compact failure summary from failed diagnostic rows', () => {
+    const failures = buildFailureSummary(
+      [
+        diagnosticRow({
+          error_message:
+            'PaddleOCR-VL 1.6 create engine failed: llama.cpp cuda backend was not compiled into this build',
+          label: 'PaddleOCR-VL 1.6',
+          pipeline_step: 'ingest.engine',
+          status: 'failed',
+        }),
+      ],
+      [],
+    );
+    const html = renderToString(<FailureSummary items={failures} />);
+
+    expect(html).toContain('Diagnostic failures');
+    expect(html).toContain('PaddleOCR-VL 1.6 create engine failed');
   });
 
   test('marks warning and error log rows for visible styling', () => {
@@ -87,3 +128,24 @@ describe('diagnostics filters', () => {
     expect(logsCss).toContain('.logRow[data-level="WARN"]');
   });
 });
+
+function diagnosticRow(patch: Partial<DiagnosticWaterfallRowRecord>): DiagnosticWaterfallRowRecord {
+  return {
+    activity_kind: 'internal',
+    attributes: {},
+    category: 'engine',
+    child_count: 0,
+    depth: 0,
+    duration_ms: 1,
+    label: 'diagnostic',
+    pipeline_step: 'ingest.engine',
+    row_source: 'diagnostic_span',
+    sort_index: 0,
+    span_id: 'span-1',
+    span_kind: 'engine',
+    status: 'ok',
+    status_code: 'ok',
+    visual_duration_ms: 1,
+    ...patch,
+  };
+}

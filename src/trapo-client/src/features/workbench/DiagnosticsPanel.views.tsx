@@ -8,6 +8,7 @@ import type { TreeGridNode } from '../../components/workbench';
 import { TreeGrid } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import logStyles from './DiagnosticsLogs.module.css';
+import type { DiagnosticFailureSummaryItem } from './DiagnosticsPanel.helpers';
 import { formatMs, iconForStatus } from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsPanel.module.css';
 
@@ -108,6 +109,26 @@ export function DiagnosticsToolbar(props: {
         <option value="error">Error</option>
       </select>
     </div>
+  );
+}
+
+export function FailureSummary({ items }: { items: DiagnosticFailureSummaryItem[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <section className={styles.failureSummary} aria-label="Diagnostic failures">
+      <strong>{items.length === 1 ? 'Failure' : 'Failures'}</strong>
+      <div>
+        {items.map((item) => (
+          <article key={item.id}>
+            <small>{item.source}</small>
+            <span title={item.message}>{item.message}</span>
+            {item.detail ? <em>{item.detail}</em> : null}
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

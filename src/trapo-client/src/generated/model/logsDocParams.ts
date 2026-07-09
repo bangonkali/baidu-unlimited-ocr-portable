@@ -11,4 +11,7 @@ export type LogsDocParams = {
  * @minimum 0
  */
 limit?: number;
+level?: string;
+component?: string;
+q?: string;
 };

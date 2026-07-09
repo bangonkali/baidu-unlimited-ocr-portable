@@ -1,6 +1,11 @@
 import { Boxes, CircleAlert, CircleCheck, Clock3, LoaderCircle } from 'lucide-react';
 
-import type { DiagnosticWorkUnitRecord, IngestRunRecord, LogRecord } from '../../api/types';
+import type {
+  DiagnosticWaterfallRowRecord,
+  DiagnosticWorkUnitRecord,
+  IngestRunRecord,
+  LogRecord,
+} from '../../api/types';
 import type { TreeGridNode } from '../../components/workbench';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
 import styles from './DiagnosticsPanel.module.css';
@@ -62,6 +67,50 @@ export function filterRuns(runs: IngestRunRecord[], search: DiagnosticsRouteSear
   });
 }
 
+export interface DiagnosticFailureSummaryItem {
+  id: string;
+  message: string;
+  source: string;
+  detail?: string;
+}
+
+export function buildFailureSummary(
+  rows: DiagnosticWaterfallRowRecord[],
+  workUnits: DiagnosticWorkUnitRecord[],
+): DiagnosticFailureSummaryItem[] {
+  const seen = new Set<string>();
+  const failures: DiagnosticFailureSummaryItem[] = [];
+  for (const row of rows) {
+    if (!isFailureStatus(row.status)) {
+      continue;
+    }
+    const message = row.error_message || row.status_message;
+    if (!message || seen.has(message)) {
+      continue;
+    }
+    seen.add(message);
+    failures.push({
+      id: row.span_id ?? row.work_unit_id ?? `${row.label}-${failures.length}`,
+      message,
+      source: row.pipeline_step || row.category || 'diagnostic',
+      detail: row.label,
+    });
+  }
+  for (const unit of workUnits) {
+    if (!isFailureStatus(unit.status) || !unit.error || seen.has(unit.error)) {
+      continue;
+    }
+    seen.add(unit.error);
+    failures.push({
+      id: unit.work_unit_id,
+      message: unit.error,
+      source: unit.phase,
+      detail: unit.filename ?? unit.file_hash ?? undefined,
+    });
+  }
+  return failures.slice(0, 5);
+}
+
 export function iconForStatus(status: string) {
   if (status === 'completed' || status === 'ok') {
     return <CircleCheck size={14} className={styles.ok} />;
@@ -73,6 +122,10 @@ export function iconForStatus(status: string) {
     return <LoaderCircle size={14} className={styles.pending} />;
   }
   return <Clock3 size={14} className={styles.queued} />;
+}
+
+function isFailureStatus(status: string) {
+  return status === 'failed' || status === 'error' || status === 'cancelled';
 }
 
 export function toggled(current: Set<string>, id: string) {

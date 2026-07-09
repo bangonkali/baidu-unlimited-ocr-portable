@@ -7,14 +7,22 @@ import {
   useDiagnosticProgress,
   useDiagnosticRuns,
   useDiagnosticWaterfall,
+  useLogs,
 } from '../../api/hooks';
 import type { IngestRunRecord, LogRecord } from '../../api/types';
 import type { DiagnosticsRouteSearch } from '../../routeSearch';
-import { buildProgressNodes, filterLogs, filterRuns, toggled } from './DiagnosticsPanel.helpers';
+import {
+  buildFailureSummary,
+  buildProgressNodes,
+  filterLogs,
+  filterRuns,
+  toggled,
+} from './DiagnosticsPanel.helpers';
 import styles from './DiagnosticsPanel.module.css';
 import {
   AnalyticsView,
   DiagnosticsToolbar,
+  FailureSummary,
   LogList,
   ModelLeaseList,
   ProgressSummary,
@@ -37,6 +45,8 @@ interface DiagnosticsPanelProps {
 }
 
 export { filterLogs, filterRuns };
+
+const DEFAULT_LOG_LEVELS = ['ERROR', 'WARN', 'INFO'];
 
 export function DiagnosticsPanel({
   logs,
@@ -68,6 +78,11 @@ export function DiagnosticsPanel({
   const progress = useDiagnosticProgress(selectedRun, 5000, 1500);
   const analytics = useDiagnosticAnalytics(selectedRun);
   const models = useDiagnosticModels(selectedRun);
+  const filteredLogs = useLogs(1000, {
+    component: search?.component,
+    level: search?.level,
+    q: search?.q,
+  });
   const [expandedIds, setExpandedIds] = useState(() => new Set<string>());
   const waterfallNodes = useMemo(
     () =>
@@ -88,8 +103,20 @@ export function DiagnosticsPanel({
     () => buildProgressNodes(progress.data?.work_units ?? [], openWorkUnit),
     [openWorkUnit, progress.data?.work_units],
   );
-  const logLevels = useMemo(() => uniqueLogValues(logs, 'level'), [logs]);
-  const logComponents = useMemo(() => uniqueLogValues(logs, 'component'), [logs]);
+  const visibleLogs = filteredLogs.data?.logs ?? logs;
+  const logValues = useMemo(
+    () => [...logs, ...(filteredLogs.data?.logs ?? [])],
+    [filteredLogs.data?.logs, logs],
+  );
+  const logLevels = useMemo(
+    () => uniqueLogValues(logValues, 'level', DEFAULT_LOG_LEVELS),
+    [logValues],
+  );
+  const logComponents = useMemo(() => uniqueLogValues(logValues, 'component'), [logValues]);
+  const failureSummary = useMemo(
+    () => buildFailureSummary(waterfall.data?.rows ?? [], progress.data?.work_units ?? []),
+    [progress.data?.work_units, waterfall.data?.rows],
+  );
 
   return (
     <section className={styles.panel} aria-label="Diagnostics" data-tour="diagnostics">
@@ -106,6 +133,7 @@ export function DiagnosticsPanel({
         status={search?.status ?? 'all'}
         onChange={onSearchChange}
       />
+      <FailureSummary items={failureSummary} />
       <div className={styles.body} data-tab={tab}>
         {tab === 'waterfall' ? (
           <div className={styles.waterfallStack}>
@@ -127,15 +155,15 @@ export function DiagnosticsPanel({
         ) : null}
         {tab === 'analytics' ? <AnalyticsView data={analytics.data} /> : null}
         {tab === 'models' ? <ModelLeaseList leases={models.data?.model_leases ?? []} /> : null}
-        {tab === 'logs' ? <LogList logs={filterLogs(logs, search)} /> : null}
+        {tab === 'logs' ? <LogList logs={filterLogs(visibleLogs, search)} /> : null}
       </div>
       {workUnitId ? <DiagnosticWorkUnitDetail workUnitId={workUnitId} /> : null}
     </section>
   );
 }
 
-function uniqueLogValues(logs: LogRecord[], key: 'component' | 'level') {
-  return [...new Set(logs.map((log) => log[key]).filter(Boolean))].sort((left, right) =>
-    left.localeCompare(right),
+function uniqueLogValues(logs: LogRecord[], key: 'component' | 'level', defaults: string[] = []) {
+  return [...new Set([...defaults, ...logs.map((log) => log[key]).filter(Boolean)])].sort(
+    (left, right) => left.localeCompare(right),
   );
 }

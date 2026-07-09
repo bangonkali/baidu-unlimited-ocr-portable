@@ -128,8 +128,8 @@ impl AppState {
         }
     }
 
-    pub(crate) fn logs(&self, limit: usize) -> LogsPayload {
-        self.inner.logger.recent(limit)
+    pub(crate) fn logs(&self, limit: usize, filter: &crate::logger::LogFilter) -> LogsPayload {
+        self.inner.logger.recent_filtered(limit, filter)
     }
 
     pub(crate) fn export_logs_plain(&self) -> String {

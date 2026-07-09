@@ -229,7 +229,7 @@ const fn cancel_model_doc() {}
 #[utoipa::path(get, path = "/api/models/{model_id}/events", tag = "models", params(("model_id" = String, Path)), responses((status = 200, description = "Server-sent model download progress events", body = String, content_type = "text/event-stream"), (status = 400, body = ErrorPayload)))]
 const fn model_events_doc() {}
 
-#[utoipa::path(get, path = "/api/logs/recent", tag = "logs", params(("limit" = Option<u32>, Query)), responses((status = 200, body = LogsPayload)))]
+#[utoipa::path(get, path = "/api/logs/recent", tag = "logs", params(("limit" = Option<u32>, Query), ("level" = Option<String>, Query), ("component" = Option<String>, Query), ("q" = Option<String>, Query)), responses((status = 200, body = LogsPayload)))]
 const fn logs_doc() {}
 
 #[utoipa::path(get, path = "/api/logs/export", tag = "logs", responses((status = 200, description = "Plain text log export", body = String, content_type = "text/plain")))]

@@ -15,6 +15,13 @@ use crate::workbench_types::{LogRecord, LogsPayload};
 use self::parse::{format_log_record, read_log_records};
 pub use self::process::{ProcessLogGuards, install_process_logging};
 
+#[derive(Debug, Default)]
+pub(crate) struct LogFilter {
+    pub(crate) level: Option<String>,
+    pub(crate) component: Option<String>,
+    pub(crate) query: Option<String>,
+}
+
 #[derive(Debug)]
 pub(crate) struct AppLogger {
     path: PathBuf,
@@ -48,9 +55,12 @@ impl AppLogger {
         self.append("ERROR", component, message)
     }
 
-    pub(crate) fn recent(&self, limit: usize) -> LogsPayload {
+    pub(crate) fn recent_filtered(&self, limit: usize, filter: &LogFilter) -> LogsPayload {
         let clamped = limit.clamp(1, 1000);
-        let mut records = read_log_records(&self.path);
+        let mut records = read_log_records(&self.path)
+            .into_iter()
+            .filter(|record| log_matches(record, filter))
+            .collect::<Vec<_>>();
         let start = records.len().saturating_sub(clamped);
         LogsPayload {
             log_path: self.path.to_string_lossy().to_string(),
@@ -90,6 +100,42 @@ impl AppLogger {
     }
 }
 
+fn log_matches(record: &LogRecord, filter: &LogFilter) -> bool {
+    if let Some(level) = filter
+        .level
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        && !record.level.eq_ignore_ascii_case(level)
+    {
+        return false;
+    }
+    if let Some(component) = filter
+        .component
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        && !record.component.eq_ignore_ascii_case(component)
+    {
+        return false;
+    }
+    if let Some(query) = filter
+        .query
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let query = query.to_ascii_lowercase();
+        return format!(
+            "{} {} {} {}",
+            record.timestamp, record.level, record.component, record.message
+        )
+        .to_ascii_lowercase()
+        .contains(&query);
+    }
+    true
+}
+
 fn single_line(message: &str) -> String {
     message
         .split_whitespace()
@@ -97,4 +143,33 @@ fn single_line(message: &str) -> String {
         .join(" ")
         .trim()
         .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recent_filtered_applies_filters_before_limit() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let logger = AppLogger::open(temp.path())?;
+        logger.error("ingest", "PP-OCRv6 create engine failed");
+        for index in 0..20 {
+            logger.warn("native-stderr", format!("native warning {index}"));
+        }
+
+        let payload = logger.recent_filtered(
+            5,
+            &LogFilter {
+                level: Some("ERROR".to_string()),
+                component: None,
+                query: None,
+            },
+        );
+
+        assert_eq!(payload.logs.len(), 1);
+        assert_eq!(payload.logs[0].level, "ERROR");
+        assert!(payload.logs[0].message.contains("PP-OCRv6"));
+        Ok(())
+    }
 }

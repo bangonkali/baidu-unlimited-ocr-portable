@@ -12,6 +12,7 @@ use utoipa_scalar::{Scalar, Servable};
 use crate::{
     app::AppState,
     error::{AppError, Result},
+    logger::LogFilter,
     openapi::openapi_document,
     realtime,
     types::SettingsUpdateRequest,
@@ -23,6 +24,14 @@ use crate::{
 #[derive(Debug, Deserialize)]
 struct LimitQuery {
     limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LogsQuery {
+    limit: Option<usize>,
+    level: Option<String>,
+    component: Option<String>,
+    q: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -364,9 +373,16 @@ async fn update_settings(
 
 async fn logs(
     State(state): State<AppState>,
-    Query(query): Query<LimitQuery>,
+    Query(query): Query<LogsQuery>,
 ) -> Json<crate::workbench_types::LogsPayload> {
-    Json(state.logs(query.limit.unwrap_or(200)))
+    Json(state.logs(
+        query.limit.unwrap_or(200),
+        &LogFilter {
+            level: non_empty_query_value(query.level),
+            component: non_empty_query_value(query.component),
+            query: non_empty_query_value(query.q),
+        },
+    ))
 }
 
 async fn export_logs(State(state): State<AppState>) -> Response {
@@ -380,6 +396,12 @@ async fn export_logs(State(state): State<AppState>) -> Response {
 async fn websocket(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
     let hub = state.hub();
     ws.on_upgrade(move |socket| realtime::websocket(socket, hub))
+}
+
+fn non_empty_query_value(value: Option<String>) -> Option<String> {
+    value
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
 }
 
 include!("routes_diagnostics.rs");

@@ -1,6 +1,6 @@
 .panel {
   display: grid;
-  grid-template-rows: 30px 31px auto minmax(0, 1fr) auto;
+  grid-template-rows: 30px 31px auto auto minmax(0, 1fr) auto;
   min-height: 0;
   height: 100%;
   background: var(--panel);
@@ -66,6 +66,53 @@
 .filters input {
   width: min(320px, 100%);
   padding: 0 8px;
+}
+
+.failureSummary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 7px 8px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--error) 10%, var(--panel-2));
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.failureSummary strong {
+  color: var(--error);
+}
+
+.failureSummary div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.failureSummary article {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(0, 160px);
+  gap: 8px;
+  min-width: 0;
+}
+
+.failureSummary small,
+.failureSummary span,
+.failureSummary em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.failureSummary small,
+.failureSummary em {
+  color: var(--muted);
+}
+
+.failureSummary em {
+  font-style: normal;
 }
 
 .body,

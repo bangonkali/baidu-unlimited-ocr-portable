@@ -27,6 +27,15 @@ assert package_spec.loader is not None
 sys.modules[package_spec.name] = runtime_engine_guard_package
 package_spec.loader.exec_module(runtime_engine_guard_package)
 
+validate_spec = importlib.util.spec_from_file_location(
+    "validate_trapo_ocr_ffi", SCRIPTS_DIR / "validate_trapo_ocr_ffi.py"
+)
+assert validate_spec is not None
+validate_trapo_ocr_ffi = importlib.util.module_from_spec(validate_spec)
+assert validate_spec.loader is not None
+sys.modules[validate_spec.name] = validate_trapo_ocr_ffi
+validate_spec.loader.exec_module(validate_trapo_ocr_ffi)
+
 
 class RuntimeEngineGuardTests(unittest.TestCase):
     def test_manifest_guard_accepts_current_runtime_matrix(self) -> None:
@@ -112,6 +121,23 @@ class RuntimeEngineGuardTests(unittest.TestCase):
         self.assertIn("ppocrv6/models/doc_orientation/inference.onnx", required)
         self.assertIn("ppocrv6/models/text_detection/inference.json", required)
         self.assertIn("ppocrv6/models/text_recognition/inference.yml", required)
+
+    def test_cuda_ffi_validation_requires_backend_cache_flags(self) -> None:
+        valid_cache = "\n".join(
+            [
+                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=ON",
+                "GGML_CUDA:BOOL=ON",
+            ]
+        )
+        invalid_cache = "\n".join(
+            [
+                "TRAPO_LLAMA_ENABLE_CUDA:BOOL=ON",
+                "GGML_CUDA:BOOL=OFF",
+            ]
+        )
+
+        self.assertTrue(validate_trapo_ocr_ffi.cache_bool(valid_cache, "GGML_CUDA"))
+        self.assertFalse(validate_trapo_ocr_ffi.cache_bool(invalid_cache, "GGML_CUDA"))
 
     def test_packaged_runtime_guard_requires_runtime_libraries(self) -> None:
         target = {

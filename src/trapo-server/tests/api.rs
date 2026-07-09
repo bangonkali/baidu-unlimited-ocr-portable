@@ -474,6 +474,7 @@ fn openapi_serves_trapo_workbench_contract() -> anyhow::Result<()> {
         "/api/ingest/runs/{run_id}/resume",
         "/api/diagnostics/waterfall",
         "/api/diagnostics/work-units/{work_unit_id}",
+        "/api/logs/recent",
         "/api/logs/export",
         "/api/models/{model_id}/events",
         "/api/documents/{file_hash}/text",

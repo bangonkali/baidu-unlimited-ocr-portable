@@ -278,11 +278,17 @@ export function useRunCommand(command: 'stop') {
   });
 }
 
-export function useLogs(limit = 200) {
+export interface LogFilters {
+  component?: string;
+  level?: string;
+  q?: string;
+}
+
+export function useLogs(limit = 200, filters: LogFilters = {}) {
   return useQuery({
     placeholderData: { logs: [] },
     queryFn: ({ signal }) =>
-      getJson<LogsPayload>(buildApiUrl('/api/logs/recent', { limit }), signal),
-    queryKey: [...queryKeys.logs, limit],
+      getJson<LogsPayload>(buildApiUrl('/api/logs/recent', { ...filters, limit }), signal),
+    queryKey: [...queryKeys.logs, limit, filters],
   });
 }
