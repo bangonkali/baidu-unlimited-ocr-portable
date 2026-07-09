@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -193,11 +194,22 @@ def smoke_platform(platform_id: str, search_roots: list[Path], *, require_all: b
     if not host_matches_platform(platform_id):
         print(f"{platform_id}: executable smoke skipped on non-matching host")
         return
+    if accelerator_smoke_is_unavailable(platform_id):
+        print(
+            f"{platform_id}: executable smoke skipped because accelerator hardware is unavailable"
+        )
+        return
     for path in found:
         smoke_help(path)
         if path.name.startswith("trapo-tesseract-rs-runner"):
             smoke_self_check(path)
     print(f"{platform_id}: runtime engine command smoke passed")
+
+
+def accelerator_smoke_is_unavailable(platform_id: str) -> bool:
+    if "cuda" not in platform_id:
+        return False
+    return shutil.which("nvidia-smi") is None
 
 
 def find_file(roots: list[Path], name: str) -> Path | None:

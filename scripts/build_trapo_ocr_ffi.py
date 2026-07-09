@@ -164,7 +164,7 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
             ]
         )
         if "arm64" in args.platform:
-            command.extend(["-A", "ARM64"])
+            command.extend(["-A", "ARM64", "-T", "ClangCL"])
     return command
 
 
