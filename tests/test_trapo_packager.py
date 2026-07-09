@@ -128,6 +128,25 @@ class TrapoPackagerTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn("install_paddleocr_vl_runtime.py", calls[0][1])
 
+    def test_workbench_package_rejects_python_runtime_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            stage_root = Path(tmp)
+            forbidden = stage_root / "thirdparty" / "uocr-runtime" / "windows-x86_64-cpu"
+            forbidden.mkdir(parents=True)
+            (forbidden / "runtime.py").write_text("print('not shipped')", encoding="utf-8")
+
+            with self.assertRaises(SystemExit):
+                package_trapo_workbench.ensure_no_python_runtime_files(stage_root)
+
+    def test_workbench_package_allows_native_runtime_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            stage_root = Path(tmp)
+            allowed = stage_root / "thirdparty" / "uocr-runtime" / "windows-x86_64-cpu" / "bin"
+            allowed.mkdir(parents=True)
+            (allowed / "trapo-ocr-ffi.dll").write_bytes(b"native")
+
+            package_trapo_workbench.ensure_no_python_runtime_files(stage_root)
+
 
 if __name__ == "__main__":
     unittest.main()

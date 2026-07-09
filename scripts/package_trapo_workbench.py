@@ -18,6 +18,7 @@ from urllib.parse import quote, urlparse
 
 from onnxruntime_staging import stage_onnxruntime_files
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
+from runtime_engine_guard_runtime import is_forbidden_runtime_path
 
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
@@ -525,6 +526,19 @@ Uninstall: delete this folder.
     )
 
 
+def ensure_no_python_runtime_files(stage_root: Path) -> None:
+    forbidden = sorted(
+        str(path.relative_to(stage_root)).replace("\\", "/")
+        for path in stage_root.rglob("*")
+        if is_forbidden_runtime_path(str(path.relative_to(stage_root)))
+    )
+    if forbidden:
+        die(
+            "workbench package contains forbidden Python runtime files: "
+            + ", ".join(forbidden[:10])
+        )
+
+
 def package(args: argparse.Namespace) -> None:
     if args.platform not in PLATFORMS:
         die(f"unknown platform: {args.platform}")
@@ -611,6 +625,7 @@ def package(args: argparse.Namespace) -> None:
     (stage_root / "install-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
+    ensure_no_python_runtime_files(stage_root)
     create_archive(stage_root, archive)
     sha_path.write_text(  # skylos: ignore[SKY-D324] deterministic checksum path.
         f"{sha256_file(archive)}  {archive.name}\n", encoding="ascii"
