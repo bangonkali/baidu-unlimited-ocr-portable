@@ -184,6 +184,8 @@ jobs:
         shell: bash
         env:
           BUILD_PARALLEL: ${{ env.BUILD_PARALLEL }}
+          TRAPO_LLAMA_ENABLE_CUDA: ${{ matrix.backend == 'cuda' && '1' || '0' }}
+          TRAPO_CUDA_ARCHITECTURES: ${{ env.CUDA_ARCHITECTURES }}
         run: python scripts/build_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --build-dir target/trapo-ocr-ffi/${{ matrix.platform }} --output-dir thirdparty/llama.cpp/build/bin --required
       - name: Install Tesseract runtime dependency
         shell: bash
@@ -288,6 +290,8 @@ jobs:
           cat > "$release_notes" <<'EOF'
           Prebuilt Unlimited-OCR native runtime binaries.
           Supported platform labels are listed in uocr-runtime-manifest.json.
+          CUDA 13 artifacts bundle CUDA and cuDNN runtime redistributables;
+          a compatible NVIDIA driver is still required for GPU use.
           GGUF model files are downloaded separately by the setup scripts from Hugging Face.
           EOF
           if ! gh release view "$UOCR_RELEASE_TAG" >/dev/null 2>&1; then

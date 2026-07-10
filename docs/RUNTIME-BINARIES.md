@@ -100,11 +100,16 @@ The unified quality gate also exposes this as:
 uv run python scripts/quality.py --profile ci --only runtime
 ```
 
-Release archives are native-binary portable: no Python OCR engines, `.venv`, or
-shipped NVIDIA CUDA redistributables. Models are downloaded at runtime through
-the app. cuda13 packages include CUDA-capable llama/`uocr-ffi` and
-`trapo-ocr-ffi` builds plus staged ONNX Runtime CUDA provider libraries; hosts
-without a GPU fall back to CPU.
+Release archives are native-binary portable: no Python OCR engines or `.venv`
+are shipped, and models are downloaded at runtime through the app. cuda13
+packages include CUDA-capable llama/`uocr-ffi`, `trapo-ocr-ffi`, ONNX Runtime
+CUDA provider libraries, CUDA 13 runtime redistributables, and the cuDNN 9
+runtime. A compatible host NVIDIA driver remains required; hosts without a
+usable GPU fall back to CPU.
+
+The NVIDIA files and notices are staged from `runtime/nvidia-redist.json`.
+They are distributed as application-local object code under the NVIDIA CUDA
+Toolkit and cuDNN EULAs, not as a stand-alone SDK.
 
 The Trapo portable archives include:
 

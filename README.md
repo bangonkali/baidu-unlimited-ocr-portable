@@ -126,6 +126,10 @@ runtime arguments:
 | Ubuntu 24.04 x64 | `linux-x64` | `linux-x86_64-cuda13` | `linux-x86_64-cpu` |
 | Ubuntu 24.04 arm64 | `linux-arm64` | `linux-arm64-cpu` | empty |
 
+The x64 cuda13 packages bundle CUDA 13 and cuDNN 9 runtime
+redistributables. GPU acceleration requires a compatible NVIDIA driver, but
+users do not need to install the CUDA Toolkit or cuDNN separately.
+
 For release parity, smoke the launched app before handoff:
 
 ```powershell

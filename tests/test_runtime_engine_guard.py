@@ -234,6 +234,26 @@ class RuntimeEngineGuardTests(unittest.TestCase):
                 {"/runtime/bin/runner.exe"},
             )
 
+    def test_packaged_runtime_guard_requires_bundled_dependencies(self) -> None:
+        target = {"bundled_dependency_libraries": ["cudnn64_9.dll"]}
+        manifest = {"layout": {"dependency_libraries": {}}}
+        with self.assertRaisesRegex(SystemExit, "dependency library mismatch"):
+            runtime_engine_guard_package.validate_dependency_libraries(
+                "windows-x86_64-cuda13",
+                target,
+                manifest,
+                set(),
+            )
+
+        manifest["layout"]["dependency_libraries"] = {"cudnn64_9.dll": "bin/cudnn64_9.dll"}
+        with self.assertRaisesRegex(SystemExit, "missing dependencies"):
+            runtime_engine_guard_package.validate_dependency_libraries(
+                "windows-x86_64-cuda13",
+                target,
+                manifest,
+                set(),
+            )
+
     def test_paddleocr_vl_python_artifacts_are_forbidden_at_any_depth(self) -> None:
         self.assertTrue(
             runtime_engine_guard.is_forbidden_asset_path(

@@ -86,13 +86,26 @@
         "libuocr-ffi.so",
         "libtrapo-ocr-ffi.so"
       ],
+      "bundled_dependency_libraries": [
+        "libcudart.so.13",
+        "libcublas.so.13",
+        "libcublasLt.so.13",
+        "libcufft.so.12",
+        "libcurand.so.10",
+        "libnvJitLink.so.13",
+        "libnvrtc.so.13",
+        "libnvrtc-builtins.so.13",
+        "libcudnn.so.9"
+      ],
       "library_globs": [
         "*.so",
         "*.so.*"
       ],
       "bundled_notice_files": [
         "onnxruntime-LICENSE",
-        "onnxruntime-ThirdPartyNotices.txt"
+        "onnxruntime-ThirdPartyNotices.txt",
+        "NVIDIA-CUDA-EULA.txt",
+        "NVIDIA-cuDNN-LICENSE.txt"
       ],
       "engine_asset_dirs": [
         "ppocrv6",
@@ -100,7 +113,7 @@
         "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
-      "notes": "Prebuilt runtime for Linux x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
+      "notes": "Prebuilt runtime for Linux x86_64 machines. CUDA 13 and cuDNN 9 runtime redistributables are bundled; a compatible host NVIDIA driver is still required."
     },
     "linux-x86_64-rocm6": {
       "label": "Linux x86_64 / AMD ROCm",
@@ -256,12 +269,34 @@
         "uocr-ffi.dll",
         "trapo-ocr-ffi.dll"
       ],
+      "bundled_dependency_libraries": [
+        "msvcp140.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "cudart64_13.dll",
+        "cublas64_13.dll",
+        "cublasLt64_13.dll",
+        "cufft64_12.dll",
+        "curand64_10.dll",
+        "nvJitLink_130_0.dll",
+        "nvrtc64_130_0.dll",
+        "cudnn64_9.dll",
+        "cudnn_adv64_9.dll",
+        "cudnn_engines_precompiled64_9.dll",
+        "cudnn_engines_runtime_compiled64_9.dll",
+        "cudnn_engines_tensor_ir64_9.dll",
+        "cudnn_graph64_9.dll",
+        "cudnn_heuristic64_9.dll",
+        "cudnn_ops64_9.dll"
+      ],
       "library_globs": [
         "*.dll"
       ],
       "bundled_notice_files": [
         "onnxruntime-LICENSE",
-        "onnxruntime-ThirdPartyNotices.txt"
+        "onnxruntime-ThirdPartyNotices.txt",
+        "NVIDIA-CUDA-EULA.txt",
+        "NVIDIA-cuDNN-LICENSE.txt"
       ],
       "engine_asset_dirs": [
         "ppocrv6",
@@ -269,7 +304,7 @@
         "tesseract"
       ],
       "accelerator_probe": "nvidia-smi",
-      "notes": "Prebuilt runtime for Windows x86_64 machines with an NVIDIA driver and CUDA runtime libraries compatible with CUDA 13 binaries."
+      "notes": "Prebuilt runtime for Windows x86_64 machines. CUDA 13 and cuDNN 9 runtime redistributables are bundled; a compatible host NVIDIA driver is still required."
     },
     "windows-x86_64-rocm6": {
       "label": "Windows x86_64 / AMD ROCm",
@@ -293,6 +328,11 @@
       "required_libraries": [
         "uocr-ffi.dll",
         "trapo-ocr-ffi.dll"
+      ],
+      "bundled_dependency_libraries": [
+        "msvcp140.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
       ],
       "library_globs": [
         "*.dll"
@@ -326,6 +366,11 @@
       "required_libraries": [
         "uocr-ffi.dll",
         "trapo-ocr-ffi.dll"
+      ],
+      "bundled_dependency_libraries": [
+        "msvcp140.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
       ],
       "library_globs": [
         "*.dll"

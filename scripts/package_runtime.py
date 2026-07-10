@@ -333,6 +333,7 @@ def package_runtime(args: argparse.Namespace) -> None:
                     f"Version: {version}",
                     "",
                     "This archive contains native Trapo OCR runtime binaries and engine payloads.",
+                    str(target.get("notes", "")),
                     "Large GGUF model files are downloaded separately by the setup scripts.",
                     "",
                 ]

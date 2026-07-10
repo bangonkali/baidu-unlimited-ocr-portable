@@ -12,6 +12,8 @@ WINDOWS_RUNTIME_DEPENDENCY_DLLS = (
     "cublas64_13.dll",
     "cublasLt64_13.dll",
     "cudart64_13.dll",
+    "cudnn64_9.dll",
+    "cufft64_12.dll",
     "libcrypto-3-x64.dll",
     "libssl-3-x64.dll",
     "nvrtc64_130_0.dll",

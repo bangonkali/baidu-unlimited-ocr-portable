@@ -46,11 +46,27 @@ Metal platforms keep all llama hardware backends off.
 ONNX Runtime for the FFI still links against the CPU ORT core for load
 portability; cuda13 packages additionally stage prebuilt
 `onnxruntime_providers_cuda*` libraries. At runtime, CUDA EP and llama CUDA are
-used when the host has a compatible GPU and CUDA 13 runtime libraries; otherwise
-execution falls back to CPU. Release zips do not ship Python runtimes or NVIDIA
-CUDA redistributables (`cudart` / `cublas`); those come from the user machine.
+used when the host has a compatible GPU and driver; otherwise execution falls
+back to CPU. CUDA 13 packages bundle the redistributable CUDA runtime libraries
+used by ONNX Runtime and llama.cpp (`cudart`, cuBLAS, cuFFT, cuRAND, NVRTC, and
+NVJitLink) plus the cuDNN 9 runtime. The host still supplies the NVIDIA driver
+(`nvcuda.dll` / `libcuda.so.1`). Release packages do not ship Python runtimes.
 PaddleOCR-VL follows the selected runtime id for generative CUDA (no forced CPU
 generative pin).
+
+`runtime/nvidia-redist.json` pins the cuDNN wheel and declares every required
+runtime filename. `scripts/nvidia_redist_staging.py` copies CUDA libraries from
+the toolkit used for the build and downloads the checksum-pinned cuDNN runtime.
+It also stages the NVIDIA CUDA and cuDNN notices. These files are redistributed
+only inside the Trapo application under the
+[CUDA Toolkit EULA](https://docs.nvidia.com/cuda/eula/index.html) and
+[cuDNN EULA](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html);
+do not publish them as a stand-alone SDK or relicense them under Trapo's
+open-source license.
+
+Windows packages also stage the app-local MSVC runtime DLLs from
+`VCToolsRedistDir` through `scripts/windows_runtime_staging.py`; users do not
+need a separate Visual C++ Redistributable installation.
 
 PP-OCRv6 on `*-cuda13` requests the ONNX Runtime CUDA execution provider for its
 detector/recognizer sessions (same EP append path as Document Markdown), with

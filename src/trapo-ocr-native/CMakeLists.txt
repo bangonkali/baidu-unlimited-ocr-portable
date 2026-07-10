@@ -2,12 +2,21 @@ cmake_minimum_required(VERSION 3.18)
 
 project(trapo_ocr_native LANGUAGES C CXX)
 
+option(TRAPO_ENABLE_DESKTOP_NATIVE_PIPELINE
+  "Enable the desktop ONNX/OpenCV OCR pipeline" OFF)
+
+set(TRAPO_OCR_NATIVE_PIPELINE_ENABLED OFF)
+if((ANDROID AND DEFINED ORT_ROOT) OR WIN32 OR
+    TRAPO_ENABLE_DESKTOP_NATIVE_PIPELINE)
+  set(TRAPO_OCR_NATIVE_PIPELINE_ENABLED ON)
+endif()
+
 set(TRAPO_OCR_CORE_SOURCES
   src/trapo_ocr.cpp
   src/model/ocr_model_bundle.cpp
 )
 
-if((ANDROID AND DEFINED ORT_ROOT) OR WIN32)
+if(TRAPO_OCR_NATIVE_PIPELINE_ENABLED)
   list(APPEND TRAPO_OCR_CORE_SOURCES
     third_party/clipper/ocr_clipper.cpp
     src/ort/ort_cuda_ep.cpp
@@ -55,7 +64,7 @@ else()
   target_compile_options(trapo_ocr_native PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-if((ANDROID AND DEFINED ORT_ROOT) OR WIN32)
+if(TRAPO_OCR_NATIVE_PIPELINE_ENABLED)
   target_compile_definitions(trapo_ocr_native PRIVATE TRAPO_OCR_ENABLE_NATIVE_PIPELINE)
 
   target_include_directories(trapo_ocr_native PRIVATE
@@ -385,6 +394,32 @@ if(ANDROID AND DEFINED ORT_ROOT)
     android
     log
   )
+endif()
+
+if(TRAPO_ENABLE_DESKTOP_NATIVE_PIPELINE AND UNIX AND NOT APPLE AND
+    NOT ANDROID)
+  if(NOT DEFINED TRAPO_ORT_INCLUDE_DIR OR NOT DEFINED TRAPO_ORT_LIB)
+    message(FATAL_ERROR
+      "Linux OCR build requires TRAPO_ORT_INCLUDE_DIR and TRAPO_ORT_LIB")
+  endif()
+
+  target_compile_definitions(trapo_ocr_native PRIVATE
+    TRAPO_OCR_USE_OPENCV_MOBILE)
+  target_include_directories(trapo_ocr_native PRIVATE
+    ${TRAPO_ORT_INCLUDE_DIR})
+
+  add_library(onnxruntime SHARED IMPORTED)
+  set_target_properties(onnxruntime PROPERTIES
+    IMPORTED_LOCATION "${TRAPO_ORT_LIB}")
+
+  set(OpenCV_STATIC ON)
+  find_package(OpenCV REQUIRED CONFIG)
+  target_link_libraries(trapo_ocr_native PRIVATE
+    onnxruntime
+    ${OpenCV_LIBS})
+  set_target_properties(trapo_ocr_native PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN")
 endif()
 
 if(WIN32)

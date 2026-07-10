@@ -208,6 +208,8 @@ jobs:
           - Ubuntu 24.04 arm64: trapo-workbench-linux-arm64-$UOCR_VERSION.tar.gz
 
           Native OCR runtime artifacts are also attached and are built before packaging.
+          Windows and Linux x64 artifacts bundle CUDA 13 and cuDNN 9 runtime
+          redistributables; a compatible NVIDIA driver is still required for GPU use.
 
           Extract the archive, run the bundled launcher, then open http://127.0.0.1:8765/.
           Trapo logs are written to logs/trapo-server.log.

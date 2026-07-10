@@ -80,6 +80,32 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
 
         self.assertEqual(env["TRAPO_LLAMA_ENABLE_CUDA"], "0")
 
+    def test_linux_ocr_ffi_configure_enables_native_pipeline(self) -> None:
+        args = types.SimpleNamespace(platform="linux-x86_64-cuda13")
+        deps = {
+            "ort_include": Path("/deps/onnxruntime/include"),
+            "ort_lib": Path("/deps/onnxruntime/lib/libonnxruntime.so"),
+            "opencv": Path("/deps/opencv/x64"),
+        }
+        with (
+            mock.patch.object(
+                build_trapo_ocr_ffi,
+                "prepare_onnxruntime_deps",
+                return_value={"receipt": True},
+            ),
+            mock.patch.object(
+                build_trapo_ocr_ffi,
+                "prepare_linux_deps",
+                return_value=deps,
+            ),
+        ):
+            command = build_trapo_ocr_ffi.configure_args(args, Path("/build"))
+
+        self.assertIn("-DTRAPO_ENABLE_DESKTOP_NATIVE_PIPELINE=ON", command)
+        self.assertIn(f"-DTRAPO_ORT_INCLUDE_DIR={deps['ort_include']}", command)
+        self.assertIn(f"-DTRAPO_ORT_LIB={deps['ort_lib']}", command)
+        self.assertIn(f"-DOpenCV_DIR={deps['opencv']}", command)
+
     def test_trapo_ocr_cuda_capability_guard_allows_compiled_backend_without_device(self) -> None:
         capabilities = {
             "generativeAccelerators": [

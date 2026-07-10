@@ -259,6 +259,20 @@
       "reason": "Native OCR dependency downloads are HTTPS host-allowlisted, SHA256-pinned, traversal-checked before extraction, and staged only into operator-selected build/output directories."
     },
     {
+      "id": "nvidia-redist-pinned-deps",
+      "rule_id": "*",
+      "category": "danger",
+      "path_glob": "scripts/nvidia_redist_staging.py",
+      "reason": "NVIDIA redistributables use a fixed HTTPS host allowlist, pinned wheel URLs and SHA256 hashes, bounded repo cache paths, traversal-checked wheel members, and fixed library basenames."
+    },
+    {
+      "id": "native-ocr-ffi-pinned-deps",
+      "rule_id": "*",
+      "category": "danger",
+      "path_glob": "scripts/trapo_ocr_ffi_deps.py",
+      "reason": "Native OCR dependencies use fixed HTTPS host allowlists and SHA256-pinned release assets; extraction is traversal-checked and bounded to the repo dependency cache."
+    },
+    {
       "id": "native-runner-staging-paths",
       "rule_id": "SKY-D215",
       "category": "danger",

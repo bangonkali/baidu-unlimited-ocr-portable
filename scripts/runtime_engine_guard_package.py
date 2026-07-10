@@ -55,6 +55,7 @@ def validate_packaged_runtime_layout(
     if missing:
         die(f"{platform_id} archive is missing executables: {', '.join(missing)}")
     validate_required_libraries(platform_id, target, manifest, archived)
+    validate_dependency_libraries(platform_id, target, manifest, archived)
     layout_files = set(manifest.get("layout", {}).get("files", []))
     validate_no_python_runtime_files(platform_id, layout_files, archived)
     validate_notice_files(platform_id, target, layout_files, archived)
@@ -81,6 +82,28 @@ def validate_required_libraries(
     ]
     if missing:
         die(f"{platform_id} archive is missing required libraries: {', '.join(missing)}")
+
+
+def validate_dependency_libraries(
+    platform_id: str,
+    target: dict[str, Any],
+    manifest: dict[str, Any],
+    archived: set[str],
+) -> None:
+    listed = set(manifest.get("layout", {}).get("dependency_libraries", {}))
+    expected = set(target.get("bundled_dependency_libraries", []))
+    if listed != expected:
+        die(
+            f"{platform_id} sidecar dependency library mismatch: "
+            + ", ".join(sorted(expected - listed))
+        )
+    missing = [
+        name
+        for name in target.get("bundled_dependency_libraries", [])
+        if not any(member.endswith(f"/bin/{name}") for member in archived)
+    ]
+    if missing:
+        die(f"{platform_id} archive is missing dependencies: {', '.join(missing)}")
 
 
 def validate_no_python_runtime_files(

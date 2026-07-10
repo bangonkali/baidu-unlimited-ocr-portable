@@ -16,6 +16,7 @@ import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
+from nvidia_redist_staging import validate_staged_nvidia_redist
 from onnxruntime_staging import stage_onnxruntime_files
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
 from runtime_engine_guard_runtime import is_forbidden_runtime_path, required_asset_files
@@ -322,6 +323,8 @@ def stage_native_runners(runtime_dir: Path, platform_id: str, *, required: bool)
 
 def ensure_trapo_ocr_ffi(runtime_dir: Path, platform_id: str, *, required: bool) -> None:
     shared_bin = runtime_dir / "bin"
+    if any((shared_bin / name).is_file() for name in ppocrv6_ffi_names(platform_id)):
+        return
     if required:
         run(
             [
@@ -336,8 +339,6 @@ def ensure_trapo_ocr_ffi(runtime_dir: Path, platform_id: str, *, required: bool)
                 "--required",
             ]
         )
-        return
-    if any((shared_bin / name).is_file() for name in ppocrv6_ffi_names(platform_id)):
         return
     die(f"PP-OCRv6 native FFI is missing and --no-build prevents staging it: {shared_bin}")
 
@@ -461,7 +462,7 @@ def copy_tree(source: Path, destination: Path) -> None:
         shutil.rmtree(
             destination
         )  # skylos: ignore[SKY-D215] destination is a deterministic package stage child.
-    shutil.copytree(source, destination)
+    shutil.copytree(source, destination, symlinks=True)
 
 
 def fix_macos_server_rpath(stage_root: Path, platform_id: str) -> None:
@@ -516,6 +517,11 @@ def create_archive(stage_root: Path, archive_path: Path) -> None:
 
 
 def write_readme(stage_root: Path, args: argparse.Namespace, runtimes: list[str]) -> None:
+    gpu_note = (
+        "CUDA 13 and cuDNN 9 runtimes are bundled; GPU use requires an NVIDIA driver."
+        if any("cuda13" in runtime for runtime in runtimes)
+        else "No NVIDIA CUDA runtime is included for this platform."
+    )
     (stage_root / "README.txt").write_text(  # skylos: ignore[SKY-D324] fixed package README path.
         f"""Trapo Workbench {args.version}
 
@@ -525,6 +531,7 @@ Logs: logs/trapo-server.log
 PDF support: bundled PDFium {PDFIUM_VERSION} through PDFium-rs.
 Primary runtime: {args.runtime_platform} from {args.runtime_repo} {args.runtime_version}.
 Bundled runtimes: {", ".join(runtimes)}.
+GPU support: {gpu_note}
 Optional authenticated model downloads: set HF_TOKEN before launching.
 Uninstall: delete this folder.
 """,
@@ -608,6 +615,7 @@ def package(args: argparse.Namespace) -> None:
         ensure_ppocrv6_engine(runtime_dir, platform_id)
         ensure_paddleocr_vl_engine(runtime_dir)
         ensure_tesseract_engine(runtime_dir, platform_id)
+        validate_staged_nvidia_redist(runtime_dir / "bin", platform_id)
         copy_tree(runtime_dir, runtime_stage / platform_id)
         copied_runtimes.append(platform_id)
 

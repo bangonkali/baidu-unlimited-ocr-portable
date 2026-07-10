@@ -2,42 +2,23 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import shutil
 import subprocess
-import urllib.request
-import zipfile
 from pathlib import Path
-from urllib.parse import urlparse
 
 from build_parallelism import cmake_build_parallel_args
+from nvidia_redist_staging import stage_nvidia_redist
 from onnxruntime_staging import (
     ocr_ffi_ort_platform,
     stage_onnxruntime_files,
 )
 from trapo_ocr_ffi_build_env import TRUTHY_ENV_VALUES, portable_build_env
+from trapo_ocr_ffi_deps import prepare_linux_deps, prepare_windows_deps
+from windows_runtime_staging import stage_windows_runtime
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NATIVE_SOURCE = REPO_ROOT / "src" / "trapo-ocr-native"
-USER_AGENT = "trapo-ocr-ffi-builder"
-ALLOWED_HOSTS = {"api.nuget.org", "github.com"}
-DIRECTML_VERSION = "1.15.4"
-OPENCV_ARCHIVE = "opencv-mobile-4.13.0-windows-vs2022.zip"
-WINDOWS_DEPS = (
-    {
-        "id": "directml",
-        "url": f"https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/{DIRECTML_VERSION}/microsoft.ai.directml.{DIRECTML_VERSION}.nupkg",
-        "sha256": "4e7cb7ddce8cf837a7a75dc029209b520ca0101470fcdf275c1f49736a3615b9",
-        "archive": f"microsoft.ai.directml.{DIRECTML_VERSION}.nupkg",
-    },
-    {
-        "id": "opencv",
-        "url": f"https://github.com/nihui/opencv-mobile/releases/download/v35/{OPENCV_ARCHIVE}",
-        "sha256": "a08e31484c2598c88ffad3cc2408fc8b1020a7c354b180fc991ccd9ca5f7ab8d",
-        "archive": OPENCV_ARCHIVE,
-    },
-)
 ONNXRUNTIME_RECEIPTS: dict[str, dict[str, object]] = {}
 
 
@@ -48,39 +29,6 @@ def run(command: list[str], *, cwd: Path = REPO_ROOT, env: dict[str, str] | None
 
 def die(message: str) -> None:
     raise SystemExit(f"error: {message}")
-
-
-def download(url: str, destination: Path, expected_sha256: str) -> None:
-    if destination.is_file() and sha256_file(destination) == expected_sha256:
-        return
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in ALLOWED_HOSTS:
-        die(f"refusing native dependency download URL: {url}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(
-        request, timeout=300
-    ) as response:  # skylos: ignore[SKY-D216] host allowlist.
-        destination.write_bytes(
-            response.read()
-        )  # skylos: ignore[SKY-D324] fixed dependency cache path.
-    actual = sha256_file(destination)
-    if actual != expected_sha256:
-        destination.unlink(missing_ok=True)
-        die(f"SHA256 mismatch for {destination.name}: {actual}")
-
-
-def safe_extract_zip(archive: Path, destination: Path) -> None:
-    root = destination.resolve()
-    if destination.exists():
-        shutil.rmtree(destination)
-    destination.mkdir(parents=True)
-    with zipfile.ZipFile(archive) as zipf:
-        for member in zipf.namelist():
-            target = (destination / member).resolve()
-            if root not in (target, *target.parents):
-                die(f"refusing to extract outside destination: {member}")
-        zipf.extractall(destination)
 
 
 def prepare_onnxruntime_deps(platform: str) -> dict[str, object]:
@@ -110,31 +58,6 @@ def prepare_onnxruntime_deps(platform: str) -> dict[str, object]:
     return receipt
 
 
-def prepare_windows_deps(
-    platform: str, ort: dict[str, object] | None = None
-) -> dict[str, Path | list[Path]]:
-    arch = "arm64" if "arm64" in platform else "x64"
-    dml_bin = "arm64-win" if arch == "arm64" else "x64-win"
-    deps_root = REPO_ROOT / ".deps" / "windows" / arch
-    downloads = REPO_ROOT / ".deps" / "downloads"
-    for dep in WINDOWS_DEPS:
-        archive = downloads / str(dep["archive"])
-        download(str(dep["url"]), archive, str(dep["sha256"]))
-        safe_extract_zip(archive, deps_root / str(dep["id"]))
-    opencv_root = deps_root / "opencv" / OPENCV_ARCHIVE.removesuffix(".zip") / arch
-    if ort is None:
-        ort = prepare_onnxruntime_deps(platform)
-    return {
-        "ort_include": Path(str(ort["include_dir"])),
-        "ort_lib": Path(str(ort["library"])),
-        "ort_runtime_libraries": [Path(str(path)) for path in ort["runtime_libraries"]],
-        "ort_notice_files": [Path(str(path)) for path in ort["notice_files"]],
-        "directml_include": deps_root / "directml" / "include",
-        "directml_bin": deps_root / "directml" / "bin" / dml_bin,
-        "opencv": opencv_root,
-    }
-
-
 def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
     command = [
         "cmake",
@@ -159,6 +82,18 @@ def configure_args(args: argparse.Namespace, build_dir: Path) -> list[str]:
         )
         if "arm64" in args.platform:
             command.extend(["-A", "ARM64", "-T", "ClangCL"])
+    elif args.platform.startswith("linux-x86_64-"):
+        deps = prepare_linux_deps(
+            args.platform, prepare_onnxruntime_deps(ocr_ffi_ort_platform(args.platform))
+        )
+        command.extend(
+            [
+                "-DTRAPO_ENABLE_DESKTOP_NATIVE_PIPELINE=ON",
+                f"-DTRAPO_ORT_INCLUDE_DIR={deps['ort_include']}",
+                f"-DTRAPO_ORT_LIB={deps['ort_lib']}",
+                f"-DOpenCV_DIR={deps['opencv']}",
+            ]
+        )
     return command
 
 
@@ -255,6 +190,8 @@ def stage_library(source: Path, args: argparse.Namespace) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, output_dir / staged_name(args.platform))
     stage_onnxruntime_files(output_dir, args.platform, prepare_onnxruntime_deps)
+    stage_nvidia_redist(output_dir, args.platform)
+    stage_windows_runtime(output_dir, args.platform)
     if args.platform.startswith("windows-"):
         deps = prepare_windows_deps(
             args.platform, prepare_onnxruntime_deps(ocr_ffi_ort_platform(args.platform))
@@ -262,14 +199,6 @@ def stage_library(source: Path, args: argparse.Namespace) -> None:
         directml_bin = deps["directml_bin"]
         assert isinstance(directml_bin, Path)
         shutil.copy2(directml_bin / "DirectML.dll", output_dir / "DirectML.dll")
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def main() -> None:

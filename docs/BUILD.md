@@ -68,9 +68,17 @@ toolkit is required to compile; a GPU is not required at build time. After a
 successful cuda13 FFI configure step, CMake should report
 `PaddleOCR-VL llama.cpp backends: CUDA=1`.
 
-Running GPU inference still needs a matching CUDA 13 runtime on the machine
-(`cudart` / `cublas`). The packaged workbench remains binary-only: no Python
-OCR engines or `.venv` trees are shipped.
+The cuda13 runtime and workbench packages include the required CUDA 13 and
+cuDNN 9 redistributable libraries. The target machine needs only a compatible
+NVIDIA GPU driver; it does not need a separate CUDA Toolkit or cuDNN install.
+The packaged workbench remains binary-only: no Python OCR engines or `.venv`
+trees are shipped.
+
+Local cuda13 compilation still requires a CUDA 13 Toolkit. During staging,
+`scripts/nvidia_redist_staging.py` copies the matching redistributable CUDA
+libraries from `CUDA_PATH`, downloads the checksum-pinned cuDNN wheel declared
+in `runtime/nvidia-redist.json`, and includes both NVIDIA license notices.
+GitHub Actions uses the same build and staging path.
 
 After packaging a cuda13 workbench, verify PP-OCRv6 uses the ORT CUDA EP (not
 only the catalog `accelerator: cuda` label) by checking native `runtimeSummary`
