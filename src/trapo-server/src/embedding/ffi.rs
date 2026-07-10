@@ -88,6 +88,7 @@ pub(super) fn validate_llama_library(path: &Path) -> Result<()> {
 fn load_library(path: &Path) -> Result<Library> {
     use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
 
+    crate::runtime_dll_search::ensure_runtime_dll_search_paths();
     let library = unsafe {
         // SAFETY: Loading is restricted to the configured local llama.cpp runtime path.
         WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH)

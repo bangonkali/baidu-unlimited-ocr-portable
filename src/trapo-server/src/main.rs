@@ -7,7 +7,9 @@ mod cli;
 
 use std::{env, net::SocketAddr, process::ExitCode, time::Duration};
 
-use trapo_server::{AppState, ServerConfig, build_router, install_process_logging};
+use trapo_server::{
+    AppState, ServerConfig, build_router, ensure_runtime_dll_search_paths, install_process_logging,
+};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -15,6 +17,9 @@ async fn main() -> ExitCode {
     if let Some(exit_code) = cli::handle_early_command(&args) {
         return exit_code;
     }
+
+    // Make packaged CUDA/cuDNN bins visible even when started without trapo-server.cmd.
+    ensure_runtime_dll_search_paths();
 
     let config = ServerConfig::from_env_and_args(args);
     let _process_logs = match install_process_logging(&config.log_dir) {

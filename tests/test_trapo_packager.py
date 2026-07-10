@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -55,8 +56,10 @@ class TrapoPackagerTests(unittest.TestCase):
             package_trapo_workbench.make_launcher(stage_root, "windows-x64")
 
             launcher = (stage_root / "trapo-server.cmd").read_text(encoding="ascii")
+            self.assertIn("thirdparty\\uocr-runtime\\*cpu*", launcher)
             self.assertIn("thirdparty\\uocr-runtime\\*", launcher)
             self.assertIn('set "PATH=%%~fD\\bin;%PATH%"', launcher)
+            self.assertIn('findstr /I /C:"cuda"', launcher)
 
     def test_unix_launcher_adds_runtime_bins_to_library_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -69,6 +72,7 @@ class TrapoPackagerTests(unittest.TestCase):
             self.assertIn("-name bin", launcher)
             self.assertIn("LD_LIBRARY_PATH", launcher)
             self.assertIn("runtime_lib_path", launcher)
+            self.assertIn("cuda", launcher)
 
     def test_native_runner_names_match_platform_suffixes(self) -> None:
         self.assertEqual(
@@ -97,6 +101,65 @@ class TrapoPackagerTests(unittest.TestCase):
             onnxruntime_staging.is_provider_runtime_library(Path("onnxruntime_providers_cuda.dll"))
         )
         self.assertFalse(onnxruntime_staging.is_provider_runtime_library(Path("onnxruntime.dll")))
+
+    def test_incomplete_runtime_redistributables_are_repaired(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.object(
+                package_trapo_workbench,
+                "missing_staged_nvidia_redist",
+                return_value=["cudnn64_9.dll"],
+            ),
+            mock.patch.object(
+                package_trapo_workbench,
+                "missing_staged_windows_runtime",
+                return_value=["vcruntime140.dll"],
+            ),
+            mock.patch.object(package_trapo_workbench, "stage_nvidia_redist") as stage_nvidia,
+            mock.patch.object(package_trapo_workbench, "stage_windows_runtime") as stage_windows,
+            mock.patch.object(package_trapo_workbench, "validate_staged_nvidia_redist"),
+            mock.patch.object(package_trapo_workbench, "validate_staged_windows_runtime"),
+        ):
+            runtime_dir = Path(tmp)
+            package_trapo_workbench.ensure_runtime_redistributables(
+                runtime_dir,
+                "windows-x86_64-cuda13",
+            )
+
+        stage_nvidia.assert_called_once_with(
+            runtime_dir / "bin",
+            "windows-x86_64-cuda13",
+        )
+        stage_windows.assert_called_once_with(
+            runtime_dir / "bin",
+            "windows-x86_64-cuda13",
+        )
+
+    def test_complete_runtime_skips_local_redistributable_staging(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.object(
+                package_trapo_workbench,
+                "missing_staged_nvidia_redist",
+                return_value=[],
+            ),
+            mock.patch.object(
+                package_trapo_workbench,
+                "missing_staged_windows_runtime",
+                return_value=[],
+            ),
+            mock.patch.object(package_trapo_workbench, "stage_nvidia_redist") as stage_nvidia,
+            mock.patch.object(package_trapo_workbench, "stage_windows_runtime") as stage_windows,
+            mock.patch.object(package_trapo_workbench, "validate_staged_nvidia_redist"),
+            mock.patch.object(package_trapo_workbench, "validate_staged_windows_runtime"),
+        ):
+            package_trapo_workbench.ensure_runtime_redistributables(
+                Path(tmp),
+                "windows-x86_64-cuda13",
+            )
+
+        stage_nvidia.assert_not_called()
+        stage_windows.assert_not_called()
 
     def test_paddleocr_vl_engine_is_accepted_when_layout_bundle_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -7,6 +7,15 @@
     "cuda": "NVIDIA-CUDA-EULA.txt",
     "cudnn": "NVIDIA-cuDNN-LICENSE.txt"
   },
+  "windows_zlib": {
+    "archive": "zlib123dllx64.zip",
+    "url": "https://www.winimage.com/zLibDll/zlib123dllx64.zip",
+    "sha256": "fd324c6923aa4f45a60413665e0b68bb34a7779d0861849e02d2711ff8efb9a4",
+    "dll_member": "dll_x64/zlibwapi.dll",
+    "readme_member": "readme.txt",
+    "dll_name": "zlibwapi.dll",
+    "notice_name": "zlib-README.txt"
+  },
   "targets": {
     "linux-x86_64-cuda13": {
       "cuda_search_dirs": [
@@ -90,7 +99,8 @@
         "cudnn_engines_tensor_ir64_9.dll",
         "cudnn_graph64_9.dll",
         "cudnn_heuristic64_9.dll",
-        "cudnn_ops64_9.dll"
+        "cudnn_ops64_9.dll",
+        "zlibwapi.dll"
       ]
     }
   }

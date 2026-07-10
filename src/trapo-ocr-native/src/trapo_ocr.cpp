@@ -756,6 +756,8 @@ AcceleratorStatus detect_document_markdown_cuda_status() {
     return status;
   }
   try {
+    // AppendExecutionProvider_CUDA records the provider request; the
+    // providers_cuda shared library loads later when a session is created.
     Ort::SessionOptions options;
     trapo_ocr::AppendOrtCudaExecutionProvider(options, 0);
     status.supported = true;

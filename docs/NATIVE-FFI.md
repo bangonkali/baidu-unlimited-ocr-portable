@@ -57,8 +57,9 @@ generative pin).
 `runtime/nvidia-redist.json` pins the cuDNN wheel and declares every required
 runtime filename. `scripts/nvidia_redist_staging.py` copies CUDA libraries from
 the toolkit used for the build and downloads the checksum-pinned cuDNN runtime.
-It also stages the NVIDIA CUDA and cuDNN notices. These files are redistributed
-only inside the Trapo application under the
+On Windows it also stages `zlibwapi.dll` (cuDNN 9 still resolves this by
+basename) plus the NVIDIA CUDA/cuDNN notices and zlib readme. These NVIDIA
+files are redistributed only inside the Trapo application under the
 [CUDA Toolkit EULA](https://docs.nvidia.com/cuda/eula/index.html) and
 [cuDNN EULA](https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html);
 do not publish them as a stand-alone SDK or relicense them under Trapo's
@@ -67,6 +68,12 @@ open-source license.
 Windows packages also stage the app-local MSVC runtime DLLs from
 `VCToolsRedistDir` through `scripts/windows_runtime_staging.py`; users do not
 need a separate Visual C++ Redistributable installation.
+
+`trapo-server` prepends packaged `thirdparty/uocr-runtime/*/bin` directories to
+`PATH` at startup (CUDA bins first) so starting `trapo-server.exe` without
+`trapo-server.cmd` still resolves cuDNN sibling DLLs. Without that search path,
+cuDNN prints `Invalid handle. Cannot load symbol cudnnCreate` and the ORT CUDA
+EP fails to initialize.
 
 PP-OCRv6 on `*-cuda13` requests the ONNX Runtime CUDA execution provider for its
 detector/recognizer sessions (same EP append path as Document Markdown), with

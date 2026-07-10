@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "runtime" / "nvidia-redist.json"
-ALLOWED_DOWNLOAD_HOSTS = {"files.pythonhosted.org"}
+ALLOWED_DOWNLOAD_HOSTS = {"files.pythonhosted.org", "www.winimage.com"}
 USER_AGENT = "trapo-nvidia-redist-stager"
 
 
@@ -103,6 +103,24 @@ def prepare_cudnn(platform: str, target: dict[str, Any]) -> Path:
     return safe_extract_wheel(archive, destination, cudnn["sha256"])
 
 
+def prepare_windows_zlib(manifest: dict[str, Any]) -> tuple[Path, Path]:
+    """Download the official zlibwapi DLL used by cuDNN 9 on Windows."""
+    zlib = manifest.get("windows_zlib")
+    if not isinstance(zlib, dict):
+        die("nvidia-redist.json is missing windows_zlib for cuDNN Windows staging")
+    archive = REPO_ROOT / ".deps" / "downloads" / zlib["archive"]
+    download(zlib["url"], archive, zlib["sha256"])
+    destination = REPO_ROOT / ".deps" / "nvidia" / "windows-zlib" / "zlib123dllx64"
+    extracted = safe_extract_wheel(archive, destination, zlib["sha256"])
+    dll = extracted / zlib["dll_member"]
+    readme = extracted / zlib["readme_member"]
+    if not dll.is_file():
+        die(f"zlib archive is missing {zlib['dll_member']}")
+    if not readme.is_file():
+        die(f"zlib archive is missing {zlib['readme_member']}")
+    return dll, readme
+
+
 def cuda_roots() -> list[Path]:
     names = ["CUDA_PATH", "CUDA_HOME"]
     names.extend(
@@ -180,17 +198,32 @@ def validate_staged_nvidia_redist(
     platform: str,
     manifest_path: Path = MANIFEST_PATH,
 ) -> None:
+    missing = missing_staged_nvidia_redist(directory, platform, manifest_path)
+    if missing:
+        die(f"staged NVIDIA runtime is missing required files: {', '.join(missing)}")
+
+
+def missing_staged_nvidia_redist(
+    directory: Path,
+    platform: str,
+    manifest_path: Path = MANIFEST_PATH,
+) -> list[str]:
     manifest = load_manifest(manifest_path)
     target = target_config(platform, manifest)
     if target is None:
-        return
+        return []
     required = [
         *target["required_libraries"],
         *manifest["notice_names"].values(),
     ]
-    missing = [name for name in required if not (directory / name).exists()]
-    if missing:
-        die(f"staged NVIDIA runtime is missing required files: {', '.join(missing)}")
+    windows_zlib = manifest.get("windows_zlib")
+    if (
+        platform.startswith("windows-")
+        and isinstance(windows_zlib, dict)
+        and windows_zlib.get("notice_name")
+    ):
+        required.append(str(windows_zlib["notice_name"]))
+    return [name for name in required if not (directory / name).exists()]
 
 
 def stage_nvidia_redist(
@@ -212,6 +245,11 @@ def stage_nvidia_redist(
         die(f"cuDNN wheel contains no runtime libraries for {platform}")
     selected.extend(cudnn_files)
 
+    zlib_readme: Path | None = None
+    if platform.startswith("windows-") and "zlibwapi.dll" in target["required_libraries"]:
+        zlib_dll, zlib_readme = prepare_windows_zlib(manifest)
+        selected.append(zlib_dll)
+
     staged: list[Path] = []
     for source in selected:
         destination = output_dir / source.name
@@ -223,10 +261,16 @@ def stage_nvidia_redist(
     cudnn_notices = sorted(cudnn_root.glob(target["cudnn"]["license_pattern"]))
     if not cudnn_notices:
         die("cuDNN wheel does not contain its license notice")
-    for source, name in (
+    notices: list[tuple[Path, str]] = [
         (cuda_notice, notice_names["cuda"]),
         (cudnn_notices[0], notice_names["cudnn"]),
-    ):
+    ]
+    if zlib_readme is not None:
+        zlib_notice_name = manifest.get("windows_zlib", {}).get("notice_name")
+        if not zlib_notice_name:
+            die("windows_zlib.notice_name is required when staging zlibwapi.dll")
+        notices.append((zlib_readme, str(zlib_notice_name)))
+    for source, name in notices:
         destination = output_dir / name
         shutil.copy2(source, destination)
         staged.append(destination)

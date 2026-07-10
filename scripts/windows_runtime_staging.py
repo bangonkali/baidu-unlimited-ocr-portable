@@ -43,6 +43,18 @@ def find_crt_dir(arch: str) -> Path:
     die(f"Visual C++ redistributable runtime was not found for {arch}")
 
 
+def missing_staged_windows_runtime(output_dir: Path, platform: str) -> list[str]:
+    if not platform.startswith("windows-"):
+        return []
+    return [name for name in REQUIRED_MSVC_RUNTIME_DLLS if not (output_dir / name).is_file()]
+
+
+def validate_staged_windows_runtime(output_dir: Path, platform: str) -> None:
+    missing = missing_staged_windows_runtime(output_dir, platform)
+    if missing:
+        die("staged Visual C++ runtime is missing required files: " + ", ".join(missing))
+
+
 def stage_windows_runtime(output_dir: Path, platform: str) -> list[Path]:
     if not platform.startswith("windows-"):
         return []
@@ -54,8 +66,6 @@ def stage_windows_runtime(output_dir: Path, platform: str) -> list[Path]:
         destination = output_dir / source.name
         shutil.copy2(source, destination)
         staged.append(destination)
-    missing = [name for name in REQUIRED_MSVC_RUNTIME_DLLS if not (output_dir / name).is_file()]
-    if missing:
-        die("staged Visual C++ runtime is missing required files: " + ", ".join(missing))
+    validate_staged_windows_runtime(output_dir, platform)
     print(f"Staged {len(staged)} Visual C++ runtime files for {platform}", flush=True)
     return staged

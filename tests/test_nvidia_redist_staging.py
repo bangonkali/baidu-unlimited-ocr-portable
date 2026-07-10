@@ -38,6 +38,15 @@ class NvidiaRedistStagingTests(unittest.TestCase):
                     "cuda": "NVIDIA-CUDA-EULA.txt",
                     "cudnn": "NVIDIA-cuDNN-LICENSE.txt",
                 },
+                "windows_zlib": {
+                    "archive": "zlib.zip",
+                    "url": "https://www.winimage.com/zLibDll/zlib.zip",
+                    "sha256": "0" * 64,
+                    "dll_member": "dll_x64/zlibwapi.dll",
+                    "readme_member": "readme.txt",
+                    "dll_name": "zlibwapi.dll",
+                    "notice_name": "zlib-README.txt",
+                },
                 "targets": {
                     "windows-x86_64-cuda13": {
                         "cuda_search_dirs": ["bin"],
@@ -54,6 +63,7 @@ class NvidiaRedistStagingTests(unittest.TestCase):
                         "required_libraries": [
                             "cudart64_13.dll",
                             "cudnn64_9.dll",
+                            "zlibwapi.dll",
                         ],
                     }
                 },
@@ -61,6 +71,10 @@ class NvidiaRedistStagingTests(unittest.TestCase):
             manifest_path = root / "nvidia-redist.json"
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             output = root / "output"
+            zlib_dll = root / "zlibwapi.dll"
+            zlib_dll.write_bytes(b"zlib")
+            zlib_readme = root / "readme.txt"
+            zlib_readme.write_text("zlib readme", encoding="utf-8")
 
             with (
                 mock.patch.dict(
@@ -73,6 +87,11 @@ class NvidiaRedistStagingTests(unittest.TestCase):
                     "prepare_cudnn",
                     return_value=cudnn_root,
                 ),
+                mock.patch.object(
+                    nvidia_redist_staging,
+                    "prepare_windows_zlib",
+                    return_value=(zlib_dll, zlib_readme),
+                ),
             ):
                 nvidia_redist_staging.stage_nvidia_redist(
                     output,
@@ -82,8 +101,10 @@ class NvidiaRedistStagingTests(unittest.TestCase):
 
             self.assertEqual((output / "cudart64_13.dll").read_bytes(), b"cuda")
             self.assertEqual((output / "cudnn64_9.dll").read_bytes(), b"cudnn")
+            self.assertEqual((output / "zlibwapi.dll").read_bytes(), b"zlib")
             self.assertTrue((output / "NVIDIA-CUDA-EULA.txt").is_file())
             self.assertTrue((output / "NVIDIA-cuDNN-LICENSE.txt").is_file())
+            self.assertTrue((output / "zlib-README.txt").is_file())
 
     def test_manifest_dependencies_match_cuda_runtime_targets(self) -> None:
         manifest = nvidia_redist_staging.load_manifest()
@@ -97,11 +118,15 @@ class NvidiaRedistStagingTests(unittest.TestCase):
                     runtime_target["bundled_dependency_libraries"]
                 )
             )
-            self.assertTrue(
-                set(manifest["notice_names"].values()).issubset(
-                    runtime_target["bundled_notice_files"]
-                )
-            )
+            expected_notices = set(manifest["notice_names"].values())
+            windows_zlib = manifest.get("windows_zlib")
+            if (
+                platform_id.startswith("windows-")
+                and isinstance(windows_zlib, dict)
+                and windows_zlib.get("notice_name")
+            ):
+                expected_notices.add(str(windows_zlib["notice_name"]))
+            self.assertTrue(expected_notices.issubset(runtime_target["bundled_notice_files"]))
 
     def test_non_cuda_platform_needs_no_nvidia_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -110,6 +135,30 @@ class NvidiaRedistStagingTests(unittest.TestCase):
                 "windows-x86_64-cpu",
             )
         self.assertEqual(staged, [])
+
+    def test_missing_nvidia_files_reports_and_clears_required_set(self) -> None:
+        manifest = nvidia_redist_staging.load_manifest()
+        platform = "windows-x86_64-cuda13"
+        target = manifest["targets"][platform]
+        required = [
+            *target["required_libraries"],
+            *manifest["notice_names"].values(),
+        ]
+        windows_zlib = manifest.get("windows_zlib")
+        if isinstance(windows_zlib, dict) and windows_zlib.get("notice_name"):
+            required.append(str(windows_zlib["notice_name"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            self.assertEqual(
+                nvidia_redist_staging.missing_staged_nvidia_redist(output, platform),
+                required,
+            )
+            for name in required:
+                (output / name).write_bytes(b"runtime")
+            self.assertEqual(
+                nvidia_redist_staging.missing_staged_nvidia_redist(output, platform),
+                [],
+            )
 
     def test_windows_msvc_runtime_is_staged_from_visual_studio_redist(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -133,6 +182,33 @@ class NvidiaRedistStagingTests(unittest.TestCase):
             self.assertEqual(len(staged), 3)
             for name in windows_runtime_staging.REQUIRED_MSVC_RUNTIME_DLLS:
                 self.assertTrue((output / name).is_file())
+
+    def test_missing_windows_runtime_files_are_platform_aware(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            self.assertEqual(
+                windows_runtime_staging.missing_staged_windows_runtime(
+                    output,
+                    "windows-x86_64-cpu",
+                ),
+                list(windows_runtime_staging.REQUIRED_MSVC_RUNTIME_DLLS),
+            )
+            self.assertEqual(
+                windows_runtime_staging.missing_staged_windows_runtime(
+                    output,
+                    "linux-x86_64-cpu",
+                ),
+                [],
+            )
+            for name in windows_runtime_staging.REQUIRED_MSVC_RUNTIME_DLLS:
+                (output / name).write_bytes(b"runtime")
+            self.assertEqual(
+                windows_runtime_staging.missing_staged_windows_runtime(
+                    output,
+                    "windows-x86_64-cpu",
+                ),
+                [],
+            )
 
 
 if __name__ == "__main__":

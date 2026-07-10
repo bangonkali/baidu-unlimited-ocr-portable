@@ -16,10 +16,19 @@ import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlparse
 
-from nvidia_redist_staging import validate_staged_nvidia_redist
+from nvidia_redist_staging import (
+    missing_staged_nvidia_redist,
+    stage_nvidia_redist,
+    validate_staged_nvidia_redist,
+)
 from onnxruntime_staging import stage_onnxruntime_files
 from package_runtime import REPO_ROOT, load_platforms, sha256_file
 from runtime_engine_guard_runtime import is_forbidden_runtime_path, required_asset_files
+from windows_runtime_staging import (
+    missing_staged_windows_runtime,
+    stage_windows_runtime,
+    validate_staged_windows_runtime,
+)
 
 USER_AGENT = "trapo-workbench-packager"
 PDFIUM_REPO = "bblanchon/pdfium-binaries"
@@ -349,6 +358,19 @@ def ensure_onnxruntime_files(runtime_dir: Path, platform_id: str) -> None:
     stage_onnxruntime_files(shared_bin, platform_id, prepare_onnxruntime_deps)
 
 
+def ensure_runtime_redistributables(runtime_dir: Path, platform_id: str) -> None:
+    shared_bin = runtime_dir / "bin"
+    if missing_staged_nvidia_redist(shared_bin, platform_id):
+        print(f"Repairing NVIDIA runtime redistributables for {platform_id}", flush=True)
+        stage_nvidia_redist(shared_bin, platform_id)
+    validate_staged_nvidia_redist(shared_bin, platform_id)
+
+    if missing_staged_windows_runtime(shared_bin, platform_id):
+        print(f"Repairing Visual C++ runtime redistributables for {platform_id}", flush=True)
+        stage_windows_runtime(shared_bin, platform_id)
+    validate_staged_windows_runtime(shared_bin, platform_id)
+
+
 def ensure_ppocrv6_engine(runtime_dir: Path, platform_id: str) -> None:
     engine_dir = runtime_dir / "ppocrv6"
     remove_stale_ppocrv6_python_assets(engine_dir)
@@ -482,7 +504,12 @@ def make_launcher(stage_root: Path, platform_id: str) -> None:
             stage_root / "trapo-server.cmd"
         ).write_text(  # skylos: ignore[SKY-D324] fixed package launcher path.
             "@echo off\r\nsetlocal\r\nset TRAPO_HOME=%~dp0\r\n"
+            "rem Prefer CUDA/accelerator runtime bins ahead of CPU so basename\r\n"
+            "rem DLL loads (cuDNN siblings, ORT CUDA EP) resolve correctly.\r\n"
+            'for /D %%D in ("%~dp0thirdparty\\uocr-runtime\\*cpu*") do '
+            'if exist "%%~fD\\bin" set "PATH=%%~fD\\bin;%PATH%"\r\n'
             'for /D %%D in ("%~dp0thirdparty\\uocr-runtime\\*") do '
+            'echo %%~nxD| findstr /I /C:"cuda" /C:"rocm" /C:"metal" >nul && '
             'if exist "%%~fD\\bin" set "PATH=%%~fD\\bin;%PATH%"\r\n'
             '"%~dp0trapo-server.exe" %*\r\n',
             encoding="ascii",
@@ -494,9 +521,14 @@ def make_launcher(stage_root: Path, platform_id: str) -> None:
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
         'cd "$(dirname "$0")"\n'
-        'runtime_lib_path=$(find "$PWD/thirdparty/uocr-runtime" '
-        "-mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null | "
-        "paste -sd: -)\n"
+        "runtime_lib_path=$(\n"
+        '  find "$PWD/thirdparty/uocr-runtime" '
+        "-mindepth 2 -maxdepth 2 -type d -name bin -print 2>/dev/null |\n"
+        "  awk '{ score=0; if ($0 ~ /cuda/) score=2; "
+        "else if ($0 ~ /(rocm|metal)/) score=1; "
+        'print score "\\t" $0 }\' |\n'
+        "  sort -k1,1nr -k2,2 | cut -f2- | paste -sd: -\n"
+        ")\n"
         f'export {lib_var}="${{runtime_lib_path:+$runtime_lib_path:}}'
         f'$PWD/thirdparty/pdfium/lib:$PWD:${{{lib_var}:-}}"\n'
         'exec ./trapo-server "$@"\n',
@@ -612,10 +644,10 @@ def package(args: argparse.Namespace) -> None:
         stage_native_runners(runtime_dir, platform_id, required=not args.no_build)
         ensure_trapo_ocr_ffi(runtime_dir, platform_id, required=not args.no_build)
         ensure_onnxruntime_files(runtime_dir, platform_id)
+        ensure_runtime_redistributables(runtime_dir, platform_id)
         ensure_ppocrv6_engine(runtime_dir, platform_id)
         ensure_paddleocr_vl_engine(runtime_dir)
         ensure_tesseract_engine(runtime_dir, platform_id)
-        validate_staged_nvidia_redist(runtime_dir / "bin", platform_id)
         copy_tree(runtime_dir, runtime_stage / platform_id)
         copied_runtimes.append(platform_id)
 

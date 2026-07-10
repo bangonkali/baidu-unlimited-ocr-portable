@@ -201,6 +201,7 @@ impl NativeApi {
 fn load_library(path: &Path) -> Result<Library, String> {
     use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
 
+    crate::runtime_dll_search::ensure_runtime_dll_search_paths();
     // SAFETY: path points at a selected local OCR runtime library; dependent DLLs are resolved beside it.
     let library = unsafe { WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) }
         .map_err(|error| format!("failed to load {}: {error}", path.display()))?;

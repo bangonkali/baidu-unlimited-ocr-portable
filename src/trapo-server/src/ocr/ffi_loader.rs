@@ -47,6 +47,7 @@ pub(super) fn validate_ffi_library(path: &Path) -> Result<()> {
 fn load_ffi_library(path: &Path) -> Result<LoadedFfiLibrary> {
     use libloading::os::windows::{LOAD_WITH_ALTERED_SEARCH_PATH, Library as WindowsLibrary};
 
+    crate::runtime_dll_search::ensure_runtime_dll_search_paths();
     // SAFETY: Loading is restricted to the user-selected local runtime path;
     // the resulting handle is owned by LoadedFfiLibrary.
     let library = unsafe { WindowsLibrary::load_with_flags(path, LOAD_WITH_ALTERED_SEARCH_PATH) }

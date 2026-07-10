@@ -287,7 +287,8 @@
         "cudnn_engines_tensor_ir64_9.dll",
         "cudnn_graph64_9.dll",
         "cudnn_heuristic64_9.dll",
-        "cudnn_ops64_9.dll"
+        "cudnn_ops64_9.dll",
+        "zlibwapi.dll"
       ],
       "library_globs": [
         "*.dll"
@@ -296,7 +297,8 @@
         "onnxruntime-LICENSE",
         "onnxruntime-ThirdPartyNotices.txt",
         "NVIDIA-CUDA-EULA.txt",
-        "NVIDIA-cuDNN-LICENSE.txt"
+        "NVIDIA-cuDNN-LICENSE.txt",
+        "zlib-README.txt"
       ],
       "engine_asset_dirs": [
         "ppocrv6",
