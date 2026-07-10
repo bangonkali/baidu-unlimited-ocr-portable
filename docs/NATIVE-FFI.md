@@ -51,3 +51,10 @@ execution falls back to CPU. Release zips do not ship Python runtimes or NVIDIA
 CUDA redistributables (`cudart` / `cublas`); those come from the user machine.
 PaddleOCR-VL follows the selected runtime id for generative CUDA (no forced CPU
 generative pin).
+
+PP-OCRv6 on `*-cuda13` requests the ONNX Runtime CUDA execution provider for its
+detector/recognizer sessions (same EP append path as Document Markdown), with
+automatic CPU fallback if the CUDA provider or device is unavailable. Catalog
+`accelerator: cuda` only means the cuda13 runtime variant is selected; confirm
+live EP usage via native `runtimeSummary` (for example `onnxruntime cuda`) or
+GPU utilization during a PP-OCR job.

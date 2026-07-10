@@ -43,6 +43,22 @@ Use the runtime-platform directory from the failing command, for example
 `macos-arm64-metal`. Do not delete `.deps` unless a dependency download or hash
 check fails; `.deps` is shared dependency cache, not the CMake build cache.
 
+## Build parallelism
+
+Packaging cmake steps (`build_trapo_ocr_ffi.py`, Tesseract source builds) pass
+`--parallel` using all logical CPUs by default. Override with either:
+
+```powershell
+$env:BUILD_PARALLEL = "8"
+# or
+$env:CMAKE_BUILD_PARALLEL_LEVEL = "8"
+```
+
+`BUILD_PARALLEL` wins when both are set. Lower the value if CUDA/`nvcc` runs out
+of memory. Cargo and Bun builds are left uncapped (they already use available
+cores). GitHub Actions `build-runtime` sets `BUILD_PARALLEL` per matrix row
+(CPU/Metal higher, CUDA lower) for both llama.cpp and `trapo-ocr-ffi`.
+
 ## CUDA 13 native FFI notes
 
 `windows-x86_64-cuda13` and `linux-x86_64-cuda13` builds enable llama.cpp CUDA
@@ -55,3 +71,8 @@ successful cuda13 FFI configure step, CMake should report
 Running GPU inference still needs a matching CUDA 13 runtime on the machine
 (`cudart` / `cublas`). The packaged workbench remains binary-only: no Python
 OCR engines or `.venv` trees are shipped.
+
+After packaging a cuda13 workbench, verify PP-OCRv6 uses the ORT CUDA EP (not
+only the catalog `accelerator: cuda` label) by checking native `runtimeSummary`
+for `onnxruntime cuda` during a job, or by watching GPU utilization. If CUDA EP
+init fails, PP-OCR falls back to CPU automatically.

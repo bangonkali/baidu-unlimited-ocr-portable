@@ -8,6 +8,7 @@
 #include <onnxruntime_cxx_api.h>
 
 #include "document_markdown/document_markdown_common.hpp"
+#include "ort/ort_cuda_ep.hpp"
 
 #if defined(_WIN32)
 #if defined(TRAPO_OCR_ENABLE_DIRECTML)
@@ -115,20 +116,7 @@ DocumentMarkdownOnnxSession::DocumentMarkdownOnnxSession(const std::string& mode
   }
 
   if (backend == TRAPO_OCR_BACKEND_CUDA) {
-#if defined(_WIN32)
-    OrtCUDAProviderOptions cuda_options{};
-    cuda_options.device_id = 0;
-    const auto append_cuda =
-        Ort::GetApi().SessionOptionsAppendExecutionProvider_CUDA;
-    if (append_cuda == nullptr) {
-      throw std::runtime_error(
-          "Document Markdown CUDA selected but this ONNX Runtime build does not expose "
-          "the CUDA provider API");
-    }
-    Ort::ThrowOnError(append_cuda(options, &cuda_options));
-#else
-    throw std::runtime_error("Document Markdown CUDA was selected in a non-Windows build");
-#endif
+    AppendOrtCudaExecutionProvider(options, 0);
   }
 
   DocumentMarkdownLogInfo("core document markdown create ONNX session name=" + session_name +

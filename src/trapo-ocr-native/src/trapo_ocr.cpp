@@ -37,6 +37,7 @@
 
 #include "ocr_clipper.hpp"
 #include "document_markdown/document_markdown_engine.hpp"
+#include "ort/ort_cuda_ep.hpp"
 #include "vl/llama_vlm_runner.hpp"
 #include "vl/paddle_ocr_vl_engine.hpp"
 
@@ -744,33 +745,25 @@ AcceleratorStatus detect_document_markdown_cuda_status() {
   status.backend = TRAPO_OCR_BACKEND_CUDA;
   status.device_name = "ONNX Runtime CUDA device 0";
   status.unavailable_reason =
-      "ONNX Runtime CUDA is available only on Windows native builds.";
-#if defined(TRAPO_OCR_ENABLE_NATIVE_PIPELINE) && defined(_WIN32)
+      "ONNX Runtime CUDA is available on Windows and Linux cuda13 hosts.";
+#if defined(TRAPO_OCR_ENABLE_NATIVE_PIPELINE) && \
+    (defined(_WIN32) || defined(__linux__))
   document_markdown_backend_is_unhealthy(TRAPO_OCR_BACKEND_CUDA, &status.last_failure);
   if (!status.last_failure.empty()) {
     status.unavailable_reason =
-        "CUDA was disabled after a Document Markdown runtime failure: " +
+        "CUDA was disabled after a native ONNX runtime failure: " +
         status.last_failure;
     return status;
   }
   try {
     Ort::SessionOptions options;
-    OrtCUDAProviderOptions cuda_options{};
-    cuda_options.device_id = 0;
-    const auto append_cuda =
-        Ort::GetApi().SessionOptionsAppendExecutionProvider_CUDA;
-    if (append_cuda == nullptr) {
-      status.unavailable_reason =
-          "This ONNX Runtime build does not expose the CUDA provider API.";
-      return status;
-    }
-    Ort::ThrowOnError(append_cuda(options, &cuda_options));
+    trapo_ocr::AppendOrtCudaExecutionProvider(options, 0);
     status.supported = true;
     status.unavailable_reason.clear();
   } catch (const std::exception& error) {
     status.unavailable_reason =
-        "CUDA EP probe failed. Ensure onnxruntime_providers_cuda.dll, "
-        "CUDA 12 runtime DLLs, and cuDNN 9 DLLs are beside the app: " +
+        "CUDA EP probe failed. Ensure onnxruntime_providers_cuda is staged "
+        "and a CUDA 13 runtime (cudart/cublas/cuDNN) is installed: " +
         std::string(error.what());
   }
 #endif
@@ -1035,13 +1028,6 @@ bool backend_supported_for_ppocr(trapo_ocr_backend_t backend,
   if (backend == TRAPO_OCR_BACKEND_CPU) {
     return true;
   }
-  if (backend == TRAPO_OCR_BACKEND_CUDA) {
-    if (unavailable_reason != nullptr) {
-      *unavailable_reason =
-          "CUDA is only available to Document Markdown in this build.";
-    }
-    return false;
-  }
   const RuntimeCapabilities capabilities = detect_runtime_capabilities();
   for (const AcceleratorStatus& accelerator : capabilities.accelerators) {
     if (accelerator.backend == backend) {
@@ -1088,7 +1074,8 @@ bool backend_supported_for_document_markdown(trapo_ocr_backend_t backend,
 }
 
 bool is_onnx_accelerator_backend(trapo_ocr_backend_t backend) {
-  return backend == TRAPO_OCR_BACKEND_DIRECTML ||
+  return backend == TRAPO_OCR_BACKEND_CUDA ||
+         backend == TRAPO_OCR_BACKEND_DIRECTML ||
          backend == TRAPO_OCR_BACKEND_XNNPACK ||
          backend == TRAPO_OCR_BACKEND_NNAPI ||
          backend == TRAPO_OCR_BACKEND_QNN;
@@ -1119,11 +1106,16 @@ std::vector<trapo_ocr_backend_t> ppocr_backend_attempts(
   out.push_back(TRAPO_OCR_BACKEND_CPU);
   return out;
 #else
-  const RuntimeCapabilities capabilities = detect_runtime_capabilities();
-  if (capabilities.default_backend == TRAPO_OCR_BACKEND_DIRECTML) {
-    return {TRAPO_OCR_BACKEND_DIRECTML, TRAPO_OCR_BACKEND_CPU};
+  std::vector<trapo_ocr_backend_t> out;
+  for (const auto backend :
+       {TRAPO_OCR_BACKEND_CUDA, TRAPO_OCR_BACKEND_DIRECTML}) {
+    std::string reason;
+    if (backend_supported_for_ppocr(backend, &reason)) {
+      out.push_back(backend);
+    }
   }
-  return {TRAPO_OCR_BACKEND_CPU};
+  out.push_back(TRAPO_OCR_BACKEND_CPU);
+  return out;
 #endif
 }
 
@@ -1174,7 +1166,8 @@ trapo_ocr_backend_t resolve_backend(const RuntimeOptions& runtime) {
   if (runtime.force_cpu_only) {
     return TRAPO_OCR_BACKEND_CPU;
   }
-  if (runtime.backend == TRAPO_OCR_BACKEND_DIRECTML ||
+  if (runtime.backend == TRAPO_OCR_BACKEND_CUDA ||
+      runtime.backend == TRAPO_OCR_BACKEND_DIRECTML ||
       runtime.backend == TRAPO_OCR_BACKEND_XNNPACK ||
       runtime.backend == TRAPO_OCR_BACKEND_NNAPI ||
       runtime.backend == TRAPO_OCR_BACKEND_QNN) {
@@ -1261,7 +1254,9 @@ class OrtRunner {
       options.EnableProfiling(session_name.c_str());
 #endif
     }
-    if (active_backend == TRAPO_OCR_BACKEND_DIRECTML) {
+    if (active_backend == TRAPO_OCR_BACKEND_CUDA) {
+      trapo_ocr::AppendOrtCudaExecutionProvider(options, 0);
+    } else if (active_backend == TRAPO_OCR_BACKEND_DIRECTML) {
 #if defined(_WIN32) && defined(TRAPO_OCR_ENABLE_DIRECTML)
       options.DisableMemPattern();
       options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
@@ -2799,7 +2794,8 @@ std::vector<trapo_ocr_backend_t> remaining_ppocr_attempts_after_failure(
       TRAPO_OCR_BACKEND_XNNPACK, TRAPO_OCR_BACKEND_CPU};
 #else
   const std::vector<trapo_ocr_backend_t> priority = {
-      TRAPO_OCR_BACKEND_DIRECTML, TRAPO_OCR_BACKEND_CPU};
+      TRAPO_OCR_BACKEND_CUDA, TRAPO_OCR_BACKEND_DIRECTML,
+      TRAPO_OCR_BACKEND_CPU};
 #endif
   if (runtime.backend != TRAPO_OCR_BACKEND_AUTO) {
     return failed_backend == TRAPO_OCR_BACKEND_CPU

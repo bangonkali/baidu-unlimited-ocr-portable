@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+from build_parallelism import cmake_build_parallel_args
 from onnxruntime_staging import (
     ocr_ffi_ort_platform,
     stage_onnxruntime_files,
@@ -212,6 +213,7 @@ def build(args: argparse.Namespace) -> Path | None:
                 "Release",
                 "--target",
                 "trapo_ocr_native",
+                *cmake_build_parallel_args(env),
             ],
             env=env,
         )

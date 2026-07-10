@@ -12,6 +12,8 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
+from build_parallelism import cmake_build_parallel_args
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TESSERACT_SOURCE = REPO_ROOT / "thirdparty" / "tesseract"
 TESSDATA_URL = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata"
@@ -69,7 +71,18 @@ def build_from_source(output_dir: Path) -> Path:
             "-DBUILD_TESTS=OFF",
         ]
     )
-    run(["cmake", "--build", str(build_dir), "--config", "Release", "--target", "install"])
+    run(
+        [
+            "cmake",
+            "--build",
+            str(build_dir),
+            "--config",
+            "Release",
+            "--target",
+            "install",
+            *cmake_build_parallel_args(),
+        ]
+    )
     built = install_dir / "bin" / tesseract_name()
     if not built.is_file():
         die(f"Tesseract source build did not produce {built}")

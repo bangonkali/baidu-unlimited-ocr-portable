@@ -25,7 +25,7 @@ on:
       cuda_build_parallel:
         description: "Maximum parallel build jobs for CUDA matrix entries"
         required: false
-        default: "2"
+        default: "4"
         type: string
 permissions:
   contents: read
@@ -41,36 +41,36 @@ jobs:
           - platform: macos-arm64-metal
             runner: macos-15
             backend: metal
-            build_parallel: 3
+            build_parallel: 8
           - platform: linux-x86_64-cuda13
             runner: ubuntu-24.04
             backend: cuda
-            build_parallel: 2
+            build_parallel: 4
           - platform: linux-x86_64-cpu
             runner: ubuntu-24.04
             backend: cpu
-            build_parallel: 3
+            build_parallel: 8
           - platform: linux-arm64-cpu
             runner: ubuntu-24.04-arm
             backend: cpu
-            build_parallel: 3
+            build_parallel: 8
           - platform: windows-x86_64-cuda13
             runner: windows-2025
             backend: cuda
-            build_parallel: 2
+            build_parallel: 4
           - platform: windows-x86_64-cpu
             runner: windows-2025
             backend: cpu
-            build_parallel: 3
+            build_parallel: 8
           - platform: windows-arm64-cpu
             runner: windows-11-arm
             backend: cpu
-            build_parallel: 3
+            build_parallel: 8
             build_targets: llama-mtmd-cli llama-uocr-parity uocr-ffi
     env:
       CUDA_VERSION: ${{ inputs.cuda_version || '13.2.0' }}
       CUDA_ARCHITECTURES: ${{ inputs.cuda_architectures || '75-virtual;80-virtual;86-real;89-real;90-virtual;120a-real;121a-real' }}
-      BUILD_PARALLEL: ${{ matrix.backend == 'cuda' && (inputs.cuda_build_parallel || '2') || matrix.build_parallel }}
+      BUILD_PARALLEL: ${{ matrix.backend == 'cuda' && (inputs.cuda_build_parallel || '4') || matrix.build_parallel }}
       RUNTIME_BUILD_TARGETS: ${{ matrix.build_targets || 'llama-mtmd-cli llama-uocr-parity llama-server uocr-ffi' }}
     steps:
       - name: Check out repository
@@ -171,7 +171,7 @@ jobs:
         shell: bash
         run: |
           read -r -a targets <<< "$RUNTIME_BUILD_TARGETS"
-          cmake --build thirdparty/llama.cpp/build --config Release --target "${targets[@]}" --parallel "${BUILD_PARALLEL:-2}"
+          cmake --build thirdparty/llama.cpp/build --config Release --target "${targets[@]}" --parallel "${BUILD_PARALLEL}"
       - name: Build native OCR runner wrappers
         shell: bash
         run: |
@@ -182,6 +182,8 @@ jobs:
         run: cargo run -p trapo-xtask -- native-deps prepare --platform "${{ matrix.platform }}" --repo-root .
       - name: Build native OCR FFI
         shell: bash
+        env:
+          BUILD_PARALLEL: ${{ env.BUILD_PARALLEL }}
         run: python scripts/build_trapo_ocr_ffi.py --platform "${{ matrix.platform }}" --build-dir target/trapo-ocr-ffi/${{ matrix.platform }} --output-dir thirdparty/llama.cpp/build/bin --required
       - name: Install Tesseract runtime dependency
         shell: bash

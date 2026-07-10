@@ -10,6 +10,7 @@ set(TRAPO_OCR_CORE_SOURCES
 if((ANDROID AND DEFINED ORT_ROOT) OR WIN32)
   list(APPEND TRAPO_OCR_CORE_SOURCES
     third_party/clipper/ocr_clipper.cpp
+    src/ort/ort_cuda_ep.cpp
     src/document_markdown/document_markdown_common.cpp
     src/document_markdown/document_markdown_image_processor.cpp
     src/document_markdown/document_markdown_engine.cpp
