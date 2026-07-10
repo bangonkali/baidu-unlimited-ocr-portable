@@ -91,16 +91,40 @@ fn prepend_path_dirs(dirs: &[PathBuf]) {
 #[cfg(test)]
 mod tests {
     use super::runtime_bin_priority;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+
+    fn runtime_bin(runtime_name: &str) -> PathBuf {
+        Path::new("thirdparty")
+            .join("uocr-runtime")
+            .join(runtime_name)
+            .join("bin")
+    }
 
     #[test]
     fn cuda_runtime_bins_rank_above_cpu() {
         assert!(
-            runtime_bin_priority(Path::new(
-                r"C:\app\thirdparty\uocr-runtime\windows-x86_64-cuda13\bin"
-            )) > runtime_bin_priority(Path::new(
-                r"C:\app\thirdparty\uocr-runtime\windows-x86_64-cpu\bin"
-            ))
+            runtime_bin_priority(&runtime_bin("windows-x86_64-cuda13"))
+                > runtime_bin_priority(&runtime_bin("windows-x86_64-cpu"))
+        );
+        assert!(
+            runtime_bin_priority(&runtime_bin("linux-x86_64-cuda13"))
+                > runtime_bin_priority(&runtime_bin("linux-x86_64-cpu"))
+        );
+    }
+
+    #[test]
+    fn accelerator_runtime_bins_rank_above_cpu() {
+        assert!(
+            runtime_bin_priority(&runtime_bin("linux-x86_64-rocm"))
+                > runtime_bin_priority(&runtime_bin("linux-x86_64-cpu"))
+        );
+        assert!(
+            runtime_bin_priority(&runtime_bin("macos-arm64-metal"))
+                > runtime_bin_priority(&runtime_bin("macos-arm64-cpu"))
+        );
+        assert!(
+            runtime_bin_priority(&runtime_bin("windows-x86_64-cuda13"))
+                > runtime_bin_priority(&runtime_bin("linux-x86_64-rocm"))
         );
     }
 }
