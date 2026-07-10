@@ -29,6 +29,7 @@ install_ppocrv6_runtime = load_script("install_ppocrv6_runtime")
 install_paddleocr_vl_runtime = load_script("install_paddleocr_vl_runtime")
 install_tesseract_runtime = load_script("install_tesseract_runtime")
 trapo_ocr_ffi_build_env = load_script("trapo_ocr_ffi_build_env")
+trapo_ocr_ffi_deps = load_script("trapo_ocr_ffi_deps")
 build_trapo_ocr_ffi = load_script("build_trapo_ocr_ffi")
 test_ctypes_runtime = load_script("test_ctypes_runtime")
 
@@ -105,6 +106,20 @@ class EngineRuntimeInstallerTests(unittest.TestCase):
         self.assertIn(f"-DTRAPO_ORT_INCLUDE_DIR={deps['ort_include']}", command)
         self.assertIn(f"-DTRAPO_ORT_LIB={deps['ort_lib']}", command)
         self.assertIn(f"-DOpenCV_DIR={deps['opencv']}", command)
+
+    def test_linux_opencv_config_uses_archive_cmake_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package_root = Path(tmp) / "opencv-mobile-4.13.0-ubuntu-2404"
+            config_dir = package_root / "lib" / "cmake" / "opencv4"
+            config_dir.mkdir(parents=True)
+            (config_dir / "OpenCVConfig.cmake").write_text(
+                "# synthetic package config\n",
+                encoding="utf-8",
+            )
+
+            resolved = trapo_ocr_ffi_deps.opencv_config_dir(package_root)
+
+        self.assertEqual(resolved, config_dir)
 
     def test_trapo_ocr_cuda_capability_guard_allows_compiled_backend_without_device(self) -> None:
         capabilities = {

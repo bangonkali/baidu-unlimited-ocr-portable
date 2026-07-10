@@ -99,6 +99,17 @@ def extract_dependencies(dependencies: tuple[dict[str, str], ...], root: Path) -
         safe_extract_zip(archive, root / dependency["id"])
 
 
+def opencv_config_dir(package_root: Path) -> Path:
+    candidates = (
+        package_root,
+        package_root / "lib" / "cmake" / "opencv4",
+    )
+    for candidate in candidates:
+        if (candidate / "OpenCVConfig.cmake").is_file():
+            return candidate
+    die(f"OpenCV package configuration was not found under {package_root}")
+
+
 def prepare_windows_deps(
     platform: str,
     ort: dict[str, object],
@@ -107,7 +118,7 @@ def prepare_windows_deps(
     dml_bin = "arm64-win" if arch == "arm64" else "x64-win"
     deps_root = REPO_ROOT / ".deps" / "windows" / arch
     extract_dependencies(WINDOWS_DEPS, deps_root)
-    opencv_root = deps_root / "opencv" / WINDOWS_OPENCV_ARCHIVE.removesuffix(".zip") / arch
+    opencv_package = deps_root / "opencv" / WINDOWS_OPENCV_ARCHIVE.removesuffix(".zip") / arch
     return {
         "ort_include": Path(str(ort["include_dir"])),
         "ort_lib": Path(str(ort["library"])),
@@ -115,7 +126,7 @@ def prepare_windows_deps(
         "ort_notice_files": [Path(str(path)) for path in ort["notice_files"]],
         "directml_include": deps_root / "directml" / "include",
         "directml_bin": deps_root / "directml" / "bin" / dml_bin,
-        "opencv": opencv_root,
+        "opencv": opencv_config_dir(opencv_package),
     }
 
 
@@ -127,9 +138,9 @@ def prepare_linux_deps(
         die(f"Linux native OCR dependencies are unavailable for {platform}")
     deps_root = REPO_ROOT / ".deps" / "linux" / "x64"
     extract_dependencies(LINUX_DEPS, deps_root)
-    opencv_root = deps_root / "opencv" / LINUX_OPENCV_ARCHIVE.removesuffix(".zip") / "x64"
+    opencv_package = deps_root / "opencv" / LINUX_OPENCV_ARCHIVE.removesuffix(".zip")
     return {
         "ort_include": Path(str(ort["include_dir"])),
         "ort_lib": Path(str(ort["library"])),
-        "opencv": opencv_root,
+        "opencv": opencv_config_dir(opencv_package),
     }
